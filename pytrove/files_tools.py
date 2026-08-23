@@ -60,16 +60,19 @@ def remove_folders(*folders: PathLike) -> None:
 
 remove_folder = remove_folders
 
-def remove_path(path: PathLike) -> None:
-    if not isinstance(path, Path):
-        path = Path(path)
+def remove_paths(*paths: PathLike) -> None:
+    for path in paths:
+        if not isinstance(path, Path):
+            path = Path(path)
 
-    if path.is_symlink():
-        safe_call(path.unlink, include_exc=FileNotFoundError)
-    elif path.is_dir():
-        remove_folder(path)
-    else:
-        remove_file(path)
+        if path.is_symlink():
+            safe_call(path.unlink, include_exc=FileNotFoundError)
+        elif path.is_dir():
+            remove_folder(path)
+        else:
+            remove_file(path)
+
+remove_path = remove_paths
 
 @contextmanager
 def atomic_write(
@@ -486,5 +489,6 @@ __all__ = (
     "atomic_write",
     "remove_files", 
     "remove_folders",
+    "remove_paths", 
 
 )
