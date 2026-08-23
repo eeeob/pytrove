@@ -38,23 +38,27 @@ def resolve_path(path: PathLike, strict: bool = False) -> Path:
         path = Path(path)
     return path.resolve(strict=strict)
 
-def remove_file(file: PathLike) -> None:
-    safe_call(os.unlink, file, include_exc=FileNotFoundError)
+def remove_files(*files: PathLike) -> None:
+    for file in files:
+        try:
+            os.unlink(file)
+        except FileNotFoundError:
+            pass
+
+remove_file = remove_files
         
-def remove_folder(folder: PathLike) -> None:
-    safe_call(
-        shutil.rmtree, 
-        folder, 
-        include_exc=(FileNotFoundError, OSError), 
-        log_exc=lambda exc: (
-            None
-            if isinstance(exc, FileNotFoundError)
-            else
+def remove_folders(*folders: PathLike) -> None:
+    for folder in folders:
+        try:
+            shutil.rmtree(folder)
+        except FileNotFoundError:
+            pass
+        except OSError:
+            if not os.path.islink(folder):
+                raise
             os.unlink(folder)
-            if os.path.islink(folder)
-            else validation(False, exc)
-        )
-    )
+
+remove_folder = remove_folders
 
 def remove_path(path: PathLike) -> None:
     if not isinstance(path, Path):
@@ -480,4 +484,7 @@ __all__ = (
     "write_file",
     "read_file",
     "atomic_write",
+    "remove_files", 
+    "remove_folders",
+
 )
