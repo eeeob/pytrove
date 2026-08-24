@@ -26,7 +26,7 @@ class TgMessageLength(IntEnum):
     CAPTION = 1024
 
 class ArchiveFormat(StrEnum):
-    """Container and codec archive_tools.backup_folder writes.
+    """Container and codec archive_tools.compress_folder writes.
 
     The value is the extension the archive gets when `dest` names a
     directory rather than a file.
