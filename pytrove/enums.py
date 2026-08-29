@@ -47,6 +47,67 @@ class ArchiveFormat(StrEnum):
     codec parallelises internally, so it reaches gzip's ratio at several
     times the speed. Needs the `zstd` extra."""
 
+class ArchiveLinkPolicy(StrEnum):
+    """What archive_tools.extract_archive does with a link member.
+
+    Both `ArchiveLimits.symlinks` and `ArchiveLimits.hardlinks` take one of these, and
+    both default to SKIP: an ordinary tarball is full of links, and a
+    library that started creating them would change what installing it
+    does.
+
+    None of the three waives containment. A link landing outside the
+    destination is refused whatever this says, because a later member
+    written "through" it would escape while its own name looked harmless --
+    which is the whole reason link members are dangerous.
+    """
+
+    ALLOW = auto()
+    """Recreate the link, as long as it points inside the destination."""
+
+    SKIP = auto()
+    """Leave the member out and log it. The default."""
+
+    ERROR = auto()
+    """Stop the extraction with ArchivePolicyError."""
+
+
+class ArchiveOverwritePolicy(StrEnum):
+    """What extract_archive does when a member's path is already taken.
+
+    "Already taken" covers two cases the caller cannot tell apart and
+    should not have to: something that was on disk before the extraction
+    started, and something an earlier member of the same archive has just
+    written there -- which happens without either name being a duplicate,
+    since "Readme.txt" and "README.TXT" land on one path on Windows and on
+    macOS.
+    """
+
+    ERROR = auto()
+    """Stop the extraction with ArchivePolicyError."""
+
+    SKIP = auto()
+    """Keep what is there, leave the member out, and log it."""
+
+    OVERWRITE = auto()
+    """Replace what is there. The default, and the only value under which
+    two members are allowed to land on one path."""
+
+
+class ArchiveDuplicatePolicy(StrEnum):
+    """What extract_archive does with a member name it has already seen.
+
+    A zip can hold the same name twice -- nothing in the format forbids it,
+    and it is how an archive smuggles a second version of a file past a
+    reader that only looks at the first. The first one wins either way;
+    this decides whether the second is worth stopping for.
+    """
+
+    SKIP = auto()
+    """Keep the first, leave the rest out, and log them. The default."""
+
+    ERROR = auto()
+    """Stop the extraction with ArchivePolicyError."""
+
 
 class PickleSafety(IntEnum):
     """How much files_tools.read_pickle is willing to reconstruct.
@@ -120,6 +181,9 @@ IMAP_DOMAIN_TO_PROVIDER = {
 
 __all__ = (
     "ArchiveFormat",
+    "ArchiveDuplicatePolicy",
+    "ArchiveLinkPolicy",
+    "ArchiveOverwritePolicy",
     "ImapEmailProvider",
     "PickleSafety",
     "PlatformDevice",

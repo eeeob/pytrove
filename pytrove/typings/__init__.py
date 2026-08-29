@@ -6,11 +6,13 @@ that feature (`template` -> `Template*`), since they all land in this one
 namespace together.
 """
 
+from .archive import *
 from .core import *
 from .template import *
 
 
 __all__ = (
+    *archive.__all__,
     *core.__all__,
     *template.__all__,
 )

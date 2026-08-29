@@ -7,7 +7,6 @@ from contextlib import contextmanager
 
 from .typings import JsonValue, NestedContainer, PathLike, LockProtocol, _T
 from .enums import PickleSafety
-from .validate_tools import validation
 from .callable_tools import safe_call
 from .iter_tools import iter_flat_cont, to_frozenset
 from ._optional import _optional_import
@@ -38,8 +37,8 @@ def resolve_path(path: PathLike, strict: bool = False) -> Path:
         path = Path(path)
     return path.resolve(strict=strict)
 
-def remove_files(*files: PathLike) -> None:
-    for file in files:
+def remove_files(*files: NestedContainer[PathLike]) -> None:
+    for file in iter_flat_cont(files):
         try:
             os.unlink(file)
         except FileNotFoundError:
@@ -47,8 +46,8 @@ def remove_files(*files: PathLike) -> None:
 
 remove_file = remove_files
         
-def remove_folders(*folders: PathLike) -> None:
-    for folder in folders:
+def remove_folders(*folders: NestedContainer[PathLike]) -> None:
+    for folder in iter_flat_cont(folders):
         try:
             shutil.rmtree(folder)
         except FileNotFoundError:
@@ -60,11 +59,10 @@ def remove_folders(*folders: PathLike) -> None:
 
 remove_folder = remove_folders
 
-def remove_paths(*paths: PathLike) -> None:
-    for path in paths:
+def remove_paths(*paths: NestedContainer[PathLike]) -> None:
+    for path in iter_flat_cont(paths):
         if not isinstance(path, Path):
             path = Path(path)
-
         if path.is_symlink():
             safe_call(path.unlink, include_exc=FileNotFoundError)
         elif path.is_dir():
