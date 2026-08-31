@@ -2,10 +2,10 @@ import os
 import sys
 
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Optional, Union
 from concurrent.futures import Executor
 
-from .typings import NestedContainer, PathLike
+from .typings import ArchiveLimits, NestedContainer, PathLike
 from .enums import ArchiveFormat
 from .errors import ValidationError
 from .iter_tools import iter_flat_cont, to_frozenset
@@ -13,8 +13,6 @@ from .files_tools import atomic_write, resolve_path
 from ._archive_tools import (
     std_zstd,
     zstandard,
-    NO_LIMITS,
-    Limits,
     _Compressor,
     _Extractor,
     _Filter,
@@ -33,6 +31,31 @@ def _is_hidden(_, entry: Optional[os.DirEntry]) -> bool:
         return bool(getattr(entry.stat(), "st_file_attributes", 0) & 0x2)
     except OSError:
         return False
+
+def _temp_file_rule(folder: str, prefix: str):
+    """Match only atomic_write's own temp file for one destination.
+
+    It is written into the destination's directory as ".<name>.XXXXXXXX.tmp"
+    -- see files_tools.atomic_write -- so all three parts are checked: the
+    directory it must be in, the prefix, and the suffix. Checking the prefix
+    alone was enough to drop a user's own ".backup.zip.notes", and to drop it
+    from any directory in the tree.
+    """
+
+    cut = len(folder)
+
+    def rule(rel: str, _entry) -> bool:
+        if not rel.startswith(folder):
+            return False
+
+        base = rel[cut:]
+
+        return ("/" not in base
+                and base.startswith(prefix)
+                and base.endswith(".tmp"))
+
+    return rule
+
 
 def _require_zstd() -> None:
     """Raise the standard missing-extra error unless zstd is available.
@@ -328,10 +351,19 @@ def compress_folder(
         _require_zstd()
 
     if dest_path.is_relative_to(src):
+        # Both rules are anchored at the archive's own place in the tree, not
+        # written as bare names. "backup.zip" as a name would match every
+        # file called that at any depth, and the temp-file rule without its
+        # directory and its ".tmp" suffix would take out anything the user
+        # happens to keep beside it under a leading dot.
+        here = dest_path.relative_to(src).as_posix()
+        folder = here.rpartition("/")[0]
+        folder = f"{folder}/" if folder else ""
+
         exclude = (
-            dest_path.name, 
-            lambda rel, _, _pfx=f".{dest_path.name}.": rel.rsplit("/", 1)[-1].startswith(_pfx), 
-            exclude, 
+            f"/{here}",
+            _temp_file_rule(folder, f".{dest_path.name}."),
+            exclude,
         )
 
     if exclude_hidden:
@@ -362,9 +394,11 @@ def extract_archive(
     *,
     include: Optional[NestedContainer[_Rule]] = None,
     exclude: Optional[NestedContainer[_Rule]] = None,
-    limits: Limits = NO_LIMITS,
+    limits: ArchiveLimits = ArchiveLimits(),
+    password: Optional[Union[str, bytes]] = None,
     workers: Optional[Union[int, Executor]] = None,
     atomic: bool = False,
+    cleanup_on_error: bool = False,
     ) -> Path:
 
     """Extract the archive at `src` into `dest`, and return `dest`.
@@ -408,47 +442,127 @@ def extract_archive(
     an archive asking to write outside the directory it was handed has not
     earned the benefit of the doubt on its other names either.
 
-    `limits` is everything else the extraction is allowed to do -- five
-    ceilings and four policies. See Limits. Nothing is capped unless you
+    `limits` is everything else the extraction is allowed to do -- six
+    ceilings, a directory check of your own, and four policies. See
+    ArchiveLimits. Nothing is capped unless you
     ask, because there is no honest default; every policy, by contrast,
     starts at the safe answer:
 
-        extract_archive(upload, dest, limits=Limits(max_ratio=200,
+        extract_archive(upload, dest, limits=ArchiveLimits(max_ratio=200,
                                                     max_total_size=1 << 30))
 
-    The ratio is the zip bomb check and the one worth setting on anything
-    you did not make yourself. Every ceiling is judged from the archive's
-    own headers before the member's bytes are written, so a bomb is refused
-    rather than survived, and it counts what is actually being written: a
-    member the filter dropped costs nothing against max_total_size, because
-    you never asked for it.
+    max_files counts every member written -- files, directories and links
+    alike -- because what it bounds is how many filesystem entries an
+    archive may create, and max_dir_entries is that same count taken one
+    directory at a time: the breadth of the tree, where max_depth is its
+    height. The ratio is the zip bomb check and the one worth setting on
+    anything you did not make yourself.
+
+    `limits.dir_check` is the same question in your own words, and the one
+    check that sees what actually arrived: a callable handed one extracted
+    directory at a time, as a Path with its contents already in it, which
+    returns false to drop that directory and its whole subtree, or raises
+    to stop the extraction with your own exception. It is asked once per
+    directory, including the ones a member's path implies but the archive
+    never listed, after every member is written and before anything reaches
+    `dest`:
+
+        extract_archive(upload, dest, limits=ArchiveLimits(
+            dir_check=lambda d: d.name != "node_modules"))
+
+        extract_archive(upload, dest, limits=ArchiveLimits(
+            dir_check=lambda d: not any(p.suffix == ".exe" for p in d.iterdir())))
+
+    Setting one makes the extraction stage, whatever `atomic` says, because
+    dropping a directory means removing it after it was written and doing
+    that in `dest` would take anything already there with it. So `d` is a
+    path under a temporary sibling of `dest`: judge it by `d.name` or by
+    what is inside it, not by its prefix.
+
+    Every ceiling is judged twice -- from the archive's own headers before
+    a member's bytes are written, so a bomb is refused rather than
+    survived, and again from the bytes themselves as they are written, so
+    an archive whose headers do not describe it is refused too. Both count
+    what is actually being written: a member the filter dropped costs
+    nothing against max_total_size, because you never asked for it.
 
     The policies cover the member kinds that can reach outside the
     destination or overwrite what is already there -- symlinks, hardlinks,
-    duplicates, and a name that already exists. Each is "skip" or "error",
-    and links additionally take "allow":
+    duplicates, and a name that already exists. Each has an enum of its own
+    in pytrove.enums -- ArchiveLinkPolicy, ArchiveOverwritePolicy and
+    ArchiveDuplicatePolicy -- and each is a str enum, so a member and its
+    own spelling are the same value and mean the same thing:
 
-        extract_archive(mine, dest, limits=Limits.permissive())
+        extract_archive(mine, dest, limits=ArchiveLimits(symlinks=ArchiveLinkPolicy.ALLOW))
+        extract_archive(mine, dest, limits=ArchiveLimits(symlinks="allow"))
+        extract_archive(mine, dest, limits=ArchiveLimits.permissive())
 
     A link is still refused if it points outside `dest` even when allowed,
     because a later member written "through" it would escape while its own
-    name looked harmless. `Limits(mode="validate_first")` settles every
-    check, checksums included, before anything is written at all.
+    name looked harmless.
+
+    A spelling that is neither is not rejected, and does not have to be:
+    no comparison matches it, so it falls to the conservative side of its
+    own setting -- "allowed" behaves as skip, "validate_frist" as
+    streaming. A typo can cost you an unwritten member; it cannot buy an
+    archive a permission you did not grant.
+
+    Two members can also collide without either name being a duplicate --
+    "Readme.txt" and "README.TXT" land on one path on Windows and on macOS
+    -- so the check is made against the resolved target and the second of
+    them meets `overwrite` like anything else already there.
+
+    `password` decrypts a ZIP whose members were encrypted, as `str` (taken
+    as UTF-8) or as `bytes`. It covers the traditional ZipCrypto scheme,
+    which is what the standard library implements and what the `-e` flag of
+    the zip command produces; WinZip's AES is refused with a message saying
+    so, because zipfile cannot read it at all. An encrypted member reached
+    without a password is refused rather than written as ciphertext. The
+    tar formats carry no encryption of their own, so a password passed with
+    one is reported and not used. Note ZipCrypto is weak by modern
+    standards -- it is a compatibility feature, not a way to protect
+    anything.
+
+    Members are written into `dest` itself. An archive is never given a
+    folder of its own inside it -- backup.zip extracted into backup/ puts
+    its members directly there, not into backup/backup/ -- and `dest` is
+    created if it does not exist. What is already there stays: extracting
+    into a directory adds to it, and only a member landing on an existing
+    name touches anything, which is what `limits.overwrite` is for.
+
+    Every member is written as it is read, and every check happens on the
+    way past -- so a member that proves the archive wrong stops the
+    extraction where it stands, with what came before it already on disk.
+    Two arguments decide what to do about that, and neither is on by
+    default: a half-extracted tree is sometimes the useful thing, and
+    deleting it is not a decision to make for you.
+
+    `cleanup_on_error=True` removes what this call created if it does not
+    finish. Only that: every file written and every directory that was not
+    already there is noted as it is created and undone in reverse, so
+    nothing that was in `dest` beforehand is touched.
 
     `atomic=True` writes into a sibling temp directory and moves it into
     place only when everything has been written, so a failure part-way
     leaves the destination as it was rather than half-filled. The move is
-    one rename when `dest` does not yet exist, which is instantaneous; when
-    it does exist, no platform can swap two directories in one step, so the
-    old one is moved aside first and there is a brief moment with nothing
-    at the destination.
+    one rename when `dest` does not yet exist, which is instantaneous and
+    genuinely all-or-nothing. When it does exist the members are moved into
+    it one at a time, merging directory by directory, so the same files
+    survive as on the ordinary path. No platform can do that in a single
+    step, so the guarantee there is narrower and honest about it: nothing
+    reaches `dest` until the whole archive has been read, but a failure
+    during the move itself leaves some members moved and raises. A `dest`
+    that exists and is not a directory is refused either way, so the
+    careful branch cannot be the one that destroys a file.
 
     `workers` takes a count or an executor, exactly as compress_folder
     does, and only ZIP can use it: its members are compressed
     independently and zlib releases the GIL, so inflating and writing go to
     the pool while the single file handle stays on this thread. A tar is
-    one stream read in order and has nothing to parallelise, so passing
-    workers there is reported rather than quietly dropped. It is off by
+    one stream read in order and has nothing to parallelise, so `workers`
+    is ignored there entirely -- not even checked, since refusing a value
+    about to be ignored would be a distinction without a difference -- and
+    passing anything at all is logged as having changed nothing. It is off by
     default -- a pool measured 1.3x to 1.6x on Windows and 0.99x on Linux
     on many small files, where write syscalls dominate; it pays on large
     members, not on numerous ones.
@@ -471,7 +585,8 @@ def extract_archive(
                            to_frozenset(iter_flat_cont(exclude)),
                            who="extract_archive"),
         limits,
-    ).run(fmt, workers, atomic)
+        password.encode() if isinstance(password, str) else password,
+    ).run(fmt, workers, atomic, cleanup_on_error)
 
     return dest
 
@@ -480,5 +595,4 @@ __all__ = (
     "backup_folder",
     "compress_folder",
     "extract_archive",
-    "Limits",
 )

@@ -49,7 +49,7 @@ remove_file = remove_files
 def remove_folders(*folders: NestedContainer[PathLike]) -> None:
     for folder in iter_flat_cont(folders):
         try:
-            shutil.rmtree(folder)
+            shutil.rmtree(folder, ignore_errors=True)
         except FileNotFoundError:
             pass
         except OSError:

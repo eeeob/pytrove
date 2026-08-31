@@ -9,10 +9,13 @@ import gzip
 import logging
 import ntpath
 import os
-import shutil
+import posixpath
 import tarfile
+import tempfile
 import threading
 import zipfile
+import stat
+import io
 
 from concurrent.futures import Executor, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
@@ -20,19 +23,20 @@ from fnmatch import fnmatchcase
 from functools import lru_cache
 from pathlib import Path
 from typing import (
-    Any, Callable, FrozenSet,
+    NoReturn, Callable, FrozenSet,
     Literal, Optional, Tuple, Union,
-    Iterator, NamedTuple,
+    Iterator, NamedTuple, List, 
     TypeAlias, Iterable,
     TYPE_CHECKING,
 )
 
-from .iter_tools import dedupe
+
 from .errors import ValidationError, ArchiveLimitError, ArchivePolicyError
 from .enums import ArchiveFormat, ArchiveLinkPolicy, ArchiveOverwritePolicy
-from .files_tools import remove_path
 from .typings.archive import ArchiveLimits
-
+from .files_tools import remove_path
+from .iter_tools import dedupe
+from .callable_tools import safe_call
 
 try:
     from compression import zstd as std_zstd  # type: ignore[import-not-found]
@@ -81,7 +85,8 @@ def _split_workers(workers, who: str) -> Tuple[Optional[int], Optional[Executor]
     )
 
 _WalkEntry: TypeAlias = Tuple[str, str, bool]
-_Rule: TypeAlias = Union[str, Callable[[str, Any], bool]]
+_RawEntry: TypeAlias = Optional[Union["os.DirEntry", zipfile.ZipInfo, tarfile.TarInfo]]
+_Rule: TypeAlias = Union[str, Callable[[str, _RawEntry], bool]]
 
 class _Rules(NamedTuple):
     """One side's rules, sorted onto the rungs they are tested on.
@@ -95,22 +100,13 @@ class _Rules(NamedTuple):
     """
 
     paths: FrozenSet[str] = frozenset()
-    funcs: Tuple[Callable[[str, Any], bool], ...] = ()
+    funcs: Tuple[Callable[[str, _RawEntry], bool], ...] = ()
     names: FrozenSet[str] = frozenset()
     globs: Tuple[str, ...] = ()
     spec: Optional["PathSpec[GitIgnoreSpec]"] = None
 
     def __bool__(self):
-        # Not cached: a NamedTuple hashes by content, and PathSpec
-        # defines __eq__ without __hash__, so any side carrying a glob is
-        # unhashable and @cache raises TypeError on it.
-        return bool(
-            self.paths or
-            self.funcs or
-            self.names or
-            self.globs or
-            self.spec
-        )
+        return any(self)
 
 @dataclass(slots=True)
 class _Filter:
@@ -208,7 +204,7 @@ class _Filter:
     def __bool__(self) -> bool:
         return bool(self.include_rules or self.exclude_rules)
 
-    def matches(self, rel: str, entry: Optional[os.DirEntry] = None) -> bool:
+    def matches(self, rel: str, raw: _RawEntry = None) -> bool:
         """Whether the entry at `rel` belongs in the archive.
 
         The ladder, walked from the top: the first rung that matches is the
@@ -217,12 +213,12 @@ class _Filter:
         the caller's own callables, then another hash lookup, then pattern
         matching -- so the common answers are also the early ones.
 
-        `entry` is whatever the caller is looking at: an os.DirEntry on a
-        walk, a ZipInfo or TarInfo on an extraction. Only the predicate
-        rung uses it, and it is passed straight through, so a rule can ask
-        about the thing itself -- its size, its mtime, whether it is a
-        directory -- rather than only about its name. A caller with nothing
-        to hand over leaves it out.
+        `raw` is whatever the caller is looking at: an os.DirEntry on a
+        walk, a ZipInfo or TarInfo on an extraction, None for a directory
+        an archive only implied. Only the predicate rung uses it, and it is
+        passed straight through, so a rule can ask about the thing itself
+        -- its size, its mtime, whether it is a directory -- rather than
+        only about its name.
 
         A rule is matched against this entry and nothing else. What a
         directory matched says nothing about what is under it, so "sub/*"
@@ -243,10 +239,10 @@ class _Filter:
             return False
 
         for fn in inc.funcs:
-            if fn(rel, entry):
+            if fn(rel, raw):
                 return True
         for fn in exc.funcs:
-            if fn(rel, entry):
+            if fn(rel, raw):
                 return False
 
         base = rel.rsplit("/", 1)[-1]
@@ -263,7 +259,7 @@ class _Filter:
 
         return not bool(inc)
 
-    def enter(self, rel: str, entry: Optional[os.DirEntry] = None) -> bool:
+    def enter(self, rel: str, raw: _RawEntry = None) -> bool:
         """Whether the walk should open the directory at `rel`.
 
         Not the same question as matches(). A directory is not an archive
@@ -290,7 +286,7 @@ class _Filter:
             return False
 
         for fn in exc.funcs:
-            if fn(rel, entry):
+            if fn(rel, raw):
                 return False
 
         if rel.rsplit("/", 1)[-1] in exc.names:
@@ -569,6 +565,7 @@ class _Compressor:
 
 
 _COPY_BUF = 1 << 20
+_LINK_MAX = 4096
 
 
 
@@ -588,9 +585,10 @@ class _Member(NamedTuple):
     stream, so there is no ratio to take against it.
 
     `target` is the link destination the archive recorded, and None for
-    everything that is not a link -- including a zip's link members, which
-    keep their destination in the member's *content* rather than in its
-    header, where reading the manifest cannot see it.
+    everything that is not a link. It is also None for a zip's link
+    members as they come out of the manifest, because a zip keeps a
+    destination in the member's *content* rather than in its header -- see
+    _zip, which reads it and fills the field in before writing.
     """
 
     name: str
@@ -611,21 +609,14 @@ class _Limiter:
     together now: the extractor asks and never reads a policy itself, so
     this class is the whole of what a caller can configure.
 
-    The ceilings are judged twice. count() weighs a member from the
-    archive's own headers before any of its bytes reach the disk, so a bomb
-    is stopped at the member that proves it rather than after the
-    filesystem is full. grew() weighs the bytes as they are written, from
-    numbers the archive does not supply -- what the member has really
-    produced, and what the file measures on disk.
+    The ceilings are judged from the archive's own headers, in count(),
+    before any of a member's bytes reach the disk -- so a bomb is stopped
+    at the member that proves it rather than after the filesystem is full.
 
-    Two passes because the first is a claim and the second is a fact.
-    Understating a size in a header is self-defeating, since both
-    containers stop a member's reader at its declared length -- but a
-    ratio is not a size, and a header ratio can be flattened by declaring
-    a compressed size a member does not have, or is missing outright on a
-    tar, where the format records none. The header pass is what refuses an
-    honest bomb before a byte is written; the writing pass is what makes
-    the answer true when the headers were arranged.
+    Sizes are then re-weighed as they are written, in grew(), from what the
+    member really produced rather than what it claimed. Only sizes: see
+    grew() for why a ratio cannot be asked a second time, and count() for
+    what trusting the header costs on max_ratio.
 
     What is counted is what is actually being written, not what the archive
     holds: a member the filter dropped costs nothing against max_total_size,
@@ -650,19 +641,6 @@ class _Limiter:
     _seen: set = field(init=False, default_factory=set)        #: member names, `duplicates`
     _taken: set = field(init=False, default_factory=set)       #: resolved paths, `overwrite`
 
-    written: int = field(init=False, default=0)     #: bytes really on disk
-    src_bytes: int = field(init=False, default=0)   #: the archive's own size
-    #: grew() runs once per copied chunk, and on a zip the copies run on the
-    #: pool, so several members grow at once. One acquire per megabyte.
-    _lock: "threading.Lock" = field(init=False, default_factory=threading.RLock)
-
-    def __post_init__(self) -> None:
-        try:
-            self.src_bytes = self.src.stat().st_size
-        except OSError:
-            # Only reachable if the archive went away between being opened
-            # and being weighed. Nothing is divided by it in that case.
-            self.src_bytes = 0
 
     # --- the ceilings ----------------------------------------------------
 
@@ -672,6 +650,29 @@ class _Limiter:
         A directory or a link counts as an entry but not as bytes: what
         max_files bounds is how many filesystem entries an archive may
         create, and what max_total_size bounds is how much disk it may take.
+
+        max_ratio is judged here and nowhere else, and it is judged from
+        the header, because the number it needs exists nowhere else. A tar
+        records no per-member compressed size -- the whole stream is one
+        unit -- so m.packed is 0 there and the check is skipped entirely: a
+        tar.gz expanding 1027x was measured passing max_ratio=1.0001
+        without a word. On a zip m.packed is the central directory's word,
+        and a member declaring a compressed size larger than it has reads
+        as a flatter ratio than it is. That lie costs the forger, since the
+        bytes must be present in the file or the read fails, but it is a
+        lie the check cannot see.
+
+        Both are the price of a per-member ratio, and the price is paid
+        here rather than papered over: reading back what a member really
+        occupied is not something either container will tell you. Where
+        that matters, max_total_size and max_file_size bound the same
+        attack in absolute bytes, and both are re-weighed against what is
+        actually written -- see grew().
+
+        The sizes below are the archive's claim too, but a claim that
+        cannot be usefully understated: both containers stop a member's
+        reader at its declared length, so a member that claims less than it
+        holds hands out less, not more.
 
         max_dir_entries is the one that is not a comparison against a
         number the member carries, so it is spelled out below rather than
@@ -708,7 +709,7 @@ class _Limiter:
 
                 self._counted.add(path)
                 parent = path.rpartition("/")[0]
-                held = self._breadth[parent] = self._breadth.get(parent, 0) + 1
+                self._breadth[parent] = held = self._breadth.get(parent, 0) + 1
 
                 if held > lim.max_dir_entries:
                     self._fail(
@@ -737,68 +738,11 @@ class _Limiter:
         if lim.max_total_size is not None and self.total > lim.max_total_size:
             self._fail(f"archive expands past the {lim.max_total_size} bytes allowed")
 
-    def grew(self, name: str, member_total: int, chunk: int) -> None:
-        """Weigh what is actually being written, while it is written.
-
-        count() judges a member from the archive's own account of it, which
-        is the only account there is before anything is read -- and which
-        whoever built the archive chose. This asks the same two questions a
-        second time from numbers nothing in the archive can set: the bytes
-        the member has really produced, and the size the file takes on
-        disk. _Extractor._spill calls it once per copied chunk.
-
-        max_file_size is re-asked for completeness rather than because it
-        can differ today. Both containers stop a member's reader at its
-        declared length -- measured: a zip whose file_size was forged down
-        hands out nothing and fails its CRC, and a tar hands out exactly
-        the forged number -- so what is written cannot exceed what count()
-        already weighed. What the second check buys is that this stops
-        being a property of zipfile and tarfile and becomes one of the loop
-        that writes the bytes.
-
-        max_ratio is the one that genuinely changes, and mostly because of
-        what it does not cover. m.packed is 0 on every tar -- the format
-        records no per-member compressed size -- so count() skips the check
-        there entirely: a tar.gz expanding 1027x was measured passing
-        max_ratio=1.0001 without a word, on the setting extract_archive
-        recommends as the bomb check. Against the archive's own size on
-        disk the number is real for all three formats.
-
-        On a zip the header ratio can also be flattened, by declaring a
-        compressed size larger than the member really has. That one costs
-        the forger: those bytes must be present in the file or the read
-        fails, so the archive grows by what the lie claims and the real
-        expansion falls with it. Measured, a 26 MB archive forged to read
-        as 2.0x produced 52 MB -- which is 2.0x, and is what this check
-        then sees.
-
-        The cost of asking here is that a refusal arrives with part of the
-        member already written. That is the only place the question can be
-        asked at all, and extract_archive(atomic=True) is what makes such a
-        refusal leave nothing behind.
-        """
-
+    def grew(self, name: str, member_total: int) -> None:
         lim = self.limits
 
-        if lim.max_file_size is None and lim.max_ratio is None:
-            return
-
-        with self._lock:
-            self.written += chunk
-
-            if lim.max_file_size is not None and member_total > lim.max_file_size:
-                self._fail(f"member {name!r} has written {member_total} bytes, "
-                           f"over the {lim.max_file_size} allowed")
-
-            if lim.max_ratio is not None and self.src_bytes:
-                ratio = self.written / self.src_bytes
-
-                if ratio > lim.max_ratio:
-                    self._fail(
-                        f"archive has expanded {ratio:.0f}x so far "
-                        f"({self.src_bytes} bytes on disk -> {self.written} "
-                        f"written), over the {lim.max_ratio:g}x allowed"
-                    )
+        if lim.max_file_size is not None and member_total > lim.max_file_size:
+            self._fail(f"member {name!r} has written {member_total} bytes, over the {lim.max_file_size} allowed")
 
     # --- the four policies -----------------------------------------------
 
@@ -829,10 +773,10 @@ class _Limiter:
         was judged.
 
         `target` is where the member finally comes to rest, which under
-        `atomic` is not where it is about to be written -- see
-        _Extractor._live. Asking about the staging directory instead would
-        make this setting mean nothing there, since nothing is ever already
-        in a directory made moments ago.
+        `atomic` is not where it is about to be written -- _Extractor._place
+        works it out before calling. Asking about the staging directory
+        instead would make this setting mean nothing there, since nothing is
+        ever already in a directory made moments ago.
 
         Nothing is remembered under OVERWRITE: collisions are allowed
         there, so a set of every path written would be paid for and never
@@ -842,11 +786,8 @@ class _Limiter:
         if self.limits.overwrite == ArchiveOverwritePolicy.OVERWRITE:
             return True
 
-        key = os.path.normcase(str(target))
-
-        if key in self._taken or target.exists():
-            return self._deny(self.limits.overwrite,
-                              f"member {name!r} already exists")
+        if target.exists() or (key := os.path.normcase(str(target))) in self._taken:
+            return self._deny(self.limits.overwrite, f"member {name!r} already exists")
 
         self._taken.add(key)
 
@@ -860,8 +801,7 @@ class _Limiter:
         refuses an escaping link whatever this answers.
         """
 
-        policy = (self.limits.symlinks if m.kind == "symlink"
-                  else self.limits.hardlinks)
+        policy = self.limits.symlinks if m.kind == "symlink" else self.limits.hardlinks
 
         if policy == ArchiveLinkPolicy.ALLOW:
             return True
@@ -926,7 +866,7 @@ class _Limiter:
 
         return False
 
-    def _fail(self, why: str) -> None:
+    def _fail(self, why: str) -> NoReturn:
         raise ArchiveLimitError(f"extract_archive: {self.src.name}: {why}")
 
 @dataclass(slots=True)
@@ -952,9 +892,9 @@ class _ZipReaders:
     #: The three below are built here rather than passed in: a handle store
     #: is only ever its own, and sharing one between two extractions would
     #: hand a worker a file the other one is closing.
-    _local: "threading.local" = field(init=False, default_factory=threading.local)
-    _all: list = field(init=False, default_factory=list)
-    _lock: "threading.RLock" = field(init=False, default_factory=threading.RLock)
+    _local: threading.local = field(init=False, default_factory=threading.local)
+    _all: List[zipfile.ZipFile] = field(init=False, default_factory=list)
+    _lock: threading.Lock = field(init=False, default_factory=threading.Lock)
 
     def get(self) -> zipfile.ZipFile:
         zf = getattr(self._local, "zf", None)
@@ -994,24 +934,34 @@ class _Extractor:
     3.12. That is why the checking lives here rather than being delegated.
 
     There is one pipeline, not one per format. zipfile and tarfile are read
-    into _Member, and from there every member passes the same two gates --
-    _admit, which the filesystem has no say in, and _place, which is
-    entirely about the filesystem -- so a rule proved on a zip holds on a
-    tar.
+    into _Member, and from there every member passes the same gate --
+    _place -- so a rule proved on a zip holds on a tar.
 
-    Neither gate decides anything `limits` covers. Both ask _Limiter,
-    which owns every ceiling and every policy along with the state they
-    need -- so what a caller can configure is described in one class, and
-    this one is left with the two questions that are its own: what a name
-    may mean, and where it lands.
+    That gate used to be two, _admit and _place, split along a real line:
+    _admit was answered from the archive's own headers and touched no
+    filesystem, so on a zip -- where infolist() knows every header before a
+    byte is written -- the whole of it could be settled in a first loop and
+    the survivors written in a second. That is what the split bought, and
+    it is gone: the zip path streams now, exactly as the tar path always
+    had to, so both halves are answered one member at a time in the same
+    place. Two functions called only ever as `_admit(m) and _place(m)`, one
+    repeating the other's name check, were a seam with nothing on the far
+    side of it.
 
-    Splitting the two gates is not tidiness. _admit is answered from the
-    archive's own headers, which on a zip are all known before a byte is
-    written, so the ceilings and the filter are settled up front there.
-    _place has to run in write order instead, because an earlier member can
-    be a symlink and change where a later name resolves to: deciding every
+    What the split described is still true and is now the shape of the
+    function instead: the header half runs first and completely, and only
+    then does anything ask the filesystem. That order matters -- a member
+    the filter dropped must not be counted against the ceilings, and the
+    path must be resolved as late as possible, because an earlier member
+    can be a symlink and change where a later name lands. Deciding every
     path first and writing afterwards is exactly the window a Zip Slip
     through a planted link needs.
+
+    The gate decides nothing `limits` covers. It asks _Limiter, which owns
+    every ceiling and every policy along with the state they need -- so
+    what a caller can configure is described in one class, and this one is
+    left with the two questions that are its own: what a name may mean, and
+    where it lands.
 
     The state is per-extraction rather than per-member, and most of it is
     the same shape: an answer keyed on a member's directory part. Members
@@ -1024,17 +974,16 @@ class _Extractor:
     flt: "_Filter"
     limits: "ArchiveLimits" = ArchiveLimits()
     password: Optional[bytes] = None
-    _root: Path = None                              # type: ignore[assignment]
-    _limiter: "_Limiter" = None                     # type: ignore[assignment]
-    _cleared: dict = field(default_factory=dict)
-    _ancestry: dict = field(default_factory=dict)
-    _made: set = field(default_factory=set)
-    _built: Optional[list] = None
+    _root: Path = field(init=False, default=None)                              # type: ignore[assignment]
+    _limiter: "_Limiter" = field(init=False, default=None)                     # type: ignore[assignment]
+    _cleared: dict = field(init=False, default_factory=dict)
+    _ancestry: dict = field(init=False, default_factory=dict)
+    _made: set = field(init=False, default_factory=set)
+    _built: Optional[list] = field(init=False, default=None)    
 
     # --- entry points ----------------------------------------------------
 
-    def run(self, fmt: ArchiveFormat, workers=None, atomic: bool = False,
-            cleanup_on_error: bool = False) -> None:
+    def run(self, fmt: ArchiveFormat, workers=None, atomic: bool = False, cleanup_on_error: bool = False) -> None:
         """Extract, optionally through a staging directory. Once.
 
         A second call is refused rather than served. The object holds a
@@ -1044,9 +993,11 @@ class _Extractor:
         field cleared -- which is a fresh object with extra steps. This
         class is cheap to build; extract_archive builds one per call.
 
-        `atomic` writes into a sibling temp directory and moves it into
-        place only once everything has been written, so a breach part-way
-        through leaves the destination as it was rather than half-filled.
+        `atomic` writes into a sibling temp directory -- a sibling because
+        the last step is a rename and a rename does not cross a filesystem
+        -- and moves it into place only once everything has been written,
+        so a breach part-way through leaves the destination as it was
+        rather than half-filled.
 
         The move is one rename when the destination does not yet exist,
         which is genuinely instantaneous. When it does exist there is no
@@ -1081,23 +1032,22 @@ class _Extractor:
         """
 
         if self.dest.exists() and not self.dest.is_dir():
-            raise NotADirectoryError(
-                f"extract_archive: {str(self.dest)!r} exists and is not a directory"
-            )
+            raise NotADirectoryError(f"extract_archive: {str(self.dest)!r} exists and is not a directory")
 
-        # A dir_check stages too, whatever `atomic` says. It is asked
-        # about directories that already hold their contents, so refusing
-        # one means taking it back out -- and in the destination that
-        # would delete whatever was in there before this ran, which no
-        # caller asked for by passing a check. In a staging directory
-        # there is nothing to lose: it holds this archive and nothing else.
-        staged = (self.dest.parent / f".{self.dest.name}.{os.urandom(4).hex()}.tmp"
-                  if atomic or self.limits.dir_check is not None else None)
+
+        staged = None
+
+        if atomic or self.limits.dir_check is not None:
+            staged = Path(tempfile.mkdtemp(prefix=f".{self.dest.name}.", suffix=".tmp", dir=self.dest.parent))
 
         self._root = staged or self.dest
         self._limiter = _Limiter(self.limits, self.src)
         self._built = [] if cleanup_on_error and staged is None else None
-        self._root.mkdir(parents=True, exist_ok=True)
+
+        if self._built is not None and not self._root.exists():
+            self._built.append(self._root)
+
+        self._root.mkdir(exist_ok=True)
 
         try:
             if fmt is ArchiveFormat.ZIP:
@@ -1106,40 +1056,22 @@ class _Extractor:
                 self._tar(fmt, workers)
 
             self._inspect(self._root)
-        except BaseException:
+        except:
             if staged is not None:
-                shutil.rmtree(staged, ignore_errors=True)
+                remove_path(staged)
             elif self._built:
-                self._undo()
+                for path in dedupe(self._built or ()):
+                    safe_call(remove_path, path, include_exc=OSError, log_exc=True)
             raise
 
         if staged is not None:
-            self._commit(staged)
-
-    def _undo(self) -> None:
-        """Take back everything this run created, newest first.
-
-        Backwards because that is the order that empties a directory before
-        removing it: a parent is always created before what goes in it, so
-        walking the ledger in reverse reaches the children first.
-
-        A directory in the ledger is one that did not exist when this
-        started, so removing it whole cannot take anything that was in
-        `dest` beforehand -- there was nothing in it to take. Anything the
-        ledger does not name is left exactly where it is.
-
-        A failure to remove is logged and stepped over rather than raised.
-        This runs while an exception is already on its way out, and the
-        archive being wrong is the thing the caller needs to hear about --
-        not that tidying up afterwards also went badly.
-        """
-
-        for path in reversed(self._built or ()):
-            try:
-                remove_path(path)
-            except OSError as exc:
-                log.warning("extract_archive: could not undo %r after the "
-                            "extraction failed (%s)", str(path), exc)
+            if not self.dest.exists() or not any(self.dest.iterdir()):
+                os.replace(staged, self.dest)
+            else:
+                try:
+                    self._graft(staged, self.dest)
+                finally:
+                    remove_path(staged)
 
     def _inspect(self, root: Path) -> None:
         """Put every extracted directory to `dir_check`, outermost first.
@@ -1186,36 +1118,7 @@ class _Extractor:
                 if self._limiter.allows_dir(path):
                     stack.append(path)
                 else:
-                    shutil.rmtree(path, ignore_errors=True)
-
-    def _commit(self, staged: Path) -> None:
-        """Put the staged tree at the destination.
-
-        One rename when the destination does not exist, which is
-        instantaneous and genuinely all-or-nothing.
-
-        When it does exist the members are moved into it one at a time and
-        whatever the archive did not mention is left where it is. The whole
-        directory used to be swapped for the staged one instead, which
-        quietly threw all of that away: a `dest` holding an unrelated
-        notes.txt came back without it -- and only on the branch asked for
-        because it is the careful one. `atomic` is about not writing a
-        half-extracted archive, not about emptying the destination first.
-
-        The merge cannot itself be atomic. No platform moves a tree into an
-        existing one in a single step, so a failure part-way through leaves
-        some members moved and raises rather than pretending otherwise.
-        What `atomic` still buys is the part that matters: nothing reaches
-        the destination until the archive has been read to the end, so a
-        bomb, a refused member or a bad checksum leaves it as it was.
-        """
-
-        if not self.dest.exists():
-            os.replace(staged, self.dest)
-            return
-
-        self._graft(staged, self.dest)
-        shutil.rmtree(staged, ignore_errors=True)
+                    remove_path(path)
 
     @classmethod
     def _graft(cls, staged: Path, dest: Path) -> None:
@@ -1238,17 +1141,15 @@ class _Extractor:
         for entry in os.scandir(staged):
             target = dest / entry.name
 
-            if (entry.is_dir(follow_symlinks=False)
-                    and target.is_dir() and not target.is_symlink()):
+            if entry.is_dir(follow_symlinks=False) and target.is_dir() and not target.is_symlink():
                 cls._graft(Path(entry.path), target)
                 continue
 
-            # exists() follows links, so a broken symlink reads as absent
-            # and would be left in the way of the rename.
             if target.is_symlink() or target.exists():
                 remove_path(target)
 
             os.replace(entry.path, target)
+
 
     @staticmethod
     def detect_format(path: str) -> ArchiveFormat:
@@ -1265,12 +1166,13 @@ class _Extractor:
         except OSError:
             head = b""
 
-        for magic, fmt in ((b"PK\x03\x04", ArchiveFormat.ZIP),
-                           (b"PK\x05\x06", ArchiveFormat.ZIP),   # an empty archive
-                           (b"\x1f\x8b", ArchiveFormat.TAR_GZ),
-                           (b"\x28\xb5\x2f\xfd", ArchiveFormat.TAR_ZST)):
-            if head.startswith(magic):
-                return fmt
+        if head:
+            for magic, fmt in ((b"PK\x03\x04", ArchiveFormat.ZIP),
+                            (b"PK\x05\x06", ArchiveFormat.ZIP),   # an empty archive
+                            (b"\x1f\x8b", ArchiveFormat.TAR_GZ),
+                            (b"\x28\xb5\x2f\xfd", ArchiveFormat.TAR_ZST)):
+                if head.startswith(magic):
+                    return fmt
 
         lower = path.lower()
 
@@ -1285,84 +1187,6 @@ class _Extractor:
 
     # --- where a member may go -------------------------------------------
 
-    @staticmethod
-    def _resolve_under(dest: Path, name: str) -> Optional[Path]:
-        """Join `name` onto `dest`, resolve it, and refuse anything outside.
-
-        resolve() does three things at once: folds "..", follows any symlink
-        that already exists inside `dest`, and normalises the separators and
-        the case the platform normalises. A name that climbs out therefore
-        shows up as a path `dest` is not a parent of, however the climb was
-        spelled -- "..", a UNC prefix, mixed slashes, or a symlink planted
-        by an earlier member.
-
-        strict=False because the target does not exist yet; it is about to
-        be created. `dest` is already resolved by the caller, so this is
-        resolved against resolved. is_relative_to rather than a string
-        prefix, because "/tmp/dest-x" starts with "/tmp/dest" as text while
-        being a different directory.
-        """
-
-        try:
-            target = (dest / name).resolve()
-        except (OSError, ValueError):
-            # ValueError: a NUL byte, or a name Windows refuses to parse at
-            # all. Either way it is not a path this can write to.
-            return None
-
-        return target if target.is_relative_to(dest) else None
-
-    def _target(self, name: str) -> Optional[Path]:
-        """Where `name` goes under the root, or None if it may go nowhere.
-
-        The textual refusals are _is_safe_member_name's; what is settled
-        here is the filesystem's answer, which can differ from one member
-        to the next because an earlier member may have planted a symlink.
-
-        Everything else goes through the directory cache. A basename
-        carries no separator, so it cannot climb out of a directory already
-        cleared: resolving the directory once and joining the name onto it
-        gives the same answer for a fraction of the resolve() calls, which
-        on Windows walk up until something exists and measured a third of
-        the whole extraction.
-        """
-
-        if not self._is_safe_member_name(name):
-            return None
-
-        parent, _, base = name.rpartition("/")
-
-        # A trailing dot or space is stripped by Windows rather than stored,
-        # so such a name has no faithful target and only the full resolve
-        # notices; POSIX takes it literally and allows it. "." lands here
-        # too, and belongs here: it names the parent rather than a child of
-        # it, so there is no basename to join onto anything. An empty
-        # basename and ".." cannot arrive at all -- the name check refuses
-        # both, which is what leaves one condition where there were three.
-        if not base.endswith((".", " ")):
-            if parent not in self._cleared:
-                self._cleared[parent] = (self._resolve_under(self._root, parent)
-                                         if parent else self._root)
-
-            safe = self._cleared[parent]
-
-            return None if safe is None else safe / base
-
-        return self._resolve_under(self._root, name)
-
-    def _live(self, target: Path) -> Path:
-        """Where `target` ends up once a staged run has been committed.
-
-        The same path when nothing is staged, and the reason `overwrite`
-        means anything under `atomic`: a member is written into a directory
-        made seconds ago, where nothing can already exist, but it comes to
-        rest in the destination, where plenty can.
-        """
-
-        if self._root == self.dest:
-            return target
-
-        return self.dest / target.relative_to(self._root)
 
     def _member_kept(self, m: _Member) -> bool:
         """Apply the walk's two questions to one archive member.
@@ -1373,100 +1197,169 @@ class _Extractor:
         keeps the two halves of the library saying the same thing: without
         it, exclude="docs" would empty docs/ when compressing and do
         nothing at all when extracting.
+
+        The replay is the loop below: enter() is asked about every directory
+        the name passes through, and the first refusal stops it, so a
+        subtree cut off near the root costs one check however deep the name
+        went.
+
+        `_ancestry` memoises one thing and one thing only -- what enter()
+        said about that one directory -- and every level of the walk is
+        written into it, not just the branch that was asked for. Keying it
+        on the whole branch instead meant "t0/a0/b0/c" and "t0/a0/b0" and
+        "t0/a0" were three unrelated entries, each re-walking from the root
+        to build itself: measured on a 444-directory archive, 1452 enter()
+        calls for 444 distinct directories, with the top level asked 37
+        times over.
+
+        The fast path is still one lookup. A value is only ever written for
+        a directory the walk actually reached, and reaching it means every
+        ancestor answered True -- so finding `head` already in there is
+        proof of the whole branch, not just of its last step.
         """
 
         head = m.name.rpartition("/")[0]
 
-        if head and not self._branch_ok(head):
-            return False
+        if head:
+            if (ok := self._ancestry.get(head)) is None:
+                parts = head.split("/")
+
+                for i in range(1, len(parts) + 1):
+                    branch = "/".join(parts[:i])
+
+                    if (ok := self._ancestry.get(branch)) is None:
+                        self._ancestry[branch] = ok = self.flt.enter(branch)
+
+                    if not ok:
+                        break
+
+            if not ok:
+                return False
 
         return self.flt.matches(m.name, m.raw)
 
-    def _branch_ok(self, head: str) -> bool:
-        """Whether every directory on the way to `head` may be written.
+    def _under(self, name: str) -> Optional[Path]:
+        """Where a posix name under the root lands, or None if it may not.
 
-        Keyed on the whole branch, because that is what the answer is about
-        and because members of one directory arrive together: the second
-        file in a directory asks a question already answered. The loop
-        stops at the first refusal, so a subtree cut off near the root
-        costs one check however deep the name went.
+        The filesystem half of _place, in a method because _link needs the
+        same answer about where a link points. Everything a member path is
+        put through, a link destination is put through: the directory
+        cache, the trailing dot or space that only a full resolve notices,
+        the fold of "..", the follow of links already on disk, the guard
+        against a name the platform will not parse, and the demand that
+        what comes out lands inside the root.
+
+        Most names go through the directory cache. A basename carries no
+        separator -- the name check refuses one that does -- so it cannot
+        climb out of a directory already cleared: resolving the directory
+        once and joining the name onto it gives the same answer for a
+        fraction of the resolve() calls, which on Windows walk up until
+        something exists and measured a third of the whole extraction. A
+        trailing dot or space is the exception, because Windows strips one
+        rather than storing it, so such a name has no faithful target and
+        only the full resolve notices; POSIX takes it literally.
         """
 
-        ok = self._ancestry.get(head)
+        parent, _, base = name.rpartition("/")
 
-        if ok is None:
-            parts = head.split("/")
-            ok = True
+        if base.endswith((".", " ")):
+            target = (
+                _target 
+                if (
+                    (_target := safe_call((self._root / name).resolve, strict=False, include_exc=(ValueError, OSError), log_exc=True)) is not None
+                    and _target.is_relative_to(self._root) 
+                )
+                else None
+            )
+        else:
+            if parent not in self._cleared:
+                self._cleared[parent] = (
+                    (
+                        _target 
+                        if (
+                            (_target := safe_call((self._root / parent).resolve, strict=False, include_exc=(ValueError, OSError), log_exc=True)) is not None
+                            and _target.is_relative_to(self._root) 
+                        )
+                        else None
+                    )
+                    if parent 
+                    else self._root
+                )
 
-            for i in range(1, len(parts) + 1):
-                branch = "/".join(parts[:i])
+            target = None if (safe := self._cleared[parent]) is None else safe / base
 
-                if not self.flt.enter(branch):
-                    ok = False
-                    break
-
-            self._ancestry[head] = ok
-
-        return ok
+        return target
 
     # --- whether it may be written ---------------------------------------
 
-    def _admit(self, m: _Member) -> bool:
-        """Whether the archive's own account of a member lets it through.
+    def _place(self, m: _Member) -> Optional[Path]:
+        """Where this member goes, or None if it is not to be written.
 
-        Nothing here touches the filesystem, so on a zip -- where the whole
-        manifest is read before anything is written -- all of it is settled
-        up front. The order is cheapest-first and refusal-first at once:
-        the name before the filter, the filter before anything is counted,
-        so a member the caller did not ask for costs nothing at all against
-        the ceilings.
+        Called one member ahead of its own write, and the whole of what
+        stands between an archive's word and a path on disk. Two halves,
+        in this order and not the other.
+
+        The first is answered from the archive's own account of the member
+        and touches no filesystem: the name, the duplicates, the filter,
+        the kind, the ceilings. It is ordered cheapest-first and
+        refusal-first at once -- the name before the filter, the filter
+        before anything is counted -- so a member the caller did not ask
+        for costs nothing at all against the ceilings.
+
+        The second asks the filesystem, and has to run here rather than
+        earlier because its answer keeps changing: a symlink member
+        extracted a moment ago changes where every name below it resolves
+        to, and a path settled before that member existed was settled
+        against a tree that is no longer the one being written to.
+
+        Most names go through the directory cache. A basename carries no
+        separator -- the name check refuses one that does -- so it cannot
+        climb out of a directory already cleared: resolving the directory
+        once and joining the name onto it gives the same answer for a
+        fraction of the resolve() calls, which on Windows walk up until
+        something exists and measured a third of the whole extraction. A
+        trailing dot or space is the exception, because Windows strips one
+        rather than storing it, so such a name has no faithful target and
+        only the full resolve notices; POSIX takes it literally.
+
+        Whether the path may then be taken is the limiter's -- see
+        _Limiter.allows_target, which is where `overwrite` lives. It is
+        asked about where the member finally comes to rest rather than
+        where it is about to be written, which are the same path unless a
+        staging directory is in play: nothing can already exist in a
+        directory made seconds ago, so asking about that one would make
+        the setting mean nothing under `atomic`.
         """
 
-        if not self._is_safe_member_name(m.name):
-            log.warning("extract_archive: refused unsafe member name %r in %s",
-                        m.name, self.src.name)
-            return False
+        name = m.name
 
-        if not self._limiter.allows_name(m.name):
-            return False
+        # --- what the archive says --------------------------------------
 
-        if self.flt and not self._member_kept(m):
-            return False
-
-        if m.kind == "other":
-            log.warning("extract_archive: refused non-regular member %r in %s",
-                        m.name, self.src.name)
-            return False
+        if (
+            not self._is_safe_member_name(name) or
+            not self._limiter.allows_name(name) or 
+            (self.flt and not self._member_kept(m))
+        ):
+            return 
 
         self._limiter.count(m)
 
-        return True
+        # --- and what the filesystem says -------------------------------
 
-    def _place(self, m: _Member) -> Optional[Path]:
-        """Where an admitted member goes, against the tree as it is *now*.
-
-        Called in write order, one member ahead of its own write, because
-        that is the only order in which the answer stays true: a symlink
-        member extracted a moment ago changes where every name below it
-        resolves to, and a path settled earlier was settled against a tree
-        that no longer exists.
-
-        Whether the path may be taken once it is known is the limiter's --
-        see _Limiter.allows_target, which is where `overwrite` lives.
-        """
-
-        target = self._target(m.name)
+        target = self._under(name)
 
         if target is None:
-            log.warning("extract_archive: refused unsafe member name %r in %s",
-                        m.name, self.src.name)
-            return None
+            log.warning("extract_archive: refused member %r in %s, it resolves outside the destination", name, self.src.name)
+            return 
 
-        if m.kind != "dir" and not self._limiter.allows_target(
-                m.name, self._live(target)):
-            return None
+        if m.kind == "dir":
+            return target
 
-        return target
+        return (
+            target 
+            if self._limiter.allows_target(name, target if self._root == self.dest else self.dest / target.relative_to(self._root)) 
+            else None
+        )
 
     # --- writing it ------------------------------------------------------
 
@@ -1483,9 +1376,6 @@ class _Extractor:
         if path in self._made:
             return True
 
-        # mkdir(parents=True) can create several levels in one call, so the
-        # ones that were missing are noted before it runs rather than after.
-        # Only reached when a ledger is being kept, which is off by default.
         fresh = []
 
         if self._built is not None:
@@ -1498,13 +1388,14 @@ class _Extractor:
         try:
             path.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
-            log.warning("extract_archive: cannot create directory %r in %s (%s)",
-                        str(path), self.src.name, exc)
+            log.warning("extract_archive: cannot create directory %r in %s (%s)", str(path), self.src.name, exc)
             return False
 
         self._made.add(path)
 
         if fresh:
+            # `fresh` was collected child-first on the way up, so it goes
+            # in outermost-first -- the order _undo relies on.
             self._built.extend(reversed(fresh))
 
         return True
@@ -1514,7 +1405,10 @@ class _Extractor:
 
         Two separate questions, and only one of them is the caller's. The
         policy is -- `symlinks` and `hardlinks`, asked of the limiter, which
-        logs or raises on its own.
+        logs or raises on its own. `overwrite` is the caller's too, and was
+        answered in _place like any other member; what is left here is
+        carrying that answer out, since a link cannot be written over the
+        way a file can.
 
         Containment is not. A symlink is resolved relative to its own
         directory and a hardlink relative to the archive root, and either
@@ -1523,39 +1417,37 @@ class _Extractor:
         even though its own name looked harmless, which is the whole reason
         link members are dangerous.
         """
+        raw = m.target
 
-        if not self._limiter.allows_link(m):
+        if not self._limiter.allows_link(m) or not raw or raw.startswith("/") or ntpath.splitdrive(raw)[0]:
             return
 
-        raw = m.target or ""
-        base = target.parent if m.kind == "symlink" else self._root
+        
+        inside = (target.parent if m.kind == "symlink" else self._root).relative_to(self._root).as_posix()
+        rel = posixpath.normpath(f"{inside}/{raw}" if inside != "." else raw)
+        resolved = self._under(rel) if self._is_safe_member_name(rel) else None
 
-        try:
-            resolved = (base / raw).resolve()
-        except (OSError, ValueError):
-            resolved = None
-
-        if resolved is None or not resolved.is_relative_to(self._root):
-            log.warning("extract_archive: refused %s %r pointing outside %s in %s",
-                        m.kind, m.name, self.dest.name, self.src.name)
+        if resolved is None:
+            log.warning("extract_archive: refused %s %r pointing outside %s in %s", m.kind, m.name, self.dest.name, self.src.name)
             return
+
+        remove_path(target)
 
         try:
             if m.kind == "symlink":
                 os.symlink(raw, target)
             else:
                 os.link(resolved, target)
-
-            if self._built is not None:
-                self._built.append(target)
         except OSError as exc:
             # Creating a symlink needs a privilege on Windows that an
             # ordinary account does not hold, and a hardlink needs the
             # target to exist and to share a volume.
-            log.warning("extract_archive: could not create %s %r (%s)",
-                        m.kind, m.name, exc)
+            log.warning("extract_archive: could not create %s %r (%s)", m.kind, m.name, exc)
+        else:
+            if self._built is not None:
+                self._built.append(target)
 
-    def _spill(self, m: _Member, data, target: Path) -> None:
+    def _spill(self, m: _Member, data: io.BufferedIOBase, target: Path) -> None:
         """Copy one member's bytes into place, in bounded chunks.
 
         Streaming rather than reading the member whole: a 4 GB member costs
@@ -1571,14 +1463,17 @@ class _Extractor:
         chunk that proves it. And the total is compared with the size the
         archive declared once the member is done.
 
-        That last one is not a ceiling and has no setting. A member's
-        header says how many bytes it holds, and every reader in both
-        containers stops at exactly that number, so a member that produces
-        a different one is an archive whose metadata does not describe its
-        own contents -- truncated, or edited after it was written. There is
-        nothing to weigh against a policy there: the archive is not what it
-        says it is, and the rest of it has not earned the benefit of the
-        doubt either. So it is refused, at once, for the whole extraction.
+        That last one is not a ceiling and has no setting, and it is said
+        rather than enforced. A member's header says how many bytes it
+        holds, and every reader in both containers stops at exactly that
+        number, so a member that produces a different one is an archive
+        whose metadata does not describe its own contents -- truncated, or
+        edited after it was written. What is on disk is still what the
+        member really carried, and it is bounded: the ceilings were weighed
+        against those bytes on the way past, not against the header. So the
+        mismatch is logged against the member that shows it and the rest of
+        the archive is written, rather than several thousand good members
+        being thrown away over one bad header.
 
         An OSError is different and is the environment refusing this one
         member -- a read-only path, a name the filesystem will not take, a
@@ -1598,7 +1493,7 @@ class _Extractor:
                 while chunk := data.read(_COPY_BUF):
                     out.write(chunk)
                     grown += len(chunk)
-                    self._limiter.grew(m.name, grown, len(chunk))
+                    self._limiter.grew(m.name, grown)
         except EOFError:
             # Both containers raise this bare, with no message at all, when
             # a member's data runs out before its header said it would --
@@ -1611,29 +1506,42 @@ class _Extractor:
                 f"truncated, or its metadata was edited"
             ) from None
         except OSError as exc:
-            log.warning("extract_archive: could not write %r from %s (%s)",
-                        m.name, self.src.name, exc)
+            log.warning("extract_archive: could not write %r from %s (%s)", m.name, self.src.name, exc)
             return
 
         if grown != m.size:
-            raise ValidationError(
-                f"extract_archive: {self.src.name}: member {m.name!r} declares "
-                f"{m.size} bytes but produced {grown} -- the archive's metadata "
-                f"does not describe its contents"
-            )
+            log.warning("extract_archive: %s: member %r declares %d bytes but "
+                        "produced %d -- the archive's metadata does not describe "
+                        "its contents", self.src.name, m.name, m.size, grown)
 
     # --- the two containers ----------------------------------------------
 
-    def _zip_reader(self, zf: zipfile.ZipFile, m: _Member):
-        """A reader for one zip member, or a clear error saying why not.
+    def _zip_copy(self, readers: "_ZipReaders", m: _Member, target: Path) -> None:
+        """Write one member into place, on whichever thread runs this.
 
-        Zip only. Everything it refuses is a zip's to refuse: encryption is
+        Zip only, and the reason the prefix is there: this is what a worker
+        runs, so it must touch nothing the main thread owns -- it asks
+        _ZipReaders for the handle belonging to its own thread and nothing
+        else. The tar path writes through _spill directly, on the calling
+        thread, with no handle of its own to fetch.
+
+        A link comes through here as well, because on a zip a link is a
+        read: the destination lives in the member's data rather than in its
+        header, so it is not in the manifest and _Member.target arrived as
+        None. Everything a file is put through first applies to it
+        unchanged -- the encryption flag, the AES refusal, the handle -- so
+        it is the same open() rather than a second one written beside it.
+        _zip never hands a link to the pool, so _link still runs on the
+        main thread, which is what keeps the directory cache and the ledger
+        single-threaded.
+
+        Everything refused here is a zip's to refuse: encryption is
         recorded in a flag bit no tar has, and WinZip AES is a compression
         method number rather than a format of its own.
 
-        ZipFile.open() is what reads a member here, rather than the raw
-        bytes plus a zlib call this used to do by hand. Lifting the blob
-        out directly meant deflate was the only method that came back as
+        ZipFile.open() is what reads the member, rather than the raw bytes
+        plus a zlib call this used to do by hand. Lifting the blob out
+        directly meant deflate was the only method that came back as
         itself: a stored-with-bzip2, lzma or zstd member was written to
         disk still compressed, under the right name, with nothing said. It
         also walked straight past the encryption flag, so an encrypted
@@ -1659,50 +1567,61 @@ class _Extractor:
             )
 
         try:
-            return zf.open(info)
+            data = readers.get().open(info)
         except (RuntimeError, NotImplementedError) as exc:
             # A wrong password, or a compression method this build of
             # Python has no decompressor for.
-            raise ValidationError(
-                f"extract_archive: {self.src.name}: member {m.name!r}: {exc}"
-            ) from None
+            raise ValidationError(f"extract_archive: {self.src.name}: member {m.name!r}: {exc}") from None
 
-    def _zip_copy(self, readers: "_ZipReaders", m: _Member, target: Path) -> None:
-        """Inflate one member into place, on whichever thread runs this.
+        with data:
+            if m.kind == "file":
+                self._spill(m, data, target)
+                return
 
-        Zip only, and the reason the prefix is there: this is what a worker
-        runs, so it must touch nothing the main thread owns. The tar path
-        writes through _spill directly, on the calling thread, with no
-        handle of its own to fetch.
-        """
+            # Bounded rather than trusted: a destination is a path, and a
+            # header claiming more than _LINK_MAX is describing something
+            # that is not a symlink.
+            try:
+                raw = data.read(_LINK_MAX + 1)
+            except OSError as exc:
+                log.warning("extract_archive: could not read the destination of "
+                            "%s %r in %s (%s)", m.kind, m.name, self.src.name, exc)
+                return
 
-        with self._zip_reader(readers.get(), m) as data:
-            self._spill(m, data, target)
+        if len(raw) > _LINK_MAX:
+            log.warning("extract_archive: refused %s %r in %s, its destination is "
+                        "longer than %d bytes", m.kind, m.name, self.src.name, _LINK_MAX)
+            return
+
+        self._link(m._replace(target=os.fsdecode(raw)), target)
 
     def _zip(self, workers=None) -> None:
         """Read the manifest and write every member that passes.
 
         One pass, the same shape as _tar. A member is built from its
-        central-directory entry, put to _admit, then to _place, then
-        written -- and _place has to run there rather than earlier whatever
-        else changes, because an earlier member may be a symlink and a path
-        resolved before it existed answers from a tree that is no longer
-        the one being written to.
+        central-directory entry, put to _place, then written -- and _place
+        has to run there rather than earlier whatever else changes, because
+        an earlier member may be a symlink and a path resolved before it
+        existed answers from a tree that is no longer the one being written
+        to.
 
-        This used to be two loops: every member was admitted first, then
-        the survivors were written. Nothing on a zip needs the data to
-        answer _admit -- infolist() reads the central directory, so the
-        name, the filter, the duplicates and the header ceilings are all
-        knowable up front -- and settling them first meant a ceiling
-        tripped by the five hundredth member left the first four hundred
-        and ninety-nine unwritten. It also held a _Member for every entry
-        in the archive at once.
+        This used to be two loops: every member was checked against the
+        headers first, then the survivors were written. Nothing on a zip
+        needs the data for that half -- infolist() reads the central
+        directory, so the name, the filter, the duplicates and the header
+        ceilings are all knowable up front -- and settling them first meant
+        a ceiling tripped by the five hundredth member left the first four
+        hundred and ninety-nine unwritten. It also held a _Member for every
+        entry in the archive at once.
 
         Streaming gives that up in one direction and back in the other: the
         refusal now lands with earlier members already on disk, exactly as
         it does on a tar, and `atomic` or `cleanup_on_error` is what takes
         them away again. Both formats now behave the same way, which is
-        worth more than the head start.
+        worth more than the head start. It also buys the one thing on a zip
+        that is genuinely not in the manifest -- a symlink's destination,
+        which lives in the member's data -- and that is read below, at the
+        member, where a header-first pass could not have reached it.
 
         `workers` is worth having on a zip and on nothing else: members are
         compressed independently and zlib releases the GIL while inflating.
@@ -1716,56 +1635,54 @@ class _Extractor:
         own = ThreadPoolExecutor(count) if count and count > 1 else None
         pool = pool or own
         readers = _ZipReaders(self.src, self.password)
-        pending = []
+        inflight = {}          #: path -> the write filling it
 
         try:
-            zf = readers.get()
-
-            for info in zf.infolist():
-                mode = info.external_attr >> 16
-
+            for info in readers.get().infolist():
                 m = _Member(
                     info.filename.replace("\\", "/").rstrip("/"), 
-                    info,
+                    info, 
                     info.file_size, 
                     info.compress_size, 
                     (
-                        "dir" if info.is_dir() else "file" 
-                        if (not mode or (mode & 0o170000) != 0o120000) else "symlink"
-                    )
+                        "dir" if info.is_dir() else "symlink"
+                        if ((mode := info.external_attr >> 16) and stat.S_ISLNK(mode)) else "file" 
+                    ) 
                 )
 
-                if not self._admit(m) or (target := self._place(m)) is None:
+                target = self._place(m)
+
+                if target is None:
                     continue
 
                 if m.kind == "dir":
                     self._mkdir(target)
                 elif not self._mkdir(target.parent):
                     continue
-                elif m.kind != "file":
-                    self._link(m, target)
                 elif pool is None:
                     self._zip_copy(readers, m, target)
                 else:
-                    pending.append(pool.submit(self._zip_copy, readers, m, target))
+                    key = os.path.normcase(str(target))
 
-            for job in pending:
+                    if (earlier := inflight.pop(key, None)) is not None:
+                        earlier.result()
+
+                    inflight[key] = pool.submit(self._zip_copy, readers, m, target)
+
+            for job in inflight.values():
                 job.result()
         finally:
-            # Cancel what has not started, then wait out what has. A pool
-            # this did not create is not shut down, so without the wait a
-            # worker could still be reading a handle close() is about to
-            # take away -- or writing into a staged directory run() is
-            # about to delete.
-            for job in pending:
-                job.cancel()
+            try:
+                for job in inflight.values():
+                    job.cancel()
 
-            wait(pending)
-
-            if own is not None:
-                own.shutdown()
-
-            readers.close()
+                wait(inflight.values())
+            finally:
+                try:
+                    if own is not None:
+                        own.shutdown(wait=False, cancel_futures=True)
+                finally:
+                    readers.close()
 
     def _tar(self, fmt: ArchiveFormat, workers=None) -> None:
         """Read the tar stream and write every member that passes.
@@ -1811,7 +1728,7 @@ class _Extractor:
             with tarfile.open(fileobj=stream, mode="r|") as tf:
                 for info in tf:
                     m = _Member(
-                        info.name.replace("\\", "/").rstrip("/"),
+                        info.name.replace("\\", "/").rstrip("/"), 
                         info, 
                         info.size, 
                         0, 
@@ -1824,7 +1741,13 @@ class _Extractor:
                         info.linkname or None
                     )
 
-                    if not self._admit(m) or (target := self._place(m)) is None:
+                    if m.kind == "other":
+                        log.warning("extract_archive: refused non-regular member %r in %s", m.name, self.src.name)
+                        continue
+
+                    target = self._place(m)
+
+                    if target is None:
                         continue
 
                     if m.kind == "dir":
@@ -1836,13 +1759,13 @@ class _Extractor:
                     elif (data := tf.extractfile(m.raw)) is not None:
                         self._spill(m, data, target)
         finally:
-            stream.close()
+            try:
+                stream.close()
+            finally:
+                if raw is not None:
+                    raw.close()
 
-            if raw is not None:
-                raw.close()
-
-    @staticmethod
-    def _is_safe_member_name(name: object) -> bool:
+    def _is_safe_member_name(self, name: object) -> bool:
         """Whether an archive member's name is one that may be written at all.
 
         Takes the name as a posix path -- "/" separated, no trailing slash
@@ -1874,10 +1797,10 @@ class _Extractor:
 
         A backslash is refused outright rather than treated as a name a posix
         path may legally contain. It is what makes the precondition enforced
-        instead of merely stated, and _Extractor._target's fast path depends on
-        it: that path joins the basename onto an already-resolved directory and
-        skips the resolve, which is only sound while a basename cannot carry a
-        separator. Windows counts a backslash as one, so "..\\escape.txt" would
+        instead of merely stated, and the directory cache in _Extractor._place
+        depends on it: that path joins the basename onto an already-resolved
+        directory and skips the resolve, which is only sound while a basename
+        cannot carry a separator. Windows counts a backslash as one, so "..\\escape.txt" would
         arrive as a single segment this function would have called a name, and
         be joined into dest/../escape.txt and written outside the destination.
         The readers replace backslashes before building a _Member, so nothing
@@ -1886,10 +1809,10 @@ class _Extractor:
         Textual, and deliberately so. It is the half of the naming check that
         does not depend on what is on disk, which is what lets it run while the
         manifest is being read rather than while it is being written. The other
-        half is _Extractor._target.
+        half is _Extractor._place.
         """
 
-        return bool(
+        is_safe = bool(
             isinstance(name, str) and name
             and "\x00" not in name
             and "\\" not in name
@@ -1897,3 +1820,14 @@ class _Extractor:
             and not ntpath.splitdrive(name)[0]
             and not any(part.strip() in ("..", "") for part in name.split("/"))
         )
+
+        if not is_safe:
+            log.warning("refused unsafe member name %r in %s", name, self.src.name)
+
+        return is_safe
+
+    
+
+
+
+
