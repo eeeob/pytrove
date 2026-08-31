@@ -1239,8 +1239,7 @@ One archive per object, by construction rather than by a guard.
             raise
 
         if staged is not None:
-            if not self.dest.exists() or not any(self.dest.iterdir()):
-                safe_call(remove_path, self.dest, include_exc=OSError, log_exc=True)
+            if not self.dest.exists():
                 os.replace(staged, self.dest)
             else:
                 self._graft(staged, self.dest)

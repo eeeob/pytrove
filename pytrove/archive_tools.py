@@ -363,8 +363,8 @@ def extract_archive(
     limits: ArchiveLimits = ArchiveLimits(),
     password: Optional[Union[str, bytes]] = None,
     workers: Optional[Union[int, Executor]] = None,
-    atomic: bool = False,
-    cleanup_on_error: bool = True,
+    atomic: bool = True,
+    cleanup_on_error: bool = False,
     ) -> Path:
 
     """Extract the archive at `src` into `dest`, and return `dest`.
@@ -431,10 +431,10 @@ def extract_archive(
     the archive has been read to the end either way, and a file the
     archive never mentioned is left where it is.
 
-    `cleanup_on_error` is on by default and is the same promise without a
+    `cleanup_on_error` defaults to False and is the same promise without a
     staging directory: everything this run created is removed again if it
     does not finish, and nothing that was in `dest` beforehand is touched.
-    Pass False to keep what came out before the archive turned out to be
+    Pass True to remove what was created before the archive turned out to be
     wrong.
 
     Raises ValidationError for an archive whose contents do not match its
