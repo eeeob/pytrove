@@ -16,7 +16,8 @@ from ._archive_tools import (
     _Compressor,
     _Extractor,
     _Filter,
-    _Rule, 
+    _Rule,
+    _format_from_suffix,
 )
 
 
@@ -44,7 +45,7 @@ def _temp_file_rule(folder: str, prefix: str):
 
     cut = len(folder)
 
-    def rule(rel: str, _entry) -> bool:
+    def rule(rel: str, _) -> bool:
         if not rel.startswith(folder):
             return False
 
@@ -95,7 +96,7 @@ def compress_folder(
     src: PathLike,
     dest: PathLike,
     *,
-    format: Union[ArchiveFormat, str] = ArchiveFormat.ZIP,
+    format: Optional[Union[ArchiveFormat, str]] = None,
     include: Optional[NestedContainer[_Rule]] = None,
     exclude: Optional[NestedContainer[_Rule]] = None,
     level: Optional[int] = None,
@@ -283,12 +284,26 @@ def compress_folder(
 
     `format` picks the container, see ArchiveFormat:
 
-      ZIP (default)  every file compressed independently, which is the only
+      ZIP            every file compressed independently, which is the only
                      format here whose work can be split across threads.
       TAR_ZST        one stream, parallelised inside zstandard instead when
                      asked; reaches gzip's ratio several times faster.
                      Needs the `zstd` extra.
       TAR_GZ         one stream, gzip, no parallelism available at all.
+
+    It defaults to None, which means read it off `dest`: "backup.tar.gz"
+    asks for TAR_GZ and does not have to say so twice. The extensions
+    recognised are the three values above plus ".tgz". A `dest` naming a
+    directory has no extension to read and falls back to ZIP, which is what
+    this defaulted to before; a `dest` naming a file with an extension this
+    does not know raises rather than guessing, since writing a zip to
+    "backup.tar.gz" is the mistake reading the name is there to catch.
+
+    Passing both is allowed and checked. They have to agree -- format=ZIP
+    with dest="backup.tar.gz" raises ValidationError instead of writing an
+    archive whose name lies about what is in it. An extension this does not
+    recognise says nothing and so cannot disagree: format=ZIP with
+    dest="backup.bin" writes a zip called backup.bin.
 
     `level` defaults per format (6 for zip and gzip, 3 for zstd). Higher
     trades time for size; on zstd the jump to 19 costs far more than it
@@ -343,7 +358,32 @@ def compress_folder(
     if not src.is_dir():
         raise ValidationError(f"compress_folder: {str(src)!r} is not a directory")
 
-    fmt = ArchiveFormat(format)
+    # What the destination's own name says, and None when it says nothing
+    # -- an extension this does not know, or a directory, which has no name
+    # to read because the archive inside it has not been named yet.
+    named = None if dest.is_dir() else _format_from_suffix(dest.name)
+
+    if format is None:
+        if named is None and not dest.is_dir():
+            raise ValidationError(
+                f"compress_folder: cannot tell what format {dest.name!r} should "
+                f"be -- end it with one of "
+                f"{', '.join('.' + f.value for f in ArchiveFormat)}, or pass format="
+            )
+
+        # A directory falls back to ZIP, which is what this defaulted to
+        # before the name was consulted at all.
+        fmt = named or ArchiveFormat.ZIP
+    else:
+        fmt = ArchiveFormat(format)
+
+        if named is not None and named is not fmt:
+            raise ValidationError(
+                f"compress_folder: format={fmt.value!r} does not match "
+                f"{dest.name!r}, which names a {named.value} archive -- pass one "
+                f"answer or the other, not two that disagree"
+            )
+
     dest_path = dest / f"{src.name}.{fmt.value}" if dest.is_dir() else dest
 
     if fmt is ArchiveFormat.TAR_ZST:

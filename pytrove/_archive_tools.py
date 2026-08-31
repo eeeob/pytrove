@@ -1,8 +1,10 @@
 """Walking, filtering and archive-assembly internals for archive_tools.
 
-Kept out of archive_tools.py the same way _files_tools/_async_tools are:
-nothing here imports back into the package beyond typings/enums, so it can
-never take part in an import cycle.
+Kept out of archive_tools.py the same way _files_tools/_async_tools are.
+What it imports from the package is the foundation and the layer just above
+it -- errors, enums, typings, and the three small helpers files_tools,
+iter_tools and callable_tools -- none of which imports back, so this cannot
+take part in a cycle.
 """
 
 import gzip
@@ -567,6 +569,25 @@ class _Compressor:
 _COPY_BUF = 1 << 20
 _LINK_MAX = 4096
 _MISS = object()
+_NT = os.name == "nt"
+_SUFFIXES = (
+    (".zip", ArchiveFormat.ZIP),
+    (".tar.zst", ArchiveFormat.TAR_ZST),
+    (".tar.gz", ArchiveFormat.TAR_GZ),
+    (".tgz", ArchiveFormat.TAR_GZ),
+)
+
+
+def _format_from_suffix(name: str) -> Optional[ArchiveFormat]:
+    """Which format a name claims to be, or None if it claims nothing."""
+
+    lower = name.lower()
+
+    for suffix, fmt in _SUFFIXES:
+        if lower.endswith(suffix):
+            return fmt
+
+    return None
 
 
 
@@ -980,7 +1001,6 @@ class _Extractor:
     _cleared: dict = field(init=False, default_factory=dict)
     _ancestry: dict = field(init=False, default_factory=dict)
     _made: set = field(init=False, default_factory=set)
-    _own: set = field(init=False, default_factory=set)
     _built: Optional[list] = field(init=False, default=None)    
 
     # --- entry points ----------------------------------------------------
@@ -988,12 +1008,13 @@ class _Extractor:
     def run(self, fmt: ArchiveFormat, workers=None, atomic: bool = False, cleanup_on_error: bool = False) -> None:
         """Extract, optionally through a staging directory. Once.
 
-        A second call is refused rather than served. The object holds a
-        destination it has already resolved paths against and a _Limiter
-        that has already spent its ceilings, and reusing it would either
-        answer the second archive with the first one's state or need every
-        field cleared -- which is a fresh object with extra steps. This
-        class is cheap to build; extract_archive builds one per call.
+One archive per object, by construction rather than by a guard.
+        The object holds a destination it has already resolved paths
+        against, a directory cache, and a _Limiter that has already spent
+        its ceilings; a second run() would answer the second archive with
+        the first one's state. Nothing here checks for that, because
+        nothing here can reach it -- extract_archive builds one per call
+        and this class is cheap to build.
 
         `atomic` writes into a sibling temp directory -- a sibling because
         the last step is a rename and a rename does not cross a filesystem
@@ -1012,18 +1033,23 @@ class _Extractor:
 
         `cleanup_on_error` is the same promise made without a staging
         directory: whatever this run created is removed again if it does
-        not finish. It is off by default, because a half-extracted tree is
-        sometimes the useful thing -- what came out before the archive
-        turned out to be wrong -- and deleting it is not a decision to make
-        on the caller's behalf.
+        not finish. It is on by default, because a half-extracted tree is
+        the wrong thing to leave behind in most of the cases anyone hits --
+        a bomb caught by a ceiling, a truncated archive, a member the
+        policy refused -- and a caller who wants what came out before the
+        archive turned out to be wrong asks for it by passing False.
 
         What it undoes is only what this run made. Every file written and
         every directory that was not already there goes into a ledger as it
-        is created, and the ledger is walked backwards, so a directory
-        removed is one this run created and nothing that was in `dest`
-        beforehand is ever touched. It does nothing under `atomic`, or with
-        a dir_check set, since both stage already and the staging directory
-        is discarded whole.
+        is created, outermost first, and the ledger is walked in that same
+        order: remove_path takes a directory whole, so the first entry of a
+        subtree removes the rest of it and everything after it is already
+        gone. dedupe because one path can be entered twice, under
+        `overwrite`. A directory in the ledger is one that did not exist
+        when this started, so nothing that was in `dest` beforehand is ever
+        touched. It does nothing under `atomic`, or with a dir_check set,
+        since both stage already and the staging directory is discarded
+        whole.
 
         A destination that exists and is not a directory is refused here,
         before either branch runs. The streaming branch would have been
@@ -1176,14 +1202,8 @@ class _Extractor:
                 if head.startswith(magic):
                     return fmt
 
-        lower = path.lower()
-
-        for suffix, fmt in ((".zip", ArchiveFormat.ZIP),
-                            (".tar.zst", ArchiveFormat.TAR_ZST),
-                            (".tar.gz", ArchiveFormat.TAR_GZ),
-                            (".tgz", ArchiveFormat.TAR_GZ)):
-            if lower.endswith(suffix):
-                return fmt
+        if (fmt := _format_from_suffix(path)) is not None:
+            return fmt
 
         raise ValueError(f"extract_archive: cannot tell what format {path!r} is")
 
@@ -1251,15 +1271,27 @@ class _Extractor:
         against a name the platform will not parse, and the demand that
         what comes out lands inside the root.
 
-        Most names go through the directory cache. A basename carries no
-        separator -- the name check refuses one that does -- so it cannot
+        What comes back is the path that will really be written, not the
+        one the archive spelled. On Windows every component loses its
+        trailing dots and spaces on the way into the filesystem -- measured:
+        mkdir("dots...") makes "dots", mkdir("d. ") makes "d", and "...",
+        ".. ." and ". ." each resolve to the directory itself. Stripping
+        that here rather than leaving it to the OS is what makes one path
+        one answer: "clash.txt" and "clash.txt. " are one file, so they
+        have to be one target, or `overwrite` compares two keys for one
+        file and the pool hands two workers one path believing they differ.
+        A component that strips away to nothing means "here" and is
+        dropped, which is what "." has always meant; a name that is nothing
+        but such components addresses the root itself and is refused, since
+        there is no member to write there. POSIX stores those names as they
+        are, so nothing is stripped there.
+
+        Most names then go through the directory cache. A basename carries
+        no separator -- the name check refuses one that does -- so it cannot
         climb out of a directory already cleared: resolving the directory
         once and joining the name onto it gives the same answer for a
         fraction of the resolve() calls, which on Windows walk up until
-        something exists and measured a third of the whole extraction. A
-        trailing dot or space is the exception, because Windows strips one
-        rather than storing it, so such a name has no faithful target and
-        only the full resolve notices; POSIX takes it literally.
+        something exists and measured a third of the whole extraction.
 
         The cache is filled with setdefault and read with get, because this
         runs on the pool as well as on the main thread -- _zip hands a link
@@ -1274,38 +1306,32 @@ class _Extractor:
         a directory that may not be written into at all.
         """
 
+        if _NT:
+            name = "/".join(part for raw in name.split("/") if (part := raw.rstrip(". ")))
+
+            if not name:
+                return 
+
         parent, _, base = name.rpartition("/")
 
-        if base.endswith((".", " ")):
-            target = (
-                _target 
-                if (
-                    (_target := safe_call((self._root / name).resolve, strict=False, include_exc=(ValueError, OSError), log_exc=True)) is not None
-                    and _target.is_relative_to(self._root) 
-                )
-                else None
-            )
-        else:
-            if (safe := self._cleared.get(parent, _MISS)) is _MISS:
-                safe = self._cleared.setdefault(
-                    parent,
+        if (safe := self._cleared.get(parent, _MISS)) is _MISS:
+            safe = self._cleared.setdefault(
+                parent,
+                (
                     (
-                        (
-                            _target 
-                            if (
-                                (_target := safe_call((self._root / parent).resolve, strict=False, include_exc=(ValueError, OSError), log_exc=True)) is not None
-                                and _target.is_relative_to(self._root) 
-                            )
-                            else None
+                        _target
+                        if (
+                            (_target := safe_call((self._root / parent).resolve, strict=False, include_exc=(ValueError, OSError), log_exc=True)) is not None
+                            and _target.is_relative_to(self._root)
                         )
-                        if parent 
-                        else self._root
+                        else None
                     )
+                    if parent
+                    else self._root
                 )
+            )
 
-            target = None if safe is None else safe / base
-
-        return target
+        return None if safe is None else safe / base
 
     # --- whether it may be written ---------------------------------------
 
@@ -1318,7 +1344,11 @@ class _Extractor:
 
         The first is answered from the archive's own account of the member
         and touches no filesystem: the name, the duplicates, the filter,
-        the kind, the ceilings. It is ordered cheapest-first and
+        the kind, the ceilings. The kind is asked here rather than in the
+        two read loops, so a fifo, a socket or a device node is refused by
+        the same line whichever container carried it -- both spell one in
+        st_mode and both are read into _Member the same way. It is ordered
+        cheapest-first and
         refusal-first at once -- the name before the filter, the filter
         before anything is counted -- so a member the caller did not ask
         for costs nothing at all against the ceilings.
@@ -1353,6 +1383,7 @@ class _Extractor:
         # --- what the archive says --------------------------------------
 
         if (
+            m.kind == "other" or 
             not self._is_safe_member_name(name) or 
             (self.flt and not self._member_kept(m)) or 
             not self._limiter.allows_name(name) 
@@ -1393,6 +1424,12 @@ class _Extractor:
         if path in self._made:
             return True
 
+        # Which levels are about to be created, noted before the mkdir and
+        # not after, because afterwards they all exist and mkdir(parents=
+        # True) reports only that it succeeded, never which of them it
+        # made. Only the ledger wants this, so it is only walked when there
+        # is one -- and then once per directory rather than once per
+        # member, which `_made` above is what makes true.
         fresh = []
 
         if self._built is not None:
@@ -1402,39 +1439,26 @@ class _Extractor:
                 fresh.append(probe)
                 probe = probe.parent
 
-        # exist_ok is left off so that FileExistsError says what an
-        # exist_ok=True mkdir will not: whether the directory is one this
-        # run made or one that was already here. _link is what asks -- it
-        # may clear away a directory of ours to put a link where the
-        # archive says, and must not clear away the caller's. The parents
-        # are still created silently; only the leaf reports.
         try:
-            path.mkdir(parents=True)
+            path.mkdir(parents=True, exist_ok=True)
         except FileExistsError:
-            # Something is there, and mkdir(exist_ok=True) would have said
-            # nothing about what. A file is the archive contradicting
-            # itself -- "sub" and "sub/" both -- and this has to report it,
-            # or the member that needed the directory would be told there
-            # is one and fail further along with a worse message.
-            if not path.is_dir():
-                log.warning("extract_archive: cannot create directory %r in %s, "
-                            "a file is already there", str(path), self.src.name)
-                return False
+            # With exist_ok=True this is the one thing left that raises it:
+            # something is there and it is not a directory. The archive is
+            # contradicting itself -- "sub" and "sub/" both -- and saying so
+            # beats telling the member that needed the directory there is
+            # one and failing further along with a worse message.
+            log.warning("extract_archive: cannot create directory %r in %s, "
+                        "a file is already there", str(path), self.src.name)
+            return False
         except OSError as exc:
             log.warning("extract_archive: cannot create directory %r in %s (%s)", str(path), self.src.name, exc)
             return False
-        else:
-            # Conservatively the leaf only. mkdir(parents=True) may have
-            # made levels above it too, but it does not say which, and
-            # calling one of those ours when it was not is the mistake that
-            # costs something.
-            self._own.add(path)
 
         self._made.add(path)
 
         if fresh:
             # `fresh` was collected child-first on the way up, so it goes
-            # in outermost-first -- the order _undo relies on.
+            # in outermost-first -- the order the undo relies on.
             self._built.extend(reversed(fresh))
 
         return True
@@ -1450,6 +1474,31 @@ class _Extractor:
         way a file can -- so it is created beside its path and renamed onto
         it, which takes the path from whatever is there without a moment in
         which the path holds nothing.
+
+        A directory is the exception, and the only thing here that refuses
+        a member the policy allowed. os.replace cannot take a path from a
+        directory, so the only way to obey would be to delete it and
+        everything under it, and no setting in this library means that:
+        `overwrite` replaces a file, which is one thing, where a directory
+        is however much someone put in it.
+
+        Whether this run made that directory is not asked, though it could
+        be. An archive that lists "sub/inner.txt" and then "sub" as a link
+        is describing its own tree and deleting it would take back only
+        what the same archive had just written -- so that case was allowed
+        once, on a set of the directories this run created. It is not any
+        more, for what it cost around it: the set had to be right on every
+        path into _mkdir, mkdir(parents=True) does not say which levels it
+        made so the answer had to be built by hand, and the removal ran on
+        a pool worker where rmtree cannot delete a file another thread
+        holds open and, called with ignore_errors, said nothing when it
+        gave up -- measured, half a directory removed and no link created.
+        The rule is one sentence now and holds without any of that.
+
+        What it costs is that such an archive comes out with the directory
+        still a directory and the link left out, with a line in the log
+        saying so. More than was asked for, never less: this refuses, it
+        does not destroy.
 
         Containment is not. A symlink is resolved relative to its own
         directory and a hardlink relative to the archive root, and either
@@ -1472,26 +1521,20 @@ class _Extractor:
             log.warning("extract_archive: refused %s %r pointing outside %s in %s", m.kind, m.name, self.dest.name, self.src.name)
             return
 
-        # A directory standing in the way is the one case a rename cannot
-        # settle, and the only one where taking the path costs more than
-        # the path. It is cleared when this run is what made it -- an
-        # archive listing "sub/" and then "sub" as a link is describing its
-        # own tree and may have it -- and refused when it was already
-        # there, because a link member is not a reason to delete a
-        # directory of the caller's and everything under it.
+        # A directory standing in the way is refused, and that is the whole
+        # of the rule: a link member never removes a directory. Not one the
+        # caller had, and not one this run made either -- see the docstring
+        # for why the second half is not the exception it looks like.
         #
-        # is_symlink() first: a link already at the target is replaced
-        # below like any other entry, and on Windows a junction reports
-        # is_dir() without reporting is_symlink(), so it lands here and is
-        # refused rather than walked into.
+        # is_symlink() before is_dir(): is_dir() follows a link, so a link
+        # already at the target would answer yes and be refused, when it is
+        # exactly what os.replace below takes the path from. On Windows a
+        # junction reports is_dir() without reporting is_symlink(), so it
+        # lands here and is refused rather than followed into whatever it
+        # points at.
         if not target.is_symlink() and target.is_dir():
-            if target not in self._own:
-                log.warning("extract_archive: refused %s %r in %s, a directory that "
-                            "was already there stands at %r",
-                            m.kind, m.name, self.src.name, str(target))
-                return
-
-            remove_path(target)
+            log.warning("extract_archive: refused %s %r in %s, a directory stands at %r", m.kind, m.name, self.src.name, str(target))
+            return
 
         # Built beside the target and renamed onto it, never written over
         # it. os.replace takes the path from a file or a link in one step,
@@ -1507,7 +1550,7 @@ class _Extractor:
             if m.kind == "symlink":
                 os.symlink(raw, tmp)
             else:
-                os.link(resolved, tmp)
+                os.link(resolved, tmp, follow_symlinks=False)
         except OSError as exc:
             log.warning("extract_archive: could not create %s %r (%s)", m.kind, m.name, exc)
             return
@@ -1731,8 +1774,11 @@ class _Extractor:
                     info.file_size, 
                     info.compress_size, 
                     (
-                        "dir" if info.is_dir() else "symlink"
-                        if ((mode := info.external_attr >> 16) and stat.S_ISLNK(mode)) else "file" 
+                        "dir" if info.is_dir()
+                        else "file" if not (kind := stat.S_IFMT(info.external_attr >> 16))
+                        else "symlink" if kind == stat.S_IFLNK
+                        else "file" if kind == stat.S_IFREG
+                        else "other"
                     ) 
                 )
 
@@ -1748,6 +1794,14 @@ class _Extractor:
                 elif pool is None:
                     self._zip_copy(readers, m, target)
                 else:
+                    # A link goes to the pool like any other member, and
+                    # nothing has to be drained before it. It used to be:
+                    # _link cleared a directory away to take its path, and
+                    # rmtree on a worker cannot remove a file another thread
+                    # holds open. A link never removes a directory now, so
+                    # the only path it takes is one os.replace can take, and
+                    # two members landing on one path are already serialised
+                    # below.
                     key = os.path.normcase(str(target))
 
                     if (earlier := inflight.pop(key, None)) is not None:
@@ -1826,10 +1880,6 @@ class _Extractor:
                         ), 
                         info.linkname or None
                     )
-
-                    if m.kind == "other":
-                        log.warning("extract_archive: refused non-regular member %r in %s", m.name, self.src.name)
-                        continue
 
                     target = self._place(m)
 

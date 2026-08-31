@@ -51,9 +51,12 @@ class ArchiveLinkPolicy(StrEnum):
     """What archive_tools.extract_archive does with a link member.
 
     Both `ArchiveLimits.symlinks` and `ArchiveLimits.hardlinks` take one of these, and
-    both default to SKIP: an ordinary tarball is full of links, and a
-    library that started creating them would change what installing it
-    does.
+    both default to ERROR. A link is the one member that can still be
+    dangerous after its own name has been checked -- what it points at is a
+    second name, read later, by something that has forgotten where it came
+    from -- so an archive that carries one is not extracted quietly. SKIP
+    is the setting for an ordinary tarball full of them; ALLOW is for a
+    caller who wants the links themselves.
 
     None of the three waives containment. A link landing outside the
     destination is refused whatever this says, because a later member
@@ -80,6 +83,13 @@ class ArchiveOverwritePolicy(StrEnum):
     written there -- which happens without either name being a duplicate,
     since "Readme.txt" and "README.TXT" land on one path on Windows and on
     macOS.
+
+    None of the three lets a member take a path a directory holds.
+    Overwriting a file replaces one thing; a directory holds however much
+    someone put in it, and OVERWRITE is not a request to delete a tree. A
+    link member that lands on one is refused and logged whatever this says,
+    even where the directory is one the same archive had just created --
+    see _Extractor._link.
     """
 
     ERROR = auto()
