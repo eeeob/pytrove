@@ -59,12 +59,25 @@ def compress_folder(
 
       lambda p, e: .. a predicate. Any callable taking two arguments and
                       returning a bool: the path relative to `src`, and
-                      the os.DirEntry it belongs to -- so a rule can ask
-                      about the thing itself, its size or its mtime, and
-                      not only about its name. It is handed directories as
-                      well as files, so it can turn a whole subtree on or
-                      off, and it is called once per entry in no
-                      guaranteed order.
+                      the thing it belongs to -- so a rule can ask about
+                      the entry itself, its size or its mtime, and not only
+                      about its name. It is handed directories as well as
+                      files, so it can turn a whole subtree on or off, and
+                      it is called once per entry in no guaranteed order.
+
+                      The second argument is an os.DirEntry here and is
+                      *not* one in extract_archive, where it is the
+                      archive's own header -- a zipfile.ZipInfo or a
+                      tarfile.TarInfo, and None for a directory the archive
+                      only implied. A rule meant for both reads only what
+                      both have, or asks by name alone:
+
+                          lambda p, e: p.endswith(".log")        # both
+                          lambda p, e: e.stat().st_size < 4096   # here only
+
+                      A rule that raises is not swallowed: it comes back as
+                      a ValidationError naming the rule and the side it was
+                      asked from.
 
       "*.log"         a glob -- anything carrying "*", "?" or "[".
       "logs/*.tmp"    a "/" inside anchors it at `src`.
@@ -404,6 +417,13 @@ def extract_archive(
     too, so exclude="docs" empties docs/ on the way out as it does on the
     way in.
 
+    One thing is not the same: a predicate's second argument. On a walk it
+    is an os.DirEntry; here it is the archive's own header, a ZipInfo or a
+    TarInfo, and None for a directory the archive only implied. Names,
+    paths and globs mean exactly what they mean there; a predicate that
+    reads its second argument has to handle both, and one that raises comes
+    back as a ValidationError saying so rather than as whatever it raised.
+
     `limits` is an ArchiveLimits: the six ceilings that stop a zip bomb
     (max_files, max_total_size, max_file_size, max_ratio, max_depth,
     max_dir_entries), the four policies (symlinks, hardlinks, overwrite,
@@ -422,14 +442,20 @@ def extract_archive(
     stream read in order, so a value passed with one is reported and
     ignored rather than silently doing nothing.
 
-    `atomic` writes into a sibling temp directory and moves the result in
-    only once the whole archive has been read, so an archive that turns
+    `atomic` is on by default. It writes into a sibling temp directory
+    and moves the result in only once the whole archive has been read, so an archive that turns
     out to be wrong part-way leaves `dest` as it was. What is atomic is
     the *decision*, not the move: an empty or missing destination is taken
     by one rename, and an existing one is merged into member by member,
     which no platform does in a single step. Nothing reaches `dest` before
     the archive has been read to the end either way, and a file the
     archive never mentioned is left where it is.
+
+    Being a sibling, the staging directory needs `dest`'s parent to exist.
+    So does `dest` itself: neither is created with its parents, so
+    extracting into "out/2024/backup" raises FileNotFoundError unless
+    "out/2024" is already there. Make it first -- this does not guess at
+    how much of a path a caller meant to bring into being.
 
     `cleanup_on_error` defaults to False and is the same promise without a
     staging directory: everything this run created is removed again if it

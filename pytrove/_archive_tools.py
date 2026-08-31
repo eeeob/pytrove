@@ -87,6 +87,20 @@ _MISS = object()
 #: itself rather than handing the OS a name it will quietly rewrite.
 _NT = os.name == "nt"
 
+#: Whether one path can be spelled two ways and still be one file. True on
+#: Windows, where normcase already folds it, and on macOS, where normcase
+#: is the identity function and the filesystem folds anyway -- so a key
+#: built for "is this the same file" has to fold there by hand. Linux is
+#: neither, and folding would make two different files look like one.
+_FOLD_CASE = _NT or sys.platform == "darwin"
+
+#: Whether os.link can be told not to follow a symlink in its last
+#: component. Linux can (linkat), Windows ignores the argument, and macOS
+#: raises NotImplementedError for it -- which is not an OSError, so it
+#: would not be caught where a link failure is caught. Asked once here
+#: rather than guessed at the call site.
+_LINK_NOFOLLOW = os.link in os.supports_follow_symlinks
+
 #: Extension -> format. The one table both directions read: compress_folder
 #: to learn what `dest` is asking to be written, extract_archive to fall
 #: back on when an archive's leading bytes say nothing. None of the four is
@@ -127,6 +141,29 @@ def _format_from_suffix(name: str) -> Optional[ArchiveFormat]:
             return fmt
 
     return None
+
+
+def _is_plain_dir(path) -> bool:
+    """Whether this is a real directory and not any kind of link to one.
+
+    Path.is_symlink() is not enough on Windows, where a junction is a
+    directory reparse point: is_dir() answers True and is_symlink() answers
+    False, so a guard written as `is_dir() and not is_symlink()` walks
+    straight into one. st_reparse_tag is what names it, and it is only
+    present on Windows -- getattr gives 0 everywhere else, where S_ISLNK
+    has already answered.
+
+    lstat rather than stat, so nothing is followed to be asked about.
+    """
+
+    try:
+        st = os.lstat(path)
+    except OSError:
+        return False
+
+    return (stat.S_ISDIR(st.st_mode)
+            and not stat.S_ISLNK(st.st_mode)
+            and not getattr(st, "st_reparse_tag", 0))
 
 
 def _split_workers(workers, who: str) -> Tuple[Optional[int], Optional[Executor]]:
@@ -267,6 +304,7 @@ class _Rules(NamedTuple):
 class _Filter:
     include_rules: _Rules
     exclude_rules: _Rules
+    who: str = "compress_folder"
 
     @staticmethod
     @lru_cache(maxsize=256, typed=True)
@@ -349,6 +387,7 @@ class _Filter:
             return cls(
                 cls.sort(tuple(dedupe(include))),
                 cls.sort(tuple(dedupe(exclude))),
+                who,
             )
         except ValidationError as exc:
             raise ValidationError(f"{who}: {exc}") from None
@@ -368,6 +407,36 @@ class _Filter:
 
     def __bool__(self) -> bool:
         return bool(self.include_rules or self.exclude_rules)
+
+    @staticmethod
+    def _ask(fn: Callable, rel: str, raw: _RawEntry, side: str) -> bool:
+        """Put one entry to one of the caller's predicates.
+
+        Wrapped because the two halves of the library hand a predicate
+        different second arguments -- an os.DirEntry on a walk, a ZipInfo
+        or TarInfo on an extraction, None for a directory an archive only
+        implied -- and a rule written for one of them raises on the other.
+        The documented example, `lambda p, e: e.stat().st_size < 4096`,
+        does exactly that: DirEntry has stat(), ZipInfo does not.
+
+        Left to itself that surfaces as a bare AttributeError from inside
+        a walk, and on the extraction side it aborts the run -- which,
+        with cleanup_on_error on, takes back everything already written.
+        The error is still an error and is still raised; what this adds is
+        which rule, which side, and which entry.
+        """
+
+        try:
+            return bool(fn(rel, raw))
+        except Exception as exc:
+            raise ValidationError(
+                f"{side}: the rule {getattr(fn, '__name__', fn)!r} raised "
+                f"{type(exc).__name__} on {rel!r} -- note the second argument "
+                f"is an os.DirEntry while a folder is walked and the archive's "
+                f"own header (ZipInfo/TarInfo, or None for an implied "
+                f"directory) while one is read, so a rule that reads it has to "
+                f"handle both"
+            ) from exc
 
     def matches(self, rel: str, raw: _RawEntry = None) -> bool:
         """Whether the entry at `rel` belongs in the archive.
@@ -404,10 +473,10 @@ class _Filter:
             return False
 
         for fn in inc.funcs:
-            if fn(rel, raw):
+            if self._ask(fn, rel, raw, self.who):
                 return True
         for fn in exc.funcs:
-            if fn(rel, raw):
+            if self._ask(fn, rel, raw, self.who):
                 return False
 
         base = rel.rsplit("/", 1)[-1]
@@ -451,7 +520,7 @@ class _Filter:
             return False
 
         for fn in exc.funcs:
-            if fn(rel, raw):
+            if self._ask(fn, rel, raw, self.who):
                 return False
 
         if rel.rsplit("/", 1)[-1] in exc.names:
@@ -722,7 +791,22 @@ class _Compressor:
                 compresslevel=6 if level is None else level,
             )
 
-        with compressor as stream, tarfile.open(fileobj=stream, mode="w|") as tf:
+        # dereference=True, and it is not a detail. Without it tarfile
+        # calls os.lstat, which does two things this library does not want:
+        # it stores a symlink as a link member, and it turns the second
+        # name of a hardlinked file into a LNKTYPE member pointing at the
+        # first. Both come back out of extract_archive as link members,
+        # which it refuses by default -- so an ordinary tree with one
+        # hardlink in it produced a tar.gz that this library would not
+        # extract. Measured, and zip never had the problem: ZipInfo.from_file
+        # stats through the link, so the two containers said different
+        # things about one tree.
+        #
+        # Following costs size where a tree has many links to one file --
+        # each is stored whole -- which is the same bargain zip makes, and
+        # the same one _Compressor.__iter__ already made by yielding a
+        # symlink's target as content under follow_symlinks.
+        with compressor as stream, tarfile.open(fileobj=stream, mode="w|", dereference=True) as tf:
             for path, arcname, _ in entries:
                 # recursive=False because the walk already yields every member,
                 # with the include/exclude rules applied.
@@ -1168,21 +1252,26 @@ One archive per object, by construction rather than by a guard.
         rather than half-filled.
 
         The move is one rename when the destination does not yet exist,
-        which is genuinely instantaneous. When it does exist there is no
-        portable way to swap two directories in one step -- os.replace onto
-        an existing directory fails on Windows even when it is empty -- so
-        the old one is moved aside first and there is a brief moment with
-        nothing at the destination. The old one is removed only after the
-        new one is in place, so an interruption leaves it recoverable
-        beside the destination rather than lost.
+        which is genuinely instantaneous. When it does exist the rename is
+        still tried -- POSIX takes it if the destination is empty, Windows
+        refuses it always -- and a refusal is what asks for the merge,
+        which moves the members in one at a time and is not atomic. Nothing
+        is deleted to make the rename possible: clearing the destination
+        first and failing the rename after is how a caller ends up with
+        neither, and it is the one ordering this must not use.
+
+        A failure at that last step leaves the staged tree on disk, beside
+        the destination and named in the log, rather than removing what has
+        not been moved yet.
 
         `cleanup_on_error` is the same promise made without a staging
         directory: whatever this run created is removed again if it does
-        not finish. It is on by default, because a half-extracted tree is
-        the wrong thing to leave behind in most of the cases anyone hits --
-        a bomb caught by a ceiling, a truncated archive, a member the
-        policy refused -- and a caller who wants what came out before the
-        archive turned out to be wrong asks for it by passing False.
+        not finish. extract_archive leaves it off and turns `atomic` on
+        instead, which answers the same question earlier -- nothing reaches
+        the destination at all until the archive has been read to the end.
+        It is what a caller reaches for after turning `atomic` off, when
+        writing straight into the destination is wanted but a half-written
+        tree is not.
 
         What it undoes is only what this run made. Every file written and
         every directory that was not already there goes into a ledger as it
@@ -1195,6 +1284,11 @@ One archive per object, by construction rather than by a guard.
         touched. It does nothing under `atomic`, or with a dir_check set,
         since both stage already and the staging directory is discarded
         whole.
+
+        Neither branch creates the path above the destination. `dest`
+        itself is made, and under `atomic` the staging directory is made
+        beside it -- both of which need `dest.parent` to exist already, or
+        this raises FileNotFoundError before an archive is read.
 
         A destination that exists and is not a directory is refused here,
         before either branch runs. The streaming branch would have been
@@ -1238,12 +1332,38 @@ One archive per object, by construction rather than by a guard.
                     safe_call(remove_path, path, include_exc=OSError, log_exc=True)
             raise
 
-        if staged is not None:
-            if not self.dest.exists():
+        if staged is None:
+            return
+
+        # Nothing is cleared away to make room for something that may not
+        # arrive. Removing the destination first so that os.replace could
+        # rename onto it is how a caller ends up with neither: measured,
+        # `dest` gone and the members left under a hidden temp name when
+        # the replace that followed failed.
+        #
+        # So the rename is tried, and a refusal is what asks for the merge.
+        # A destination that is not there is renamed onto in one step,
+        # which is genuinely all-or-nothing. One that is there is renamed
+        # onto where the platform allows it -- POSIX does when it is empty,
+        # Windows never -- and merged member by member when it does not,
+        # which is not atomic and cannot be: no platform moves a tree into
+        # an existing one in a single step.
+        #
+        # A failure at this last step leaves the staged tree on disk rather
+        # than removing what has not been moved, and says where it is.
+        try:
+            try:
                 os.replace(staged, self.dest)
-            else:
+            except OSError:
+                if not self.dest.exists():
+                    raise
+
                 self._graft(staged, self.dest)
                 remove_path(staged)
+        except BaseException:
+            log.error("extract_archive: could not put %s at %r -- what came out "
+                      "of it is in %r", self.src.name, str(self.dest), str(staged))
+            raise
 
     def _inspect(self, root: Path) -> None:
         """Put every extracted directory to `dir_check`, outermost first.
@@ -1300,8 +1420,7 @@ One archive per object, by construction rather than by a guard.
                 else:
                     remove_path(path)
 
-    @classmethod
-    def _graft(cls, staged: Path, dest: Path) -> None:
+    def _graft(self, staged: Path, dest: Path) -> None:
         """Move everything in `staged` into `dest`, directory by directory.
 
         A directory that exists on both sides is descended into rather than
@@ -1312,32 +1431,105 @@ One archive per object, by construction rather than by a guard.
         say about this exact path, because _place asks about where the
         member lands rather than about the staging directory.
 
-        A destination entry that is a symlink is never descended into, even
+        A destination entry that is a directory is never taken by
+        anything that is not one. That is _link's rule, and this is where
+        it has to be repeated: under `atomic` _link is writing into an
+        empty staging tree and never sees the directory it would refuse,
+        so without this a link -- or an ordinary file -- named after a
+        directory of the caller's removed it here instead.
+
+        A destination entry that is a link is never descended into, even
         when it points at a directory. Following one would move members
         outside the destination, which is the single thing this class
         exists to prevent; it is replaced like any other member instead.
+
+        "A link" means _is_plain_dir, not is_symlink(). A Windows junction
+        is a directory reparse point that reports is_dir() and does not
+        report is_symlink(), so the obvious spelling of this check walked
+        into one -- and only here, because the non-staged path resolves
+        through it in _under and refuses the member before it is written.
+        Staging is what postponed the question to a place that was asking
+        it the wrong way.
         """
 
-        # The handle is closed before the caller removes `staged`: an open
-        # directory handle is what makes a Windows rmtree fail, and the
-        # remove happens the moment this returns. Materialised first for
-        # the same reason -- scandir does not promise what it sees while
-        # the directory is being emptied underneath it, and every branch
-        # below empties it.
-        with os.scandir(staged) as it:
-            entries = list(it)
+        # An explicit stack, not recursion. One frame per level meant a
+        # crafted archive could exhaust the interpreter's: measured, 1500
+        # nested directories raised RecursionError out of the middle of the
+        # merge, leaving the destination half-written and the caller an
+        # error that said nothing about archives. Nothing bounds an
+        # archive's nesting unless the caller sets max_depth.
+        pairs = [(staged, dest)]
 
-        for entry in entries:
-            target = dest / entry.name
+        while pairs:
+            here, there = pairs.pop()
 
-            if entry.is_dir(follow_symlinks=False) and target.is_dir() and not target.is_symlink():
-                cls._graft(Path(entry.path), target)
-                continue
+            # The handle is closed before anything is moved: an open
+            # directory handle is what makes a Windows rmtree fail, and the
+            # caller removes `staged` the moment this returns. Materialised
+            # for the same reason -- scandir does not promise what it sees
+            # while the directory is being emptied underneath it, and every
+            # branch below empties it.
+            with os.scandir(here) as it:
+                entries = list(it)
 
-            if target.is_symlink() or target.exists():
-                remove_path(target)
+            for entry in entries:
+                target = there / entry.name
 
-            os.replace(entry.path, target)
+                # _is_plain_dir on the destination side, not
+                # `is_dir() and not is_symlink()`. A Windows junction
+                # passes that pair -- is_dir() True, is_symlink() False --
+                # so a destination holding one was descended into and every
+                # member under it was moved wherever it pointed. Measured:
+                # a junction planted in `dest` before the run took
+                # "sub/PWNED.txt" outside it, and only on the staged path,
+                # because a non-staged run resolves through the junction in
+                # _under and refuses the member there instead.
+                #
+                # Anything that is not a plain directory is replaced rather
+                # than entered, which is what the archive asked for anyway.
+                if entry.is_dir(follow_symlinks=False) and _is_plain_dir(target):
+                    pairs.append((Path(entry.path), target))
+                    continue
+
+                # The rule _link states, applied to the other half of the
+                # road: nothing that is not a directory takes a path a
+                # directory holds. _link refuses it where it writes, and
+                # under `atomic` it never sees it -- the staging directory
+                # is empty, so nothing is standing in the way there and the
+                # member is made. This is the first place the two sides
+                # meet, and it used to answer by removing the directory:
+                # measured, an archive with a link member named after a
+                # directory of the caller's took the whole tree away,
+                # silently, on the default path.
+                #
+                # A directory over a directory is the branch above and is a
+                # merge. Everything else here is one entry replacing one
+                # entry, which is what `overwrite` is about -- and a
+                # directory is not one entry.
+                if _is_plain_dir(target):
+                    log.warning("extract_archive: refused %r from %s, a directory "
+                                "stands at %r", entry.name, self.src.name, str(target))
+                    continue
+
+                if target.is_symlink() or target.exists():
+                    if _is_plain_dir(target):
+                        remove_path(target)
+                    else:
+                        # One entry, removed as one. remove_path sends a
+                        # directory to rmtree, and rmtree cannot remove a
+                        # Windows junction -- it is not a directory it can
+                        # walk and not a file it can unlink -- so with
+                        # ignore_errors it left the junction standing and
+                        # said nothing, and os.replace then failed with a
+                        # bare Access denied. unlink takes a file or a
+                        # symlink; rmdir takes a directory reparse point,
+                        # and takes the link rather than what it points at.
+                        try:
+                            os.unlink(target)
+                        except OSError:
+                            os.rmdir(target)
+
+                os.replace(entry.path, target)
 
 
     @staticmethod
@@ -1505,14 +1697,19 @@ One archive per object, by construction rather than by a guard.
 
         The first is answered from the archive's own account of the member
         and touches no filesystem: the name, the duplicates, the filter,
-        the kind, the ceilings. The kind is asked here rather than in the
-        two read loops, so a fifo, a socket or a device node is refused by
-        the same line whichever container carried it -- both spell one in
-        st_mode and both are read into _Member the same way. It is ordered
-        cheapest-first and
-        refusal-first at once -- the name before the filter, the filter
-        before anything is counted -- so a member the caller did not ask
-        for costs nothing at all against the ceilings.
+        the kind. The kind is asked here rather than in the two read
+        loops, so a fifo, a socket or a device node is refused by the same
+        line whichever container carried it -- both spell one in st_mode
+        and both are read into _Member the same way. It is ordered
+        cheapest-first and refusal-first at once, the name before the
+        filter and the filter before anything else.
+
+        The ceilings are weighed between the halves rather than at the end
+        of the first, because what they bound is what is about to be
+        written: a member the filter dropped and a member that resolves
+        outside the destination are both refused before count() sees them,
+        so neither spends an entry of max_files or bytes of
+        max_total_size.
 
         The second asks the filesystem, and has to run here rather than
         earlier because its answer keeps changing: a symlink member
@@ -1551,15 +1748,24 @@ One archive per object, by construction rather than by a guard.
         ):
             return 
 
-        self._limiter.count(m)
-
         # --- and what the filesystem says -------------------------------
 
         target = self._under(name)
 
         if target is None:
             log.warning("extract_archive: refused member %r in %s, it resolves outside the destination", name, self.src.name)
-            return 
+            return
+
+        # Counted here, after the last thing that can turn the member away
+        # for good. Earlier it was counted before this, so a member refused
+        # for resolving outside the destination still spent an entry of
+        # max_files and its bytes of max_total_size -- a ceiling reached by
+        # members that were never going to be written. What is counted is
+        # what is about to be, which is what the ceilings are described as
+        # bounding. `overwrite` below is the one refusal that comes after,
+        # and deliberately: it is a policy about a path that was otherwise
+        # fine, not a judgement that the member was never real.
+        self._limiter.count(m)
 
         if m.kind == "dir":
             return target
@@ -1585,23 +1791,34 @@ One archive per object, by construction rather than by a guard.
         if path in self._made:
             return True
 
-        # Which levels are about to be created, noted before the mkdir and
-        # not after, because afterwards they all exist and mkdir(parents=
-        # True) reports only that it succeeded, never which of them it
-        # made. Only the ledger wants this, so it is only walked when there
-        # is one -- and then once per directory rather than once per
-        # member, which `_made` above is what makes true.
+        # Which levels are missing, walked up before anything is made,
+        # because afterwards they all exist and nothing says which of them
+        # this run created. The ledger wants that; so does the loop below.
+        #
+        # It also replaces mkdir(parents=True), which recurses once per
+        # missing level inside pathlib: measured, an archive nesting 1500
+        # directories raised RecursionError out of the standard library,
+        # from a path the caller never chose. Walking up is a loop, and
+        # making them bottom-up is a loop, so the depth an archive can ask
+        # for is bounded by the filesystem rather than by the interpreter.
+        # Once per directory, not per member -- `_made` above is what makes
+        # that true -- and it stops at the first level already there, so an
+        # ordinary archive pays one or two stats per new directory.
         fresh = []
+        probe = path
 
-        if self._built is not None:
-            probe = path
-
-            while probe != self._root and probe != probe.parent and not probe.exists():
-                fresh.append(probe)
-                probe = probe.parent
+        while probe != self._root and probe != probe.parent and not probe.exists():
+            fresh.append(probe)
+            probe = probe.parent
 
         try:
-            path.mkdir(parents=True, exist_ok=True)
+            for level in reversed(fresh):
+                level.mkdir(exist_ok=True)
+
+            if not fresh:
+                # Already there, or it is the root. Asked anyway, so that a
+                # file sitting at the path still reports itself below.
+                path.mkdir(exist_ok=True)
         except FileExistsError:
             # With exist_ok=True this is the one thing left that raises it:
             # something is there and it is not a directory. The archive is
@@ -1617,7 +1834,7 @@ One archive per object, by construction rather than by a guard.
 
         self._made.add(path)
 
-        if fresh:
+        if fresh and self._built is not None:
             # `fresh` was collected child-first on the way up, so it goes
             # in outermost-first -- the order the undo relies on.
             self._built.extend(reversed(fresh))
@@ -1697,6 +1914,26 @@ One archive per object, by construction rather than by a guard.
             log.warning("extract_archive: refused %s %r in %s, a directory stands at %r", m.kind, m.name, self.src.name, str(target))
             return
 
+        # A hardlink to a link is refused rather than followed. _under
+        # resolves the destination's parent and joins the last component
+        # onto it without resolving that one, so a link sitting there is
+        # inside the root as a name while pointing wherever it likes -- and
+        # os.link follows it by default, which would give an inode outside
+        # the destination a name inside it. The archive cannot plant such a
+        # link itself, since every one it creates is checked; a destination
+        # that already had one can.
+        #
+        # os.link(follow_symlinks=False) says the same thing to the kernel
+        # and closes the gap between this check and the call, but only
+        # where the platform has it: Windows ignores the argument and macOS
+        # raises NotImplementedError for it, which is not an OSError and
+        # would not be caught below. So it is asked for only where it
+        # works, and the check above is what holds everywhere.
+        if m.kind == "hardlink" and resolved.is_symlink():
+            log.warning("extract_archive: refused hardlink %r in %s, its destination "
+                        "%r is itself a link", m.name, self.src.name, str(resolved))
+            return
+
         # Built beside the target and renamed onto it, never written over
         # it. os.replace takes the path from a file or a link in one step,
         # which is what lets a link member land where something already is
@@ -1710,8 +1947,10 @@ One archive per object, by construction rather than by a guard.
         try:
             if m.kind == "symlink":
                 os.symlink(raw, tmp)
-            else:
+            elif _LINK_NOFOLLOW:
                 os.link(resolved, tmp, follow_symlinks=False)
+            else:
+                os.link(resolved, tmp)
         except OSError as exc:
             log.warning("extract_archive: could not create %s %r (%s)", m.kind, m.name, exc)
             return
@@ -1926,6 +2165,15 @@ One archive per object, by construction rather than by a guard.
         pool = pool or own
         readers = _ZipReaders(self.src, self.password)
         inflight = {}          #: path -> the write filling it
+        pending = deque()      #: (path, write) in the order they went out
+
+        # How far the reader may run ahead of the writers. Without a bound
+        # the manifest is submitted whole before anything is waited on:
+        # measured, 3995 of 4000 members sitting in the queue at once, each
+        # holding its _Member and its ZipInfo, and `inflight` holding a
+        # Future per path on top. Four deep per worker keeps every one of
+        # them fed while the archive is read once, not held.
+        ahead = 4 * (count or 8)
 
         try:
             for info in readers.get().infolist():
@@ -1963,21 +2211,47 @@ One archive per object, by construction rather than by a guard.
                     # the only path it takes is one os.replace can take, and
                     # two members landing on one path are already serialised
                     # below.
+                    # Folded where one path can be spelled two ways and
+                    # still be one file. normcase does that on Windows and
+                    # nothing at all on POSIX, which is right for Linux and
+                    # wrong for macOS, where the filesystem folds and two
+                    # workers would otherwise be handed "Readme.txt" and
+                    # "README.TXT" believing they differ. Over-folding is
+                    # safe here in a way it is not in _taken: this only
+                    # decides what waits for what, never where a member
+                    # lands, so the cost of folding two real paths together
+                    # is that one waits for the other.
                     key = os.path.normcase(str(target))
+
+                    if _FOLD_CASE:
+                        key = key.lower()
 
                     if (earlier := inflight.pop(key, None)) is not None:
                         earlier.result()
 
-                    inflight[key] = pool.submit(self._zip_copy, readers, m, target)
+                    inflight[key] = job = pool.submit(self._zip_copy, readers, m, target)
+                    pending.append((key, job))
 
-            for job in inflight.values():
+                    # Backpressure. The oldest write is waited on and
+                    # forgotten, which bounds both the pool's queue and
+                    # `inflight` -- an entry is only wanted while a later
+                    # member might land on the same path, and one that has
+                    # finished has nothing left to be waited for.
+                    while len(pending) > ahead:
+                        done_key, done_job = pending.popleft()
+                        done_job.result()
+
+                        if inflight.get(done_key) is done_job:
+                            del inflight[done_key]
+
+            for _, job in pending:
                 job.result()
         finally:
             try:
-                for job in inflight.values():
+                for _, job in pending:
                     job.cancel()
 
-                wait(inflight.values())
+                wait([job for _, job in pending])
             finally:
                 try:
                     if own is not None:
