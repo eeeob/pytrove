@@ -566,6 +566,7 @@ class _Compressor:
 
 _COPY_BUF = 1 << 20
 _LINK_MAX = 4096
+_MISS = object()
 
 
 
@@ -979,6 +980,7 @@ class _Extractor:
     _cleared: dict = field(init=False, default_factory=dict)
     _ancestry: dict = field(init=False, default_factory=dict)
     _made: set = field(init=False, default_factory=set)
+    _own: set = field(init=False, default_factory=set)
     _built: Optional[list] = field(init=False, default=None)    
 
     # --- entry points ----------------------------------------------------
@@ -1047,9 +1049,10 @@ class _Extractor:
         if self._built is not None and not self._root.exists():
             self._built.append(self._root)
 
-        self._root.mkdir(exist_ok=True)
 
         try:
+            self._root.mkdir(exist_ok=True)
+
             if fmt is ArchiveFormat.ZIP:
                 self._zip(workers)
             else:
@@ -1060,18 +1063,17 @@ class _Extractor:
             if staged is not None:
                 remove_path(staged)
             elif self._built:
-                for path in dedupe(self._built or ()):
+                for path in dedupe(self._built):
                     safe_call(remove_path, path, include_exc=OSError, log_exc=True)
             raise
 
         if staged is not None:
             if not self.dest.exists() or not any(self.dest.iterdir()):
+                safe_call(remove_path, self.dest, include_exc=OSError, log_exc=True)
                 os.replace(staged, self.dest)
             else:
-                try:
-                    self._graft(staged, self.dest)
-                finally:
-                    remove_path(staged)
+                self._graft(staged, self.dest)
+                remove_path(staged)
 
     def _inspect(self, root: Path) -> None:
         """Put every extracted directory to `dir_check`, outermost first.
@@ -1258,6 +1260,18 @@ class _Extractor:
         trailing dot or space is the exception, because Windows strips one
         rather than storing it, so such a name has no faithful target and
         only the full resolve notices; POSIX takes it literally.
+
+        The cache is filled with setdefault and read with get, because this
+        runs on the pool as well as on the main thread -- _zip hands a link
+        member to a worker like any other, and _link asks this where the
+        link points. `if parent not in cache: cache[parent] = ...` is a
+        check and then an act with a resolve() in between, which is long
+        enough for another thread to run the whole of it; setdefault is one
+        dict operation and cannot be interleaved. Two threads may then
+        resolve the same directory at once, which costs a syscall and
+        settles on one answer rather than on whichever wrote last. _MISS
+        rather than None as the default, since None is what this stores for
+        a directory that may not be written into at all.
         """
 
         parent, _, base = name.rpartition("/")
@@ -1272,21 +1286,24 @@ class _Extractor:
                 else None
             )
         else:
-            if parent not in self._cleared:
-                self._cleared[parent] = (
+            if (safe := self._cleared.get(parent, _MISS)) is _MISS:
+                safe = self._cleared.setdefault(
+                    parent,
                     (
-                        _target 
-                        if (
-                            (_target := safe_call((self._root / parent).resolve, strict=False, include_exc=(ValueError, OSError), log_exc=True)) is not None
-                            and _target.is_relative_to(self._root) 
+                        (
+                            _target 
+                            if (
+                                (_target := safe_call((self._root / parent).resolve, strict=False, include_exc=(ValueError, OSError), log_exc=True)) is not None
+                                and _target.is_relative_to(self._root) 
+                            )
+                            else None
                         )
-                        else None
+                        if parent 
+                        else self._root
                     )
-                    if parent 
-                    else self._root
                 )
 
-            target = None if (safe := self._cleared[parent]) is None else safe / base
+            target = None if safe is None else safe / base
 
         return target
 
@@ -1336,9 +1353,9 @@ class _Extractor:
         # --- what the archive says --------------------------------------
 
         if (
-            not self._is_safe_member_name(name) or
-            not self._limiter.allows_name(name) or 
-            (self.flt and not self._member_kept(m))
+            not self._is_safe_member_name(name) or 
+            (self.flt and not self._member_kept(m)) or 
+            not self._limiter.allows_name(name) 
         ):
             return 
 
@@ -1385,11 +1402,33 @@ class _Extractor:
                 fresh.append(probe)
                 probe = probe.parent
 
+        # exist_ok is left off so that FileExistsError says what an
+        # exist_ok=True mkdir will not: whether the directory is one this
+        # run made or one that was already here. _link is what asks -- it
+        # may clear away a directory of ours to put a link where the
+        # archive says, and must not clear away the caller's. The parents
+        # are still created silently; only the leaf reports.
         try:
-            path.mkdir(parents=True, exist_ok=True)
+            path.mkdir(parents=True)
+        except FileExistsError:
+            # Something is there, and mkdir(exist_ok=True) would have said
+            # nothing about what. A file is the archive contradicting
+            # itself -- "sub" and "sub/" both -- and this has to report it,
+            # or the member that needed the directory would be told there
+            # is one and fail further along with a worse message.
+            if not path.is_dir():
+                log.warning("extract_archive: cannot create directory %r in %s, "
+                            "a file is already there", str(path), self.src.name)
+                return False
         except OSError as exc:
             log.warning("extract_archive: cannot create directory %r in %s (%s)", str(path), self.src.name, exc)
             return False
+        else:
+            # Conservatively the leaf only. mkdir(parents=True) may have
+            # made levels above it too, but it does not say which, and
+            # calling one of those ours when it was not is the mistake that
+            # costs something.
+            self._own.add(path)
 
         self._made.add(path)
 
@@ -1408,7 +1447,9 @@ class _Extractor:
         logs or raises on its own. `overwrite` is the caller's too, and was
         answered in _place like any other member; what is left here is
         carrying that answer out, since a link cannot be written over the
-        way a file can.
+        way a file can -- so it is created beside its path and renamed onto
+        it, which takes the path from whatever is there without a moment in
+        which the path holds nothing.
 
         Containment is not. A symlink is resolved relative to its own
         directory and a hardlink relative to the archive root, and either
@@ -1431,21 +1472,56 @@ class _Extractor:
             log.warning("extract_archive: refused %s %r pointing outside %s in %s", m.kind, m.name, self.dest.name, self.src.name)
             return
 
-        remove_path(target)
+        # A directory standing in the way is the one case a rename cannot
+        # settle, and the only one where taking the path costs more than
+        # the path. It is cleared when this run is what made it -- an
+        # archive listing "sub/" and then "sub" as a link is describing its
+        # own tree and may have it -- and refused when it was already
+        # there, because a link member is not a reason to delete a
+        # directory of the caller's and everything under it.
+        #
+        # is_symlink() first: a link already at the target is replaced
+        # below like any other entry, and on Windows a junction reports
+        # is_dir() without reporting is_symlink(), so it lands here and is
+        # refused rather than walked into.
+        if not target.is_symlink() and target.is_dir():
+            if target not in self._own:
+                log.warning("extract_archive: refused %s %r in %s, a directory that "
+                            "was already there stands at %r",
+                            m.kind, m.name, self.src.name, str(target))
+                return
+
+            remove_path(target)
+
+        # Built beside the target and renamed onto it, never written over
+        # it. os.replace takes the path from a file or a link in one step,
+        # which is what lets a link member land where something already is
+        # -- and it is the only ordering under which a link that cannot be
+        # created leaves what was there alone. Creating first and clearing
+        # afterwards would delete on behalf of a link that never appeared:
+        # a symlink on Windows without the privilege, a hardlink across a
+        # volume, a destination that has gone.
+        tmp = target.with_name(f".{target.name}.{os.urandom(4).hex()}.tmp")
 
         try:
             if m.kind == "symlink":
-                os.symlink(raw, target)
+                os.symlink(raw, tmp)
             else:
-                os.link(resolved, target)
+                os.link(resolved, tmp)
         except OSError as exc:
-            # Creating a symlink needs a privilege on Windows that an
-            # ordinary account does not hold, and a hardlink needs the
-            # target to exist and to share a volume.
             log.warning("extract_archive: could not create %s %r (%s)", m.kind, m.name, exc)
-        else:
-            if self._built is not None:
-                self._built.append(target)
+            return
+
+        try:
+            os.replace(tmp, target)
+        except OSError as exc:
+            safe_call(remove_path, tmp, include_exc=OSError, log_exc=True)
+            log.warning("extract_archive: could not put %s %r at %r (%s)",
+                        m.kind, m.name, str(target), exc)
+            return
+
+        if self._built is not None:
+            self._built.append(target)
 
     def _spill(self, m: _Member, data: io.BufferedIOBase, target: Path) -> None:
         """Copy one member's bytes into place, in bounded chunks.
@@ -1531,9 +1607,17 @@ class _Extractor:
         None. Everything a file is put through first applies to it
         unchanged -- the encryption flag, the AES refusal, the handle -- so
         it is the same open() rather than a second one written beside it.
-        _zip never hands a link to the pool, so _link still runs on the
-        main thread, which is what keeps the directory cache and the ledger
-        single-threaded.
+
+        That puts _link on a worker, and the state it reaches is written
+        for it. _under fills the directory cache with setdefault, which is
+        one dict operation where `if not in: ...` was a check and an act
+        with a resolve() between them. The ledger is a list and append is
+        atomic; nothing reads it until the run is over. The limiter is only
+        asked about the policy, which reads a setting and returns. And two
+        members landing on one path are already serialised by `inflight`,
+        so the link and the file that collide with each other do not run at
+        once. What stays on the main thread is what decides: _place, and
+        every mkdir.
 
         Everything refused here is a zip's to refuse: encryption is
         recorded in a flag bit no tar has, and WinZip AES is a compression
@@ -1628,7 +1712,9 @@ class _Extractor:
         Each worker gets its own handle -- see _ZipReaders -- because seeking
         one handle from two threads reads the wrong bytes. The main thread
         keeps the manifest handle, decides every path and creates every
-        directory, so the only thing a worker touches is its own member.
+        directory; a worker writes its own member and, for a link, reads
+        the destination and creates it -- see _zip_copy for what that
+        shares and how.
         """
 
         count, pool = _split_workers(workers, "extract_archive")
