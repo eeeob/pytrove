@@ -1,6 +1,3 @@
-import os
-import sys
-
 from pathlib import Path
 from typing import Optional, Union
 from concurrent.futures import Executor
@@ -11,85 +8,15 @@ from .errors import ValidationError
 from .iter_tools import iter_flat_cont
 from .files_tools import atomic_write, resolve_path
 from ._archive_tools import (
-    std_zstd,
-    zstandard,
     _Compressor,
     _Extractor,
     _Filter,
     _Rule,
     _format_from_suffix,
+    _is_hidden,
+    _require_zstd,
+    _temp_file_rule,
 )
-
-
-def _is_hidden(_, entry: Optional[os.DirEntry]) -> bool:
-    if entry is None:
-        return False
-
-    if entry.name.startswith("."):
-        return True
-
-    try:
-        return bool(getattr(entry.stat(), "st_file_attributes", 0) & 0x2)
-    except OSError:
-        return False
-
-def _temp_file_rule(folder: str, prefix: str):
-    """Match only atomic_write's own temp file for one destination.
-
-    It is written into the destination's directory as ".<name>.XXXXXXXX.tmp"
-    -- see files_tools.atomic_write -- so all three parts are checked: the
-    directory it must be in, the prefix, and the suffix. Checking the prefix
-    alone was enough to drop a user's own ".backup.zip.notes", and to drop it
-    from any directory in the tree.
-    """
-
-    cut = len(folder)
-
-    def rule(rel: str, _) -> bool:
-        if not rel.startswith(folder):
-            return False
-
-        base = rel[cut:]
-
-        return ("/" not in base
-                and base.startswith(prefix)
-                and base.endswith(".tmp"))
-
-    return rule
-
-def _require_zstd() -> None:
-    """Raise the standard missing-extra error unless zstd is available.
-
-    Two backends can serve, and each is either the imported module or
-    None: compression.zstd, which is standard library from 3.14, and the
-    zstandard package. Either is enough, so the cure
-    depends on why it is missing. On 3.14 the module is importable whenever
-    Python was compiled against libzstd, so its absence there means the
-    interpreter was built without it and the extra would fix nothing --
-    pointing someone at `pip install` sends them after a package they do
-    not need and leaves them stuck.
-    """
-
-    if std_zstd is not None or zstandard is not None:
-        return
-
-    if sys.version_info >= (3, 14):
-        raise ImportError(
-            "compress_folder: tar.zst needs zstd support, and this "
-            "interpreter was built without it -- compression.zstd is part "
-            "of the standard library from 3.14, but only when Python was "
-            "compiled against libzstd. Either use an interpreter that was, "
-            "or install the third-party backend: pip install zstandard"
-        )
-
-    raise ImportError(
-        "To use this feature, all required packages must be installed.\n"
-        "Run: pip install 'pytrove[zstd]'\n"
-        "\n"
-        "Required : 'zstandard'\n"
-        "Missing  : 'zstandard'"
-    )
-
 
 
 def compress_folder(
@@ -223,7 +150,7 @@ def compress_folder(
     If a filter has to mean the same thing on every machine, either
     require the extra or keep to the patterns above.
 
-        pip install 'pytrove[glob]'
+        pip install 'pytrove[archive]'
 
     An entry no rung matched is archived when there are no `include` rules
     at all, and skipped when there are: passing anything on the include
@@ -361,10 +288,11 @@ def compress_folder(
     # What the destination's own name says, and None when it says nothing
     # -- an extension this does not know, or a directory, which has no name
     # to read because the archive inside it has not been named yet.
-    named = None if dest.is_dir() else _format_from_suffix(dest.name)
+    into_dir = dest.is_dir()
+    named = None if into_dir else _format_from_suffix(dest.name)
 
     if format is None:
-        if named is None and not dest.is_dir():
+        if named is None and not into_dir:
             raise ValidationError(
                 f"compress_folder: cannot tell what format {dest.name!r} should "
                 f"be -- end it with one of "
@@ -384,7 +312,7 @@ def compress_folder(
                 f"answer or the other, not two that disagree"
             )
 
-    dest_path = dest / f"{src.name}.{fmt.value}" if dest.is_dir() else dest
+    dest_path = dest / f"{src.name}.{fmt.value}" if into_dir else dest
 
     if fmt is ArchiveFormat.TAR_ZST:
         _require_zstd()
@@ -438,6 +366,84 @@ def extract_archive(
     atomic: bool = False,
     cleanup_on_error: bool = True,
     ) -> Path:
+
+    """Extract the archive at `src` into `dest`, and return `dest`.
+
+    Members are written into the destination itself, not into a folder
+    named after the archive: backup.zip extracted to backup/ puts its
+    members directly in backup/.
+
+    The format is read from the archive's own leading bytes, and only from
+    its extension when those say nothing -- a .zip that is really a tar.gz
+    extracts, and one renamed to hide what it is is not trusted on the
+    strength of its name.
+
+    An archive is untrusted input. Every member name is an attacker's
+    string until it has been checked, and the checking is not optional:
+
+      a name that is absolute in any spelling, climbs out with "..",
+      carries a NUL or a backslash, or holds an empty segment is refused
+      outright, and so is one that lands outside `dest` once the
+      filesystem has resolved it -- through a "..", a drive, a symlink an
+      earlier member left in the way, or a Windows junction that was
+      already there.
+
+      a link member is refused by default (`limits.symlinks` and
+      `limits.hardlinks`), and where it is allowed, a destination that
+      resolves outside `dest` is refused whatever the policy says. That is
+      not a setting: a later member written "through" an escaping link
+      lands outside while its own name still looks harmless.
+
+      a fifo, a socket or a device node is never recreated, in either
+      container.
+
+    `include` and `exclude` are the same rules compress_folder takes, in
+    the same order, matched against each member's name -- see its
+    docstring for the ladder and for what the `archive` extra changes
+    about globs. A directory's exclusion reaches what is under it here
+    too, so exclude="docs" empties docs/ on the way out as it does on the
+    way in.
+
+    `limits` is an ArchiveLimits: the six ceilings that stop a zip bomb
+    (max_files, max_total_size, max_file_size, max_ratio, max_depth,
+    max_dir_entries), the four policies (symlinks, hardlinks, overwrite,
+    duplicates) and dir_check. See ArchiveLimits, and note what max_ratio
+    can and cannot see -- it is read from the header, which a tar does not
+    carry at all.
+
+    `password` decrypts a zip written with the legacy ZipCrypto scheme,
+    which is all the standard library reads; a WinZip AES member is
+    refused rather than half-read. A tar has no encryption of its own, so
+    passing one there is reported and ignored.
+
+    `workers` splits the work across threads, and only on a zip -- members
+    are compressed independently there and zlib releases the GIL. It takes
+    a count or an Executor, exactly as compress_folder does. A tar is one
+    stream read in order, so a value passed with one is reported and
+    ignored rather than silently doing nothing.
+
+    `atomic` writes into a sibling temp directory and moves the result in
+    only once the whole archive has been read, so an archive that turns
+    out to be wrong part-way leaves `dest` as it was. What is atomic is
+    the *decision*, not the move: an empty or missing destination is taken
+    by one rename, and an existing one is merged into member by member,
+    which no platform does in a single step. Nothing reaches `dest` before
+    the archive has been read to the end either way, and a file the
+    archive never mentioned is left where it is.
+
+    `cleanup_on_error` is on by default and is the same promise without a
+    staging directory: everything this run created is removed again if it
+    does not finish, and nothing that was in `dest` beforehand is touched.
+    Pass False to keep what came out before the archive turned out to be
+    wrong.
+
+    Raises ValidationError for an archive whose contents do not match its
+    own metadata, ArchiveLimitError for a ceiling, ArchivePolicyError for
+    a policy set to "error", and NotADirectoryError when `dest` exists and
+    is not a directory. A refusal that is not any of those -- an unsafe
+    name, an escaping link, a member the filter dropped -- is logged and
+    skipped, so one bad member does not cost the other several thousand.
+    """
 
     src = resolve_path(src, strict=True)
     dest = resolve_path(dest)

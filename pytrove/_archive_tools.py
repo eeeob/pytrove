@@ -17,8 +17,10 @@ import tempfile
 import threading
 import zipfile
 import stat
+import sys
 import io
 
+from collections import deque
 from concurrent.futures import Executor, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from fnmatch import fnmatchcase
@@ -62,6 +64,71 @@ except ImportError:
 log = logging.getLogger(__name__)
 
 
+# --- constants -------------------------------------------------------
+
+#: How much of a member is held in memory while it is copied out. One
+#: buffer per member being written, so a 4 GB file costs this and not its
+#: own size.
+_COPY_BUF = 1 << 20
+
+#: The longest link destination read out of a zip member's data. A
+#: destination is a path, and 4096 is the longest any platform stores one;
+#: a header claiming more is describing something that is not a link.
+_LINK_MAX = 4096
+
+#: Cache miss. _Extractor._cleared stores None for "this directory may not
+#: be written into", so absence cannot be spelled with None and dict.get
+#: needs a default of its own.
+_MISS = object()
+
+#: Windows strips a trailing dot or space from every path component before
+#: it reaches the filesystem, so "foo. " and "foo" name one file there and
+#: "..." names the directory itself. _Extractor._under does that stripping
+#: itself rather than handing the OS a name it will quietly rewrite.
+_NT = os.name == "nt"
+
+#: Extension -> format. The one table both directions read: compress_folder
+#: to learn what `dest` is asking to be written, extract_archive to fall
+#: back on when an archive's leading bytes say nothing. None of the four is
+#: a suffix of another, so the order is only the order they were written.
+_SUFFIXES = (
+    (".zip", ArchiveFormat.ZIP),
+    (".tar.zst", ArchiveFormat.TAR_ZST),
+    (".tar.gz", ArchiveFormat.TAR_GZ),
+    (".tgz", ArchiveFormat.TAR_GZ),
+)
+
+
+# --- type aliases ----------------------------------------------------
+
+#: (absolute path, posix arcname, is_dir) -- what the compression walk
+#: yields, once per entry it keeps.
+_WalkEntry: TypeAlias = Tuple[str, str, bool]
+
+#: What a predicate rule is handed alongside the path: an os.DirEntry while
+#: a tree is walked, the container's own header while an archive is read,
+#: and None for a directory an archive only implied.
+_RawEntry: TypeAlias = Optional[Union["os.DirEntry", zipfile.ZipInfo, tarfile.TarInfo]]
+
+#: One filter rule as a caller writes it -- a name, a path, a glob, or a
+#: predicate taking the two above.
+_Rule: TypeAlias = Union[str, Callable[[str, _RawEntry], bool]]
+
+
+# --- helpers ---------------------------------------------------------
+
+def _format_from_suffix(name: str) -> Optional[ArchiveFormat]:
+    """Which format a name claims to be, or None if it claims nothing."""
+
+    lower = name.lower()
+
+    for suffix, fmt in _SUFFIXES:
+        if lower.endswith(suffix):
+            return fmt
+
+    return None
+
+
 def _split_workers(workers, who: str) -> Tuple[Optional[int], Optional[Executor]]:
     """Read the one `workers` argument as a count and a pool.
 
@@ -86,9 +153,95 @@ def _split_workers(workers, who: str) -> Tuple[Optional[int], Optional[Executor]
         f"not {type(workers).__name__}"
     )
 
-_WalkEntry: TypeAlias = Tuple[str, str, bool]
-_RawEntry: TypeAlias = Optional[Union["os.DirEntry", zipfile.ZipInfo, tarfile.TarInfo]]
-_Rule: TypeAlias = Union[str, Callable[[str, _RawEntry], bool]]
+
+def _is_hidden(_, entry: Optional[os.DirEntry]) -> bool:
+    """Whether the walk should treat this entry as hidden.
+
+    compress_folder's `exclude_hidden` is this and nothing else -- an
+    ordinary exclude predicate, so it prunes a hidden directory the way any
+    other rule does and loses to the include rungs above it.
+
+    Both conventions, because one tree can carry either: a leading dot, and
+    the Windows hidden attribute. `entry` is None where a rule is asked
+    about something that is not a filesystem entry -- a directory an
+    archive only implied -- and nothing can be read off it, so it is not
+    hidden.
+    """
+
+    if entry is None:
+        return False
+
+    if entry.name.startswith("."):
+        return True
+
+    try:
+        return bool(getattr(entry.stat(), "st_file_attributes", 0) & 0x2)
+    except OSError:
+        return False
+
+
+def _temp_file_rule(folder: str, prefix: str):
+    """Match only atomic_write's own temp file for one destination.
+
+    It is written into the destination's directory as ".<name>.XXXXXXXX.tmp"
+    -- see files_tools.atomic_write -- so all three parts are checked: the
+    directory it must be in, the prefix, and the suffix. Checking the prefix
+    alone was enough to drop a user's own ".backup.zip.notes", and to drop it
+    from any directory in the tree.
+    """
+
+    cut = len(folder)
+
+    def rule(rel: str, _) -> bool:
+        if not rel.startswith(folder):
+            return False
+
+        base = rel[cut:]
+
+        return ("/" not in base
+                and base.startswith(prefix)
+                and base.endswith(".tmp"))
+
+    return rule
+
+
+def _require_zstd() -> None:
+    """Raise the standard missing-extra error unless zstd is available.
+
+    Called from both directions -- compress_folder writes tar.zst and
+    extract_archive reads it -- so the message names neither.
+
+    Two backends can serve, and each is either the imported module or
+    None: compression.zstd, which is standard library from 3.14, and the
+    zstandard package. Either is enough, so the cure
+    depends on why it is missing. On 3.14 the module is importable whenever
+    Python was compiled against libzstd, so its absence there means the
+    interpreter was built without it and the extra would fix nothing --
+    pointing someone at `pip install` sends them after a package they do
+    not need and leaves them stuck.
+    """
+
+    if std_zstd is not None or zstandard is not None:
+        return
+
+    if sys.version_info >= (3, 14):
+        raise ImportError(
+            "tar.zst needs zstd support, and this "
+            "interpreter was built without it -- compression.zstd is part "
+            "of the standard library from 3.14, but only when Python was "
+            "compiled against libzstd. Either use an interpreter that was, "
+            "or install the third-party backend: pip install zstandard"
+        )
+
+    raise ImportError(
+        "To use this feature, all required packages must be installed.\n"
+        "Run: pip install 'pytrove[archive]'\n"
+        "\n"
+        "Required : 'zstandard'\n"
+        "Missing  : 'zstandard'"
+    )
+
+
 
 class _Rules(NamedTuple):
     """One side's rules, sorted onto the rungs they are tested on.
@@ -120,11 +273,21 @@ class _Filter:
     def sort(items: Iterable[_Rule]) -> _Rules:
         """Sort one side's rules onto their rungs, keyed on the set itself.
 
-        Cached because a walk asks the same two sets about every entry in
-        the tree, and sorting is pure: the same set always gives the same
-        answer. A frozenset hashes by content, so a caller passing the
-        same rules again hits the cache without having kept anything
-        alive.
+        Cached across calls, not within one: this runs twice per
+        compress_folder or extract_archive -- once per side, from
+        from_rules -- and never again while the walk is running. Measured
+        on a 60-entry tree: two calls. What the cache saves is the second
+        run with the same rules, which is what a loop over many folders
+        does.
+
+        Keyed on the tuple itself, so a tuple of names or globs hashes by
+        content and matches. A predicate does not: two lambdas that read
+        the same are different objects, and a closure built per call --
+        compress_folder's own temp-file rule is one -- misses every time
+        and leaves an entry behind. The cache holds a strong reference to
+        what it was keyed on, so those entries keep their closures alive
+        until 256 of them push the oldest out. Bounded, but not free, and
+        the reason not to grow maxsize.
 
         A bare name is the only thing that reaches the name rung. Anything
         carrying a path of its own -- "src/main.py", "/logs" -- names one
@@ -391,7 +554,8 @@ class _Compressor:
             current = stack.pop()
 
             try:
-                entries = list(os.scandir(current))
+                with os.scandir(current) as it:
+                    entries = list(it)
             except OSError as exc:
                 # A directory that vanished or was never readable is skipped
                 # rather than aborting an otherwise complete backup -- but
@@ -462,23 +626,29 @@ class _Compressor:
                 emitted.add(branch)
                 yield os.path.join(self.root, *parts[:i]), branch, True
 
-    def _write_zip(self, out, level, workers, executor, _use_fastzip=False) -> None:
-        """Write every walked entry into a zip container."""
+    def _write_zip(self, out, level, workers, executor) -> None:
+        """Write every walked entry into a zip container.
+
+        Two writers, and which one is decided here rather than by the
+        caller: fastzip when a pool was asked for and it is installed,
+        zipfile otherwise. They differ in what reaches the archive -- see
+        the directory record below -- so the choice is worth reading.
+        """
 
         entries = iter(self)
+        use_fastzip = False
 
         if (workers or 0) > 1 or executor is not None:
             if WZip is None:
                 log.warning(
                     "compress_folder: workers requested but fastzip is not available, "
                     "compressing on this thread instead. Install it with: "
-                    "pip install 'pytrove[fastzip]'"
+                    "pip install 'pytrove[archive]'"
                 )
             else:
-                _use_fastzip = True
+                use_fastzip = True
 
-
-        if _use_fastzip:
+        if use_fastzip:
             zf = WZip(
                 Path(getattr(out, "name", "archive.zip")), fobj=out, 
                 threads=workers or None, executor=executor, 
@@ -496,11 +666,11 @@ class _Compressor:
                 # record to add. Nothing is lost by leaving them out -- the
                 # extractor creates a member's parents anyway -- but an archive
                 # written with workers does list one fewer name.
-                if is_dir and _use_fastzip:
+                if is_dir and use_fastzip:
                     continue
 
                 try:
-                    if _use_fastzip:
+                    if use_fastzip:
                         zf.write(Path(path), archive_path=Path(arcname))
                     else:
                         # ZipInfo.from_file appends the "/" that marks a
@@ -563,31 +733,6 @@ class _Compressor:
                     # is dropped rather than failing the whole backup.
                     log.warning("compress_folder: skipped %r (%s)", path, exc)
                     continue
-
-
-
-_COPY_BUF = 1 << 20
-_LINK_MAX = 4096
-_MISS = object()
-_NT = os.name == "nt"
-_SUFFIXES = (
-    (".zip", ArchiveFormat.ZIP),
-    (".tar.zst", ArchiveFormat.TAR_ZST),
-    (".tar.gz", ArchiveFormat.TAR_GZ),
-    (".tgz", ArchiveFormat.TAR_GZ),
-)
-
-
-def _format_from_suffix(name: str) -> Optional[ArchiveFormat]:
-    """Which format a name claims to be, or None if it claims nothing."""
-
-    lower = name.lower()
-
-    for suffix, fmt in _SUFFIXES:
-        if lower.endswith(suffix):
-            return fmt
-
-    return None
 
 
 
@@ -1128,13 +1273,21 @@ One archive per object, by construction rather than by a guard.
         if self.limits.dir_check is None:
             return
 
-        stack = [root]
+        # A deque, because this walks outermost-first and popping the
+        # front of a list moves every other element each time -- O(n) per
+        # directory on a tree that can hold thousands.
+        stack = deque([root])
 
         while stack:
+            here = stack.popleft()
+
             try:
-                entries = list(os.scandir(stack.pop(0)))
+                with os.scandir(here) as it:
+                    entries = list(it)
             except OSError as exc:
-                log.warning("extract_archive: cannot read back %r (%s)", root, exc)
+                # `here`, not `root`: the failure is one directory's, and
+                # naming the root said nothing about which.
+                log.warning("extract_archive: cannot read back %r (%s)", str(here), exc)
                 continue
 
             for entry in entries:
@@ -1166,7 +1319,16 @@ One archive per object, by construction rather than by a guard.
         exists to prevent; it is replaced like any other member instead.
         """
 
-        for entry in os.scandir(staged):
+        # The handle is closed before the caller removes `staged`: an open
+        # directory handle is what makes a Windows rmtree fail, and the
+        # remove happens the moment this returns. Materialised first for
+        # the same reason -- scandir does not promise what it sees while
+        # the directory is being emptied underneath it, and every branch
+        # below empties it.
+        with os.scandir(staged) as it:
+            entries = list(it)
+
+        for entry in entries:
             target = dest / entry.name
 
             if entry.is_dir(follow_symlinks=False) and target.is_dir() and not target.is_symlink():

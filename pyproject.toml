@@ -54,10 +54,14 @@ proxy = ["wrapt>=1.16"]
 locale = ["babel>=2.14"]
 jsonref = ["jsonref>=1.1"]
 fastjson = ["orjson>=3.9"]
-zstd = ["zstandard>=0.22"]
+archive = [
+    "zstandard>=0.22; python_version < '3.14'",
+    "fastzip>=0.5",
+    "pathspec>=1.0",
+]
 
 full = [
-    "pytrove[imap,phone,country,bs4,mongo,tg,crypto,typecheck,proxy,locale,jsonref,fastjson,zstd]"
+    "pytrove[imap,phone,country,bs4,mongo,tg,crypto,typecheck,proxy,locale,jsonref,fastjson,archive]"
 ]
 
 [tool.hatch.build.targets.sdist]
