@@ -31,9 +31,17 @@ class ArchiveLimits(NamedTuple):
     and the caller picks.
 
     max_files counts every member written -- files, directories and links
-    alike -- because what it is there to bound is how many filesystem
-    entries an archive may create, and a million empty directories costs
-    what a million empty files costs.
+    alike -- because a million empty directories costs what a million
+    empty files costs.
+
+    Members, though, and not entries created: an archive listing
+    "a/b/c.txt" and nothing else creates "a" and "a/b" too, and those cost
+    it one against this rather than three. The two are the same number for
+    an archive that lists its directories, which is nearly all of them, and
+    an archive that leaves them implied can create more entries than this
+    counts -- bounded by how deep it is allowed to go, which is max_depth,
+    and by how wide, which is max_dir_entries. Those two see every implied
+    directory; this one sees what the archive actually lists.
 
     max_dir_entries is the same count taken one directory at a time, and it
     is the breadth of the tree where max_depth is the height. An archive

@@ -135,7 +135,7 @@ def compress_folder(
     something out of an archive is the one you can fix by running it
     again.
 
-    Globs are matched by `pathspec` when the `glob` extra is installed,
+    Globs are matched by `pathspec` when the `archive` extra is installed,
     which is the same engine git itself is modelled on. Without it they
     fall back to `fnmatch` from the standard library, and exactly three
     kinds of pattern then behave differently -- measured, not guessed:
@@ -228,7 +228,8 @@ def compress_folder(
                      format here whose work can be split across threads.
       TAR_ZST        one stream, parallelised inside zstandard instead when
                      asked; reaches gzip's ratio several times faster.
-                     Needs the `zstd` extra.
+                     Needs the `archive` extra, except on 3.14 and up
+                     where zstd is in the standard library.
       TAR_GZ         one stream, gzip, no parallelism available at all.
 
     It defaults to None, which means read it off `dest`: "backup.tar.gz"
@@ -443,13 +444,19 @@ def extract_archive(
     ignored rather than silently doing nothing.
 
     `atomic` is on by default. It writes into a sibling temp directory
-    and moves the result in only once the whole archive has been read, so an archive that turns
-    out to be wrong part-way leaves `dest` as it was. What is atomic is
-    the *decision*, not the move: an empty or missing destination is taken
-    by one rename, and an existing one is merged into member by member,
-    which no platform does in a single step. Nothing reaches `dest` before
-    the archive has been read to the end either way, and a file the
+    and moves the result in only once the whole archive has been read, so
+    an archive that turns out to be wrong part-way leaves `dest` as it
+    was. What is atomic is the *decision*, not the move: a destination
+    that is not there yet is taken by one rename, and one that is there is
+    merged into member by member -- no platform moves a tree into an
+    existing one in a single step, and POSIX takes the rename for an empty
+    destination where Windows refuses it always. Nothing reaches `dest`
+    before the archive has been read to the end either way, and a file the
     archive never mentioned is left where it is.
+
+    Nothing in `dest` is cleared to make room for the move, so a failure
+    at that last step leaves `dest` as it was and the extracted tree on
+    disk beside it, named in the log rather than removed.
 
     Being a sibling, the staging directory needs `dest`'s parent to exist.
     So does `dest` itself: neither is created with its parents, so
@@ -464,11 +471,22 @@ def extract_archive(
     wrong.
 
     Raises ValidationError for an archive whose contents do not match its
-    own metadata, ArchiveLimitError for a ceiling, ArchivePolicyError for
-    a policy set to "error", and NotADirectoryError when `dest` exists and
-    is not a directory. A refusal that is not any of those -- an unsafe
-    name, an escaping link, a member the filter dropped -- is logged and
-    skipped, so one bad member does not cost the other several thousand.
+    own metadata or whose format cannot be identified at all,
+    ArchiveLimitError for a ceiling, ArchivePolicyError for a policy set
+    to "error", and NotADirectoryError when `dest` exists and is not a
+    directory. All four are UtilError.
+
+    A container too damaged to be read at all comes back as its own
+    reader's error and not as one of those -- zipfile.BadZipFile,
+    tarfile.ReadError, gzip.BadGzipFile -- because that is a fact about
+    the file rather than about a member, and rewrapping it would only
+    hide which reader said so. Catch those alongside UtilError if the
+    difference does not matter to you.
+
+    A refusal that is not any of the above -- an unsafe name, an escaping
+    link, a member the filter dropped, a directory standing where a member
+    wanted to be -- is logged and skipped, so one bad member does not cost
+    the other several thousand.
     """
 
     src = resolve_path(src, strict=True)

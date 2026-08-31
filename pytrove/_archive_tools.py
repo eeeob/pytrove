@@ -1237,7 +1237,7 @@ class _Extractor:
     def run(self, fmt: ArchiveFormat, workers=None, atomic: bool = False, cleanup_on_error: bool = False) -> None:
         """Extract, optionally through a staging directory. Once.
 
-One archive per object, by construction rather than by a guard.
+        One archive per object, by construction rather than by a guard.
         The object holds a destination it has already resolved paths
         against, a directory cache, and a _Limiter that has already spent
         its ceilings; a second run() would answer the second archive with
@@ -1511,23 +1511,21 @@ One archive per object, by construction rather than by a guard.
                                 "stands at %r", entry.name, self.src.name, str(target))
                     continue
 
+                # One entry, removed as one, and never remove_path: it
+                # sends a directory to rmtree, and rmtree cannot remove a
+                # Windows junction -- not a directory it can walk, not a
+                # file it can unlink -- so with ignore_errors it left the
+                # junction standing and said nothing, and os.replace then
+                # failed with a bare Access denied. unlink takes a file or
+                # a symlink; rmdir takes a directory reparse point, and
+                # takes the link rather than what it points at. A plain
+                # directory never reaches here -- it was either descended
+                # into or refused above -- so nothing recursive is wanted.
                 if target.is_symlink() or target.exists():
-                    if _is_plain_dir(target):
-                        remove_path(target)
-                    else:
-                        # One entry, removed as one. remove_path sends a
-                        # directory to rmtree, and rmtree cannot remove a
-                        # Windows junction -- it is not a directory it can
-                        # walk and not a file it can unlink -- so with
-                        # ignore_errors it left the junction standing and
-                        # said nothing, and os.replace then failed with a
-                        # bare Access denied. unlink takes a file or a
-                        # symlink; rmdir takes a directory reparse point,
-                        # and takes the link rather than what it points at.
-                        try:
-                            os.unlink(target)
-                        except OSError:
-                            os.rmdir(target)
+                    try:
+                        os.unlink(target)
+                    except OSError:
+                        os.rmdir(target)
 
                 os.replace(entry.path, target)
 
@@ -1558,7 +1556,7 @@ One archive per object, by construction rather than by a guard.
         if (fmt := _format_from_suffix(path)) is not None:
             return fmt
 
-        raise ValueError(f"extract_archive: cannot tell what format {path!r} is")
+        raise ValidationError(f"extract_archive: cannot tell what format {path!r} is")
 
     # --- where a member may go -------------------------------------------
 
@@ -2393,7 +2391,7 @@ One archive per object, by construction rather than by a guard.
         )
 
         if not is_safe:
-            log.warning("refused unsafe member name %r in %s", name, self.src.name)
+            log.warning("extract_archive: refused unsafe member name %r in %s", name, self.src.name)
 
         return is_safe
 

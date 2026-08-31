@@ -45,7 +45,8 @@ class ArchiveFormat(StrEnum):
     TAR_ZST = "tar.zst"
     """Zstandard over a single tar stream -- same shape as TAR_GZ, but the
     codec parallelises internally, so it reaches gzip's ratio at several
-    times the speed. Needs the `zstd` extra."""
+    times the speed. Needs the `archive` extra, except on 3.14 and up
+    where zstd is in the standard library."""
 
 class ArchiveLinkPolicy(StrEnum):
     """What archive_tools.extract_archive does with a link member.
