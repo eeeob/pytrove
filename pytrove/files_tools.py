@@ -121,57 +121,253 @@ def ensure_dir(path: PathLike, for_file: bool = False, **kwargs: Unpack[_MkdirOp
     return path
 
 
-def remove_files(*files: NestedContainer[PathLike], return_exc: bool = False, log_exc: bool = False):
-    removed, files = [], dedupe(iter_flat_cont(files))
+@overload
+def remove_files(
+    *files: NestedContainer[PathLike],
+    return_exc: _False = False,
+    log_exc: bool = False,
+) -> List[Path]: ...
+@overload
+def remove_files(
+    *files: NestedContainer[PathLike],
+    return_exc: _True,
+    log_exc: bool = False,
+) -> List[Union[Path, OSError]]: ...
+def remove_files(
+    *files: NestedContainer[PathLike],
+    return_exc: bool = False,
+    log_exc: bool = False,
+    ):
 
-    for file in files:
+    """Delete each path given, as the one filesystem entry it is.
+
+    Files, symlinks and Windows junctions -- anything that is not a real
+    directory. os.unlink is what knows the difference, at the level the
+    operating system knows it: a link is unlinked, never followed, so what
+    it pointed at is left alone, and a real directory is refused. Use
+    remove_folders for one of those, or remove_paths to have the kind
+    decided for you.
+
+    Takes any number of paths, in any nesting of lists, tuples and sets --
+    they are flattened and then de-duplicated, so the same file named twice
+    is one unlink and not one unlink and one FileNotFoundError.
+
+    A path that is not there is success. These are for making sure a path
+    is gone, and one that was never there is gone, so calling twice is not
+    an error and neither is cleaning up after something that failed
+    halfway. Such a path is simply not in the returned list -- nothing was
+    removed.
+
+    What comes back is what this actually did, in the order it did it:
+
+        remove_files(a, b)                 -> [a, b]
+        remove_files(a, b, return_exc=True) -> [a, PermissionError(...)]
+
+    so `len(result)` is how many entries went, and with `return_exc` the
+    failures are in the same list, in place, each one an OSError that names
+    its own path.
+
+    `return_exc` decides what a path that will not go costs. False, the
+    default, raises it: the first refusal ends the call and the paths after
+    it are not attempted. True collects it into the result instead and
+    carries on to the rest, which is what a cleanup wants -- one stubborn
+    file should not leave the other nine behind. Nothing is ever both.
+
+    `log_exc` writes a line for a failure that was collected -- at ERROR,
+    with the traceback, since it is reporting an error nobody else is going
+    to see. It is not consulted when the exception is raised: one that
+    propagates was never handled here, so logging it as well would report a
+    single failure twice under two different owners. Same rule as
+    safe_call's `log_exc`, which this is spelled after.
+
+    Every exception that leaves this carries the path it came from, in
+    `filename` -- the slot OSError.__str__ reads, so the path is in the
+    message whether the exception was raised or collected:
+
+        PermissionError(13, 'Permission denied', '/var/log/held.txt')
+
+    which is what makes a list of them readable once it is somewhere else
+    entirely. os.unlink fills that slot too, but only for a failure that
+    came from the syscall, and it fills it with the path exactly as it was
+    handed over -- a trailing slash, a doubled separator and all. It is
+    rewritten here with the same path as a Path, so a hundred exceptions
+    read in one spelling rather than in whichever each caller happened to
+    use.
+
+    Nothing is retried and nothing is forced: a read-only file on Windows,
+    or one another process holds open, is a refusal and is reported as one
+    rather than being chmod-ed out of the way behind the caller's back.
+    """
+
+    removed = []
+
+    for file in dedupe(ensure_path(file) for file in iter_flat_cont(files)):
         try:
             os.unlink(file)
         except FileNotFoundError:
             continue
-        except Exception as e:
+        except OSError as exc:
+            safe_call(setattr, exc, "filename", str(file), include_exc=AttributeError)
+
             if not return_exc:
                 raise
-            removed.append(e)
+
             if log_exc:
-                log.exception(e)            
+                log.exception("remove_files: could not remove %s", str(file))
+
+            removed.append(exc)
         else:
             removed.append(file)
 
     return removed
-        
-        
+
 
 remove_file = remove_files
 
 
 def _on_exc_remove_folders(func, path, exc_info):
+    if isinstance(exc_info[1], FileNotFoundError):
+        return
+    
     if func == os.path.islink and _is_link(path):
         try:
             os.unlink(path)
         except FileNotFoundError:
             pass
         return
+
     
+
     raise exc_info[1].with_traceback(exc_info[2])
 
-def remove_folders(*folders: NestedContainer[PathLike]) -> None:
-    for folder in iter_flat_cont(folders):
+
+@overload
+def remove_folders(
+    *folders: NestedContainer[PathLike],
+    return_exc: _False = False,
+    log_exc: bool = False,
+) -> List[Path]: ...
+@overload
+def remove_folders(
+    *folders: NestedContainer[PathLike],
+    return_exc: _True,
+    log_exc: bool = False,
+) -> List[Union[Path, OSError]]: ...
+def remove_folders(
+    *folders: NestedContainer[PathLike],
+    return_exc: bool = False,
+    log_exc: bool = False,
+    ):
+
+    """Delete each directory given, with everything under it.
+
+    A real directory only -- a file, a symlink or a Windows junction
+    handed to this is refused rather than resolved into one, since only a
+    real directory is something shutil.rmtree can walk in the first place.
+    Use remove_files for one of those, or remove_paths to have the kind
+    decided for you.
+
+    Takes any number of paths, in any nesting of lists, tuples and sets --
+    they are flattened and then de-duplicated, so the same directory named
+    twice is one rmtree and not one rmtree and one FileNotFoundError.
+
+    A path that is not there is success, the same as remove_files: making
+    sure a directory is gone is what this is for, and one that was never
+    there already is. Such a path is simply not in the returned list.
+
+    What comes back is what this actually did, in the order it did it --
+    same shape as remove_files:
+
+        remove_folders(a, b)                 -> [a, b]
+        remove_folders(a, b, return_exc=True) -> [a, PermissionError(...)]
+
+    `return_exc` and `log_exc` mean exactly what they mean there: False
+    raises the first refusal and stops, leaving the directories after it
+    untouched; True collects it into the result and carries on to the
+    rest. `log_exc` writes a line, at ERROR with the traceback, for a
+    failure that was collected -- never for one that was raised, which was
+    never handled here to log. Every exception carries the directory it
+    came from in `filename`, exactly as remove_files leaves it.
+
+    A directory holding a Windows junction is not stopped by it: rmtree
+    refuses a reparse point outright, since the kernel counts it as a
+    directory and rmtree will not walk into what it does not own, so the
+    refusal is caught and turned into an unlink of the link itself --
+    never of what it points at. What rmtree could not clear around that
+    one link is what remains, and one call may therefore remove most of a
+    tree and still report the directory as a whole having failed, with a
+    line in `filename` naming it rather than the junction underneath.
+    """
+
+    removed = []
+
+    for folder in dedupe(ensure_path(folder) for folder in iter_flat_cont(folders)):
         try:
             shutil.rmtree(folder, onerror=_on_exc_remove_folders)
         except FileNotFoundError:
-            pass
-        
+            continue
+        except OSError as exc:
+            safe_call(setattr, exc, "filename", str(folder), include_exc=AttributeError)
+
+            if not return_exc:
+                raise
+
+            if log_exc:
+                log.exception("remove_folders: could not remove %s", str(folder))
+
+            removed.append(exc)
+        else:
+            removed.append(folder)
+
+    return removed
+
 
 remove_folder = remove_folders
 
 
-def remove_paths(*paths: NestedContainer[PathLike]) -> None:
-    for path in iter_flat_cont(paths):
-        if _is_dir(path):
-            remove_folders(path)
-        else:
-            remove_files(path)
+@overload
+def remove_paths(
+    *paths: NestedContainer[PathLike],
+    return_exc: _False = False,
+    log_exc: bool = False,
+) -> List[Path]: ...
+@overload
+def remove_paths(
+    *paths: NestedContainer[PathLike],
+    return_exc: _True,
+    log_exc: bool = False,
+) -> List[Union[Path, OSError]]: ...
+def remove_paths(
+    *paths: NestedContainer[PathLike],
+    return_exc: bool = False,
+    log_exc: bool = False,
+    ):
+
+    """Delete each path given, whatever kind of thing it is.
+
+    The dispatcher: a real directory goes to remove_folders with its whole
+    subtree, and everything else -- a file, a symlink, a Windows junction
+    -- goes to remove_files as the single entry it is. Reach for this when
+    the kind is not known ahead of time; reach for remove_files or
+    remove_folders directly when it is, so a file handed here by mistake
+    is refused rather than quietly taking whatever is at that name.
+
+    Same contract as the two it dispatches to, because it does nothing but
+    dispatch: any number of paths, any nesting, de-duplicated, a missing
+    path counted as success, `return_exc` and `log_exc` carried straight
+    through to whichever remover a given path is sent to. What comes back
+    is the two results in one list, in the order the paths were given.
+    """
+
+    removed = []
+
+    for path in dedupe(ensure_path(path) for path in iter_flat_cont(paths)):
+        removed.extend(
+            (remove_folders if _is_dir(path) else remove_files)(path, return_exc=return_exc, log_exc=log_exc)
+        )
+
+    return removed
+
 
 remove_path = remove_paths
 
@@ -243,7 +439,7 @@ def atomic_write(
             if lock is not None:
                 lock.release()
         finally:
-            remove_file(tmp_path)
+            remove_file(tmp_path, return_exc=True, log_exc=True)
 
 
 def write_file(

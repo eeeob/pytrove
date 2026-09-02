@@ -38,7 +38,7 @@ from typing import (
 from .errors import ValidationError, ArchiveLimitError, ArchivePolicyError
 from .enums import ArchiveFormat, ArchiveLinkPolicy, ArchiveOverwritePolicy
 from .typings.archive import ArchiveLimits
-from .files_tools import remove_path, remove_file, remove_folder, ensure_dir
+from .files_tools import remove_path, remove_file, remove_folder, remove_paths, ensure_dir
 from ._files_tools import _is_dir, _is_link
 from .iter_tools import dedupe
 from .callable_tools import safe_call
@@ -1277,10 +1277,9 @@ class _Extractor:
             self._inspect(self._root)
         except:
             if staged is not None:
-                remove_path(staged)
+                remove_path(staged, return_exc=True, log_exc=True)
             elif self._built:
-                for path in dedupe(self._built):
-                    safe_call(remove_path, path, include_exc=OSError, log_exc=True)
+                remove_paths(dedupe(self._built), return_exc=True, log_exc=True)
             raise
 
         if staged is None:
@@ -1311,7 +1310,7 @@ class _Extractor:
                     raise
 
                 self._graft(staged, self.dest)
-                remove_path(staged)
+                remove_path(staged, return_exc=True, log_exc=True)
         except:
             log.error("extract_archive: could not put %s at %r -- what came out "
                       "of it is in %r", self.src.name, str(self.dest), str(staged))
@@ -1371,7 +1370,7 @@ class _Extractor:
                 if self._limiter.allows_dir(path):
                     stack.append(path)
                 else:
-                    remove_folder(path)
+                    remove_folder(path, return_exc=True, log_exc=True)
 
     def _graft(self, staged: Path, dest: Path) -> None:
         """Move everything in `staged` into `dest`, directory by directory.
@@ -1895,9 +1894,26 @@ class _Extractor:
         # afterwards would delete on behalf of a link that never appeared:
         # a symlink on Windows without the privilege, a hardlink across a
         # volume, a destination that has gone.
-        tmp = target.with_name(f".{target.name}.{os.urandom(4).hex()}.tmp")
-
+        #
+        # The name comes from tempfile.mkstemp rather than a hand-rolled
+        # os.urandom suffix, for the same reason atomic_write reaches for
+        # it: mkstemp is what the standard library uses to hand out a name
+        # nothing else on the system is using, backed by a stronger
+        # generator than four random bytes and, unlike a single guess,
+        # retried on its own if a collision is ever hit. It is created and
+        # then removed rather than kept, because os.symlink and os.link
+        # both refuse a path that already exists -- neither can be told to
+        # take over one the way os.replace can. This run on multiple pool
+        # workers at once, so the file existing for that instant is what
+        # makes two workers picking the same name impossible rather than
+        # merely unlikely; nothing else here reads or writes it before the
+        # link is created two lines down.
         try:
+            fd, tmp_name = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", suffix=".tmp")
+            os.close(fd)
+            os.unlink(tmp_name)
+            tmp = Path(tmp_name)
+
             if m.kind == "symlink":
                 os.symlink(raw, tmp)
             else:
@@ -1909,7 +1925,7 @@ class _Extractor:
         try:
             os.replace(tmp, target)
         except OSError as exc:
-            safe_call(remove_file, tmp, include_exc=OSError, log_exc=True)
+            remove_file(tmp, return_exc=True, log_exc=True)
             log.warning("extract_archive: could not put %s %r at %r (%s)", m.kind, m.name, str(target), exc)
             return
 
