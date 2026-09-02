@@ -12,6 +12,7 @@ from typing import (
 
 from pathlib import Path
 from contextlib import contextmanager
+from functools import partial
 
 from .typings import (
     JsonValue, NestedContainer, PathLike, LockProtocol,
@@ -225,8 +226,8 @@ def remove_files(
 remove_file = remove_files
 
 
-def _on_exc_remove_folders(func, path, exc_info):
-    if isinstance(exc_info[1], FileNotFoundError):
+def _on_exc_remove_folders(func, path, exc_info, *, base_path: str):
+    if isinstance(exc_info[1], FileNotFoundError) and str(path) != base_path:
         return
     
     if func == os.path.islink and _is_link(path):
@@ -235,8 +236,6 @@ def _on_exc_remove_folders(func, path, exc_info):
         except FileNotFoundError:
             pass
         return
-
-    
 
     raise exc_info[1].with_traceback(exc_info[2])
 
@@ -303,7 +302,7 @@ def remove_folders(
 
     for folder in dedupe(ensure_path(folder) for folder in iter_flat_cont(folders)):
         try:
-            shutil.rmtree(folder, onerror=_on_exc_remove_folders)
+            shutil.rmtree(folder, onerror=partial(_on_exc_remove_folders, base_path=str(folder)))
         except FileNotFoundError:
             continue
         except OSError as exc:

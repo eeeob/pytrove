@@ -30,9 +30,8 @@ class ArchiveLimits(NamedTuple):
     backup and reckless for an upload. extract_archive documents the risk
     and the caller picks.
 
-    max_files counts every member written -- files, directories and links
-    alike -- because a million empty directories costs what a million
-    empty files costs.
+    max_files counts written files and links, but does not include
+    directories, because it limits files rather than directory entries.
 
     Members, though, and not entries created: an archive listing
     "a/b/c.txt" and nothing else creates "a" and "a/b" too, and those cost
