@@ -1,7 +1,7 @@
 from typing import (
-    List, Set, Union,
+    List, Set, Union, Any,
     FrozenSet, Tuple, Iterable,
-    Generator, Optional
+    Generator, Optional, Callable,
 )
 
 
@@ -39,6 +39,17 @@ def iter_flat_cont(*containers: NestedContainer[Optional[_T]]) -> Generator[_T, 
 
 def flat_cont(*containers: NestedContainer[Optional[_T]]) -> List[_T]:
     return list(iter_flat_cont(*containers))
+
+
+def iter_flat_cont_by(*containers: Any, is_container: Callable[[Any], bool] = is_container) -> Generator[Any, None, None]:
+    for item in containers:
+        if is_container(item):
+            yield from iter_flat_cont_by(*item, is_container=is_container)
+        elif item is not None:
+            yield item
+
+def flat_cont_by(*containers: Any, is_container: Callable[[Any], bool] = is_container) -> List[Any]:
+    return list(iter_flat_cont_by(*containers, is_container=is_container))
 
 
 def dedupe(iterable: Iterable[_T], hashable: bool = True) -> List[_T]:
@@ -94,6 +105,8 @@ __all__ = (
     "to_frozenset",
     "iter_flat_cont",
     "flat_cont",
+    "iter_flat_cont_by",
+    "flat_cont_by",
     "pad_list",
     "dedupe",
 
