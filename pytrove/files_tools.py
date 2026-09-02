@@ -363,8 +363,7 @@ def truncate_file(
     # parts are on disk and flushed before anything is taken away, so an
     # interruption costs a duplicate, never a loss.
     if spill:
-        folder = path.parent if spill is True else resolve_path(spill)
-        folder.mkdir(parents=True, exist_ok=True)
+        folder = ensure_dir(path.parent if spill is True else resolve_path(spill))
 
         # `size` is the part size everywhere except at 0, which keeps
         # nothing and so names no length to cut by. A tenth of what is
