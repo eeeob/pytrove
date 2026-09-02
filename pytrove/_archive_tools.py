@@ -668,9 +668,8 @@ class _Compressor:
 
         if use_fastzip:
             zf = WZip(
-                Path(getattr(out, "name", "archive.zip")), fobj=out, 
-                threads=workers or None, executor=executor, 
-                force_zip64=True,
+                Path(name if isinstance(name := getattr(out, "name", None), (str, os.PathLike)) else "archive.zip"), 
+                fobj=out, threads=workers or None, executor=executor, force_zip64=True, 
             )
         else:
             zf = zipfile.ZipFile(

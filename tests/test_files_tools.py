@@ -666,17 +666,30 @@ def test_remove_paths_dispatches_by_kind(tmp_path):
 
 
 def test_remove_paths_forwards_return_exc_and_log_exc(tmp_path, caplog):
+    # What blocks a removal differs by platform: Windows refuses to unlink a
+    # file that is still open, POSIX does not (the open handle stays valid
+    # against the now-unlinked inode) -- so `held` is made unremovable the
+    # way each platform actually enforces it, an open handle on Windows and
+    # a write-less parent directory on POSIX.
     good = tmp_path / "good.txt"
     good.write_text("x", encoding="utf-8")
     held = tmp_path / "held"
     held.mkdir()
-    handle = open(held / "open.txt", "w", encoding="utf-8")
+    (held / "open.txt").write_text("x", encoding="utf-8")
+
+    handle = open(held / "open.txt", "w", encoding="utf-8") if os.name == "nt" else None
+
+    if handle is None:
+        held.chmod(0o555)  # no write bit: nothing inside can be unlinked
 
     try:
         with caplog.at_level("WARNING"):
             result = remove_path(good, held, return_exc=True, log_exc=True)
     finally:
-        handle.close()
+        if handle is not None:
+            handle.close()
+        else:
+            held.chmod(0o755)  # restored so tmp_path's own cleanup can remove it
 
     assert result[0] == good
     assert isinstance(result[1], OSError)
@@ -735,8 +748,9 @@ def test_log_exc_names_the_path_and_brings_the_traceback(tmp_path, caplog):
     assert record.getMessage() == f"remove_files: could not remove {target}"
 
     # and the operating system's own words come with it, spelled the way it
-    # spells them
-    assert "PermissionError" in caplog.text
+    # spells them -- os.unlink() on a directory is refused as a permission
+    # problem on Windows, but reported for what it specifically is on POSIX.
+    assert ("PermissionError" if os.name == "nt" else "IsADirectoryError") in caplog.text
     assert ("[WinError " if os.name == "nt" else "[Errno ") in caplog.text
 
 
@@ -913,6 +927,7 @@ def test_only_a_junction_tag_counts_as_a_link(monkeypatch, tag, link, plain_dir)
     assert internals._is_dir("anything") is plain_dir
 
 
+@pytest.mark.skipif(os.name != "nt", reason="reparse tags are Windows-only")
 def test_the_junction_tag_is_the_one_shutil_uses():
     # _is_link is shutil's own _rmtree_islink where the shape allows it, so
     # this holds by construction there. It is asserted for the fallback,
