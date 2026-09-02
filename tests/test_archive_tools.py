@@ -2265,10 +2265,10 @@ def test_the_merge_walks_with_a_stack_and_not_with_frames(tmp_path):
     # walk is recorded, and a walk that descends on an explicit stack
     # stays flat where one that recurses grows by a frame a level.
     #
-    # _is_plain_dir is the probe because _graft is the only thing that
+    # _is_dir is the probe because _graft is the only thing that
     # calls it, once per entry it looks at.
     depths = []
-    real = internals._is_plain_dir
+    real = internals._is_dir
 
     def watching(path):
         n, frame = 0, sys._getframe()
@@ -2301,12 +2301,12 @@ def test_the_merge_walks_with_a_stack_and_not_with_frames(tmp_path):
     bottom = dest.joinpath(*(["a"] * levels))
     (bottom / "keep.txt").write_text("keep")
 
-    internals._is_plain_dir = watching
+    internals._is_dir = watching
 
     try:
         extract_archive(archive, dest, atomic=True)
     finally:
-        internals._is_plain_dir = real
+        internals._is_dir = real
 
     assert (bottom / "leaf.txt").read_text() == "leaf"
     assert (bottom / "keep.txt").read_text() == "keep"

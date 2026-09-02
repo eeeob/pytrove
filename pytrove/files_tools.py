@@ -24,17 +24,20 @@ from .iter_tools import iter_flat_cont, to_frozenset
 from ._optional import _optional_import
 from ._files_tools import (
     _MkdirOptions, 
+    _RestrictedUnpickler, 
     _COPY_BUF, 
     _NOT_SET, 
     _SPILL_PARTS, 
     _SAFE_PICKLE_CLASSES, 
-    _RestrictedUnpickler, 
+    _is_link, 
+    _is_dir, 
     _next_part, 
     _json_dumps, 
     _json_loads, 
 )
 
 import io
+import logging
 import math
 import os
 import shutil
@@ -47,6 +50,9 @@ try:
     import jsonref
 except ImportError:
     pass
+
+
+log = logging.getLogger(__name__)
 
 
 def ensure_path(path: PathLike) -> Path:
@@ -114,37 +120,45 @@ def ensure_dir(path: PathLike, for_file: bool = False, **kwargs: Unpack[_MkdirOp
 
     return path
 
+
 def remove_files(*files: NestedContainer[PathLike]) -> None:
     for file in iter_flat_cont(files):
         try:
             os.unlink(file)
         except FileNotFoundError:
             pass
+        
 
 remove_file = remove_files
-        
+
+
+def _on_exc_remove_folders(func, path, exc_info):
+    if func == os.path.islink and _is_link(path):
+        try:
+            os.unlink(path)
+        except FileNotFoundError:
+            pass
+        return
+    
+    raise exc_info[1].with_traceback(exc_info[2])
+
 def remove_folders(*folders: NestedContainer[PathLike]) -> None:
     for folder in iter_flat_cont(folders):
         try:
-            shutil.rmtree(folder, ignore_errors=True)
+            shutil.rmtree(folder, onerror=_on_exc_remove_folders)
         except FileNotFoundError:
             pass
-        except OSError:
-            if not os.path.islink(folder):
-                raise
-            os.unlink(folder)
+        
 
 remove_folder = remove_folders
 
+
 def remove_paths(*paths: NestedContainer[PathLike]) -> None:
     for path in iter_flat_cont(paths):
-        path = ensure_path(path)
-        if path.is_symlink():
-            safe_call(path.unlink, include_exc=FileNotFoundError)
-        elif path.is_dir():
-            remove_folder(path)
+        if _is_dir(path):
+            remove_folders(path)
         else:
-            remove_file(path)
+            remove_files(path)
 
 remove_path = remove_paths
 
@@ -421,11 +435,17 @@ def truncate_file(
     if side == TruncateSide.TAIL:
         # In place. The bytes that stay are already where they belong, so
         # there is nothing to copy and nothing to rename.
+        # os.truncate(path, size) would say this in one call and is the
+        # obvious shape -- but it takes a path and hands back no
+        # descriptor, and `fsync` needs one. Reopening the file purely to
+        # fsync it is two syscalls to save none.
+        #
+        # No flush before it: nothing was written through this handle, and
+        # BufferedRandom.truncate flushes on its own regardless.
         with open(path, "r+b") as f:
             f.truncate(size)
 
             if fsync:
-                f.flush()
                 os.fsync(f.fileno())
     else:
         # atomic_write on the outside, the reader on the inside: the

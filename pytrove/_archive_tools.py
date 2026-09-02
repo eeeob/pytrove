@@ -38,7 +38,8 @@ from typing import (
 from .errors import ValidationError, ArchiveLimitError, ArchivePolicyError
 from .enums import ArchiveFormat, ArchiveLinkPolicy, ArchiveOverwritePolicy
 from .typings.archive import ArchiveLimits
-from .files_tools import remove_path
+from .files_tools import remove_path, ensure_dir
+from ._files_tools import _is_dir
 from .iter_tools import dedupe
 from .callable_tools import safe_call
 
@@ -143,29 +144,6 @@ def _format_from_suffix(name: str) -> Optional[ArchiveFormat]:
     return None
 
 
-def _is_plain_dir(path) -> bool:
-    """Whether this is a real directory and not any kind of link to one.
-
-    Path.is_symlink() is not enough on Windows, where a junction is a
-    directory reparse point: is_dir() answers True and is_symlink() answers
-    False, so a guard written as `is_dir() and not is_symlink()` walks
-    straight into one. st_reparse_tag is what names it, and it is only
-    present on Windows -- getattr gives 0 everywhere else, where S_ISLNK
-    has already answered.
-
-    lstat rather than stat, so nothing is followed to be asked about.
-    """
-
-    try:
-        st = os.lstat(path)
-    except OSError:
-        return False
-
-    return (stat.S_ISDIR(st.st_mode)
-            and not stat.S_ISLNK(st.st_mode)
-            and not getattr(st, "st_reparse_tag", 0))
-
-
 def _split_workers(workers, who: str) -> Tuple[Optional[int], Optional[Executor]]:
     """Read the one `workers` argument as a count and a pool.
 
@@ -190,31 +168,21 @@ def _split_workers(workers, who: str) -> Tuple[Optional[int], Optional[Executor]
         f"not {type(workers).__name__}"
     )
 
-
-def _is_hidden(_, entry: Optional[os.DirEntry]) -> bool:
-    """Whether the walk should treat this entry as hidden.
-
-    compress_folder's `exclude_hidden` is this and nothing else -- an
-    ordinary exclude predicate, so it prunes a hidden directory the way any
-    other rule does and loses to the include rungs above it.
-
-    Both conventions, because one tree can carry either: a leading dot, and
-    the Windows hidden attribute. `entry` is None where a rule is asked
-    about something that is not a filesystem entry -- a directory an
-    archive only implied -- and nothing can be read off it, so it is not
-    hidden.
-    """
-
-    if entry is None:
-        return False
-
-    if entry.name.startswith("."):
-        return True
-
-    try:
-        return bool(getattr(entry.stat(), "st_file_attributes", 0) & 0x2)
-    except OSError:
-        return False
+if hasattr(os.stat_result, "st_file_attributes"):
+    def _is_hidden(_, entry: Optional[os.DirEntry]) -> bool:
+        try:
+            return (
+                entry is not None and 
+                (
+                    entry.name.startswith(".") or 
+                    entry.stat().st_file_attributes & stat.FILE_ATTRIBUTE_HIDDEN
+                )
+            )
+        except OSError:
+            return False
+else:
+    def _is_hidden(_, entry: Optional[os.DirEntry]) -> bool:
+        return entry is not None and entry.name.startswith(".")
 
 
 def _temp_file_rule(folder: str, prefix: str):
@@ -1351,19 +1319,16 @@ class _Extractor:
         #
         # A failure at this last step leaves the staged tree on disk rather
         # than removing what has not been moved, and says where it is.
+        
         try:
-            try:
-                os.replace(staged, self.dest)
-            except OSError:
-                if not self.dest.exists():
-                    raise
+            os.replace(staged, self.dest)
+        except OSError:
+            if not self.dest.exists():
+                raise
 
-                self._graft(staged, self.dest)
-                remove_path(staged)
-        except BaseException:
-            log.error("extract_archive: could not put %s at %r -- what came out "
-                      "of it is in %r", self.src.name, str(self.dest), str(staged))
-            raise
+            self._graft(staged, self.dest)
+            remove_path(staged)
+        
 
     def _inspect(self, root: Path) -> None:
         """Put every extracted directory to `dir_check`, outermost first.
@@ -1443,7 +1408,7 @@ class _Extractor:
         outside the destination, which is the single thing this class
         exists to prevent; it is replaced like any other member instead.
 
-        "A link" means _is_plain_dir, not is_symlink(). A Windows junction
+        "A link" means _is_dir, not is_symlink(). A Windows junction
         is a directory reparse point that reports is_dir() and does not
         report is_symlink(), so the obvious spelling of this check walked
         into one -- and only here, because the non-staged path resolves
@@ -1475,7 +1440,7 @@ class _Extractor:
             for entry in entries:
                 target = there / entry.name
 
-                # _is_plain_dir on the destination side, not
+                # _is_dir on the destination side, not
                 # `is_dir() and not is_symlink()`. A Windows junction
                 # passes that pair -- is_dir() True, is_symlink() False --
                 # so a destination holding one was descended into and every
@@ -1487,7 +1452,7 @@ class _Extractor:
                 #
                 # Anything that is not a plain directory is replaced rather
                 # than entered, which is what the archive asked for anyway.
-                if entry.is_dir(follow_symlinks=False) and _is_plain_dir(target):
+                if entry.is_dir(follow_symlinks=False) and _is_dir(target):
                     pairs.append((Path(entry.path), target))
                     continue
 
@@ -1506,7 +1471,7 @@ class _Extractor:
                 # merge. Everything else here is one entry replacing one
                 # entry, which is what `overwrite` is about -- and a
                 # directory is not one entry.
-                if _is_plain_dir(target):
+                if _is_dir(target):
                     log.warning("extract_archive: refused %r from %s, a directory "
                                 "stands at %r", entry.name, self.src.name, str(target))
                     continue
@@ -1787,21 +1752,8 @@ class _Extractor:
         """
 
         if path in self._made:
-            return True
+            return 
 
-        # Which levels are missing, walked up before anything is made,
-        # because afterwards they all exist and nothing says which of them
-        # this run created. The ledger wants that; so does the loop below.
-        #
-        # It also replaces mkdir(parents=True), which recurses once per
-        # missing level inside pathlib: measured, an archive nesting 1500
-        # directories raised RecursionError out of the standard library,
-        # from a path the caller never chose. Walking up is a loop, and
-        # making them bottom-up is a loop, so the depth an archive can ask
-        # for is bounded by the filesystem rather than by the interpreter.
-        # Once per directory, not per member -- `_made` above is what makes
-        # that true -- and it stops at the first level already there, so an
-        # ordinary archive pays one or two stats per new directory.
         fresh = []
         probe = path
 
@@ -1809,35 +1761,12 @@ class _Extractor:
             fresh.append(probe)
             probe = probe.parent
 
-        try:
-            for level in reversed(fresh):
-                level.mkdir(exist_ok=True)
 
-            if not fresh:
-                # Already there, or it is the root. Asked anyway, so that a
-                # file sitting at the path still reports itself below.
-                path.mkdir(exist_ok=True)
-        except FileExistsError:
-            # With exist_ok=True this is the one thing left that raises it:
-            # something is there and it is not a directory. The archive is
-            # contradicting itself -- "sub" and "sub/" both -- and saying so
-            # beats telling the member that needed the directory there is
-            # one and failing further along with a worse message.
-            log.warning("extract_archive: cannot create directory %r in %s, "
-                        "a file is already there", str(path), self.src.name)
-            return False
-        except OSError as exc:
-            log.warning("extract_archive: cannot create directory %r in %s (%s)", str(path), self.src.name, exc)
-            return False
-
-        self._made.add(path)
+        self._made.update(fresh, [ensure_dir(path, parents=True, exist_ok=True)])
 
         if fresh and self._built is not None:
-            # `fresh` was collected child-first on the way up, so it goes
-            # in outermost-first -- the order the undo relies on.
             self._built.extend(reversed(fresh))
 
-        return True
 
     def _link(self, m: _Member, target: Path) -> None:
         """Recreate a link member, if the policy allows and it stays inside.
@@ -2000,16 +1929,17 @@ class _Extractor:
         every caller wants to hear.
         """
 
+        grown = 0
+
         try:
             with open(target, "wb") as out:
-                if self._built is not None:
-                    self._built.append(target)
-
-                grown = 0
-
                 while chunk := data.read(_COPY_BUF):
                     out.write(chunk)
                     grown += len(chunk)
+
+                    if grown > 0 and self._built is not None:
+                        self._built.append(target)
+
                     self._limiter.grew(m.name, grown)
         except EOFError:
             # Both containers raise this bare, with no message at all, when

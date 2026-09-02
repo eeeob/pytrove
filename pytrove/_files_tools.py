@@ -1,6 +1,52 @@
 import json
+import logging
 import os
 import pickle
+import stat
+import sys
+
+
+try:
+    _version = sys.version_info[:2]
+
+    if (3, 10) <= _version <= (3, 12):
+        from shutil import _rmtree_islink as _is_link
+
+    elif (3, 13) <= _version <= (3, 14):
+        from shutil import _rmtree_islink as _islink_st
+
+        def _is_link(path, _islink_st=_islink_st):
+            try:
+                st = os.lstat(path)
+            except OSError:
+                return False
+
+            return _islink_st(st)
+
+        del _islink_st
+    else:
+        raise ImportError
+    
+    del _version
+except ImportError as e:
+    if hasattr(os.stat_result, "st_file_attributes"):
+        def _is_link(path):
+            try:
+                st = os.lstat(path)
+            except OSError:
+                return False
+
+            return (
+                stat.S_ISLNK(st.st_mode)
+                or (
+                    st.st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT
+                    and st.st_reparse_tag == stat.IO_REPARSE_TAG_MOUNT_POINT
+                )
+            )
+
+    else:
+        _is_link = os.path.islink
+
 
 from pathlib import Path
 from pickle import _compat_pickle  # type: ignore[attr-defined]
@@ -16,77 +62,11 @@ else:
     HAS_ORJSON = True
 
 
+log = logging.getLogger(__name__)
+
 _NOT_SET = object()
 _COPY_BUF = 1 << 20
 _SPILL_PARTS = 10
-
-
-class _MkdirOptions(TypedDict, total=False):
-    """What Path.mkdir takes, so ensure_dir can forward it without restating it.
-
-    Private, and here rather than in typings, because nothing about it is
-    part of the interface: a caller writes `ensure_dir(p, exist_ok=False)`
-    and never names this. It exists so **kwargs is typed key by key --
-    `**kw: Unpack[_MkdirOptions]` catches a misspelled `parent` or a
-    `mode="755"` where it is written rather than letting it arrive at
-    mkdir as a TypeError from inside somebody else's function.
-
-    `total=False` because every one is optional at the call: a caller
-    passes the one it cares about and ensure_dir fills the rest. That is
-    also what keeps this honest as the stdlib moves -- a keyword added to
-    mkdir needs a line here and nothing in the signature that forwards it.
-
-    The three carry mkdir's own meanings, which ensure_dir defaults
-    differently but does not redefine:
-
-      mode      permissions for the directory this creates, masked by the
-                process umask -- and applied only to the last component,
-                never to parents that `parents` brings into being. Windows
-                ignores it.
-      parents   create the missing levels above it too.
-      exist_ok  do not raise when the directory is already there. It
-                forgives a directory and nothing else: a file at the path
-                still raises FileExistsError.
-    """
-
-    mode: int
-    parents: bool
-    exist_ok: bool
-
-
-def _next_part(folder: "Path", stem: str) -> int:
-    """The first free number for a "<stem>.N" part file in `folder`.
-
-    One past the highest that is already there, rather than 1, so a second
-    truncation of the same file adds parts instead of writing over the
-    ones the first produced. Losing those is exactly what a caller asking
-    for parts is asking not to happen.
-
-    A number is only a number if the whole suffix is digits: "app.log.2"
-    counts and "app.log.bak" does not, so an unrelated neighbour cannot
-    push the count up or, worse, be counted as a part and later read back
-    as one.
-    """
-
-    highest = 0
-    prefix = f"{stem}."
-
-    try:
-        names = os.listdir(folder)
-    except OSError:
-        return 1
-
-    for name in names:
-        if not name.startswith(prefix):
-            continue
-
-        tail = name[len(prefix):]
-
-        if tail.isdigit():
-            highest = max(highest, int(tail))
-
-    return highest + 1
-
 
 # orjson is 10x faster than json at dumping, but it is not a drop-in: it
 # takes no keyword arguments beyond `default` and `option` flags, only ever
@@ -122,41 +102,6 @@ if HAS_ORJSON:
         | orjson.OPT_PASSTHROUGH_DATACLASS
         | orjson.OPT_NON_STR_KEYS
     )
-
-
-def _json_dumps(data: Any, kw: Dict[str, Any]) -> Union[str, bytes]:
-    """Serialise `data`, via orjson when `kw` allows it, else json."""
-
-    if HAS_ORJSON and not (kw.keys() - _ORJSON_DUMP_KEYS):
-        indent = kw.get("indent")
-
-        # ensure_ascii=True has no orjson equivalent, and OPT_INDENT_2 is
-        # the only indentation it can produce.
-        if not kw.get("ensure_ascii") and indent in (None, 2):
-            option = _ORJSON_COMPAT
-
-            if indent == 2:
-                option |= orjson.OPT_INDENT_2
-            if kw.get("sort_keys"):
-                option |= orjson.OPT_SORT_KEYS
-
-            return orjson.dumps(data, default=kw.get("default"), option=option)
-
-    return json.dumps(data, **kw)
-
-
-def _json_loads(content: Union[str, bytes], kw: Dict[str, Any]) -> Any:
-    """Parse `content`, via orjson when `kw` is empty, else json.
-
-    Any kwarg at all (object_hook, parse_float, cls, ...) means json --
-    orjson supports none of them.
-    """
-
-    if HAS_ORJSON and not kw:
-        return orjson.loads(content)
-
-    return json.loads(content, **kw)
-
 
 # Types read_pickle reconstructs without being asked. Every one of them is
 # inert data: constructing it runs no user code and reaches nothing outside
@@ -209,6 +154,78 @@ _UNSAFE_PICKLE_CLASSES: FrozenSet[Tuple[str, str]] = frozenset({
     ("operator", "itemgetter"), ("functools", "reduce"),
 })
 
+def _is_dir(path) -> bool:
+    try:
+        st = os.lstat(path)
+    except OSError:
+        return False
+
+    return stat.S_ISDIR(st.st_mode) and not _is_link(path)
+
+def _next_part(folder: "Path", stem: str) -> int:
+    """The first free number for a "<stem>.N" part file in `folder`.
+
+    One past the highest that is already there, rather than 1, so a second
+    truncation of the same file adds parts instead of writing over the
+    ones the first produced. Losing those is exactly what a caller asking
+    for parts is asking not to happen.
+
+    A number is only a number if the whole suffix is digits: "app.log.2"
+    counts and "app.log.bak" does not, so an unrelated neighbour cannot
+    push the count up or, worse, be counted as a part and later read back
+    as one.
+    """
+
+    highest = 0
+    prefix = f"{stem}."
+
+    try:
+        names = os.listdir(folder)
+    except OSError:
+        return 1
+
+    for name in names:
+        if not name.startswith(prefix):
+            continue
+
+        tail = name[len(prefix):]
+
+        if tail.isdigit():
+            highest = max(highest, int(tail))
+
+    return highest + 1
+
+def _json_dumps(data: Any, kw: Dict[str, Any]) -> Union[str, bytes]:
+    """Serialise `data`, via orjson when `kw` allows it, else json."""
+
+    if HAS_ORJSON and not (kw.keys() - _ORJSON_DUMP_KEYS):
+        indent = kw.get("indent")
+
+        # ensure_ascii=True has no orjson equivalent, and OPT_INDENT_2 is
+        # the only indentation it can produce.
+        if not kw.get("ensure_ascii") and indent in (None, 2):
+            option = _ORJSON_COMPAT
+
+            if indent == 2:
+                option |= orjson.OPT_INDENT_2
+            if kw.get("sort_keys"):
+                option |= orjson.OPT_SORT_KEYS
+
+            return orjson.dumps(data, default=kw.get("default"), option=option)
+
+    return json.dumps(data, **kw)
+
+def _json_loads(content: Union[str, bytes], kw: Dict[str, Any]) -> Any:
+    """Parse `content`, via orjson when `kw` is empty, else json.
+
+    Any kwarg at all (object_hook, parse_float, cls, ...) means json --
+    orjson supports none of them.
+    """
+
+    if HAS_ORJSON and not kw:
+        return orjson.loads(content)
+
+    return json.loads(content, **kw)
 
 def _normalise_global(module: str, name: str) -> Tuple[str, str]:
     """Map a Python 2 module/name pair to its Python 3 equivalent.
@@ -234,6 +251,40 @@ def _normalise_global(module: str, name: str) -> Tuple[str, str]:
         return _compat_pickle.IMPORT_MAPPING[module], name
 
     return key
+
+
+
+class _MkdirOptions(TypedDict, total=False):
+    """What Path.mkdir takes, so ensure_dir can forward it without restating it.
+
+    Private, and here rather than in typings, because nothing about it is
+    part of the interface: a caller writes `ensure_dir(p, exist_ok=False)`
+    and never names this. It exists so **kwargs is typed key by key --
+    `**kw: Unpack[_MkdirOptions]` catches a misspelled `parent` or a
+    `mode="755"` where it is written rather than letting it arrive at
+    mkdir as a TypeError from inside somebody else's function.
+
+    `total=False` because every one is optional at the call: a caller
+    passes the one it cares about and ensure_dir fills the rest. That is
+    also what keeps this honest as the stdlib moves -- a keyword added to
+    mkdir needs a line here and nothing in the signature that forwards it.
+
+    The three carry mkdir's own meanings, which ensure_dir defaults
+    differently but does not redefine:
+
+      mode      permissions for the directory this creates, masked by the
+                process umask -- and applied only to the last component,
+                never to parents that `parents` brings into being. Windows
+                ignores it.
+      parents   create the missing levels above it too.
+      exist_ok  do not raise when the directory is already there. It
+                forgives a directory and nothing else: a file at the path
+                still raises FileExistsError.
+    """
+
+    mode: int
+    parents: bool
+    exist_ok: bool
 
 
 class _RestrictedUnpickler(pickle.Unpickler):

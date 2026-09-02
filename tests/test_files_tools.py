@@ -2,12 +2,18 @@ import glob
 import inspect
 import json
 import os
+import shutil
+import stat
+import subprocess
+import sys
 
 import pytest
 
 from pathlib import Path
 
-from pytrove import ensure_dir, load_json, save_json, truncate_file, write_file
+from pytrove import (ensure_dir, load_json, remove_file, remove_folder,
+                     remove_path, save_json, truncate_file, write_file)
+import pytrove._files_tools as internals
 from pytrove._files_tools import _MkdirOptions
 from pytrove.enums import TruncateSide
 from pytrove.errors import ValidationError
@@ -415,3 +421,295 @@ def test_a_keyword_mkdir_does_not_take_is_refused_by_name(tmp_path):
     # answer comes from mkdir -- which still names the offending keyword.
     with pytest.raises(TypeError, match="parent"):
         ensure_dir(tmp_path / "typo", parent=True)
+
+
+# ---------------------------------------------------------------------
+# remove_files / remove_folders / remove_paths
+# ---------------------------------------------------------------------
+
+def _dir_link(link, target):
+    """Point `link` at directory `target`, however this platform can.
+
+    A symlink where the account may make one, and a Windows junction
+    otherwise -- an ordinary Windows account holds no
+    SeCreateSymbolicLinkPrivilege, and a junction needs none. The two are
+    the same hazard for this code and differ in exactly the way that
+    matters: a junction reports neither islink() nor is_symlink().
+    """
+
+    try:
+        link.symlink_to(target, target_is_directory=True)
+        return "symlink"
+    except (OSError, NotImplementedError):
+        if sys.platform != "win32":
+            return None
+
+    made = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(target)],
+        capture_output=True, check=False,
+    )
+
+    return "junction" if made.returncode == 0 else None
+
+
+@pytest.fixture
+def linked(tmp_path):
+    """A link to a directory that holds something worth not losing."""
+
+    target = tmp_path / "TARGET"
+    target.mkdir()
+    (target / "precious.txt").write_text("precious", encoding="utf-8")
+
+    link = tmp_path / "link"
+    kind = _dir_link(link, target)
+
+    if kind is None:
+        pytest.skip("cannot link to a directory here")
+
+    return link, target
+
+
+@pytest.mark.parametrize("remove", [remove_file, remove_folder, remove_path])
+def test_a_link_to_a_directory_is_removed_and_its_target_is_not(linked, remove):
+    # The link is one entry and is removed as one. Following it would take
+    # out a tree nobody named -- and a junction is the case that catches a
+    # check written as is_dir(), since it reports neither islink() nor
+    # is_symlink() while answering is_dir() True.
+    link, target = linked
+
+    remove(link)
+
+    assert not os.path.lexists(link)
+    assert (target / "precious.txt").read_text(encoding="utf-8") == "precious"
+
+
+@pytest.mark.parametrize("remove", [remove_file, remove_folder, remove_path])
+def test_a_path_that_was_never_there_is_not_a_failure(tmp_path, caplog, remove):
+    # Making sure a path is gone, and it is gone. Calling twice must not
+    # be an error either.
+    with caplog.at_level("WARNING"):
+        remove(tmp_path / "ghost")
+
+    assert caplog.text == ""
+
+
+def test_removing_a_tree_takes_everything_under_it(tmp_path):
+    deep = tmp_path / "tree" / "a" / "b"
+    deep.mkdir(parents=True)
+    (deep / "leaf.txt").write_text("leaf", encoding="utf-8")
+
+    remove_path(tmp_path / "tree")
+
+    assert not (tmp_path / "tree").exists()
+
+
+def test_a_directory_handed_to_remove_file_is_reported_not_removed(tmp_path, caplog):
+    target = tmp_path / "a_dir"
+    target.mkdir()
+
+    with caplog.at_level("WARNING"):
+        remove_file(target)
+
+    assert target.is_dir()
+    assert "could not remove" in caplog.text
+
+
+def test_a_file_handed_to_remove_folder_is_reported_not_removed(tmp_path, caplog):
+    # It used to return cleanly having done nothing at all, which is the
+    # one outcome these must not have: rmtree(ignore_errors=True) swallows
+    # every complaint it could have made.
+    target = tmp_path / "a_file.txt"
+    target.write_text("x", encoding="utf-8")
+
+    with caplog.at_level("WARNING"):
+        remove_folder(target)
+
+    assert target.is_file()
+    assert "could not remove" in caplog.text
+
+
+@pytest.mark.skipif(os.name != "nt", reason="POSIX unlinks a file that is held open")
+def test_a_tree_that_cannot_be_emptied_says_so(tmp_path, caplog):
+    folder = tmp_path / "held"
+    folder.mkdir()
+    handle = open(folder / "open.txt", "w", encoding="utf-8")
+
+    try:
+        with caplog.at_level("WARNING"):
+            remove_folder(folder)
+    finally:
+        handle.close()
+
+    assert folder.exists()
+    assert "could not remove" in caplog.text
+    # the filesystem's own reason, not a guess made in front of the call
+    assert "PermissionError" in caplog.text or "process" in caplog.text
+
+
+def test_one_path_that_will_not_go_does_not_cost_the_others(tmp_path, caplog):
+    # They take any number of paths, so raising on the first would leave
+    # the rest untouched. The bad one is reported and the loop carries on.
+    good_one = tmp_path / "one.txt"
+    good_two = tmp_path / "two.txt"
+    good_one.write_text("1", encoding="utf-8")
+    good_two.write_text("2", encoding="utf-8")
+    stubborn = tmp_path / "a_dir"
+    stubborn.mkdir()
+
+    with caplog.at_level("WARNING"):
+        remove_file(good_one, stubborn, good_two)
+
+    assert not good_one.exists()
+    assert not good_two.exists()
+    assert stubborn.is_dir()
+    assert caplog.text.count("could not remove") == 1
+
+
+def test_the_removers_take_any_nesting_of_paths(tmp_path):
+    made = []
+
+    for name in ("a.txt", "b.txt", "c.txt"):
+        path = tmp_path / name
+        path.write_text("x", encoding="utf-8")
+        made.append(path)
+
+    remove_path(made[0], [made[1], (made[2],)])
+
+    assert not any(p.exists() for p in made)
+
+
+@pytest.mark.parametrize("remove", [remove_file, remove_folder, remove_path])
+def test_no_remover_ever_raises(tmp_path, remove):
+    # The shared contract, pinned: whatever it is handed, it reports and
+    # returns. Callers here are all cleaning up after something that has
+    # already finished or already failed.
+    a_dir = tmp_path / "d"
+    a_dir.mkdir()
+    a_file = tmp_path / "f.txt"
+    a_file.write_text("x", encoding="utf-8")
+
+    for target in (a_dir, a_file, tmp_path / "ghost", tmp_path):
+        remove(target)
+
+
+@pytest.mark.parametrize("tag, link, plain_dir", [
+    (0, False, True),                                   # an ordinary directory
+    (0xA0000003, True, False),                          # IO_REPARSE_TAG_MOUNT_POINT
+    (0x9000001A, False, True),                          # OneDrive files-on-demand
+    (0x80000013, False, True),                          # IO_REPARSE_TAG_DEDUP
+    (0x8000001B, False, True),                          # APPEXECLINK
+])
+def test_only_a_junction_tag_counts_as_a_link(monkeypatch, tag, link, plain_dir):
+    # Windows hands out far more reparse tags than the three `stat` names,
+    # and all but the junction mark a real file or a real directory that
+    # is merely stored unusually. Treating any tag as a link -- which this
+    # briefly did -- would send a cloud-backed directory to unlink and
+    # leave it standing, since remove_paths splits on _is_dir before
+    # remove_folders is ever reached.
+    #
+    # A placeholder cannot be created on demand, so the stat is faked: the
+    # predicates read st_reparse_tag and nothing else about it.
+    class Faked:
+        st_mode = stat.S_IFDIR | 0o755
+        st_reparse_tag = tag
+
+    monkeypatch.setattr(os, "lstat", lambda path: Faked())
+
+    assert internals._is_link("anything") is link
+    assert internals._is_dir("anything") is plain_dir
+
+
+def test_the_junction_tag_is_the_one_shutil_uses():
+    # _is_link prefers shutil's own _rmtree_islink, but the constant has to
+    # stand on its own for the calls that fall back to it -- and for the
+    # versions where the borrowed function cannot be resolved at all.
+    assert internals._MOUNT_POINT == stat.IO_REPARSE_TAG_MOUNT_POINT
+
+
+def test_shutil_islink_is_borrowed_and_agrees_with_ours(tmp_path):
+    # The reason for borrowing it: rmtree acts on shutil's answer, so a
+    # disagreement between the two is a link remove_folders declines to
+    # follow and rmtree follows anyway.
+    assert internals._NATIVE_ISLINK is not None, (
+        "shutil._rmtree_islink did not resolve on this interpreter -- the "
+        "fallback covers it, but on CPython it is expected to resolve"
+    )
+
+    a_dir = tmp_path / "d"
+    a_dir.mkdir()
+    a_file = tmp_path / "f.txt"
+    a_file.write_text("x", encoding="utf-8")
+
+    for path in (a_dir, a_file):
+        assert internals._NATIVE_ISLINK(path) == internals._islink_st(os.lstat(path))
+
+
+def test_the_wrong_calling_shape_is_never_adopted(monkeypatch):
+    # The whole point of probing rather than branching on version_info.
+    # _rmtree_islink kept its name across 3.13 and changed its parameter
+    # from a path to an os.stat_result, so an import that succeeds is not
+    # evidence of anything. Both spellings of the mismatch are refused.
+    def wants_a_stat(st):
+        return stat.S_ISLNK(st.st_mode)
+
+    def wants_a_path(path):
+        return os.path.islink(path)
+
+    for impostor in (wants_a_stat, wants_a_path):
+        monkeypatch.setattr(shutil, "_rmtree_islink", impostor, raising=False)
+        shape = internals._resolve_native_islink()
+
+        assert shape is not None
+        # Whichever it is, it was adopted by measurement: it answers a real
+        # path and agrees with our own definition on it.
+        assert shape(__file__) == internals._islink_st(os.lstat(__file__))
+
+
+@pytest.mark.parametrize("broken", [
+    None,                                                   # the name is gone
+    "not callable",                                         # or is not a function
+    lambda *a, **kw: (_ for _ in ()).throw(RuntimeError()),  # or always raises
+    lambda *a, **kw: True,                                   # or lies
+])
+def test_a_shutil_islink_that_cannot_be_trusted_resolves_to_none(monkeypatch, broken):
+    # _rmtree_isdir vanished outright by 3.12, so disappearance is not
+    # hypothetical -- and a name that is there but answers wrongly is worse
+    # than one that is missing, because nothing raises.
+    if broken is None:
+        monkeypatch.delattr(shutil, "_rmtree_islink", raising=False)
+    else:
+        monkeypatch.setattr(shutil, "_rmtree_islink", broken, raising=False)
+
+    assert internals._resolve_native_islink() is None
+
+
+def test_the_borrowed_function_raising_does_not_take_the_answer_with_it(tmp_path, monkeypatch):
+    # The last net, for what none of the above predicted: whatever the
+    # borrowed function does short of returning, the local definition still
+    # answers, and the removers still work.
+    monkeypatch.setattr(internals, "_NATIVE_ISLINK",
+                        lambda path: (_ for _ in ()).throw(RuntimeError("boom")))
+    monkeypatch.setattr(internals, "_NATIVE_WARNED", False)
+
+    a_dir = tmp_path / "d"
+    a_dir.mkdir()
+    (a_dir / "f.txt").write_text("x", encoding="utf-8")
+
+    assert internals._is_link(a_dir) is False
+    assert internals._is_dir(a_dir) is True
+
+    remove_path(a_dir)
+
+    assert not a_dir.exists()
+
+
+def test_an_oserror_from_the_borrowed_function_is_just_a_missing_path(tmp_path, monkeypatch):
+    # OSError is the path being gone or unreadable, which is False on both
+    # sides -- it must not be mistaken for the function being broken, or
+    # every removal of an already-removed path would log a warning.
+    monkeypatch.setattr(internals, "_NATIVE_ISLINK",
+                        lambda path: (_ for _ in ()).throw(OSError("gone")))
+    monkeypatch.setattr(internals, "_NATIVE_WARNED", False)
+
+    assert internals._is_link(tmp_path / "ghost") is False
+    assert internals._NATIVE_WARNED is False
