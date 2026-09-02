@@ -91,17 +91,8 @@ _SUFFIXES = (
 
 # --- type aliases ----------------------------------------------------
 
-#: (absolute path, posix arcname, is_dir) -- what the compression walk
-#: yields, once per entry it keeps.
 _WalkEntry: TypeAlias = Tuple[str, str, bool]
-
-#: What a predicate rule is handed alongside the path: an os.DirEntry while
-#: a tree is walked, the container's own header while an archive is read,
-#: and None for a directory an archive only implied.
 _RawEntry: TypeAlias = Optional[Union["os.DirEntry", zipfile.ZipInfo, tarfile.TarInfo]]
-
-#: One filter rule as a caller writes it -- a name, a path, a glob, or a
-#: predicate taking the two above.
 _Rule: TypeAlias = Union[str, Callable[[str, _RawEntry], bool]]
 
 
@@ -1714,16 +1705,37 @@ class _Extractor:
 
         target = self._under(name)
 
-        if (
-            target is None 
-            or (
-                    m.kind != "dir" and not self._limiter.allows_target(
-                        name, target if self._root == self.dest else self.dest / target.relative_to(self._root)
-                    )
-            )
-        ):
+        # Two refusals, and they are kept apart because they are not the
+        # same event and must not read as one. A member that resolves
+        # outside the destination is an escape attempt and is the library's
+        # own finding, so it says so here; a member `overwrite` turns away
+        # is the caller's own policy doing what it was set to do, and
+        # _Limiter._deny has already logged it in the policy's words. Said
+        # together, every skipped member was reported as trying to escape.
+        if target is None:
             self._limiter._seen.discard(name)
-            log.warning("extract_archive: refused member %r in %s, it resolves outside the destination", name, self.src.name)
+            log.warning("extract_archive: refused member %r in %s, it resolves "
+                        "outside the destination", name, self.src.name)
+            return
+
+        # `overwrite` before the ceilings, so a member it turns away spends
+        # no part of max_files and none of max_total_size -- measured, an
+        # extraction under overwrite=SKIP with max_total_size set failed on
+        # a member that was never going to be written, and the members
+        # after it were lost to a ceiling nothing had reached. The stat it
+        # costs is not paid on the default: OVERWRITE answers True without
+        # asking the filesystem anything.
+        #
+        # Directories skip it. A directory is not one entry replacing
+        # another -- _mkdir merges into what is there -- so `overwrite` has
+        # nothing to say about one.
+        if m.kind != "dir" and not self._limiter.allows_target(
+            name, target if self._root == self.dest else self.dest / target.relative_to(self._root)
+        ):
+            # The name goes back with it: the member was never written, so
+            # a second one carrying the same name is not slipping past a
+            # first that landed.
+            self._limiter._seen.discard(name)
             return
 
         self._limiter.count(m)
