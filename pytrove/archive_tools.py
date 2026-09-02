@@ -28,7 +28,7 @@ def compress_folder(
     exclude: Optional[NestedContainer[_Rule]] = None,
     level: Optional[int] = None,
     workers: Optional[Union[int, Executor]] = None,
-    follow_symlinks: bool = False,
+    follow_links: bool = False,
     exclude_hidden: bool = True,
     fsync: bool = True,
     ) -> Path:
@@ -188,24 +188,43 @@ def compress_folder(
     rest of the hidden entries stay out. Pass exclude_hidden=False to keep
     them all.
 
-    `follow_symlinks` is off by default, and off means *left out*, not
+    `follow_links` is off by default, and off means *left out*, not
     recorded as a link: neither of the archive formats written here stores
-    one, so a symlink is skipped entirely and its target is not read.
-    Turning it on archives what the link points at, as ordinary content, at
-    the path the link occupies -- so a tree with several links to the same
-    directory stores that directory once per link.
+    one, so a link is skipped entirely and its target is not read. Turning
+    it on archives what the link points at, as ordinary content, at the
+    path the link occupies.
 
-    Two things about it are worth knowing before relying on it:
+    "A link" is every kind, and that is the point of the name. It used to
+    be `follow_symlinks` and to ask os.DirEntry, which does not report a
+    Windows junction as a link at all -- is_symlink() False, is_dir() True
+    -- so a junction was walked into under either setting and the argument
+    could not turn it off. It is asked of _is_link now, which reads the
+    reparse tag, so a junction is governed by this exactly like a symlink.
 
-      it does not govern a Windows junction. Python does not report one as
-      a symlink at all -- os.DirEntry.is_symlink() is False for a junction
-      and is_dir() is True -- so a junction is followed under either
-      setting, and this argument cannot turn that off.
+    On, it follows only what it can follow safely, and it is deliberately
+    narrower than "resolve it and see". A link is followed when both hold:
 
-      there is no cycle check. A link, or a junction, that points at one of
-      its own ancestors is walked until the operating system refuses to
-      resolve the path -- about 63 levels on Windows. It terminates, but
-      the archive holds everything under it once per level.
+      its destination is inside `src`. A link out of the tree is a second
+      tree, and archiving it puts files under names that say they came
+      from this one. Judged on the resolved destination, so a chain of
+      links cannot arrive somewhere its first hop did not admit to.
+
+      its destination is not a directory. The walk reaches every directory
+      under `src` on its own, so following one that is already inside
+      would archive it a second time under a second name -- and a link
+      pointing at one of its own ancestors would do that until the
+      operating system refused to resolve the path, about 63 levels deep
+      on Windows. Refusing the directory case is what removes the need for
+      a cycle check: a link can no longer extend the walk.
+
+    So what `follow_links=True` actually adds is files: a link to a file
+    inside the tree is stored as that file's contents, at the link's own
+    path. Anything else is left out with a line in the log naming the link
+    and where it pointed -- there is no setting that turns that into an
+    error, because a backup is not worth abandoning over a link.
+
+    A broken link is skipped without a word, on either setting, like any
+    other entry that is neither a file nor a directory.
 
     Empty directories are left out too, and so is one whose entire contents
     were filtered away: a directory is recorded only when a file inside it
@@ -355,7 +374,7 @@ def compress_folder(
     walk = _Compressor(
         str(src),
         _Filter.from_rules(iter_flat_cont(include), iter_flat_cont(exclude)),
-        follow_symlinks=follow_symlinks,
+        follow_links=follow_links,
     )
 
     with atomic_write(dest_path, binary=True, fsync=fsync) as out:

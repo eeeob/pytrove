@@ -16,6 +16,7 @@ import tracemalloc
 import zipfile
 
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import pytest
 
@@ -2253,6 +2254,20 @@ def test_a_deep_archive_is_written_without_one_frame_per_level(tmp_path):
     dest = tmp_path / "dest"
     dest.mkdir()
 
+    # One shallow run first, outside the tight stack. The first call into
+    # extract_archive resolves the argument types through abc's virtual
+    # subclass check, which recurses on a cold cache and can eat the whole
+    # headroom before _mkdir is reached -- measured, the RecursionError came
+    # out of abc.__subclasscheck__ during filter setup, which is not what
+    # this is measuring. The cache is per-interpreter, so warming it here
+    # makes the test say the same thing whether it runs alone or last.
+    warm = tmp_path / "warm.zip"
+
+    with zipfile.ZipFile(warm, "w") as zf:
+        zf.writestr("warm.txt", "warm")
+
+    extract_archive(warm, tmp_path / "warmed", atomic=False)
+
     with _tight_stack(30):
         extract_archive(archive, dest, atomic=False)
 
@@ -2315,3 +2330,212 @@ def test_the_merge_walks_with_a_stack_and_not_with_frames(tmp_path):
         f"the merge deepened the stack by {max(depths) - min(depths)} frames "
         f"over {levels} levels -- it is recursing"
     )
+
+
+# --- follow_links ---------------------------------------------------------
+
+def _link_or_junction(link, target, *, directory):
+    """A link at `link` pointing at `target`, by whichever means works.
+
+    A symlink where the account may make one, a junction where it may not
+    and the target is a directory, None where neither is possible. Both are
+    links as far as _is_link is concerned, which is the point.
+    """
+
+    try:
+        link.symlink_to(target, target_is_directory=directory)
+        return link
+    except (OSError, NotImplementedError):
+        pass
+
+    if not directory or sys.platform != "win32":
+        return None
+
+    made = subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)],
+                          capture_output=True, check=False)
+
+    return link if made.returncode == 0 else None
+
+
+def test_a_link_is_left_out_unless_follow_links_asks_for_it(tmp_path):
+    # Off is the default and off means left out, not stored as a link:
+    # neither container written here records one.
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "real.txt").write_text("real")
+
+    if _link_or_junction(src / "link.txt", src / "real.txt", directory=False) is None:
+        pytest.skip("cannot create a link here")
+
+    assert _names(compress_folder(src, tmp_path / "off.zip")) == {"real.txt"}
+    assert _names(compress_folder(src, tmp_path / "on.zip", follow_links=True)) == {
+        "link.txt", "real.txt",
+    }
+
+
+def test_a_link_out_of_the_tree_is_not_followed_and_is_logged(tmp_path, caplog):
+    # A link out of `src` is a second tree, and archiving it puts files
+    # under names claiming they came from this one.
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "kept.txt").write_text("kept")
+
+    outside = tmp_path / "OUTSIDE"
+    outside.mkdir()
+    (outside / "secret.txt").write_text("secret")
+
+    if _link_or_junction(src / "escape", outside, directory=True) is None:
+        pytest.skip("cannot create a link here")
+
+    with caplog.at_level("WARNING"):
+        names = _names(compress_folder(src, tmp_path / "a.zip", follow_links=True))
+
+    assert names == {"kept.txt"}, "the link out of the tree was followed"
+    assert "leaves the folder being archived" in caplog.text
+
+
+def test_a_link_to_a_directory_inside_is_not_followed_and_is_logged(tmp_path, caplog):
+    # The walk reaches every directory under src on its own, so following a
+    # link to one archives it a second time under a second name -- and a
+    # link to an ancestor would do that until the platform refused to
+    # resolve the path. Refusing the directory case is what removes the
+    # need for a cycle check.
+    src = tmp_path / "src"
+    (src / "sub").mkdir(parents=True)
+    (src / "sub" / "one.txt").write_text("one")
+
+    if _link_or_junction(src / "again", src / "sub", directory=True) is None:
+        pytest.skip("cannot create a link here")
+
+    with caplog.at_level("WARNING"):
+        names = _names(compress_folder(src, tmp_path / "a.zip", follow_links=True))
+
+    assert {n for n in names if n.endswith("one.txt")} == {"sub/one.txt"}, (
+        f"the directory was archived twice: {names}"
+    )
+    assert "which the walk already reaches on its own" in caplog.text
+
+
+def test_a_link_that_points_at_itself_terminates(tmp_path):
+    # The cycle that used to be walked to the platform's resolve limit,
+    # about 63 levels deep on Windows, and archived everything under it
+    # once per level.
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "real.txt").write_text("real")
+
+    if _link_or_junction(src / "loop", src, directory=True) is None:
+        pytest.skip("cannot create a link here")
+
+    assert _names(compress_folder(src, tmp_path / "a.zip", follow_links=True)) == {"real.txt"}
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="junctions are Windows-only")
+def test_follow_links_governs_a_junction_the_same_as_a_symlink(tmp_path, caplog):
+    # It was follow_symlinks and asked os.DirEntry, which does not report a
+    # junction as a link at all -- is_symlink() False, is_dir() True -- so a
+    # junction was walked into under either setting and the argument could
+    # not turn it off. _is_link reads the reparse tag instead.
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "kept.txt").write_text("kept")
+
+    outside = tmp_path / "OUTSIDE"
+    outside.mkdir()
+    (outside / "secret.txt").write_text("secret")
+
+    made = subprocess.run(["cmd", "/c", "mklink", "/J", str(src / "j"), str(outside)],
+                          capture_output=True, check=False)
+
+    if made.returncode != 0:
+        pytest.skip("cannot create a junction here")
+
+    assert _names(compress_folder(src, tmp_path / "off.zip")) == {"kept.txt"}
+
+    with caplog.at_level("WARNING"):
+        names = _names(compress_folder(src, tmp_path / "on.zip", follow_links=True))
+
+    assert names == {"kept.txt"}
+    assert "leaves the folder being archived" in caplog.text
+
+
+def test_a_broken_link_is_skipped_without_a_word(tmp_path, caplog):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "real.txt").write_text("real")
+
+    if _link_or_junction(src / "dangling", src / "gone.txt", directory=False) is None:
+        pytest.skip("cannot create a link here")
+
+    with caplog.at_level("WARNING"):
+        names = _names(compress_folder(src, tmp_path / "a.zip", follow_links=True))
+
+    assert names == {"real.txt"}
+    assert caplog.text == ""
+
+
+# --- what a refused member costs ------------------------------------------
+
+def test_a_member_refused_by_overwrite_costs_nothing_against_the_ceilings(tmp_path):
+    # `overwrite` is asked after count(), deliberately: it is a policy about
+    # a path that was otherwise fine rather than a judgement that the member
+    # was never real. What it must not do is spend the member's entry of
+    # max_files and its bytes of max_total_size on a file that is then not
+    # written -- a ceiling reached by members that never landed.
+    dest = tmp_path / "dest"
+    dest.mkdir()
+    (dest / "taken.txt").write_text("mine")
+
+    archive = tmp_path / "a.zip"
+
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr("taken.txt", "x" * 500)
+        zf.writestr("fresh.txt", "y" * 10)
+
+    # Room for one member and ten bytes. The refused one has to give back
+    # both, or the second cannot be written.
+    extract_archive(
+        archive, dest,
+        limits=ArchiveLimits(overwrite="skip", max_files=1, max_total_size=10),
+    )
+
+    assert (dest / "taken.txt").read_text() == "mine"
+    assert (dest / "fresh.txt").read_text() == "y" * 10
+
+
+def test_a_name_the_policy_refuses_is_still_a_name_the_archive_used(tmp_path):
+    # `duplicates` is asked before `overwrite` and stays asked: an archive
+    # that lists one name twice has listed it twice whether or not either
+    # copy was written, and reporting that is honest rather than wasteful.
+    # Nothing is lost by it -- whatever refused the first copy refuses the
+    # second, since they land on the same path.
+    dest = tmp_path / "dest"
+    dest.mkdir()
+    (dest / "a.txt").write_text("mine")
+
+    archive = tmp_path / "a.zip"
+
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr("a.txt", "one")
+        zf.writestr("a.txt", "two")
+
+    with pytest.raises(ArchivePolicyError, match="duplicate member"):
+        extract_archive(archive, dest,
+                        limits=ArchiveLimits(overwrite="skip", duplicates="error"))
+
+    assert (dest / "a.txt").read_text() == "mine"
+
+
+def test_a_member_the_policy_refuses_is_never_counted():
+    # Directly, because through an extraction the tallies are only visible
+    # by what they refuse. `overwrite` is asked first, so a member it turns
+    # away leaves every tally exactly where it was.
+    dest = Path("dest")
+    lim = internals._Limiter(
+        ArchiveLimits(overwrite="skip", max_dir_entries=10), Path("a.zip"))
+
+    assert lim.allows_target("sub/a.txt", dest / "sub" / "a.txt") is True
+    assert lim.allows_target("sub/a.txt", dest / "sub" / "a.txt") is False
+
+    # Nothing was spent on the second: no bytes, no entry, no breadth.
+    assert (lim.files, lim.total, lim._breadth, lim._counted) == (0, 0, {}, set())

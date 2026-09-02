@@ -38,8 +38,8 @@ from typing import (
 from .errors import ValidationError, ArchiveLimitError, ArchivePolicyError
 from .enums import ArchiveFormat, ArchiveLinkPolicy, ArchiveOverwritePolicy
 from .typings.archive import ArchiveLimits
-from .files_tools import remove_path, ensure_dir
-from ._files_tools import _is_dir
+from .files_tools import remove_path, remove_file, remove_folder, ensure_dir
+from ._files_tools import _is_dir, _is_link
 from .iter_tools import dedupe
 from .callable_tools import safe_call
 
@@ -77,35 +77,10 @@ _COPY_BUF = 1 << 20
 #: a header claiming more is describing something that is not a link.
 _LINK_MAX = 4096
 
-#: Cache miss. _Extractor._cleared stores None for "this directory may not
-#: be written into", so absence cannot be spelled with None and dict.get
-#: needs a default of its own.
-_MISS = object()
 
-#: Windows strips a trailing dot or space from every path component before
-#: it reaches the filesystem, so "foo. " and "foo" name one file there and
-#: "..." names the directory itself. _Extractor._under does that stripping
-#: itself rather than handing the OS a name it will quietly rewrite.
+_MISS = object()
 _NT = os.name == "nt"
 
-#: Whether one path can be spelled two ways and still be one file. True on
-#: Windows, where normcase already folds it, and on macOS, where normcase
-#: is the identity function and the filesystem folds anyway -- so a key
-#: built for "is this the same file" has to fold there by hand. Linux is
-#: neither, and folding would make two different files look like one.
-_FOLD_CASE = _NT or sys.platform == "darwin"
-
-#: Whether os.link can be told not to follow a symlink in its last
-#: component. Linux can (linkat), Windows ignores the argument, and macOS
-#: raises NotImplementedError for it -- which is not an OSError, so it
-#: would not be caught where a link failure is caught. Asked once here
-#: rather than guessed at the call site.
-_LINK_NOFOLLOW = os.link in os.supports_follow_symlinks
-
-#: Extension -> format. The one table both directions read: compress_folder
-#: to learn what `dest` is asking to be written, extract_archive to fall
-#: back on when an archive's leading bytes say nothing. None of the four is
-#: a suffix of another, so the order is only the order they were written.
 _SUFFIXES = (
     (".zip", ArchiveFormat.ZIP),
     (".tar.zst", ArchiveFormat.TAR_ZST),
@@ -515,7 +490,7 @@ class _Compressor:
 
     root: str
     flt: "_Filter"
-    follow_symlinks: bool = False
+    follow_links: bool = False
 
     def write(self, out, fmt, level=None, workers=None) -> None:
         """Walk the tree into `out` in whichever container `fmt` names.
@@ -582,7 +557,7 @@ class _Compressor:
 
         # Bound once: the loop below reads every one of these per entry, and
         # a local is a slot lookup where an attribute is a dict lookup.
-        root, flt, follow_symlinks = self.root, self.flt, self.follow_symlinks
+        root, flt, follow_links = self.root, self.flt, self.follow_links
 
         stack = [root]
         emitted = set()
@@ -603,23 +578,38 @@ class _Compressor:
             for entry in entries:
                 rel = os.path.relpath(entry.path, root).replace(os.sep, "/")
 
+                
+                if _is_link(entry.path):
+                    if not follow_links:
+                        continue
+
+                    dst = Path(os.path.realpath(entry.path))
+
+                    if not dst.is_relative_to(root):
+                        log.warning("compress_folder: not following %r, it leaves the folder being archived (points at %r)", entry.path, str(dst))
+                        continue
+
+                    if dst.is_dir():
+                        log.warning(
+                            "compress_folder: not following %r, it points at "
+                            "directory %r, which the walk already reaches on "
+                            "its own", entry.path, str(dst),
+                        )
+                        continue
+
+                    if not dst.is_file():
+                        continue
+
+                    if flt.matches(rel, entry):
+                        yield from self._ancestors(rel, emitted)
+                        yield entry.path, rel, False
+
+                    continue
+
                 try:
-                    is_dir = entry.is_dir(follow_symlinks=follow_symlinks)
-                    is_file = entry.is_file(follow_symlinks=follow_symlinks)
+                    is_dir = entry.is_dir(follow_symlinks=False)
+                    is_file = entry.is_file(follow_symlinks=False)
                 except OSError as exc:
-                    # scandir usually hands the type back for free, so this
-                    # is the uncommon case: the platform gave no d_type, or
-                    # follow_symlinks asked for the target, and the stat that
-                    # answers it failed. FileNotFoundError is not among the
-                    # reasons -- DirEntry catches that one itself and reports
-                    # False -- so what is left is a directory that is not
-                    # searchable, a symlink chain too deep to follow, a share
-                    # that went away, an I/O error on the medium.
-                    #
-                    # Skipping is right: something whose type cannot be read
-                    # cannot be archived. Saying nothing was not. This was
-                    # the one place a file could disappear out of a backup
-                    # without a word, while both neighbouring failures logged.
                     log.warning(
                         "compress_folder: cannot read the type of %r, "
                         "leaving it out (%s)", entry.path, exc,
@@ -842,8 +832,9 @@ class _Limiter:
     because the caller never asked for it.
 
     One instance per extraction. Nothing here is ever cleared, because
-    nothing needs to be: the archive is read once and the tallies only ever
-    grow.
+    nothing needs to be: the archive is read once, the tallies only ever
+    grow, and nothing is added to them for a member that is not about to be
+    written -- see _Extractor._place for the order that makes that true.
     """
 
     limits: ArchiveLimits
@@ -948,7 +939,8 @@ class _Limiter:
                            f"({m.packed} -> {size} bytes), over the "
                            f"{lim.max_ratio:g}x allowed")
 
-        self.files += 1
+        if m.kind != "dir":
+            self.files += 1
         self.total += size
 
         if lim.max_files is not None and self.files > lim.max_files:
@@ -1321,13 +1313,18 @@ class _Extractor:
         # than removing what has not been moved, and says where it is.
         
         try:
-            os.replace(staged, self.dest)
-        except OSError:
-            if not self.dest.exists():
-                raise
+            try:
+                os.replace(staged, self.dest)
+            except OSError:
+                if not self.dest.exists():
+                    raise
 
-            self._graft(staged, self.dest)
-            remove_path(staged)
+                self._graft(staged, self.dest)
+                remove_path(staged)
+        except:
+            log.error("extract_archive: could not put %s at %r -- what came out "
+                      "of it is in %r", self.src.name, str(self.dest), str(staged))
+            raise
         
 
     def _inspect(self, root: Path) -> None:
@@ -1375,7 +1372,7 @@ class _Extractor:
                 continue
 
             for entry in entries:
-                if not entry.is_dir(follow_symlinks=False):
+                if not _is_dir(entry.path):
                     continue
 
                 path = Path(entry.path)
@@ -1383,7 +1380,7 @@ class _Extractor:
                 if self._limiter.allows_dir(path):
                     stack.append(path)
                 else:
-                    remove_path(path)
+                    remove_folder(path)
 
     def _graft(self, staged: Path, dest: Path) -> None:
         """Move everything in `staged` into `dest`, directory by directory.
@@ -1408,13 +1405,13 @@ class _Extractor:
         outside the destination, which is the single thing this class
         exists to prevent; it is replaced like any other member instead.
 
-        "A link" means _is_dir, not is_symlink(). A Windows junction
-        is a directory reparse point that reports is_dir() and does not
-        report is_symlink(), so the obvious spelling of this check walked
-        into one -- and only here, because the non-staged path resolves
-        through it in _under and refuses the member before it is written.
-        Staging is what postponed the question to a place that was asking
-        it the wrong way.
+        "A directory" means _is_dir on both sides, not is_dir() and not
+        is_symlink(). A Windows junction is a directory reparse point that
+        reports is_dir() and does not report is_symlink(), so the obvious
+        spelling of this check walked into one -- and only here, because
+        the non-staged path resolves through it in _under and refuses the
+        member before it is written. Staging is what postponed the question
+        to a place that was asking it the wrong way.
         """
 
         # An explicit stack, not recursion. One frame per level meant a
@@ -1440,19 +1437,27 @@ class _Extractor:
             for entry in entries:
                 target = there / entry.name
 
-                # _is_dir on the destination side, not
-                # `is_dir() and not is_symlink()`. A Windows junction
-                # passes that pair -- is_dir() True, is_symlink() False --
-                # so a destination holding one was descended into and every
-                # member under it was moved wherever it pointed. Measured:
-                # a junction planted in `dest` before the run took
-                # "sub/PWNED.txt" outside it, and only on the staged path,
-                # because a non-staged run resolves through the junction in
-                # _under and refuses the member there instead.
+                # _is_dir on both sides, not `is_dir() and not
+                # is_symlink()`. A Windows junction passes that pair --
+                # is_dir() True, is_symlink() False -- so a destination
+                # holding one was descended into and every member under it
+                # was moved wherever it pointed. Measured: a junction
+                # planted in `dest` before the run took "sub/PWNED.txt"
+                # outside it, and only on the staged path, because a
+                # non-staged run resolves through the junction in _under
+                # and refuses the member there instead.
+                #
+                # The staged side is asked the same way rather than trusted
+                # for being ours. Nothing this class writes into `staged`
+                # is a junction, but "nothing writes one" is a property of
+                # every path into that directory rather than of this line,
+                # and the two sides of a merge are worth deciding by one
+                # rule. is_dir(follow_symlinks=False) said yes to a reparse
+                # point here as readily as it did there.
                 #
                 # Anything that is not a plain directory is replaced rather
                 # than entered, which is what the archive asked for anyway.
-                if entry.is_dir(follow_symlinks=False) and _is_dir(target):
+                if _is_dir(entry.path) and _is_dir(target):
                     pairs.append((Path(entry.path), target))
                     continue
 
@@ -1476,21 +1481,15 @@ class _Extractor:
                                 "stands at %r", entry.name, self.src.name, str(target))
                     continue
 
-                # One entry, removed as one, and never remove_path: it
-                # sends a directory to rmtree, and rmtree cannot remove a
-                # Windows junction -- not a directory it can walk, not a
-                # file it can unlink -- so with ignore_errors it left the
-                # junction standing and said nothing, and os.replace then
-                # failed with a bare Access denied. unlink takes a file or
-                # a symlink; rmdir takes a directory reparse point, and
-                # takes the link rather than what it points at. A plain
-                # directory never reaches here -- it was either descended
-                # into or refused above -- so nothing recursive is wanted.
-                if target.is_symlink() or target.exists():
-                    try:
-                        os.unlink(target)
-                    except OSError:
-                        os.rmdir(target)
+                # One entry, removed by the one that removes one entry.
+                # Not remove_path: it sends a directory to rmtree, and a
+                # plain directory never reaches here -- it was either
+                # descended into or refused above -- so nothing recursive
+                # is wanted. remove_file takes a file, a symlink or a
+                # junction, treats a path that is already gone as done, and
+                # a path it cannot clear is reported by name there rather
+                # than reaching os.replace as a bare Access denied.
+                remove_file(target)
 
                 os.replace(entry.path, target)
 
@@ -1715,54 +1714,61 @@ class _Extractor:
 
         target = self._under(name)
 
-        if target is None:
+        if (
+            target is None 
+            or (
+                    m.kind != "dir" and not self._limiter.allows_target(
+                        name, target if self._root == self.dest else self.dest / target.relative_to(self._root)
+                    )
+            )
+        ):
+            self._limiter._seen.discard(name)
             log.warning("extract_archive: refused member %r in %s, it resolves outside the destination", name, self.src.name)
             return
 
-        # Counted here, after the last thing that can turn the member away
-        # for good. Earlier it was counted before this, so a member refused
-        # for resolving outside the destination still spent an entry of
-        # max_files and its bytes of max_total_size -- a ceiling reached by
-        # members that were never going to be written. What is counted is
-        # what is about to be, which is what the ceilings are described as
-        # bounding. `overwrite` below is the one refusal that comes after,
-        # and deliberately: it is a policy about a path that was otherwise
-        # fine, not a judgement that the member was never real.
         self._limiter.count(m)
 
-        if m.kind == "dir":
-            return target
-
-        return (
-            target 
-            if self._limiter.allows_target(name, target if self._root == self.dest else self.dest / target.relative_to(self._root)) 
-            else None
-        )
+        return target
 
     # --- writing it ------------------------------------------------------
 
-    def _mkdir(self, path: Path) -> bool:
-        """Make one directory, remembering it, and say whether it is there.
+    def _mkdir(self, path: Path) -> None:
+        """Make one directory and remember which levels of it are new.
 
-        A failure is reported and skipped rather than raised, the same way
-        the walk treats a directory it cannot read. The usual cause is an
-        archive holding both "sub" as a file and "sub/" as a directory, and
-        one contradictory member is not a reason to abandon the other
-        several thousand.
+        Returns nothing, and a failure is raised rather than reported: what
+        cannot be created cannot be written into, and the members that
+        would have gone there are the rest of the extraction rather than a
+        few. `atomic` and `cleanup_on_error` are what decide the fate of
+        the members already on disk when it happens, exactly as for any
+        other error out of a write.
+
+        `_made` is the memo, so a directory that a hundred members share is
+        made once. `_built` is the other half and only under `atomic`: it
+        records the levels this call actually brought into being, innermost
+        last, which is what lets the run take back what it created without
+        touching a level that was already there.
         """
 
         if path in self._made:
-            return 
+            return
+
 
         fresh = []
-        probe = path
 
-        while probe != self._root and probe != probe.parent and not probe.exists():
-            fresh.append(probe)
-            probe = probe.parent
+        while path != self._root and path != path.parent and not path.exists():
+            fresh.append(path)
+            path = path.parent
 
+        if not fresh:
+            self._made.add(path)
+            return
 
-        self._made.update(fresh, [ensure_dir(path, parents=True, exist_ok=True)])
+        del path
+
+        for level in reversed(fresh):
+            ensure_dir(level, parents=False, exist_ok=True)
+
+        self._made.update(fresh)
 
         if fresh and self._built is not None:
             self._built.extend(reversed(fresh))
@@ -1811,6 +1817,33 @@ class _Extractor:
         policy allows -- a later member written "through" it would escape
         even though its own name looked harmless, which is the whole reason
         link members are dangerous.
+
+        Containment is asked of the name, and a hardlink whose destination
+        is itself a symlink is not asked anything further: os.link follows
+        it, so the new name is a second name for whatever that symlink
+        points at, and the operating system is left to answer for that the
+        way it answers for any other os.link. It is written down here
+        because the shape of it is worth knowing:
+
+          the archive cannot arrange it. Every link this extraction
+          creates has already been checked to point inside the
+          destination, so a hardlink to one of them is a hardlink to
+          something inside it.
+
+          a destination that already held a symlink out of the tree can.
+          The inode is outside; the name is inside. Reaching that needs
+          write access to `dest` before the extraction runs, which is a
+          different attacker from the one this class is written against --
+          an archive from somewhere else -- and one who already has the
+          access to plant the file directly.
+
+        This was refused for a while, along with an os.link(
+        follow_symlinks=False) where the platform had it. The refusal was
+        dropped as more caution than the case earns; the argument went with
+        it because it was never the thing holding the line -- Windows
+        ignores it silently and macOS raises NotImplementedError for it,
+        which is not an OSError and would not have been caught below, so
+        the check was doing the work on two of the three platforms anyway.
         """
         raw = m.target
 
@@ -1831,34 +1864,15 @@ class _Extractor:
         # caller had, and not one this run made either -- see the docstring
         # for why the second half is not the exception it looks like.
         #
-        # is_symlink() before is_dir(): is_dir() follows a link, so a link
-        # already at the target would answer yes and be refused, when it is
-        # exactly what os.replace below takes the path from. On Windows a
-        # junction reports is_dir() without reporting is_symlink(), so it
-        # lands here and is refused rather than followed into whatever it
-        # points at.
-        if not target.is_symlink() and target.is_dir():
+        # _is_dir, which is a real directory and nothing else. is_dir()
+        # follows a link, so a link already at the target would answer yes
+        # and be refused, when it is exactly what os.replace below takes
+        # the path from; and a Windows junction answers is_dir() while
+        # answering is_symlink() False, so the pair that used to stand here
+        # refused a junction as though it were a directory to protect,
+        # rather than replacing it as the one entry it is.
+        if _is_dir(target):
             log.warning("extract_archive: refused %s %r in %s, a directory stands at %r", m.kind, m.name, self.src.name, str(target))
-            return
-
-        # A hardlink to a link is refused rather than followed. _under
-        # resolves the destination's parent and joins the last component
-        # onto it without resolving that one, so a link sitting there is
-        # inside the root as a name while pointing wherever it likes -- and
-        # os.link follows it by default, which would give an inode outside
-        # the destination a name inside it. The archive cannot plant such a
-        # link itself, since every one it creates is checked; a destination
-        # that already had one can.
-        #
-        # os.link(follow_symlinks=False) says the same thing to the kernel
-        # and closes the gap between this check and the call, but only
-        # where the platform has it: Windows ignores the argument and macOS
-        # raises NotImplementedError for it, which is not an OSError and
-        # would not be caught below. So it is asked for only where it
-        # works, and the check above is what holds everywhere.
-        if m.kind == "hardlink" and resolved.is_symlink():
-            log.warning("extract_archive: refused hardlink %r in %s, its destination "
-                        "%r is itself a link", m.name, self.src.name, str(resolved))
             return
 
         # Built beside the target and renamed onto it, never written over
@@ -1874,8 +1888,6 @@ class _Extractor:
         try:
             if m.kind == "symlink":
                 os.symlink(raw, tmp)
-            elif _LINK_NOFOLLOW:
-                os.link(resolved, tmp, follow_symlinks=False)
             else:
                 os.link(resolved, tmp)
         except OSError as exc:
@@ -1885,9 +1897,8 @@ class _Extractor:
         try:
             os.replace(tmp, target)
         except OSError as exc:
-            safe_call(remove_path, tmp, include_exc=OSError, log_exc=True)
-            log.warning("extract_archive: could not put %s %r at %r (%s)",
-                        m.kind, m.name, str(target), exc)
+            safe_call(remove_file, tmp, include_exc=OSError, log_exc=True)
+            log.warning("extract_archive: could not put %s %r at %r (%s)", m.kind, m.name, str(target), exc)
             return
 
         if self._built is not None:
@@ -2093,14 +2104,6 @@ class _Extractor:
         pool = pool or own
         readers = _ZipReaders(self.src, self.password)
         inflight = {}          #: path -> the write filling it
-        pending = deque()      #: (path, write) in the order they went out
-
-        # How far the reader may run ahead of the writers. Without a bound
-        # the manifest is submitted whole before anything is waited on:
-        # measured, 3995 of 4000 members sitting in the queue at once, each
-        # holding its _Member and its ZipInfo, and `inflight` holding a
-        # Future per path on top. Four deep per worker keeps every one of
-        # them fed while the archive is read once, not held.
         ahead = 4 * (count or 8)
 
         try:
@@ -2126,60 +2129,37 @@ class _Extractor:
 
                 if m.kind == "dir":
                     self._mkdir(target)
-                elif not self._mkdir(target.parent):
                     continue
-                elif pool is None:
+
+                self._mkdir(target.parent)
+
+                if pool is None:
                     self._zip_copy(readers, m, target)
                 else:
-                    # A link goes to the pool like any other member, and
-                    # nothing has to be drained before it. It used to be:
-                    # _link cleared a directory away to take its path, and
-                    # rmtree on a worker cannot remove a file another thread
-                    # holds open. A link never removes a directory now, so
-                    # the only path it takes is one os.replace can take, and
-                    # two members landing on one path are already serialised
-                    # below.
-                    # Folded where one path can be spelled two ways and
-                    # still be one file. normcase does that on Windows and
-                    # nothing at all on POSIX, which is right for Linux and
-                    # wrong for macOS, where the filesystem folds and two
-                    # workers would otherwise be handed "Readme.txt" and
-                    # "README.TXT" believing they differ. Over-folding is
-                    # safe here in a way it is not in _taken: this only
-                    # decides what waits for what, never where a member
-                    # lands, so the cost of folding two real paths together
-                    # is that one waits for the other.
                     key = os.path.normcase(str(target))
-
-                    if _FOLD_CASE:
-                        key = key.lower()
 
                     if (earlier := inflight.pop(key, None)) is not None:
                         earlier.result()
 
-                    inflight[key] = job = pool.submit(self._zip_copy, readers, m, target)
-                    pending.append((key, job))
-
-                    # Backpressure. The oldest write is waited on and
-                    # forgotten, which bounds both the pool's queue and
-                    # `inflight` -- an entry is only wanted while a later
-                    # member might land on the same path, and one that has
-                    # finished has nothing left to be waited for.
-                    while len(pending) > ahead:
-                        done_key, done_job = pending.popleft()
+                    inflight[key] = pool.submit(self._zip_copy, readers, m, target)
+                    
+                    while len(inflight) > ahead:
+                        done_key = next(iter(inflight))
+                        done_job = inflight[done_key]
+                        
                         done_job.result()
 
                         if inflight.get(done_key) is done_job:
                             del inflight[done_key]
 
-            for _, job in pending:
+            for job in inflight.values():
                 job.result()
         finally:
             try:
-                for _, job in pending:
+                for job in inflight.values():
                     job.cancel()
 
-                wait([job for _, job in pending])
+                wait(inflight.values())
             finally:
                 try:
                     if own is not None:
@@ -2251,9 +2231,11 @@ class _Extractor:
 
                     if m.kind == "dir":
                         self._mkdir(target)
-                    elif not self._mkdir(target.parent):
                         continue
-                    elif m.kind != "file":
+
+                    self._mkdir(target.parent)
+
+                    if m.kind != "file":
                         self._link(m, target)
                     elif (data := tf.extractfile(m.raw)) is not None:
                         self._spill(m, data, target)

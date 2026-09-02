@@ -20,7 +20,7 @@ from .typings import (
 from .enums import PickleSafety, TruncateSide
 from .errors import ValidationError
 from .callable_tools import safe_call
-from .iter_tools import iter_flat_cont, to_frozenset
+from .iter_tools import iter_flat_cont, to_frozenset, dedupe
 from ._optional import _optional_import
 from ._files_tools import (
     _MkdirOptions, 
@@ -121,12 +121,25 @@ def ensure_dir(path: PathLike, for_file: bool = False, **kwargs: Unpack[_MkdirOp
     return path
 
 
-def remove_files(*files: NestedContainer[PathLike]) -> None:
-    for file in iter_flat_cont(files):
+def remove_files(*files: NestedContainer[PathLike], return_exc: bool = False, log_exc: bool = False):
+    removed, files = [], dedupe(iter_flat_cont(files))
+
+    for file in files:
         try:
             os.unlink(file)
         except FileNotFoundError:
-            pass
+            continue
+        except Exception as e:
+            if not return_exc:
+                raise
+            removed.append(e)
+            if log_exc:
+                log.exception(e)            
+        else:
+            removed.append(file)
+
+    return removed
+        
         
 
 remove_file = remove_files
