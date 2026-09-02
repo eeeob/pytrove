@@ -37,7 +37,7 @@ from ._optional import _unavailable_class
 
 from .typings import _KT, _VT, _T, _P, Number, MaybeContainer
 from .async_tools import to_thread
-from .callable_tools import run_awaitable_in_coro, safe_call
+from .callable_tools import run_awaitable_in_coro, safe_call, ignore_arguments
 from .iter_tools import to_frozenset
 
 import weakref
@@ -881,14 +881,26 @@ class KeyDefaultWeakValueDict(weakref.WeakValueDictionary[_KT, _VT]):
     __call__ = __getitem__
 
 class DefaultWeakValueDict(KeyDefaultWeakValueDict[_KT, _VT]):
+    """KeyDefaultWeakValueDict whose factory is called with no arguments.
+
+    The key is what the parent hands its factory; this is for the common case
+    where the default does not depend on it. Wrapped with callable_tools'
+    ignore_arguments, whose functools.wraps leaves `__wrapped__` pointing at
+    the original -- that is what makes the unwrap below possible.
+    """
+
     def __init__(self, default_factory: Callable[[], _VT]) -> None:
+        # Unwrap first: this may be one of our own ignore_arguments adapters
+        # coming back, from a caller rebuilding the mapping out of
+        # `default_factory`. Wrapping it again would call the unwrapped
+        # factory with no arguments through a second layer that also takes
+        # none, raising TypeError on every miss.
+        default_factory = getattr(default_factory, "__wrapped__", default_factory)
+
         if not callable(default_factory):
             raise TypeError("default_factory must be callable")
 
-        def wrapper(_: _KT) -> _VT:
-            return default_factory()
-
-        super().__init__(wrapper)
+        super().__init__(ignore_arguments(default_factory))
 
 
 class KeyDefaultWeakKeyDict(weakref.WeakKeyDictionary[_KT, _VT]):
@@ -910,14 +922,26 @@ class KeyDefaultWeakKeyDict(weakref.WeakKeyDictionary[_KT, _VT]):
     __call__ = __getitem__
 
 class DefaultWeakKeyDict(KeyDefaultWeakKeyDict[_KT, _VT]):
+    """KeyDefaultWeakKeyDict whose factory is called with no arguments.
+
+    The key is what the parent hands its factory; this is for the common case
+    where the default does not depend on it. Wrapped with callable_tools'
+    ignore_arguments, whose functools.wraps leaves `__wrapped__` pointing at
+    the original -- that is what makes the unwrap below possible.
+    """
+
     def __init__(self, default_factory: Callable[[], _VT]) -> None:
+        # Unwrap first: this may be one of our own ignore_arguments adapters
+        # coming back, from a caller rebuilding the mapping out of
+        # `default_factory`. Wrapping it again would call the unwrapped
+        # factory with no arguments through a second layer that also takes
+        # none, raising TypeError on every miss.
+        default_factory = getattr(default_factory, "__wrapped__", default_factory)
+
         if not callable(default_factory):
             raise TypeError("default_factory must be callable")
 
-        def wrapper(_: _KT) -> _VT:
-            return default_factory()
-
-        super().__init__(wrapper)
+        super().__init__(ignore_arguments(default_factory))
 
 
 _WeakRegistryKT = TypeVar("_WeakRegistryKT", bound=Hashable, default=int)
