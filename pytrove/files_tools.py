@@ -1,17 +1,20 @@
 from typing import (
-    Any, Union, Optional,
+    Any, List, Union, Optional,
     Literal, cast, overload,
 )
 from pathlib import Path
 from contextlib import contextmanager
 
 from .typings import JsonValue, NestedContainer, PathLike, LockProtocol, _T
-from .enums import PickleSafety
+from .enums import PickleSafety, TruncateSide
+from .errors import ValidationError
 from .callable_tools import safe_call
 from .iter_tools import iter_flat_cont, to_frozenset
 from ._optional import _optional_import
 from ._files_tools import (
+    _COPY_BUF,
     _NOT_SET,
+    _next_part,
     _SAFE_PICKLE_CLASSES,
     _RestrictedUnpickler,
     _json_dumps,
@@ -175,6 +178,145 @@ def write_file(
         fsync=fsync,
     ) as f:
         f.write(content)
+
+def truncate_file(
+    path: PathLike,
+    size: int,
+    cut: TruncateSide = TruncateSide.HEAD,
+    spill: Union[bool, PathLike] = False,
+    fsync: bool = True,
+    ) -> List[Path]:
+
+    """Cut `path` down to `size` bytes, and return where the rest went.
+
+    `cut` names the end that goes, not the end that stays:
+
+      TAIL  keep the first `size` bytes -- the plain truncation, and the
+            cheap one, since what stays does not move.
+      HEAD  keep the last `size` bytes -- what a log wants, where the
+            newest lines are the ones worth keeping. It costs a rewrite of
+            the part that stays: no filesystem drops bytes off the front
+            of a file in place.
+
+    Either the enum or its raw string ("tail", "head") is accepted.
+
+    `spill` decides whether the removed bytes are lost or kept. False, the
+    default, discards them. True writes them beside the file, and a path
+    writes them into that directory instead, creating it if it is not
+    there. Either way they are split into parts of `size` bytes named
+    "<file>.1", "<file>.2", ... in the order they appear in the original,
+    so putting it back together is a concatenation and nothing else:
+
+        file + part.1 + part.2 + ...   for cut=TAIL
+        part.1 + part.2 + ... + file   for cut=HEAD
+
+    Numbering continues past whatever parts are already in the directory
+    rather than starting at 1, so truncating the same file twice adds
+    parts instead of writing over the first set. Only an all-digit suffix
+    counts as one, so "app.log.bak" is left out of the reckoning.
+
+    The parts are written and flushed before the file is touched, so an
+    interruption costs at worst some parts that duplicate bytes still in
+    the file -- never bytes that are in neither. Each part is written
+    through atomic_write, so a reader never sees a half-written one.
+
+    Returns the parts in the order they were written, and an empty list
+    when `spill` is off or the file was already small enough. A file at or
+    under `size` is left alone entirely.
+
+    Note the file's identity survives a TAIL cut and not a HEAD one: HEAD
+    rewrites through a rename, so the inode changes and anything holding
+    the old handle -- a tail -f, a logger that kept the file open -- goes
+    on writing to the file that is no longer there. Mode is preserved.
+
+    See also atomic_write, which this uses, and write_file for replacing a
+    file's contents outright rather than trimming them.
+    """
+
+    path = resolve_path(path, strict=True)
+    side = TruncateSide(cut)
+
+    if isinstance(size, bool) or not isinstance(size, int) or size < 0:
+        raise ValidationError(
+            f"truncate_file: size must be a whole number of bytes, not {size!r}"
+        )
+
+    if not path.is_file():
+        raise ValidationError(f"truncate_file: {str(path)!r} is not a file")
+
+    total = path.stat().st_size
+
+    if total <= size:
+        return []
+
+    dropped = total - size
+    parts: List[Path] = []
+
+    if spill:
+        folder = path.parent if spill is True else resolve_path(spill)
+        folder.mkdir(parents=True, exist_ok=True)
+
+        # size=0 keeps nothing and spills everything, which leaves no part
+        # size to read off the argument; the copy buffer is the only
+        # number in play at that point.
+        part_size = size or _COPY_BUF
+        number = _next_part(folder, path.name)
+        left = dropped
+
+        with open(path, "rb") as src:
+            src.seek(0 if side is TruncateSide.HEAD else size)
+
+            while left > 0:
+                want = min(part_size, left)
+                part = folder / f"{path.name}.{number}"
+                written = 0
+
+                with atomic_write(part, binary=True, fsync=fsync) as out:
+                    while written < want:
+                        chunk = src.read(min(_COPY_BUF, want - written))
+
+                        if not chunk:
+                            break
+
+                        out.write(chunk)
+                        written += len(chunk)
+
+                if not written:
+                    # Nothing left to read: the file shrank under us, or it
+                    # was never as long as its size said. The part is empty
+                    # and would only be a lie about what was there.
+                    remove_file(part)
+                    break
+
+                parts.append(part)
+                number += 1
+                left -= written
+
+                if written < want:
+                    break
+
+    if side is TruncateSide.TAIL:
+        # In place. The bytes that stay are already where they belong, so
+        # there is nothing to copy and nothing to rename.
+        with open(path, "r+b") as f:
+            f.truncate(size)
+
+            if fsync:
+                f.flush()
+                os.fsync(f.fileno())
+    else:
+        # atomic_write on the outside, the reader on the inside: the
+        # rename cannot happen while the file it replaces is still open
+        # here, which Windows refuses outright rather than deferring.
+        with atomic_write(path, binary=True, fsync=fsync) as out:
+            with open(path, "rb") as src:
+                src.seek(dropped)
+
+                while chunk := src.read(_COPY_BUF):
+                    out.write(chunk)
+
+    return parts
+
 
 # The binary=True overload must come first: an overload that omits `binary`
 # but keeps **kw absorbs `binary=True` into kw and matches before this one
@@ -484,6 +626,7 @@ __all__ = (
     "write_pickle",
     "write_file",
     "read_file",
+    "truncate_file",
     "atomic_write",
     "remove_files", 
     "remove_folders",

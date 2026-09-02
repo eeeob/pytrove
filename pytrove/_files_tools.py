@@ -1,6 +1,8 @@
 import json
+import os
 import pickle
 
+from pathlib import Path
 from pickle import _compat_pickle  # type: ignore[attr-defined]
 from typing import Any, Dict, FrozenSet, Tuple, Union
 from .enums import PickleSafety
@@ -14,6 +16,45 @@ else:
 
 
 _NOT_SET = object()
+
+#: How much of a file is held in memory while it is copied from one place
+#: to another. One buffer per copy, so a 4 GB file costs this and not its
+#: own size.
+_COPY_BUF = 1 << 20
+
+
+def _next_part(folder: "Path", stem: str) -> int:
+    """The first free number for a "<stem>.N" part file in `folder`.
+
+    One past the highest that is already there, rather than 1, so a second
+    truncation of the same file adds parts instead of writing over the
+    ones the first produced. Losing those is exactly what a caller asking
+    for parts is asking not to happen.
+
+    A number is only a number if the whole suffix is digits: "app.log.2"
+    counts and "app.log.bak" does not, so an unrelated neighbour cannot
+    push the count up or, worse, be counted as a part and later read back
+    as one.
+    """
+
+    highest = 0
+    prefix = f"{stem}."
+
+    try:
+        names = os.listdir(folder)
+    except OSError:
+        return 1
+
+    for name in names:
+        if not name.startswith(prefix):
+            continue
+
+        tail = name[len(prefix):]
+
+        if tail.isdigit():
+            highest = max(highest, int(tail))
+
+    return highest + 1
 
 
 # orjson is 10x faster than json at dumping, but it is not a drop-in: it

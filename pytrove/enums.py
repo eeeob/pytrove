@@ -147,6 +147,25 @@ class PickleSafety(IntEnum):
     """Only the inert builtin/stdlib types, plus whatever `allow_classes`
     names explicitly. Anything else raises UnpicklingError."""
 
+class TruncateSide(StrEnum):
+    """Which end of a file files_tools.truncate_file takes away.
+
+    Named for what is *removed* rather than for what is kept, because that
+    is the part the caller is deciding the fate of -- it is the half that
+    can be spilled to numbered files instead of dropped.
+    """
+
+    TAIL = "tail"
+    """Keep the first `size` bytes and remove everything after them. The
+    plain truncation: what os.truncate does, and cheap for the same reason
+    -- the bytes that stay do not move."""
+
+    HEAD = "head"
+    """Keep the last `size` bytes and remove everything before them. What a
+    log file wants: the newest lines survive. It costs a rewrite of the
+    part that stays, since there is no way to drop bytes off the front of a
+    file in place."""
+
 class ImapEmailProvider(Enum):
     GMAIL = ("imap.gmail.com", 993)
     OUTLOOK = ("outlook.office365.com", 993)
@@ -199,7 +218,8 @@ __all__ = (
     "PickleSafety",
     "PlatformDevice",
     "TgMessageLength",
-    "TimeUnit", "TriggerOn", 
+    "TimeUnit", "TriggerOn",
+    "TruncateSide",
     "IMAP_DOMAIN_TO_PROVIDER", 
 
 )
