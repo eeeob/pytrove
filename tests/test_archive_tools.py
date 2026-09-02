@@ -1288,9 +1288,11 @@ def test_two_members_landing_on_one_path_meet_the_overwrite_policy(tmp_path, pol
 
 # --- what the ceilings count ----------------------------------------------
 
-def test_max_files_counts_directories_and_links_too(tmp_path):
-    # It bounds how many filesystem entries an archive may create, and a
-    # million empty directories costs what a million empty files costs.
+def test_max_files_does_not_count_directories(tmp_path):
+    # max_files bounds files, not filesystem entries -- see
+    # ArchiveLimits.max_files and _Limiter.count. Two directories and two
+    # files: max_files=2 is exactly enough even though four members are
+    # listed, and max_files=1 is one short.
     arc = tmp_path / "mf.zip"
 
     with zipfile.ZipFile(arc, "w") as zf:
@@ -1299,13 +1301,38 @@ def test_max_files_counts_directories_and_links_too(tmp_path):
         zf.writestr("b/", "")
         zf.writestr("b/y.txt", "y")
 
-    with pytest.raises(ArchiveLimitError, match="members allowed"):
-        extract_archive(arc, tmp_path / "m1", limits=ArchiveLimits(max_files=2))
-
-    dest = tmp_path / "m2"
-    extract_archive(arc, dest, limits=ArchiveLimits(max_files=4))
+    dest = tmp_path / "m1"
+    extract_archive(arc, dest, limits=ArchiveLimits(max_files=2))
 
     assert sorted(p.name for p in dest.rglob("*")) == ["a", "b", "x.txt", "y.txt"]
+
+    with pytest.raises(ArchiveLimitError, match="members allowed"):
+        extract_archive(arc, tmp_path / "m2", limits=ArchiveLimits(max_files=1))
+
+
+def test_max_files_counts_a_symlink_too(tmp_path):
+    # A symlink is not a directory, so it counts against max_files just as
+    # an ordinary file does, even though it takes no bytes of its own.
+    if not _can_symlink(tmp_path):
+        pytest.skip("cannot create a symlink here")
+
+    arc = tmp_path / "mfl.zip"
+
+    with zipfile.ZipFile(arc, "w") as zf:
+        zf.writestr("real.txt", "real")
+        info = zipfile.ZipInfo("link")
+        info.external_attr = (stat.S_IFLNK | 0o777) << 16
+        zf.writestr(info, "real.txt")
+
+    with pytest.raises(ArchiveLimitError, match="members allowed"):
+        extract_archive(arc, tmp_path / "s1",
+                        limits=ArchiveLimits(max_files=1, symlinks="allow"))
+
+    dest = tmp_path / "s2"
+    extract_archive(arc, dest, limits=ArchiveLimits(max_files=2, symlinks="allow"))
+
+    assert (dest / "real.txt").read_text() == "real"
+    assert (dest / "link").is_symlink()
 
 
 # --- a name is refused, never repaired ------------------------------------
@@ -2503,12 +2530,12 @@ def test_a_member_refused_by_overwrite_costs_nothing_against_the_ceilings(tmp_pa
     assert (dest / "fresh.txt").read_text() == "y" * 10
 
 
-def test_a_name_the_policy_refuses_is_still_a_name_the_archive_used(tmp_path):
-    # `duplicates` is asked before `overwrite` and stays asked: an archive
-    # that lists one name twice has listed it twice whether or not either
-    # copy was written, and reporting that is honest rather than wasteful.
-    # Nothing is lost by it -- whatever refused the first copy refuses the
-    # second, since they land on the same path.
+def test_a_refused_member_gives_its_name_back_to_duplicates(tmp_path):
+    # The name goes back with the rest of the spend: the first copy was
+    # never written, so a second one carrying that name is not slipping
+    # past a first that landed. It is not a way around `duplicates`
+    # either -- whatever refused the first refuses the second, since they
+    # land on the same path.
     dest = tmp_path / "dest"
     dest.mkdir()
     (dest / "a.txt").write_text("mine")
@@ -2519,11 +2546,31 @@ def test_a_name_the_policy_refuses_is_still_a_name_the_archive_used(tmp_path):
         zf.writestr("a.txt", "one")
         zf.writestr("a.txt", "two")
 
-    with pytest.raises(ArchivePolicyError, match="duplicate member"):
-        extract_archive(archive, dest,
-                        limits=ArchiveLimits(overwrite="skip", duplicates="error"))
+    extract_archive(archive, dest,
+                    limits=ArchiveLimits(overwrite="skip", duplicates="error"))
 
     assert (dest / "a.txt").read_text() == "mine"
+
+
+def test_a_member_overwrite_refuses_is_not_reported_as_an_escape(tmp_path, caplog):
+    # Two refusals that used to share one line. A member the caller's own
+    # policy turned away is not a member that tried to leave the
+    # destination, and saying so of every skipped file makes the one that
+    # really did try impossible to find.
+    dest = tmp_path / "dest"
+    dest.mkdir()
+    (dest / "a.txt").write_text("mine")
+
+    archive = tmp_path / "a.zip"
+
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr("a.txt", "one")
+
+    with caplog.at_level("INFO"):
+        extract_archive(archive, dest, limits=ArchiveLimits(overwrite="skip"))
+
+    assert "resolves outside the destination" not in caplog.text
+    assert "already exists" in caplog.text
 
 
 def test_a_member_the_policy_refuses_is_never_counted():

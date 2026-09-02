@@ -848,9 +848,13 @@ class _Limiter:
     def count(self, m: _Member) -> None:
         """Weigh one member against all six ceilings, or raise.
 
-        A directory or a link counts as an entry but not as bytes: what
-        max_files bounds is how many filesystem entries an archive may
-        create, and what max_total_size bounds is how much disk it may take.
+        A directory does not count against max_files -- it bounds files, not
+        filesystem entries; max_dir_entries and max_depth are what bound a
+        directory tree's shape instead. A link does count, the same as an
+        ordinary file, even though (like a directory) it costs nothing
+        against max_total_size: `size` above is 0 for anything but a plain
+        file, since only a file's declared length says what extracting it
+        will actually write.
 
         max_ratio is judged here and nowhere else, and it is judged from
         the header, because the number it needs exists nowhere else. A tar

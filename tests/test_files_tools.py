@@ -11,8 +11,9 @@ import pytest
 
 from pathlib import Path
 
-from pytrove import (ensure_dir, load_json, remove_file, remove_folder,
-                     remove_path, save_json, truncate_file, write_file)
+from pytrove import (atomic_write, ensure_dir, load_json, remove_file,
+                     remove_folder, remove_path, save_json, truncate_file,
+                     write_file)
 import pytrove._files_tools as internals
 from pytrove._files_tools import _MkdirOptions
 from pytrove.enums import TruncateSide
@@ -503,66 +504,282 @@ def test_removing_a_tree_takes_everything_under_it(tmp_path):
     assert not (tmp_path / "tree").exists()
 
 
-def test_a_directory_handed_to_remove_file_is_reported_not_removed(tmp_path, caplog):
+def test_remove_files_returns_what_it_actually_removed(tmp_path):
+    one = tmp_path / "one.txt"
+    two = tmp_path / "two.txt"
+    one.write_text("1", encoding="utf-8")
+    two.write_text("2", encoding="utf-8")
+
+    assert remove_file(one, two) == [one, two]
+    assert not one.exists() and not two.exists()
+
+
+def test_a_missing_path_is_success_and_is_not_in_the_result(tmp_path):
+    # These are for making sure a path is gone, and one that was never
+    # there is gone. Calling twice is not an error.
+    gone = tmp_path / "ghost"
+    real = tmp_path / "real.txt"
+    real.write_text("x", encoding="utf-8")
+
+    assert remove_file(gone, real) == [real]
+    assert remove_file(gone, real) == []
+
+
+def test_the_same_path_twice_is_one_unlink(tmp_path):
+    # Flattened to Path first and de-duplicated after, so the two spellings
+    # of one file are one entry -- they compare unequal as they arrive.
+    target = tmp_path / "a.txt"
+    target.write_text("x", encoding="utf-8")
+
+    assert remove_file(str(target), target, [target]) == [target]
+
+
+def test_a_directory_handed_to_remove_file_raises_by_default(tmp_path):
+    # os.unlink refuses a real directory, and refusing is right: remove_file
+    # removes one entry, and a directory is however much someone put in it.
     target = tmp_path / "a_dir"
     target.mkdir()
 
-    with caplog.at_level("WARNING"):
+    with pytest.raises(OSError):
         remove_file(target)
 
     assert target.is_dir()
-    assert "could not remove" in caplog.text
 
 
-def test_a_file_handed_to_remove_folder_is_reported_not_removed(tmp_path, caplog):
-    # It used to return cleanly having done nothing at all, which is the
-    # one outcome these must not have: rmtree(ignore_errors=True) swallows
-    # every complaint it could have made.
+def test_return_exc_collects_the_refusal_and_carries_on(tmp_path):
+    # Raising on the first would leave the rest untouched, which is not
+    # what a cleanup wants -- one stubborn file should not cost the other
+    # nine.
+    one = tmp_path / "one.txt"
+    two = tmp_path / "two.txt"
+    one.write_text("1", encoding="utf-8")
+    two.write_text("2", encoding="utf-8")
+    stubborn = tmp_path / "a_dir"
+    stubborn.mkdir()
+
+    result = remove_file(one, stubborn, two, return_exc=True)
+
+    assert not one.exists() and not two.exists()
+    assert stubborn.is_dir()
+    assert [type(r) is not OSError and isinstance(r, OSError) for r in result].count(True) == 1
+    assert result[0] == one and result[2] == two
+
+
+def test_remove_folders_returns_what_it_actually_removed(tmp_path):
+    d1 = tmp_path / "d1"
+    d2 = tmp_path / "d2"
+    d1.mkdir()
+    d2.mkdir()
+    (d1 / "inside.txt").write_text("x", encoding="utf-8")
+
+    assert remove_folder(d1, d2) == [d1, d2]
+    assert not d1.exists() and not d2.exists()
+
+
+def test_remove_folders_treats_a_missing_directory_as_success(tmp_path):
+    real = tmp_path / "real"
+    real.mkdir()
+
+    assert remove_folder(tmp_path / "ghost", real) == [real]
+    assert remove_folder(tmp_path / "ghost") == []
+
+
+def test_remove_folders_refuses_a_file_by_default(tmp_path):
+    # Only a real directory is something rmtree can walk -- a file handed
+    # here is refused rather than resolved into one.
+    target = tmp_path / "a_file.txt"
+    target.write_text("x", encoding="utf-8")
+
+    with pytest.raises(OSError):
+        remove_folder(target)
+
+    assert target.is_file()
+
+
+def test_remove_folders_return_exc_collects_and_carries_on(tmp_path):
+    one = tmp_path / "one"
+    two = tmp_path / "two"
+    one.mkdir()
+    two.mkdir()
+    stubborn = tmp_path / "a_file.txt"
+    stubborn.write_text("x", encoding="utf-8")
+
+    result = remove_folder(one, stubborn, two, return_exc=True)
+
+    assert not one.exists() and not two.exists()
+    assert stubborn.is_file()
+    assert isinstance(result[1], OSError)
+    assert result[0] == one and result[2] == two
+
+
+def test_remove_folders_log_exc_names_the_directory(tmp_path, caplog):
     target = tmp_path / "a_file.txt"
     target.write_text("x", encoding="utf-8")
 
     with caplog.at_level("WARNING"):
-        remove_folder(target)
+        remove_folder(target, return_exc=True, log_exc=True)
 
-    assert target.is_file()
-    assert "could not remove" in caplog.text
+    record = caplog.records[0]
+
+    assert record.levelname == "ERROR"
+    assert record.exc_info is not None
+    assert record.getMessage() == f"remove_folders: could not remove {target}"
 
 
-@pytest.mark.skipif(os.name != "nt", reason="POSIX unlinks a file that is held open")
-def test_a_tree_that_cannot_be_emptied_says_so(tmp_path, caplog):
-    folder = tmp_path / "held"
-    folder.mkdir()
-    handle = open(folder / "open.txt", "w", encoding="utf-8")
+def test_remove_folders_takes_the_junction_and_not_the_tree(tmp_path):
+    # rmtree refuses a reparse point outright, since the kernel counts it
+    # as a directory -- the onerror hook is what turns that refusal into an
+    # unlink of the link itself, never of what it points at.
+    target = tmp_path / "real"
+    target.mkdir()
+    (target / "inside.txt").write_text("kept", encoding="utf-8")
+
+    link = tmp_path / "link"
+
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        if os.name != "nt":
+            pytest.skip("cannot create a link here")
+
+        made = subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)],
+                              capture_output=True)
+
+        if made.returncode != 0:
+            pytest.skip("cannot create a junction here")
+
+    remove_folder(link)
+
+    assert not os.path.lexists(link)
+    assert (target / "inside.txt").read_text(encoding="utf-8") == "kept"
+
+
+def test_remove_paths_dispatches_by_kind(tmp_path):
+    a_dir = tmp_path / "a_dir"
+    a_dir.mkdir()
+    (a_dir / "inside.txt").write_text("x", encoding="utf-8")
+    a_file = tmp_path / "a_file.txt"
+    a_file.write_text("x", encoding="utf-8")
+
+    assert remove_path(a_dir, a_file) == [a_dir, a_file]
+    assert not a_dir.exists() and not a_file.exists()
+
+
+def test_remove_paths_forwards_return_exc_and_log_exc(tmp_path, caplog):
+    good = tmp_path / "good.txt"
+    good.write_text("x", encoding="utf-8")
+    held = tmp_path / "held"
+    held.mkdir()
+    handle = open(held / "open.txt", "w", encoding="utf-8")
 
     try:
         with caplog.at_level("WARNING"):
-            remove_folder(folder)
+            result = remove_path(good, held, return_exc=True, log_exc=True)
     finally:
         handle.close()
 
-    assert folder.exists()
-    assert "could not remove" in caplog.text
-    # the filesystem's own reason, not a guess made in front of the call
-    assert "PermissionError" in caplog.text or "process" in caplog.text
+    assert result[0] == good
+    assert isinstance(result[1], OSError)
+    assert "remove_folders: could not remove" in caplog.text
 
 
-def test_one_path_that_will_not_go_does_not_cost_the_others(tmp_path, caplog):
-    # They take any number of paths, so raising on the first would leave
-    # the rest untouched. The bad one is reported and the loop carries on.
-    good_one = tmp_path / "one.txt"
-    good_two = tmp_path / "two.txt"
-    good_one.write_text("1", encoding="utf-8")
-    good_two.write_text("2", encoding="utf-8")
+def test_every_exception_carries_its_own_path(tmp_path):
+    # A list of exceptions is read somewhere else entirely, so each one has
+    # to say what it is about. `filename` is the slot OSError.__str__
+    # reads, which puts the path in the message rather than only on the
+    # object.
+    stubborn = tmp_path / "a_dir"
+    stubborn.mkdir()
+    other = tmp_path / "b_dir"
+    other.mkdir()
+
+    a, b = remove_file(stubborn, other, return_exc=True)
+
+    assert a.filename == str(stubborn)
+    assert b.filename == str(other)
+
+    # OSError.__str__ writes the filename with repr(), which doubles every
+    # separator on Windows -- so the message is searched for what it really
+    # holds rather than for the path as the caller spelled it.
+    assert repr(str(stubborn)) in str(a)
+
+
+def test_the_path_on_the_exception_is_the_normalised_one(tmp_path):
+    # os.unlink fills `filename` with the path exactly as it was handed
+    # over -- a trailing slash and all -- and this rewrites it from the
+    # Path, so a hundred exceptions read in one spelling.
     stubborn = tmp_path / "a_dir"
     stubborn.mkdir()
 
-    with caplog.at_level("WARNING"):
-        remove_file(good_one, stubborn, good_two)
+    odd = str(stubborn) + "/"
+    exc = remove_file(odd, return_exc=True)[0]
 
-    assert not good_one.exists()
-    assert not good_two.exists()
-    assert stubborn.is_dir()
-    assert caplog.text.count("could not remove") == 1
+    assert exc.filename == str(stubborn)
+    assert not exc.filename.endswith("/")
+
+
+def test_log_exc_names_the_path_and_brings_the_traceback(tmp_path, caplog):
+    # log.exception, so it lands at ERROR carrying the traceback: it is
+    # reporting a failure nobody else is going to see, since return_exc
+    # means it was swallowed here.
+    target = tmp_path / "a_dir"
+    target.mkdir()
+
+    with caplog.at_level("WARNING"):
+        remove_file(target, return_exc=True, log_exc=True)
+
+    record = caplog.records[0]
+
+    assert record.levelname == "ERROR"
+    assert record.exc_info is not None, "the traceback is the point of log.exception"
+    assert record.getMessage() == f"remove_files: could not remove {target}"
+
+    # and the operating system's own words come with it, spelled the way it
+    # spells them
+    assert "PermissionError" in caplog.text
+    assert ("[WinError " if os.name == "nt" else "[Errno ") in caplog.text
+
+
+def test_log_exc_says_nothing_for_an_exception_that_is_raised(tmp_path, caplog):
+    # Same rule as safe_call: one that propagates was never handled here,
+    # so logging it as well would report one failure twice under two
+    # different owners.
+    target = tmp_path / "a_dir"
+    target.mkdir()
+
+    with caplog.at_level("WARNING"):
+        with pytest.raises(OSError):
+            remove_file(target, log_exc=True)
+
+    assert caplog.text == ""
+
+
+def test_a_raised_exception_is_annotated_too(tmp_path):
+    # The path goes on before the raise, not after the decision to collect,
+    # so a caller that catches one is handed the same exception a caller
+    # that collects it would have got.
+    target = tmp_path / "a_dir"
+    target.mkdir()
+
+    with pytest.raises(OSError) as caught:
+        remove_file(str(target) + "/")
+
+    assert caught.value.filename == str(target)
+
+
+def test_atomic_write_does_not_let_its_cleanup_mask_the_blocks_error(tmp_path, monkeypatch):
+    # The removal runs in a finally. An exception from there would replace
+    # whatever the caller's block was already raising, and a leftover .tmp
+    # is not worth losing that.
+    monkeypatch.setattr(
+        os, "unlink",
+        lambda *a, **kw: (_ for _ in ()).throw(PermissionError(13, "held")),
+    )
+
+    with pytest.raises(ValueError, match="the block's own"):
+        with atomic_write(tmp_path / "out.txt") as f:
+            f.write("x")
+            raise ValueError("the block's own error")
 
 
 def test_the_removers_take_any_nesting_of_paths(tmp_path):
@@ -576,20 +793,6 @@ def test_the_removers_take_any_nesting_of_paths(tmp_path):
     remove_path(made[0], [made[1], (made[2],)])
 
     assert not any(p.exists() for p in made)
-
-
-@pytest.mark.parametrize("remove", [remove_file, remove_folder, remove_path])
-def test_no_remover_ever_raises(tmp_path, remove):
-    # The shared contract, pinned: whatever it is handed, it reports and
-    # returns. Callers here are all cleaning up after something that has
-    # already finished or already failed.
-    a_dir = tmp_path / "d"
-    a_dir.mkdir()
-    a_file = tmp_path / "f.txt"
-    a_file.write_text("x", encoding="utf-8")
-
-    for target in (a_dir, a_file, tmp_path / "ghost", tmp_path):
-        remove(target)
 
 
 def _own_islink(path):
