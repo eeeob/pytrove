@@ -1,27 +1,41 @@
+import sys
+
+if sys.version_info >= (3, 11):
+    from typing import Unpack
+else:
+    from typing_extensions import Unpack
+
 from typing import (
     Any, List, Union, Optional,
     Literal, cast, overload,
 )
+
 from pathlib import Path
 from contextlib import contextmanager
 
-from .typings import JsonValue, NestedContainer, PathLike, LockProtocol, _T
+from .typings import (
+    JsonValue, NestedContainer, PathLike, LockProtocol,
+    _True, _False, _T,
+)
 from .enums import PickleSafety, TruncateSide
 from .errors import ValidationError
 from .callable_tools import safe_call
 from .iter_tools import iter_flat_cont, to_frozenset
 from ._optional import _optional_import
 from ._files_tools import (
-    _COPY_BUF,
-    _NOT_SET,
-    _next_part,
-    _SAFE_PICKLE_CLASSES,
-    _RestrictedUnpickler,
-    _json_dumps,
-    _json_loads,
+    _MkdirOptions, 
+    _COPY_BUF, 
+    _NOT_SET, 
+    _SPILL_PARTS, 
+    _SAFE_PICKLE_CLASSES, 
+    _RestrictedUnpickler, 
+    _next_part, 
+    _json_dumps, 
+    _json_loads, 
 )
 
 import io
+import math
 import os
 import shutil
 import pickle
@@ -35,10 +49,70 @@ except ImportError:
     pass
 
 
-def resolve_path(path: PathLike, strict: bool = False) -> Path:
+def ensure_path(path: PathLike) -> Path:
     if not isinstance(path, Path):
         path = Path(path)
-    return path.resolve(strict=strict)
+    return path
+
+def resolve_path(path: PathLike, strict: bool = False) -> Path:
+    return ensure_path(path).resolve(strict=strict)
+
+def ensure_dir(path: PathLike, for_file: bool = False, **kwargs: Unpack[_MkdirOptions]) -> Path:
+    """Create a directory and hand `path` straight back, as a Path.
+
+    Returning the argument rather than the directory is what makes this
+    usable inline, which is the whole point of it:
+
+        write_file(ensure_dir(out / "2024" / "log.txt", for_file=True), text)
+        archive = compress_folder(src, ensure_dir(backups))
+
+    `for_file` says which of the two a path is, because nothing else can:
+    a path that has not been created yet is neither a file nor a directory
+    on disk, and an extension does not decide it -- "README" and
+    ".gitignore" have none, and "cache.d" is a directory in plenty of
+    trees. So it is stated rather than guessed. False, the default, means
+    `path` is the directory to create; True means it names a file, and the
+    directory to create is the one above it. Either way what comes back is
+    `path` itself, so the file case returns a path that does not exist yet
+    and is now writable.
+
+    Everything else goes to Path.mkdir untouched -- `mode`, `parents`
+    and `exist_ok` -- typed key by key, so a misspelled `parent` or a
+    `mode="755"` is caught where it is written rather than arriving as a
+    TypeError from inside mkdir. Forwarded rather than restated, so a
+    keyword the stdlib adds is one line away and this signature does not
+    move.
+
+    Two of them start from the opposite end, and only their defaults:
+    mkdir has `parents` and `exist_ok` False, and this has both True.
+    "Make sure this directory is there" is what a caller wants nearly
+    every time, and the strict pair is what you ask for on the rare call
+    that means "and it must not have been there already". `mode` is left
+    to mkdir's own default.
+
+    Their meanings carry over exactly, and two are worth knowing:
+
+      `mode` is masked by the process umask, so 0o777 gives 0o755 under
+      the usual 0o022, and it applies only to the last component -- any
+      parents that `parents` creates get the default permissions whatever
+      is passed here. Windows ignores it altogether.
+
+      `exist_ok` forgives an existing *directory* and nothing else. A file
+      sitting at the path still raises FileExistsError, which is the right
+      answer: the caller asked for a directory there and there is not one.
+
+    The path is handed back exactly as given -- relative stays relative,
+    and no symlink is resolved. Wrap it in resolve_path if an absolute one
+    is wanted.
+    """
+
+    kwargs.setdefault("parents", True)
+    kwargs.setdefault("exist_ok", True)
+
+    path = ensure_path(path)
+    (path.parent if for_file else path).mkdir(**kwargs)
+
+    return path
 
 def remove_files(*files: NestedContainer[PathLike]) -> None:
     for file in iter_flat_cont(files):
@@ -64,8 +138,7 @@ remove_folder = remove_folders
 
 def remove_paths(*paths: NestedContainer[PathLike]) -> None:
     for path in iter_flat_cont(paths):
-        if not isinstance(path, Path):
-            path = Path(path)
+        path = ensure_path(path)
         if path.is_symlink():
             safe_call(path.unlink, include_exc=FileNotFoundError)
         elif path.is_dir():
@@ -179,26 +252,52 @@ def write_file(
     ) as f:
         f.write(content)
 
+# Which of the two the call gets is decided by `spill`, so the literal
+# has to reach the type checker: without these, every call is typed as the
+# union and every caller has to narrow a value it already knows the shape
+# of. Same dispatch as to_thread's `return_exc` and decrypt's.
+@overload
+def truncate_file(
+    path: PathLike,
+    size: int,
+    cut: TruncateSide = ...,
+    spill: _False = False,
+    fsync: bool = True,
+) -> Path: ...
+@overload
+def truncate_file(
+    path: PathLike,
+    size: int,
+    cut: TruncateSide = ...,
+    spill: Union[_True, PathLike] = ...,
+    fsync: bool = True,
+) -> List[Path]: ...
 def truncate_file(
     path: PathLike,
     size: int,
     cut: TruncateSide = TruncateSide.HEAD,
     spill: Union[bool, PathLike] = False,
     fsync: bool = True,
-    ) -> List[Path]:
+    ) -> Union[Path, List[Path]]:
 
-    """Cut `path` down to `size` bytes, and return where the rest went.
+    """Leave `size` bytes in `path`, and return where the rest went.
 
-    `cut` names the end that goes, not the end that stays:
+    `size` is what the file is left holding, not an amount to take off it:
+    a 10 KB file and size=3000 comes back 3000 bytes long, and the other
+    7240 are what `spill` decides the fate of. A file already at or under
+    `size` is left alone entirely.
 
-      TAIL  keep the first `size` bytes -- the plain truncation, and the
-            cheap one, since what stays does not move.
-      HEAD  keep the last `size` bytes -- what a log wants, where the
+    `cut` names the end that goes, so `size` is measured from the other
+    one. HEAD is the default:
+
+      HEAD  keep the LAST `size` bytes -- what a log wants, where the
             newest lines are the ones worth keeping. It costs a rewrite of
             the part that stays: no filesystem drops bytes off the front
             of a file in place.
+      TAIL  keep the FIRST `size` bytes -- the plain truncation, and the
+            cheap one, since what stays does not move.
 
-    Either the enum or its raw string ("tail", "head") is accepted.
+    Either the enum or its raw string ("head", "tail") is accepted.
 
     `spill` decides whether the removed bytes are lost or kept. False, the
     default, discards them. True writes them beside the file, and a path
@@ -210,6 +309,11 @@ def truncate_file(
         file + part.1 + part.2 + ...   for cut=TAIL
         part.1 + part.2 + ... + file   for cut=HEAD
 
+    size=0 is the one case that names no part size, since it keeps
+    nothing in the file. The spill is cut into ten parts there instead --
+    a share of what is being spilled rather than a fixed length, so a
+    large file does not come back as thousands of small ones.
+
     Numbering continues past whatever parts are already in the directory
     rather than starting at 1, so truncating the same file twice adds
     parts instead of writing over the first set. Only an all-digit suffix
@@ -220,9 +324,12 @@ def truncate_file(
     the file -- never bytes that are in neither. Each part is written
     through atomic_write, so a reader never sees a half-written one.
 
-    Returns the parts in the order they were written, and an empty list
-    when `spill` is off or the file was already small enough. A file at or
-    under `size` is left alone entirely.
+    What comes back follows the same split. Without `spill` there is only
+    one file in play and its own path is the answer, the way write_file's
+    and compress_folder's callers expect a path back -- there is no list to
+    return, and returning an empty one said nothing. With `spill` the parts
+    are the answer, in the order they were written, and an empty list means
+    the file was already at or under `size` and nothing was cut.
 
     Note the file's identity survives a TAIL cut and not a HEAD one: HEAD
     rewrites through a rename, so the inode changes and anything holding
@@ -237,9 +344,7 @@ def truncate_file(
     side = TruncateSide(cut)
 
     if isinstance(size, bool) or not isinstance(size, int) or size < 0:
-        raise ValidationError(
-            f"truncate_file: size must be a whole number of bytes, not {size!r}"
-        )
+        raise ValidationError(f"truncate_file: size must be a whole number of bytes, not {size!r}")
 
     if not path.is_file():
         raise ValidationError(f"truncate_file: {str(path)!r} is not a file")
@@ -247,24 +352,37 @@ def truncate_file(
     total = path.stat().st_size
 
     if total <= size:
-        return []
+        return [] if spill else path
 
     dropped = total - size
     parts: List[Path] = []
 
+    # Copying, not cutting. This block only ever reads `path` -- the file
+    # still has every byte it started with when the block ends, and the
+    # cut below is what shortens it. That order is the guarantee: the
+    # parts are on disk and flushed before anything is taken away, so an
+    # interruption costs a duplicate, never a loss.
     if spill:
         folder = path.parent if spill is True else resolve_path(spill)
         folder.mkdir(parents=True, exist_ok=True)
 
-        # size=0 keeps nothing and spills everything, which leaves no part
-        # size to read off the argument; the copy buffer is the only
-        # number in play at that point.
-        part_size = size or _COPY_BUF
+        # `size` is the part size everywhere except at 0, which keeps
+        # nothing and so names no length to cut by. A tenth of what is
+        # being spilled, rounded up: ten parts at most however large the
+        # file is, where a fixed length would make a 4 GB file into
+        # thousands of them. Rounded up rather than down for a reason --
+        # a floor divides anything under ten bytes to 0, which writes no
+        # part at all and then empties the file.
+        #
+        # math.ceil divides as a float, which is exact to 2^53 and starts
+        # disagreeing with integer arithmetic from 2^54 -- measured, 16 PB
+        # further along than any file this will be handed.
+        part_size = size or math.ceil(dropped / _SPILL_PARTS)
         number = _next_part(folder, path.name)
         left = dropped
 
         with open(path, "rb") as src:
-            src.seek(0 if side is TruncateSide.HEAD else size)
+            src.seek(0 if side == TruncateSide.HEAD else size)
 
             while left > 0:
                 want = min(part_size, left)
@@ -295,7 +413,13 @@ def truncate_file(
                 if written < want:
                     break
 
-    if side is TruncateSide.TAIL:
+    # The cut itself, and it runs whether or not anything was spilled --
+    # `spill` decides what becomes of the removed bytes, not whether they
+    # are removed. Neither branch re-reads what the block above read:
+    # measured on a 10240-byte file cut to 3000, TAIL reads nothing at all
+    # here and HEAD reads only the 3000 that stay, so with spilling on the
+    # two blocks together read the file exactly once between them.
+    if side == TruncateSide.TAIL:
         # In place. The bytes that stay are already where they belong, so
         # there is nothing to copy and nothing to rename.
         with open(path, "r+b") as f:
@@ -315,7 +439,7 @@ def truncate_file(
                 while chunk := src.read(_COPY_BUF):
                     out.write(chunk)
 
-    return parts
+    return parts if spill else path
 
 
 # The binary=True overload must come first: an overload that omits `binary`
@@ -613,6 +737,8 @@ def load_ref_json(
 
 
 __all__ = (
+    "ensure_path", 
+    "ensure_dir", 
     "resolve_path", 
     "remove_file",
     "remove_folder",

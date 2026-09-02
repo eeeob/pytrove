@@ -4,8 +4,9 @@ import pickle
 
 from pathlib import Path
 from pickle import _compat_pickle  # type: ignore[attr-defined]
-from typing import Any, Dict, FrozenSet, Tuple, Union
+from typing import Any, Dict, FrozenSet, Tuple, TypedDict, Union
 from .enums import PickleSafety
+
 
 try:
     import orjson
@@ -16,11 +17,41 @@ else:
 
 
 _NOT_SET = object()
-
-#: How much of a file is held in memory while it is copied from one place
-#: to another. One buffer per copy, so a 4 GB file costs this and not its
-#: own size.
 _COPY_BUF = 1 << 20
+_SPILL_PARTS = 10
+
+
+class _MkdirOptions(TypedDict, total=False):
+    """What Path.mkdir takes, so ensure_dir can forward it without restating it.
+
+    Private, and here rather than in typings, because nothing about it is
+    part of the interface: a caller writes `ensure_dir(p, exist_ok=False)`
+    and never names this. It exists so **kwargs is typed key by key --
+    `**kw: Unpack[_MkdirOptions]` catches a misspelled `parent` or a
+    `mode="755"` where it is written rather than letting it arrive at
+    mkdir as a TypeError from inside somebody else's function.
+
+    `total=False` because every one is optional at the call: a caller
+    passes the one it cares about and ensure_dir fills the rest. That is
+    also what keeps this honest as the stdlib moves -- a keyword added to
+    mkdir needs a line here and nothing in the signature that forwards it.
+
+    The three carry mkdir's own meanings, which ensure_dir defaults
+    differently but does not redefine:
+
+      mode      permissions for the directory this creates, masked by the
+                process umask -- and applied only to the last component,
+                never to parents that `parents` brings into being. Windows
+                ignores it.
+      parents   create the missing levels above it too.
+      exist_ok  do not raise when the directory is already there. It
+                forgives a directory and nothing else: a file at the path
+                still raises FileExistsError.
+    """
+
+    mode: int
+    parents: bool
+    exist_ok: bool
 
 
 def _next_part(folder: "Path", stem: str) -> int:
