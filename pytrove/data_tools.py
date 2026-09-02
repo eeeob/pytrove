@@ -1,4 +1,4 @@
-from typing import Union, Dict, Any, Mapping, Literal, Tuple, Type, overload
+from typing import Union, Dict, Any, Mapping, Literal, Tuple, Type, Callable, Iterator, Optional, overload
 from enum import Enum
 
 from .typings import _T, _KT, _VT, _EnumT, Container, NestedContainer, NestedStrKeyDict, JsonValue
@@ -12,7 +12,69 @@ try:
 except ImportError:
     pass
 
+_MESS = object()
 
+def _transform(data: Container, func: Optional[Callable] = None) -> Iterator:
+    for item in data:
+        if func is not None:
+            item = func(item)
+        if item is not _MESS:
+            yield item
+
+def _transform_mapping(data: Mapping, key_func: Optional[Callable] = None, value_func: Optional[Callable] = None) -> Iterator[Tuple[Any, Any]]:
+    for key, value in data.items():
+        if key_func is not None:
+            key = key_func(key)
+
+        if key is _MESS:
+            continue
+
+        if value_func is not None:
+            value = value_func(value)
+
+        if value is _MESS:
+            continue
+
+        yield key, value
+
+
+def _reconstruct(data: Container, func: Optional[Callable] = None, fallback_type: Optional[Type[Container]] = None) -> Container:
+    transformed = _transform(data, func)
+
+    try:
+        return type(data)(transformed)
+    except TypeError:
+        try:
+            type(data)()
+        except TypeError:
+            if fallback_type is None:
+                return transformed
+
+            return fallback_type(transformed)
+
+        raise
+
+def _reconstruct_mapping(data: Mapping, key_func: Optional[Callable] = None, value_func: Optional[Callable] = None, fallback_type: Optional[Type[Mapping]] = dict) -> Mapping:
+    transformed = _transform_mapping(data, key_func, value_func)
+
+    try:
+        return type(data)(transformed)
+    except TypeError:
+        try:
+            type(data)()
+        except TypeError:
+            if fallback_type is None:
+                return transformed
+
+            return fallback_type(transformed)
+
+        raise
+
+
+def _none_cleaner(v):
+    if v is None:
+        return _MESS
+    return clean_none_values(v)
 
 
 def enum_to_value(data: _T) -> _T:
@@ -20,10 +82,10 @@ def enum_to_value(data: _T) -> _T:
         return data.value
     
     elif is_mapping(data):
-        return type(data)(enum_to_value(i) for i in data.items())
+        return _reconstruct_mapping(data, enum_to_value, enum_to_value)
     
     elif is_container(data):
-        return type(data)(enum_to_value(i) for i in data)
+        return _reconstruct(data, enum_to_value)
     
     else:
         return data
@@ -82,18 +144,15 @@ def value_to_enum(
         enum_map.update(enum_cls._value2member_map_)
 
     def convert(v):
-
         if is_mapping(v):
-            
-
-            return (
-                type(v)((convert(k), i) for k, i in v.items()) 
-                if map_resolve_type == "k" 
-                else type(v)((k, convert(i)) for k, i in v.items())
+            return _reconstruct_mapping(
+                v, 
+                convert if map_resolve_type == "k" else None, 
+                convert if map_resolve_type == "v" else None
             )
 
         elif is_container(v):
-            return type(v)(convert(i) for i in v)
+            return _reconstruct(v, convert)
 
         return enum_map.get(v, v)
 
@@ -101,14 +160,10 @@ def value_to_enum(
 
 def clean_none_values(data: _T) -> _T:
     if is_mapping(data):
-        return type(data)(
-            (k, clean_none_values(v)) 
-            for k, v in data.items() 
-            if v is not None
-            )
+        return _reconstruct_mapping(data, value_func=_none_cleaner)
     
     elif is_container(data):
-        return type(data)(clean_none_values(i) for i in data)
+        return _reconstruct(data, _none_cleaner)
     
     return data
 
