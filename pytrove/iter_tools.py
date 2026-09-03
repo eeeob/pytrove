@@ -1,16 +1,13 @@
 from typing import (
-    List, Set, Union, Any, 
-    FrozenSet, Tuple, Iterable, 
-    Generator, Optional, Callable, 
-    TypeAlias, Mapping, overload,
+    List, Set, Union, Any,
+    FrozenSet, Tuple, Iterable,
+    Generator, Optional, Callable,
+    Mapping, overload,
 )
 
 
 from .typings import NestedContainer, NestedContainerMappingValue, MaybeContainer, _True, _False, _T, _KT, _VT
 from .validate_tools import is_container, is_mapping
-
-
-NestedBoth: TypeAlias = Union[Mapping[_KT, NestedContainerMappingValue[_KT, _VT]], NestedContainer[_T]]
 
 
 def to_list(value: Optional[MaybeContainer[_T]]) -> List[_T]:
@@ -70,10 +67,28 @@ def flat_cont(*containers, exclude_none = True):
     return list(iter_flat_cont(*containers, exclude_none=exclude_none))
 
 @overload
-def iter_flat_map(*containers: NestedBoth[NestedContainer[Optional[_KT]], Optional[_VT], Optional[_T]], exclude_none: _True = True) -> Generator[Union[_KT, _VT, _T], None, None]: ...
+def iter_flat_map(*containers: Mapping[_KT, NestedContainerMappingValue[_KT, Optional[_VT]]], exclude_none: _True = True) -> Generator[Union[_KT, _VT], None, None]: ...
 @overload
-def iter_flat_map(*containers: NestedBoth[NestedContainer[_KT], _VT, _T], exclude_none: _False) -> Generator[Union[_KT, _VT, _T], None, None]: ...
+def iter_flat_map(*containers: Mapping[_KT, NestedContainerMappingValue[_KT, _VT]], exclude_none: _False) -> Generator[Union[_KT, _VT], None, None]: ...
+@overload
+def iter_flat_map(*containers: NestedContainer[Optional[_T]], exclude_none: _True = True) -> Generator[_T, None, None]: ...
+@overload
+def iter_flat_map(*containers: NestedContainer[_T], exclude_none: _False) -> Generator[_T, None, None]: ...
 def iter_flat_map(*containers, exclude_none: bool = True):
+    """iter_flat_cont, but a mapping gives up its values too, not just its
+    keys -- `{"a": 1}` yields `"a"` and `1`, pair by pair, instead of only
+    `"a"` (plain iteration over a dict, which is all iter_flat_cont does
+    with one). Nesting either side, mapping-in-mapping or mapping-in-
+    container, recurses the same way; `exclude_none` is iter_flat_cont's.
+
+    A call mixing a mapping and a plain container in one go (or a mapping
+    reached only through a container, `[{"a": 1}]`) still works -- it just
+    falls through to the second, plainer typing below, since a mapping is
+    already a container in its own right. That path cannot see a nested
+    mapping's values individually the way the first typing does, only its
+    keys, so the precision drops there but nothing is refused.
+    """
+
     for item in containers:
         if is_mapping(item):
             yield from iter_flat_map(*item.items(), exclude_none=exclude_none)
@@ -83,9 +98,13 @@ def iter_flat_map(*containers, exclude_none: bool = True):
             yield item
 
 @overload
-def flat_map(*containers: NestedBoth[NestedContainer[Optional[_KT]], Optional[_VT], Optional[_T]], exclude_none: _True = True) -> List[Union[_KT, _VT, _T]]: ...
+def flat_map(*containers: Mapping[_KT, NestedContainerMappingValue[_KT, Optional[_VT]]], exclude_none: _True = True) -> List[Union[_KT, _VT]]: ...
 @overload
-def flat_map(*containers: NestedBoth[NestedContainer[_KT], _VT, _T], exclude_none: _False) -> List[Union[_KT, _VT, _T]]: ...
+def flat_map(*containers: Mapping[_KT, NestedContainerMappingValue[_KT, _VT]], exclude_none: _False) -> List[Union[_KT, _VT]]: ...
+@overload
+def flat_map(*containers: NestedContainer[Optional[_T]], exclude_none: _True = True) -> List[_T]: ...
+@overload
+def flat_map(*containers: NestedContainer[_T], exclude_none: _False) -> List[_T]: ...
 def flat_map(*containers, exclude_none: bool = True):
     """iter_flat_map, collected into a list."""
 
