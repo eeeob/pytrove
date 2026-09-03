@@ -1,7 +1,8 @@
 from typing import Generic, Iterable, Iterator, TypeVar
 
 from pytrove import (to_list, to_tuple, to_set, to_frozenset, flat_cont,
-                     flat_cont_by, iter_flat_cont_by)
+                     flat_cont_by, iter_flat_cont_by, flat_map,
+                     iter_flat_map)
 
 _T = TypeVar("_T")
 
@@ -42,6 +43,16 @@ def test_flat_cont_multiple_container_args():
     assert flat_cont([1, 2], [3, 4], None) == [1, 2, 3, 4]
 
 
+def test_flat_cont_keeps_none_when_asked():
+    assert flat_cont([1, None, 2, [3, None]], exclude_none=False) == [1, None, 2, 3, None]
+
+
+def test_flat_cont_excludes_none_by_default():
+    # The default is the long-standing behaviour, unchanged by adding the
+    # option to keep None.
+    assert flat_cont([1, None, 2]) == [1, 2]
+
+
 class _Box(Generic[_T], Iterable[_T]):
     """A container the built-in is_container does not recognise -- it is
     not a Collection, an Iterator, a Sequence or a Mapping, so it can only
@@ -50,7 +61,7 @@ class _Box(Generic[_T], Iterable[_T]):
     Generic with a typed __iter__ on purpose: that is what lets a type
     checker walk through it and land on the real element type. A class
     with a bare untyped __iter__ works identically at runtime and reads as
-    Iterable[Any] statically -- see iter_flat_cont_by's docstring.
+    Iterable[Any] statically.
     """
 
     def __init__(self, *items: _T):
@@ -87,6 +98,10 @@ def test_flat_cont_by_ignores_none_entries():
     assert flat_cont_by(_Box(1, None, 2), is_container=_is_box) == [1, 2]
 
 
+def test_flat_cont_by_keeps_none_when_asked():
+    assert flat_cont_by(_Box(1, None, 2), is_container=_is_box, exclude_none=False) == [1, None, 2]
+
+
 def test_iter_flat_cont_by_is_a_generator():
     result = iter_flat_cont_by(_Box(1, 2), is_container=_is_box)
     assert list(result) == [1, 2]
@@ -112,3 +127,36 @@ def test_a_narrowing_predicate_really_does_stop_at_the_first_layer():
     nested = [1, [2, 3]]
 
     assert flat_cont_by(nested, is_container=_is_box) == [nested]
+
+
+def test_flat_map_yields_both_keys_and_values():
+    # flat_cont walks a mapping's keys alone -- iterating a dict does that,
+    # and flat_cont has no special case for one. This is the special case:
+    # both sides come out.
+    assert flat_map({"a": 1, "b": 2}) == ["a", 1, "b", 2]
+
+
+def test_flat_map_recurses_into_a_nested_mapping():
+    assert flat_map({"a": {"b": 2}}) == ["a", "b", 2]
+
+
+def test_flat_map_recurses_into_a_mapping_reached_through_a_container():
+    assert flat_map([1, {"a": 2}, 3]) == [1, "a", 2, 3]
+
+
+def test_flat_map_still_flattens_a_plain_container():
+    assert flat_map([1, [2, 3], None]) == [1, 2, 3]
+
+
+def test_iter_flat_map_is_a_generator():
+    result = iter_flat_map({"a": 1})
+    assert list(result) == ["a", 1]
+    assert list(result) == []  # exhausted, like any generator
+
+
+def test_flat_map_excludes_none_by_default():
+    assert flat_map({"a": None, "b": 1}) == ["a", "b", 1]
+
+
+def test_flat_map_keeps_none_when_asked():
+    assert flat_map({"a": None, "b": 1}, exclude_none=False) == ["a", None, "b", 1]

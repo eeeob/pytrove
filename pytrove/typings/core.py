@@ -43,24 +43,28 @@ else:
         Reversible[_T], 
         Iterator[_T], 
     ]
-    Container: TypeAlias = ContainerWithoutMapping[_T] #تحققت مؤخرا ان Mapping يرث من Collection
+    Container: TypeAlias = Union[
+        Sequence[_T],
+        AbstractSet[_T],
+        Collection[_T],
+        Reversible[_T],
+        Iterator[_T],
+    ]
 
-    
+
     MaybeList: TypeAlias = Union[List[_T], _T]
     MaybeContainer: TypeAlias = Union[Container[_T], _T]
     NestedStrKeyDict: TypeAlias = Dict[str, Union["NestedStrKeyDict[_T]", _T]]
     NestedContainer: TypeAlias = Union[Container["NestedContainer[_T]"], _T]
 
+
+
     NestedContainerMappingValue: TypeAlias = Union[
-        "NestedContainerMapping[_KT, _VT]", 
-        ContainerWithoutMapping["NestedContainerMappingValue[_KT, _VT]"], 
-        _VT
+        Mapping[_KT, "NestedContainerMappingValue[_KT, _VT]"],
+        ContainerWithoutMapping["NestedContainerMappingValue[_KT, _VT]"],
+        _VT,
     ]
-    NestedContainerMapping: TypeAlias = Mapping[
-        NestedContainer[_KT],
-        NestedContainerMappingValue[_KT, _VT],
-    ]
-    
+
 
     MaybeCoroutine: TypeAlias = Union[Coroutine[Any, Any, _T], _T]
     MaybeCoroutineCallable: TypeAlias = Callable[_P, MaybeCoroutine[_T]]
@@ -121,7 +125,6 @@ __all__ = (
     "MaybeCoroutine", 
     "MaybeList", 
     "NestedContainerMappingValue", 
-    "NestedContainerMapping", 
     "_P", "_T", "_CT", "_FT",
     "_KT", "_VT", "_True", "_False",
     "_EnumT", "_ExcT", 

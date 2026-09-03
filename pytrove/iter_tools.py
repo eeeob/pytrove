@@ -2,15 +2,15 @@ from typing import (
     List, Set, Union, Any, 
     FrozenSet, Tuple, Iterable, 
     Generator, Optional, Callable, 
-    TypeAlias, overload,
+    TypeAlias, Mapping, overload,
 )
 
 
-from .typings import NestedContainer, NestedContainerMapping, MaybeContainer, _True, _False, _T, _KT, _VT
+from .typings import NestedContainer, NestedContainerMappingValue, MaybeContainer, _True, _False, _T, _KT, _VT
 from .validate_tools import is_container, is_mapping
 
 
-NestedBoth: TypeAlias = Union[NestedContainerMapping[_KT, _VT], NestedContainer[_T]]
+NestedBoth: TypeAlias = Union[Mapping[_KT, NestedContainerMappingValue[_KT, _VT]], NestedContainer[_T]]
 
 
 def to_list(value: Optional[MaybeContainer[_T]]) -> List[_T]:
@@ -70,9 +70,9 @@ def flat_cont(*containers, exclude_none = True):
     return list(iter_flat_cont(*containers, exclude_none=exclude_none))
 
 @overload
-def iter_flat_map(*containers: NestedBoth[Optional[_KT], Optional[_VT], Optional[_T]], exclude_none: _True = True) -> Generator[Union[_KT, _VT, _T], None, None]: ...
+def iter_flat_map(*containers: NestedBoth[NestedContainer[Optional[_KT]], Optional[_VT], Optional[_T]], exclude_none: _True = True) -> Generator[Union[_KT, _VT, _T], None, None]: ...
 @overload
-def iter_flat_map(*containers: NestedBoth[_KT, _VT, _T], exclude_none: _False) -> Generator[Union[_KT, _VT, _T], None, None]: ...
+def iter_flat_map(*containers: NestedBoth[NestedContainer[_KT], _VT, _T], exclude_none: _False) -> Generator[Union[_KT, _VT, _T], None, None]: ...
 def iter_flat_map(*containers, exclude_none: bool = True):
     for item in containers:
         if is_mapping(item):
@@ -83,9 +83,9 @@ def iter_flat_map(*containers, exclude_none: bool = True):
             yield item
 
 @overload
-def flat_map(*containers: NestedBoth[Optional[_KT], Optional[_VT], Optional[_T]], exclude_none: _True = True) -> List[Union[_KT, _VT, _T]]: ...
+def flat_map(*containers: NestedBoth[NestedContainer[Optional[_KT]], Optional[_VT], Optional[_T]], exclude_none: _True = True) -> List[Union[_KT, _VT, _T]]: ...
 @overload
-def flat_map(*containers: NestedBoth[_KT, _VT, _T], exclude_none: _False) -> List[Union[_KT, _VT, _T]]: ...
+def flat_map(*containers: NestedBoth[NestedContainer[_KT], _VT, _T], exclude_none: _False) -> List[Union[_KT, _VT, _T]]: ...
 def flat_map(*containers, exclude_none: bool = True):
     """iter_flat_map, collected into a list."""
 

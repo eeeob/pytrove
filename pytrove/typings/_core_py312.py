@@ -14,13 +14,19 @@ from typing import (
 
 
 type ContainerWithoutMapping[I] = (
-    Sequence[I] | 
-    AbstractSet[I] | 
-    Collection[I] | 
-    Reversible[I] | 
-    Iterator[I] 
+    Sequence[I] |
+    AbstractSet[I] |
+    Collection[I] |
+    Reversible[I] |
+    Iterator[I]
 )
-type Container[I] = ContainerWithoutMapping[I]
+type Container[I] = (
+    Sequence[I] |
+    AbstractSet[I] |
+    Collection[I] |
+    Reversible[I] |
+    Iterator[I]
+)
 
 
 type MaybeList[I] = List[I] | I
@@ -28,16 +34,12 @@ type MaybeContainer[I] = Container[I] | I
 type NestedContainer[I] = Container[NestedContainer[I]] | I
 type NestedStrKeyDict[V] = Dict[str, NestedStrKeyDict[V] | V]
 
+
 type NestedContainerMappingValue[K, V] = (
-    NestedContainerMapping[K, V]
+    Mapping[K, NestedContainerMappingValue[K, V]]
     | ContainerWithoutMapping[NestedContainerMappingValue[K, V]]
     | V
 )
-type NestedContainerMapping[K, V] = Mapping[
-    NestedContainer[K],
-    NestedContainerMappingValue[K, V],
-]
-
 
 type MaybeCoroutine[R] = Coroutine[Any, Any, R] | R
 type MaybeCoroutineCallable[**P, R] = Callable[P, MaybeCoroutine[R]]
@@ -57,6 +59,5 @@ __all__ = (
     "MaybeAwaitable",
     "MaybeList", 
     "NestedContainerMappingValue", 
-    "NestedContainerMapping", 
     
 )
