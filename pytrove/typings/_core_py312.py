@@ -6,28 +6,40 @@ never be imported unconditionally.
 """
 
 from typing import (
-    Collection, Iterator, Union, Reversible,
-    Sequence, AbstractSet, Mapping, Any, Dict, 
+    Collection, Iterator, Reversible,
+    Sequence, AbstractSet, Any, Dict, 
     Callable, Coroutine, Awaitable, List, 
+    Mapping, 
 )
 
 
-type Container[I] = Union[
-    Iterator[I], Collection[I], Reversible[I],
-    Sequence[I], AbstractSet[I], Mapping[I, Any],
-    ]
-type ContainerWithoutMapping[I] = Union[
-    Iterator[I], Collection[I], Reversible[I],
-    Sequence[I], AbstractSet[I], 
-    ]
+type ContainerWithoutMapping[I] = (
+    Sequence[I] | 
+    AbstractSet[I] | 
+    Collection[I] | 
+    Reversible[I] | 
+    Iterator[I] 
+)
+type Container[I] = ContainerWithoutMapping[I]
 
 
-type MaybeList[I] = I | List[I]
-type MaybeContainer[I] = I | Container[I]
-type NestedContainer[I] = I | Container[NestedContainer[I]]
-type NestedStrKeyDict[V] = Dict[str, V | NestedStrKeyDict[V]]
+type MaybeList[I] = List[I] | I
+type MaybeContainer[I] = Container[I] | I
+type NestedContainer[I] = Container[NestedContainer[I]] | I
+type NestedStrKeyDict[V] = Dict[str, NestedStrKeyDict[V] | V]
 
-type MaybeCoroutine[R] = R | Coroutine[Any, Any, R]
+type NestedContainerMappingValue[K, V] = (
+    NestedContainerMapping[K, V]
+    | ContainerWithoutMapping[NestedContainerMappingValue[K, V]]
+    | V
+)
+type NestedContainerMapping[K, V] = Mapping[
+    NestedContainer[K],
+    NestedContainerMappingValue[K, V],
+]
+
+
+type MaybeCoroutine[R] = Coroutine[Any, Any, R] | R
 type MaybeCoroutineCallable[**P, R] = Callable[P, MaybeCoroutine[R]]
 type MaybeAwaitableCallable[**P, R] = Callable[P, R | Awaitable[R]]
 type MaybeAwaitable[**P, R] = MaybeCoroutineCallable[P, R] |  Awaitable[R]
@@ -44,5 +56,7 @@ __all__ = (
     "MaybeAwaitableCallable",
     "MaybeAwaitable",
     "MaybeList", 
+    "NestedContainerMappingValue", 
+    "NestedContainerMapping", 
     
 )

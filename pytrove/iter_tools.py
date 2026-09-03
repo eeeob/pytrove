@@ -1,55 +1,106 @@
 from typing import (
-    List, Set, Union, Any,
-    FrozenSet, Tuple, Iterable,
-    Generator, Optional, Callable,
+    List, Set, Union, Any, 
+    FrozenSet, Tuple, Iterable, 
+    Generator, Optional, Callable, 
+    TypeAlias, overload,
 )
 
 
-from .typings import NestedContainer, MaybeContainer, _T, _VT
-from .validate_tools import is_container
+from .typings import NestedContainer, NestedContainerMapping, MaybeContainer, _True, _False, _T, _KT, _VT
+from .validate_tools import is_container, is_mapping
+
+
+NestedBoth: TypeAlias = Union[NestedContainerMapping[_KT, _VT], NestedContainer[_T]]
 
 
 def to_list(value: Optional[MaybeContainer[_T]]) -> List[_T]:
+    """`value` as a list: itself if it's a container, `[value]` otherwise,
+    `[]` for None."""
+
     if is_container(value):
         return list(value)
     return [value] if value is not None else []
 
 def to_tuple(value: Optional[MaybeContainer[_T]]) -> Tuple[_T, ...]:
+    """to_list, as a tuple."""
+
     if is_container(value):
         return tuple(value)
     return (value, ) if value is not None else tuple()
 
 def to_set(value: Optional[MaybeContainer[_T]]) -> Set[_T]:
+    """to_list, as a set."""
+
     if is_container(value):
         return set(value)
     return {value} if value is not None else set()
 
 def to_frozenset(value: Optional[MaybeContainer[_T]]) -> FrozenSet[_T]:
+    """to_list, as a frozenset."""
+
     if is_container(value):
         return frozenset(value)
-    return frozenset({value}) if value is not None else frozenset()
+    return frozenset((value, )) if value is not None else frozenset()
 
 
-def iter_flat_cont(*containers: NestedContainer[Optional[_T]]) -> Generator[_T, None, None]:
+@overload
+def iter_flat_cont(*containers: NestedContainer[Optional[_T]], exclude_none: _True = True) -> Generator[_T, None, None]: ...
+@overload
+def iter_flat_cont(*containers: NestedContainer[_T], exclude_none: _False) -> Generator[_T, None, None]: ...
+def iter_flat_cont(*containers, exclude_none = True):
+    """Yield every leaf under `containers`, flattening nested ones as it goes.
+
+    `exclude_none` defaults to True, dropping a None wherever one turns up.
+    Pass False to keep it: a None is then a leaf like any other.
+    """
+
     for item in containers:
         if is_container(item):
-            yield from iter_flat_cont(*item)
-        elif item is not None:
+            yield from iter_flat_cont(*item, exclude_none=exclude_none)
+        elif not exclude_none or item is not None:
             yield item
 
-def flat_cont(*containers: NestedContainer[Optional[_T]]) -> List[_T]:
-    return list(iter_flat_cont(*containers))
+
+@overload
+def flat_cont(*containers: NestedContainer[Optional[_T]], exclude_none: _True = True) -> List[_T]: ...
+@overload
+def flat_cont(*containers: NestedContainer[_T], exclude_none: _False) -> List[_T]: ...
+def flat_cont(*containers, exclude_none = True):
+    """iter_flat_cont, collected into a list."""
+    return list(iter_flat_cont(*containers, exclude_none=exclude_none))
+
+@overload
+def iter_flat_map(*containers: NestedBoth[Optional[_KT], Optional[_VT], Optional[_T]], exclude_none: _True = True) -> Generator[Union[_KT, _VT, _T], None, None]: ...
+@overload
+def iter_flat_map(*containers: NestedBoth[_KT, _VT, _T], exclude_none: _False) -> Generator[Union[_KT, _VT, _T], None, None]: ...
+def iter_flat_map(*containers, exclude_none: bool = True):
+    for item in containers:
+        if is_mapping(item):
+            yield from iter_flat_map(*item.items(), exclude_none=exclude_none)
+        elif is_container(item):
+            yield from iter_flat_map(*item, exclude_none=exclude_none)
+        elif not exclude_none or item is not None:
+            yield item
+
+@overload
+def flat_map(*containers: NestedBoth[Optional[_KT], Optional[_VT], Optional[_T]], exclude_none: _True = True) -> List[Union[_KT, _VT, _T]]: ...
+@overload
+def flat_map(*containers: NestedBoth[_KT, _VT, _T], exclude_none: _False) -> List[Union[_KT, _VT, _T]]: ...
+def flat_map(*containers, exclude_none: bool = True):
+    """iter_flat_map, collected into a list."""
+
+    return list(iter_flat_map(*containers, exclude_none=exclude_none))
 
 
-def iter_flat_cont_by(*containers: Any, is_container: Callable[[Any], bool] = is_container) -> Generator[Any, None, None]:
+def iter_flat_cont_by(*containers: Any, is_container: Callable[[Any], bool] = is_container, exclude_none: bool = True) -> Generator[Any, None, None]:
     for item in containers:
         if is_container(item):
-            yield from iter_flat_cont_by(*item, is_container=is_container)
-        elif item is not None:
+            yield from iter_flat_cont_by(*item, is_container=is_container, exclude_none=exclude_none)
+        elif not exclude_none or item is not None:
             yield item
 
-def flat_cont_by(*containers: Any, is_container: Callable[[Any], bool] = is_container) -> List[Any]:
-    return list(iter_flat_cont_by(*containers, is_container=is_container))
+def flat_cont_by(*containers: Any, is_container: Callable[[Any], bool] = is_container, exclude_none: bool = True) -> List[Any]:
+    return list(iter_flat_cont_by(*containers, is_container=is_container, exclude_none=exclude_none))
 
 
 def dedupe(iterable: Iterable[_T], hashable: bool = True) -> List[_T]:
@@ -107,6 +158,8 @@ __all__ = (
     "flat_cont",
     "iter_flat_cont_by",
     "flat_cont_by",
+    "iter_flat_map",
+    "flat_map",
     "pad_list",
     "dedupe",
 

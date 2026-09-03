@@ -6,14 +6,12 @@ that scope, since the whole package is re-exported flat from
 pytrove.typings.
 """
 
-from __future__ import annotations
-
 from typing import (
     Collection, Union, Reversible, Iterator, 
-    Sequence, AbstractSet, Mapping, TypeAlias, 
+    Sequence, AbstractSet, TypeAlias, 
     Any, Dict, Annotated, Callable, Coroutine, 
     Awaitable, ParamSpec, TypeVar, Literal, 
-    TypedDict, Hashable, Protocol, List, 
+    TypedDict, Hashable, Protocol, List, Mapping
     
 )
 
@@ -30,48 +28,43 @@ class LockProtocol(Protocol):
 
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
+_KT = TypeVar("_KT", bound=Hashable)
+_VT = TypeVar("_VT")
 
 
-# PEP 695's `type X[T] = ...` statement is a hard SyntaxError before Python
-# 3.12 -- an `if sys.version_info >= (3, 12):` guard around it in THIS file
-# would not help, since the whole file is parsed before any branch ever
-# executes. A conditional IMPORT is the only way to gate syntax itself: only
-# _core_py312.py (which uses that syntax) is ever parsed, and only when the
-# running interpreter is 3.12+.
 if sys.version_info >= (3, 12):
     from ._core_py312 import *
 else:
-    Container: TypeAlias = Union[
-        Iterator[_T], Collection[_T], Reversible[_T], 
-        Sequence[_T], AbstractSet[_T], Mapping[_T, Any], 
-    ]
-
+    #يجب المحافظة على ترتيب الاولويات
     ContainerWithoutMapping: TypeAlias = Union[
-        Iterator[_T], Collection[_T], Reversible[_T], 
-        Sequence[_T], AbstractSet[_T], 
+        Sequence[_T], 
+        AbstractSet[_T], 
+        Collection[_T], 
+        Reversible[_T], 
+        Iterator[_T], 
     ]
+    Container: TypeAlias = ContainerWithoutMapping[_T] #تحققت مؤخرا ان Mapping يرث من Collection
 
     
-    MaybeList: TypeAlias = Union[_T, List[_T]]
-    MaybeContainer: TypeAlias = Union[_T, Container[_T]]
-    NestedContainer: TypeAlias = Union[_T, Container["NestedContainer[_T]"]]
-    NestedStrKeyDict: TypeAlias = Dict[str, Union[_T, "NestedStrKeyDict[_T]"]]
+    MaybeList: TypeAlias = Union[List[_T], _T]
+    MaybeContainer: TypeAlias = Union[Container[_T], _T]
+    NestedStrKeyDict: TypeAlias = Dict[str, Union["NestedStrKeyDict[_T]", _T]]
+    NestedContainer: TypeAlias = Union[Container["NestedContainer[_T]"], _T]
 
-    MaybeCoroutine: TypeAlias = Union[_T, Coroutine[Any, Any, _T]]
+    NestedContainerMappingValue: TypeAlias = Union[
+        "NestedContainerMapping[_KT, _VT]", 
+        ContainerWithoutMapping["NestedContainerMappingValue[_KT, _VT]"], 
+        _VT
+    ]
+    NestedContainerMapping: TypeAlias = Mapping[
+        NestedContainer[_KT],
+        NestedContainerMappingValue[_KT, _VT],
+    ]
+    
+
+    MaybeCoroutine: TypeAlias = Union[Coroutine[Any, Any, _T], _T]
     MaybeCoroutineCallable: TypeAlias = Callable[_P, MaybeCoroutine[_T]]
     MaybeAwaitableCallable: TypeAlias = Callable[_P, Union[_T, Awaitable[_T]]]
-    # Written out in full (not `MaybeCoroutineCallable[_P, _T]`) because
-    # substituting into an *already-subscripted* ParamSpec generic nested
-    # inside another Union is unreliable pre-3.14 -- it raises "Expected a
-    # list of types, an ellipsis, ParamSpec, or Concatenate".
-    #
-    # The Callable[_P, ...] member must also come FIRST in the Union: typing
-    # collects a Union alias's __parameters__ by scanning members
-    # left-to-right, so `Union[Awaitable[_T], Callable[_P, ...]]` discovers
-    # (_T, _P) -- backwards from the `MaybeAwaitable[_P, _T]` subscript order
-    # used at call sites, which raises the same TypeError (confirmed on
-    # 3.12). Callable[_P, ...] first discovers (_P, _T), matching the
-    # intended subscript order.
     MaybeAwaitable: TypeAlias = Union[MaybeCoroutineCallable[_P, _T], Awaitable[_T]]
     
 
@@ -92,13 +85,11 @@ PathLike: TypeAlias = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"
 
 _CT = TypeVar("_CT", bound=type)
 _FT = TypeVar("_FT", bound=Callable[..., Any])
-_KT = TypeVar("_KT", bound=Hashable)
-_VT = TypeVar("_VT")
 _ExcT = TypeVar("_ExcT", bound=BaseException)
 _EnumT = TypeVar("_EnumT", bound=Enum)
 
-_True = Literal[True]
-_False = Literal[False]
+_True: TypeAlias = Literal[True]
+_False: TypeAlias = Literal[False]
 
 
 class CountryInfo(TypedDict):
@@ -129,6 +120,8 @@ __all__ = (
     "MaybeAwaitableCallable", 
     "MaybeCoroutine", 
     "MaybeList", 
+    "NestedContainerMappingValue", 
+    "NestedContainerMapping", 
     "_P", "_T", "_CT", "_FT",
     "_KT", "_VT", "_True", "_False",
     "_EnumT", "_ExcT", 
