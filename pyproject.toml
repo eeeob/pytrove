@@ -56,7 +56,11 @@ jsonref = ["jsonref>=1.1"]
 fastjson = ["orjson>=3.9"]
 archive = [
     "zstandard>=0.22; python_version < '3.14'",
-    "fastzip>=0.5",
+    # fastzip fails to import on Windows (its _crc32_combine loads libz via
+    # ctypes.util.find_library("z"), which finds nothing there), so it is
+    # installed only where it actually works; compress_folder's `workers`
+    # just falls back to the serial zipfile writer where it is absent.
+    "fastzip>=0.5; sys_platform != 'win32'",
     "pathspec>=1.0",
 ]
 
