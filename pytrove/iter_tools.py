@@ -2,12 +2,14 @@ from typing import (
     List, Set, Union, Any,
     FrozenSet, Tuple, Iterable,
     Generator, Optional, Callable,
-    Mapping, overload,
+    Mapping, overload, TypeVar,
 )
 
 
 from .typings import NestedContainer, NestedContainerMappingValue, MaybeContainer, _True, _False, _T, _KT, _VT
 from .validate_tools import is_container, is_mapping
+
+_MT = TypeVar("_MT")  # first_map's single-iterable overload: func's own argument type
 
 
 def to_list(value: Optional[MaybeContainer[_T]]) -> List[_T]:
@@ -122,6 +124,35 @@ def flat_cont_by(*containers: Any, is_container: Callable[[Any], bool] = is_cont
     return list(iter_flat_cont_by(*containers, is_container=is_container, exclude_none=exclude_none))
 
 
+@overload
+def first_map(func: Callable[[_MT], _T], iterable: Iterable[_MT], /, *, default: _VT = None, predicate: Callable[[_T], bool] = bool) -> Union[_T, _VT]: ...
+@overload
+def first_map(func: Callable[..., _T], *iterables: Iterable[Any], default: _VT = None, predicate: Callable[[_T], bool] = bool) -> Union[_T, _VT]: ...
+def first_map(func: Callable[..., Any], *iterables: Iterable[Any], default: Any = None, predicate: Callable[[Any], bool] = bool):
+    """map(func, *iterables), but stops at the first result `predicate`
+    accepts and returns it right away, instead of running every item
+    through func first -- func is never called past that point, so an
+    expensive func or an infinite iterable is fine as long as a hit comes
+    early enough.
+
+    `predicate` defaults to `bool`, so the first truthy result wins (0,
+    "", [], None, False all fail it) -- pass a stricter one (e.g.
+    `lambda x: x is not None`) when a falsy-but-valid result should count.
+
+    Returns `default` (None unless given) once every iterable is
+    exhausted without a hit. The single-iterable form types `func`'s
+    argument from that iterable's element type, same as `map()` itself;
+    calling with more than one iterable falls back to the looser
+    `Callable[..., _T]` shape, since matching each iterable to its own
+    positional argument that way needs a separate overload per arity.
+    """
+
+    for result in map(func, *iterables):
+        if predicate(result):
+            return result
+    return default
+
+
 def dedupe(iterable: Iterable[_T], hashable: bool = True) -> List[_T]:
     """Remove duplicate elements from `iterable`, always keeping first-seen
     order.
@@ -179,6 +210,7 @@ __all__ = (
     "flat_cont_by",
     "iter_flat_map",
     "flat_map",
+    "first_map",
     "pad_list",
     "dedupe",
 
