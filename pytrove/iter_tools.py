@@ -2,14 +2,17 @@ from typing import (
     List, Set, Union, Any,
     FrozenSet, Tuple, Iterable,
     Generator, Optional, Callable,
-    Mapping, overload, TypeVar,
+    Mapping, TypeVar, overload, 
 )
-
+from collections.abc import MutableSequence
 
 from .typings import NestedContainer, NestedContainerMappingValue, MaybeContainer, _True, _False, _T, _KT, _VT
 from .validate_tools import is_container, is_mapping
 
-_MT = TypeVar("_MT")  # first_map's single-iterable overload: func's own argument type
+import random
+
+_MT = TypeVar("_MT")
+_MS = TypeVar("_MS", bound=MutableSequence[_T])
 
 
 def to_list(value: Optional[MaybeContainer[_T]]) -> List[_T]:
@@ -199,6 +202,21 @@ def pad_list(values: List[_VT], length: int, exact: bool = False, default: _T = 
     return values
 
 
+@overload
+def shuffle(seq: _MS) -> _MS: ...
+@overload
+def shuffle(seq: Iterable[_T]) -> List[_T]: ...
+def shuffle(seq):
+    if not isinstance(seq, MutableSequence):
+        seq = list(seq)
+
+    if seq:
+        random.shuffle(seq)
+    return seq
+
+
+
+
 __all__ = (
     "to_list",
     "to_tuple",
@@ -213,5 +231,6 @@ __all__ = (
     "first_map",
     "pad_list",
     "dedupe",
+    "shuffle", 
 
 )
