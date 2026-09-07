@@ -43,6 +43,7 @@ try:
     from pyrogram import Client
     from pyrogram.utils import get_peer_type
     from pyrogram.types import Message
+    from pyrogram.errors import BadRequest
 except ImportError:
     pass
 
@@ -195,7 +196,7 @@ def is_tg_otp_code(code, with_str = True, remove_spaces = False):
 
 @_optional_import(("phonenumbers", "phone"))
 def is_phone_number(
-    phone_number: Union[str, int, "phonenumbers.PhoneNumber"], 
+    phone_number: Union[StrInt, "phonenumbers.PhoneNumber"], 
     remove_spaces: bool = True, 
     resolve: bool = True
     ) -> TypeIs[StrInt]:
@@ -270,12 +271,28 @@ def iscoroutinefunction_wrapped(f):
     return is_coro or inspect.iscoroutinefunction(unwrapped)
 
 @_optional_import(("kurigram", "tg"))
-async def is_valid_tg_app(api_id, api_hash) -> bool:
+async def is_valid_tg_app(api_id: StrInt, api_hash: str) -> bool:
+    """Whether `api_id`/`api_hash` actually work, by trying to connect with
+    them -- the only way to know for certain, since Telegram is the one
+    party that can say so.
+
+    Only BadRequest -- Telegram's own family for a rejected request, which
+    is what a wrong or banned pair comes back as -- is read as "no".
+    Anything else (no network, a timeout, Telegram itself being down) is a
+    failure to find out, not an answer, and is left to propagate rather
+    than being reported as an invalid pair.
+    """
+
+    try:
+        api_id = int(api_id)
+    except (TypeError, ValueError):
+        return False
+    
     c = Client(f"check_session_{api_id}", api_id=api_id, api_hash=api_hash, in_memory=True, no_updates=True)
 
     try:
         await c.connect()
-    except Exception:
+    except BadRequest:
         return False
     else:
         return True

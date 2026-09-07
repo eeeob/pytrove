@@ -1,6 +1,6 @@
 from typing import Dict, Union, Optional
 
-from .typings import CountryInfo, RegionCode
+from .typings import CountryInfo, RegionCode, StrInt
 from .phone_tools import cc_from_rc, is_rc
 from .validate_tools import validation
 
@@ -45,7 +45,7 @@ def _build_countries():
 
 
 @_optional_import((("pycountry", "phonenumbers"), "country"))
-def get_cinfo(rc_or_cc: Union[str, int]) -> CountryInfo:
+def get_cinfo(rc_or_cc: StrInt) -> CountryInfo:
     _build_countries()
     if isinstance(rc_or_cc, str):
         return _COUNTRIES[rc_or_cc.lower()]
@@ -53,7 +53,7 @@ def get_cinfo(rc_or_cc: Union[str, int]) -> CountryInfo:
 
 
 @_optional_import((("pycountry", "phonenumbers"), "country"))
-def get_cfullname(rc_or_cc: Union[str, int]) -> str:
+def get_cfullname(rc_or_cc: StrInt) -> str:
     info = get_cinfo(rc_or_cc)
     return f"{info['name']} {info['flag']}"
 

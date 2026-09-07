@@ -10,7 +10,7 @@ try:
 except ImportError:
     pass
 
-from .typings import _T, _True, _False
+from .typings import _T, _True, _False, StrInt
 from .errors import ValidationError
 from .enums import TgMessageLength, PlatformDevice
 
@@ -113,16 +113,16 @@ def format_tg_username(
     
 @overload
 def format_tg_link(
-    target: Union[str, int, "Message", "Chat", "User"], 
+    target: Union[StrInt, "Message", "Chat", "User"], 
     ) -> Optional[str]: ...
 @overload
 def format_tg_link(
-    target: Union[str, int, "Message", "Chat", "User"], 
+    target: Union[StrInt, "Message", "Chat", "User"], 
     default: _T
     ) -> Union[str, _T]: ...
 @_optional_import(("kurigram", "tg"))
 def format_tg_link(
-    target: Union[str, int, "Message", "Chat", "User"], 
+    target: Union[StrInt, "Message", "Chat", "User"], 
     default = None
     ):
 
