@@ -65,10 +65,17 @@ except ImportError:
 
 import re
 import inspect
+import logging
+
+
+try:
+    TG_CHANNEL_MSG_LINK_PATTERN = Client.CHANNEL_MESSAGE_LINK_RE
+except (NameError, AttributeError):
+    TG_CHANNEL_MSG_LINK_PATTERN = re.compile(r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:c/)?)([\w]+)(?:/\d+)*/(\d+)/?$")
+
 
 
 TG_BOT_COMMAND_PATTERN = re.compile(r"^/[A-Za-z][\w\d]*$")
-TG_CHANNEL_MSG_LINK_PATTERN = re.compile(r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:c/)?)([\w]+)(?:/\d+)*/(\d+)/?$")
 EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 _CONTAINER = tuple(get_origin(arg) or arg for arg in get_args(getattr(Container, "__value__", Container)))
@@ -76,6 +83,8 @@ _NOT_CONTAINER = tuple(get_origin(arg) or arg for arg in get_args(getattr(NotCon
 
 
 _ClassInfo: TypeAlias = Union[type, UnionType, Tuple["_ClassInfo", ...]]
+
+log = logging.getLogger(__name__)
 
 def _flatten_class_info(class_info: _ClassInfo) -> Tuple[type, ...]:
     """Normalize `class_info` into the plain tuple-of-types form isinstance()/
@@ -297,8 +306,10 @@ async def is_valid_tg_app(api_id: StrInt, api_hash: str) -> bool:
     else:
         return True
     finally:
-        from .async_tools import safe_await
-        await safe_await(c.disconnect())
+        try:
+            await c.disconnect()
+        except Exception:
+            log.exception("Failed to disconnect the Telegram client")
 
 @_optional_import(("aioimaplib", "imap"))
 async def is_accessible_received_email(email: str, password: str):
@@ -309,18 +320,20 @@ async def is_accessible_received_email(email: str, password: str):
     if provider is None:
         return False
 
-    client = aioimaplib.IMAP4_SSL(host=provider.host, port=provider.port)
+    c = aioimaplib.IMAP4_SSL(host=provider.host, port=provider.port)
 
     try:
-        await client.wait_hello_from_server()
-        await client.login(email, password)
+        await c.wait_hello_from_server()
+        await c.login(email, password)
     except Exception:
         return False
     else:
         return True
     finally:
-        from .async_tools import safe_await
-        await safe_await(client.logout())
+        try:
+            await c.logout()
+        except Exception:
+            log.exception("Failed to log out from the IMAP server")
     
 @overload
 def validation(cond: _True, custom_exc: Optional[Union[BaseException, str]] = None) -> None: ...
