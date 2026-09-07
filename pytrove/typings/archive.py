@@ -24,7 +24,7 @@ class ArchiveLimits(NamedTuple):
     instance can be shared by any number of calls, and comparable and
     hashable by value like any other tuple.
 
-    The six ceilings are None by default, meaning no ceiling. A library
+    The seven ceilings are None by default, meaning no ceiling. A library
     that started refusing archives it used to accept would break working
     code, and there is no honest number anyway: 500 MB is paranoid for a
     backup and reckless for an upload. extract_archive documents the risk
@@ -51,6 +51,23 @@ class ArchiveLimits(NamedTuple):
     disk fills. Counted per directory, including the directories a member's
     own path implies but the archive never listed, so "a/b/c.txt" is one
     entry in "a/b" whether or not "a/b/" was a member of its own.
+
+    It does not see the destination root itself -- that is max_root_entries,
+    below. An ordinary project's top level routinely holds more names than
+    any directory under it (README, LICENSE, pyproject.toml, src, tests,
+    docs, .github, ...), so one ceiling for both would have to be sized for
+    the root's ordinary sprawl and wave the same sprawl through everywhere
+    else in the tree, or be sized for an inner directory and refuse an
+    entirely unremarkable root. They are two settings for that reason, not
+    because the root earns less scrutiny.
+
+    max_root_entries is the same question asked only about the destination
+    root -- dest itself, or the staging directory under atomic/dir_check --
+    and it is where the flattest shape of a files bomb actually lands: an
+    archive that lists a million names with no directory of their own drops
+    every one of them straight into the root, which max_dir_entries never
+    sees, since none of those names imply a directory beneath it for that
+    ceiling to count against.
 
     dir_check is the same question asked in the caller's own words rather
     than in a number, and it is the only one that gets to look at what was
@@ -143,6 +160,7 @@ class ArchiveLimits(NamedTuple):
     max_ratio: Optional[float] = None
     max_depth: Optional[int] = None
     max_dir_entries: Optional[int] = None
+    max_root_entries: Optional[int] = None
     dir_check: Optional[Callable[[Path], Optional[bool]]] = None
 
     symlinks: ArchiveLinkPolicy = ArchiveLinkPolicy.ERROR

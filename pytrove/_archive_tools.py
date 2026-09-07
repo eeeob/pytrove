@@ -845,7 +845,7 @@ class _Limiter:
     # --- the ceilings ----------------------------------------------------
 
     def count(self, m: _Member) -> None:
-        """Weigh one member against all six ceilings, or raise.
+        """Weigh one member against all seven ceilings, or raise.
 
         A directory does not count against max_files -- it bounds files, not
         filesystem entries; max_dir_entries and max_depth are what bound a
@@ -878,16 +878,22 @@ class _Limiter:
         reader at its declared length, so a member that claims less than it
         holds hands out less, not more.
 
-        max_dir_entries is the one that is not a comparison against a
-        number the member carries, so it is spelled out below rather than
-        hidden behind a call: it has to register the member in its parent,
-        and every directory above it in that one's parent, before it has
-        anything to compare. Walking the whole path is what makes the count
-        match the filesystem. An archive listing "a/b/c.txt" and nothing
-        else still creates "a" and "a/b", and those are entries in their
-        parents whether or not the archive troubled to mention them -- so
-        each ancestor is registered once, on the way past, exactly as the
-        compression walk emits them.
+        max_dir_entries and max_root_entries are the two that are not a
+        comparison against a number the member carries, so they are spelled
+        out below rather than hidden behind a call: each has to register
+        the member in its parent, and every directory above it in that
+        one's parent, before there is anything to compare. Walking the
+        whole path is what makes the count match the filesystem. An archive
+        listing "a/b/c.txt" and nothing else still creates "a" and "a/b",
+        and those are entries in their parents whether or not the archive
+        troubled to mention them -- so each ancestor is registered once, on
+        the way past, exactly as the compression walk emits them.
+
+        The two ceilings share that one walk and nothing else: an ancestor
+        whose parent is "" is the destination root's own entry and is
+        judged against max_root_entries, never max_dir_entries -- see
+        ArchiveLimits for why they are kept apart. Every other ancestor is
+        judged against max_dir_entries alone.
 
         `_counted` is what keeps "once" true: members of one directory
         arrive together, so the ancestors of the second are the ancestors
@@ -902,7 +908,7 @@ class _Limiter:
             self._fail(f"member {name!r} is nested {depth} deep, "
                        f"over the {lim.max_depth} allowed")
 
-        if lim.max_dir_entries is not None:
+        if lim.max_dir_entries is not None or lim.max_root_entries is not None:
             parts = name.split("/")
 
             for i in range(1, len(parts) + 1):
@@ -915,9 +921,15 @@ class _Limiter:
                 parent = path.rpartition("/")[0]
                 self._breadth[parent] = held = self._breadth.get(parent, 0) + 1
 
-                if held > lim.max_dir_entries:
+                if not parent:
+                    if lim.max_root_entries is not None and held > lim.max_root_entries:
+                        self._fail(
+                            f"the destination holds more than the "
+                            f"{lim.max_root_entries} root entries allowed"
+                        )
+                elif lim.max_dir_entries is not None and held > lim.max_dir_entries:
                     self._fail(
-                        f"directory {parent or '.'!r} holds more than the "
+                        f"directory {parent!r} holds more than the "
                         f"{lim.max_dir_entries} entries allowed"
                     )
 

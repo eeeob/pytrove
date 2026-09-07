@@ -444,9 +444,9 @@ def extract_archive(
     reads its second argument has to handle both, and one that raises comes
     back as a ValidationError saying so rather than as whatever it raised.
 
-    `limits` is an ArchiveLimits: the six ceilings that stop a zip bomb
+    `limits` is an ArchiveLimits: the seven ceilings that stop a zip bomb
     (max_files, max_total_size, max_file_size, max_ratio, max_depth,
-    max_dir_entries), the four policies (symlinks, hardlinks, overwrite,
+    max_dir_entries, max_root_entries), the four policies (symlinks, hardlinks, overwrite,
     duplicates) and dir_check. See ArchiveLimits, and note what max_ratio
     can and cannot see -- it is read from the header, which a tar does not
     carry at all.

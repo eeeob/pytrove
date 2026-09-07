@@ -1516,13 +1516,38 @@ def _zip_of(path, names, listed_dirs=()):
 
 
 def test_max_dir_entries_bounds_one_directory(tmp_path):
-    arc = _zip_of(tmp_path / "flat.zip", [f"f{i}.txt" for i in range(5)])
+    # A subdirectory, not the root -- max_dir_entries never sees the root
+    # itself, see max_root_entries below.
+    arc = _zip_of(tmp_path / "flat.zip", [f"sub/f{i}.txt" for i in range(5)])
 
     with pytest.raises(ArchiveLimitError, match="entries allowed"):
         extract_archive(arc, tmp_path / "a1", limits=ArchiveLimits(max_dir_entries=4))
 
     dest = tmp_path / "a2"
     extract_archive(arc, dest, limits=ArchiveLimits(max_dir_entries=5))
+
+    assert len(list((dest / "sub").iterdir())) == 5
+
+
+def test_max_dir_entries_does_not_bound_the_root(tmp_path):
+    # The root is a different ceiling entirely -- see max_root_entries.
+    # Flooding it is not what max_dir_entries is for, however low it is set.
+    arc = _zip_of(tmp_path / "flat.zip", [f"f{i}.txt" for i in range(5)])
+
+    dest = tmp_path / "a1"
+    extract_archive(arc, dest, limits=ArchiveLimits(max_dir_entries=1))
+
+    assert len(list(dest.iterdir())) == 5
+
+
+def test_max_root_entries_bounds_the_destination_root(tmp_path):
+    arc = _zip_of(tmp_path / "flat.zip", [f"f{i}.txt" for i in range(5)])
+
+    with pytest.raises(ArchiveLimitError, match="root entries allowed"):
+        extract_archive(arc, tmp_path / "r1", limits=ArchiveLimits(max_root_entries=4))
+
+    dest = tmp_path / "r2"
+    extract_archive(arc, dest, limits=ArchiveLimits(max_root_entries=5))
 
     assert len(list(dest.iterdir())) == 5
 
@@ -1552,20 +1577,24 @@ def test_max_dir_entries_does_not_count_a_listed_directory_twice(tmp_path):
 
 def test_max_dir_entries_is_breadth_where_max_files_is_the_total(tmp_path):
     # 12 files, three to a directory, four directories in the root. The
-    # widest directory is the root at four; the whole archive is sixteen
-    # entries. Each ceiling refuses at its own number and neither stands in
-    # for the other.
+    # widest subdirectory holds three (max_dir_entries), the root holds
+    # four directories of its own (max_root_entries), and the whole
+    # archive is sixteen entries (max_files). Each ceiling refuses at its
+    # own number and neither stands in for the other.
     arc = _zip_of(tmp_path / "spread.zip",
                   [f"d{i}/f{j}.txt" for i in range(4) for j in range(3)])
 
     with pytest.raises(ArchiveLimitError, match="entries allowed"):
-        extract_archive(arc, tmp_path / "s1", limits=ArchiveLimits(max_dir_entries=3))
+        extract_archive(arc, tmp_path / "s1", limits=ArchiveLimits(max_dir_entries=2))
+
+    with pytest.raises(ArchiveLimitError, match="root entries allowed"):
+        extract_archive(arc, tmp_path / "s2", limits=ArchiveLimits(max_root_entries=3))
 
     with pytest.raises(ArchiveLimitError, match="members allowed"):
-        extract_archive(arc, tmp_path / "s2", limits=ArchiveLimits(max_files=10))
+        extract_archive(arc, tmp_path / "s3", limits=ArchiveLimits(max_files=10))
 
-    dest = tmp_path / "s3"
-    extract_archive(arc, dest, limits=ArchiveLimits(max_dir_entries=4, max_files=16))
+    dest = tmp_path / "s4"
+    extract_archive(arc, dest, limits=ArchiveLimits(max_dir_entries=3, max_root_entries=4, max_files=16))
 
     assert len(list(dest.rglob("*.txt"))) == 12
 
@@ -1573,10 +1602,19 @@ def test_max_dir_entries_is_breadth_where_max_files_is_the_total(tmp_path):
 def test_max_dir_entries_counts_what_survives_the_filter(tmp_path):
     # Same rule as every other ceiling: a member nobody asked for costs
     # nothing, so a directory is only as wide as what is being written.
+    arc = _zip_of(tmp_path / "mix.zip", [f"sub/f{i}.txt" for i in range(5)])
+
+    dest = tmp_path / "f1"
+    extract_archive(arc, dest, include="sub/f0.txt", limits=ArchiveLimits(max_dir_entries=1))
+
+    assert [p.name for p in (dest / "sub").iterdir()] == ["f0.txt"]
+
+
+def test_max_root_entries_counts_what_survives_the_filter(tmp_path):
     arc = _zip_of(tmp_path / "mix.zip", [f"f{i}.txt" for i in range(5)])
 
     dest = tmp_path / "f1"
-    extract_archive(arc, dest, include="f0.txt", limits=ArchiveLimits(max_dir_entries=1))
+    extract_archive(arc, dest, include="f0.txt", limits=ArchiveLimits(max_root_entries=1))
 
     assert [p.name for p in dest.iterdir()] == ["f0.txt"]
 
