@@ -47,20 +47,22 @@ class DeferredCall(Generic[_T]):
             
         )
 
-    async def run(self, executor: Optional[ThreadPoolExecutor] = None) -> _T:
-        if self.args is not None:
-            args = self.args
-        else:
-            args = ()
-        
-        if self.kw is not None:
-            kw = self.kw
-        else:
-            kw = {}
+    async def run(self, *args: Any, executor: Optional[ThreadPoolExecutor] = None, **kw: Any) -> _T:
+        """Run `func` -- `args`/`kw` given here are appended to/merged over
+        whatever was set on the instance at construction, so a one-off extra
+        argument does not need a new DeferredCall just to carry it.
+
+        A keyword given both at construction and here is overridden by the
+        one given here; positional args here are appended after the stored
+        ones, the same order `func` would see them written out by hand.
+        """
+
+        call_args = (*(self.args or ()), *args)
+        call_kw = {**(self.kw or {}), **kw}
 
         return await maybe_awaitable(
-            self.func, 
-            *args, **kw, 
+            self.func,
+            *call_args, **call_kw,
             executor=executor
         )
 

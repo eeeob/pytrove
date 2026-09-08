@@ -33,12 +33,12 @@ except ImportError:
 else:
     HAS_WRAPT = True
 
-from ._optional import _unavailable_class
+from .._optional import _unavailable_class
 
-from .typings import _KT, _VT, _T, _P, Number, MaybeContainer
-from .async_tools import to_thread
-from .callable_tools import run_awaitable_in_coro, safe_call, ignore_arguments
-from .iter_tools import to_frozenset
+from ..typings import _KT, _VT, _T, _P, Number, MaybeContainer
+from ..async_tools import to_thread
+from ..callable_tools import run_awaitable_in_coro, safe_call, ignore_arguments
+from ..iter_tools import to_frozenset
 
 import weakref
 import logging
@@ -83,25 +83,25 @@ class classproperty(Generic[_T, _VT]):
         cls,
         fget: None = None,
         *,
-        doc: Optional[str] = None, 
-        cached: bool = False 
+        doc: Optional[str] = None,
+        cached: bool = False
     ) -> Callable[
         [Callable[[Type[_T]], _VT]], "classproperty[_T, _VT]"
         ]: ...
-    def __new__(cls, fget = None, *, doc = None, cached = False): 
+    def __new__(cls, fget = None, *, doc = None, cached = False):
         if fget is None:
             return partial(cls, doc=doc, cached=cached)
 
         return super().__new__(cls)
 
     def __init__(
-        self, 
-        fget: Callable[[Type[_T]], _VT], 
-        *, 
-        doc: Optional[str] = None, 
-        cached: bool = False 
+        self,
+        fget: Callable[[Type[_T]], _VT],
+        *,
+        doc: Optional[str] = None,
+        cached: bool = False
     ) -> None:
-        
+
         self.call = KeyDefaultWeakKeyDict(fget) if cached else fget
         self.doc = fget.__doc__ if doc is None else doc
 
@@ -118,7 +118,7 @@ class classproperty(Generic[_T, _VT]):
             return self
 
         value = self.call(owner)
-        
+
         try:
             return value
         finally:
@@ -158,8 +158,8 @@ class FrozenClassAttrs:
             raise AttributeError(
                 f"Cannot override class attribute '{name}' from instance"
             )
-        super().__setattr__(name, value) 
- 
+        super().__setattr__(name, value)
+
 class KeyDefaultDict(Dict[_KT, _VT]):
     def __init__(self, default_factory: Callable[[_KT], _VT]) -> None:
         super().__init__()
@@ -169,7 +169,7 @@ class KeyDefaultDict(Dict[_KT, _VT]):
         value = self.default_factory(key)
         self[key] = value
         return value
-    
+
     def __call__(self, key: _KT) -> _VT:
         return self[key]
 
@@ -478,8 +478,8 @@ class AioThreadWorker:
         # earlier gather() is already running.
         while self.__tasks:
             await asyncio.gather(*self.__tasks, return_exceptions=True)
-        
-    
+
+
 
     # ---------------- state ----------------
 
@@ -579,11 +579,11 @@ class AioThreadWorker:
                         "started; create a new AioThreadWorker instead"
                     )
 
-                
+
                 thread = threading.Thread(
-                    target=safe_call, 
-                    args=(self.__bootstrap, ), 
-                    kwargs={"log_exc": _exc_thread_handler}, 
+                    target=safe_call,
+                    args=(self.__bootstrap, ),
+                    kwargs={"log_exc": _exc_thread_handler},
                     name=self.__name,
                     daemon=True,
                 )
@@ -710,7 +710,7 @@ class AioThreadWorker:
         return self.join().__await__()
 
     # ---------------- submission ----------------
-    
+
     async def submit(
         self,
         func: Callable[_P, Awaitable[_T]],
@@ -735,43 +735,43 @@ class AioThreadWorker:
 
         async def run_task():
             """Wrapper every submission actually runs as, on the worker's loop.
-    
+
             Takes a factory rather than a ready awaitable so `func(*args)` is
             called here, on the worker's loop -- a coroutine function that touches
             the running loop while being *called* would otherwise bind to the
             submitting thread's loop, or fail outright if that thread has none.
             """
-    
+
             awaitable = func(*args, **kwargs)
-    
+
             if not inspect.isawaitable(awaitable):
                 raise TypeError(
                     f"func must be a awaitable function; calling it returned "
                     f"{type(awaitable).__name__!r}"
                 )
-    
+
             task = asyncio.current_task()
-    
+
             # Captured once: teardown nulls these, and a task scheduled just before
             # that must still untrack itself from the very set it registered in.
             tasks = self.__tasks
             slots = self.__slots
-    
+
             # Registered before awaiting anything, so join()'s drain loop sees this
             # task even while it is only parked on the semaphore below.
             if tasks is not None:
                 tasks.add(task)
-    
+
             try:
                 if slots is None:
                     return await awaitable
-    
+
                 # A semaphore rather than a counter/condition pair: release() is
                 # synchronous, so the slot is returned even while the task is being
                 # cancelled -- an awaited release could itself be interrupted and
                 # leak the slot permanently.
                 await slots.acquire()
-    
+
                 try:
                     return await awaitable
                 finally:
@@ -819,7 +819,7 @@ class AioThreadWorker:
                 ) from None
 
             raise
-        
+
 
     __call__ = submit
 
@@ -841,18 +841,18 @@ if HAS_PYMONGO:
             dct.pop("name", None)
 
             return cls(dct.pop("key"), **dct)
-        
+
         @property
         def name(self):
             return self.document["name"]
-        
+
         @property
         def key(self):
             return "_".join(self.document["key"].keys())
 
         def __hash__(self):
             return hash(repr(self))
-        
+
         def __eq__(self, other):
             if not isinstance(other, MongoIndex):
                 raise NotImplementedError
@@ -865,7 +865,7 @@ class KeyDefaultWeakValueDict(weakref.WeakValueDictionary[_KT, _VT]):
     def __init__(self, default_factory: Callable[[_KT], _VT]) -> None:
         if not callable(default_factory):
             raise TypeError("default_factory must be callable")
-        
+
         super().__init__()
 
         self.default_factory = default_factory
@@ -877,7 +877,7 @@ class KeyDefaultWeakValueDict(weakref.WeakValueDictionary[_KT, _VT]):
             value = self.default_factory(key)
             self[key] = value
             return value
-    
+
     __call__ = __getitem__
 
 class DefaultWeakValueDict(KeyDefaultWeakValueDict[_KT, _VT]):
@@ -1096,7 +1096,7 @@ class SyncAwaitableRunner:
         if not lazy:
             self.start()
 
-    
+
     @property
     def started(self) -> bool:
         """Whether start() has ever spawned the thread. Never goes back to False."""
@@ -1196,12 +1196,12 @@ class SyncAwaitableRunner:
 
             started = threading.Event()
             thread = threading.Thread(
-                target=safe_call, 
+                target=safe_call,
                 args=(_bootstrap,),
                 kwargs={"log_exc": True},
                 name=self.__name,
                 daemon=True,
-            ) 
+            )
 
             del self.__name
 
@@ -1287,8 +1287,8 @@ class SyncAwaitableRunner:
 
 
 UTC3LogFormatter = type(
-    "UTC3LogFormatter", 
-    (logging.Formatter, ), 
+    "UTC3LogFormatter",
+    (logging.Formatter, ),
     {"converter": lambda _, stamp: datetime.fromtimestamp(stamp, tz=timezone(timedelta(hours=3))).timetuple()}
     )
 
@@ -1303,9 +1303,9 @@ __all__ = (
     "KeyDefaultWeakValueDict",
     "DefaultWeakValueDict",
     "classproperty",
-    "SyncAwaitableRunner", 
-    "RestrictedProxy", 
-    "WeakRestrictedProxy", 
+    "SyncAwaitableRunner",
+    "RestrictedProxy",
+    "WeakRestrictedProxy",
     "KeyDefaultWeakKeyDict",
     "DefaultWeakKeyDict",
     "WeakRegistry",
