@@ -10,6 +10,7 @@ import stat
 import subprocess
 import sys
 import tarfile
+import tempfile
 import threading
 import time
 import tracemalloc
@@ -144,16 +145,17 @@ def test_a_hidden_directory_is_still_pruned_past_an_include_glob(tree, tmp_path)
     assert _names(backup_folder(tree, tmp_path / "h4.zip", include=".hidden/**", fsync=False)) == set()
 
 
-def test_empty_directories_are_not_recorded(tree, tmp_path):
+def test_no_directory_is_ever_recorded_in_a_zip(tree, tmp_path):
+    # Neither an empty directory nor one holding a kept file gets a member
+    # of its own: extract_archive makes every ancestor a file's own path
+    # implies regardless, so a directory entry here would cost bytes for
+    # nothing anything downstream reads back.
     archive = backup_folder(tree, tmp_path / "e.zip", fsync=False)
 
     with zipfile.ZipFile(archive) as zf:
         dirs = {n for n in zf.namelist() if n.endswith("/")}
 
-    assert "empty/" not in dirs
-    # ...but a directory holding a kept file is still recorded, so an
-    # extractor makes the parent before the child.
-    assert "sub/" in dirs
+    assert dirs == set()
 
 
 def test_include_narrows_to_a_subtree(tree, tmp_path):
@@ -2624,3 +2626,451 @@ def test_a_member_the_policy_refuses_is_never_counted():
 
     # Nothing was spent on the second: no bytes, no entry, no breadth.
     assert (lim.files, lim.total, lim._breadth, lim._counted) == (0, 0, {}, set())
+
+
+# --- a source file changing while it is being archived ---------------------
+
+class _FakeStat:
+    def __init__(self, st_size, st_mtime_ns, st_ctime_ns=0, st_atime_ns=0, st_mode=0o644):
+        self.st_size = st_size
+        self.st_mtime_ns = st_mtime_ns
+        self.st_ctime_ns = st_ctime_ns
+        self.st_atime_ns = st_atime_ns
+        self.st_mode = st_mode
+
+
+def test_same_stat_compares_size_mtime_and_ctime():
+    base = _FakeStat(1, 1, 1)
+
+    assert internals._same_stat(base, _FakeStat(1, 1, 1)) is True
+    assert internals._same_stat(base, _FakeStat(2, 1, 1)) is False
+    assert internals._same_stat(base, _FakeStat(1, 2, 1)) is False
+    assert internals._same_stat(base, _FakeStat(1, 1, 2)) is False
+
+
+def test_read_stable_settles_on_the_first_attempt_when_nothing_changes(tmp_path):
+    target = tmp_path / "f.bin"
+    content = b"hello world" * 100
+    target.write_bytes(content)
+
+    tmp, st, settled = internals._read_stable(str(target), retries=3)
+    try:
+        assert settled is True
+        assert st.st_size == len(content)
+        assert Path(tmp).read_bytes() == content
+    finally:
+        os.unlink(tmp)
+
+
+def test_read_stable_retries_until_two_stats_agree(tmp_path, monkeypatch):
+    target = tmp_path / "f.bin"
+    target.write_bytes(b"x")
+
+    # shutil.copyfile is stubbed out here so the only os.stat(target) calls
+    # left are _read_stable's own before/after pair -- copyfile's internal
+    # samefile check calls os.stat too, which would otherwise consume from
+    # this same faked sequence for a reason unrelated to what this test is
+    # about.
+    monkeypatch.setattr(internals.shutil, "copyfile", lambda src, dst: None)
+
+    # Attempt 1: before=(0) after=(1) -- disagree, retried.
+    # Attempt 2: before=(2) after=(2) -- agree, settled.
+    stats = iter([
+        _FakeStat(0, 0), _FakeStat(1, 0),
+        _FakeStat(2, 0), _FakeStat(2, 0),
+    ])
+    monkeypatch.setattr(internals.os, "stat", lambda path: next(stats))
+
+    tmp, st, settled = internals._read_stable(str(target), retries=3)
+    try:
+        assert settled is True
+    finally:
+        os.unlink(tmp)
+
+
+def test_read_stable_gives_up_after_its_retry_budget(monkeypatch, tmp_path):
+    target = tmp_path / "f.bin"
+    target.write_bytes(b"x")
+
+    monkeypatch.setattr(internals.shutil, "copyfile", lambda src, dst: None)
+
+    sizes = iter(range(20))
+    monkeypatch.setattr(internals.os, "stat", lambda path: _FakeStat(next(sizes), 0))
+
+    tmp, st, settled = internals._read_stable(str(target), retries=2)
+    try:
+        assert settled is False
+    finally:
+        os.unlink(tmp)
+
+
+def test_read_stable_sets_the_temp_file_mtime_and_mode_from_the_verified_stat(tmp_path):
+    target = tmp_path / "f.bin"
+    target.write_bytes(b"abc")
+    os.chmod(target, 0o600)
+    st = target.stat()
+
+    tmp, _, settled = internals._read_stable(str(target), retries=0)
+    try:
+        assert settled is True
+        tmp_st = os.stat(tmp)
+        assert tmp_st.st_mtime_ns == st.st_mtime_ns
+        assert stat.S_IMODE(tmp_st.st_mode) == stat.S_IMODE(st.st_mode)
+    finally:
+        os.unlink(tmp)
+
+
+# --- the passive before/after check on the direct, unguarded write --------
+
+def test_warn_if_changed_logs_when_the_stat_differs_after_the_write(tmp_path, monkeypatch, caplog):
+    target = tmp_path / "f.bin"
+    target.write_bytes(b"x")
+    before = target.stat()
+
+    # Simulate the file having changed by the time the "after" stat runs.
+    monkeypatch.setattr(internals.os, "stat", lambda path: _FakeStat(999, 0))
+
+    with caplog.at_level("WARNING"):
+        internals._warn_if_changed(str(target), before)
+
+    assert "changed while being archived" in caplog.text
+
+
+def test_warn_if_changed_is_silent_when_nothing_changed(tmp_path, caplog):
+    target = tmp_path / "f.bin"
+    target.write_bytes(b"x")
+    before = target.stat()
+
+    with caplog.at_level("WARNING"):
+        internals._warn_if_changed(str(target), before)
+
+    assert caplog.text == ""
+
+
+def test_warn_if_changed_does_nothing_without_a_before_stat(tmp_path, caplog):
+    target = tmp_path / "f.bin"
+    target.write_bytes(b"x")
+
+    with caplog.at_level("WARNING"):
+        internals._warn_if_changed(str(target), None)
+
+    assert caplog.text == ""
+
+
+def test_warn_if_changed_is_silent_if_the_file_is_gone_by_the_second_stat(tmp_path, caplog):
+    target = tmp_path / "f.bin"
+    target.write_bytes(b"x")
+    before = target.stat()
+    target.unlink()
+
+    with caplog.at_level("WARNING"):
+        internals._warn_if_changed(str(target), before)
+
+    assert caplog.text == ""
+
+
+@pytest.mark.parametrize("fmt", FORMATS)
+def test_the_direct_write_still_runs_warn_if_changed_when_stability_retries_is_zero(tmp_path, monkeypatch, fmt):
+    # stability_retries=0 (the default) never calls _read_stable -- see
+    # test_default_stability_retries_never_touches_a_large_file_specially
+    # -- but the direct write it falls back to is still expected to run
+    # this cheap before/after check rather than archive a file blind.
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "f.bin").write_bytes(b"hello")
+
+    calls = []
+    monkeypatch.setattr(internals, "_warn_if_changed", lambda path, before: calls.append(path))
+
+    compress_folder(src, tmp_path / "w", format=fmt, fsync=False)
+
+    assert len(calls) == 1
+    assert calls[0].endswith("f.bin")
+
+
+@pytest.mark.parametrize("fmt", FORMATS)
+def test_a_small_file_still_runs_warn_if_changed_even_with_stability_retries_set(tmp_path, monkeypatch, fmt):
+    # A file under _STABILITY_MIN_SIZE bypasses _read_stable regardless of
+    # stability_retries (see test_a_small_file_bypasses_stability_retries_
+    # entirely) -- it still takes the direct write, so it is still expected
+    # to get the passive check.
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "small.txt").write_bytes(b"tiny")
+
+    calls = []
+    monkeypatch.setattr(internals, "_warn_if_changed", lambda path, before: calls.append(path))
+
+    compress_folder(src, tmp_path / "w", format=fmt, stability_retries=5, fsync=False)
+
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize("bad", [-1, True, False, "3", 1.5])
+def test_stability_retries_rejects_anything_but_a_non_negative_int(tmp_path, bad):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "a.txt").write_text("a")
+
+    with pytest.raises(ValidationError, match="stability_retries"):
+        compress_folder(src, tmp_path / "w.zip", stability_retries=bad, fsync=False)
+
+
+# --- stability_check ---------------------------------------------------
+
+def test_default_stability_check_is_the_same_size_rule_as_before(tmp_path):
+    small = os.stat(__file__)  # this test file, well under 1 MiB
+    assert internals._default_stability_check(small, __file__) is False
+
+    just_big_enough = _FakeStat(internals._STABILITY_MIN_SIZE, 0)
+    assert internals._default_stability_check(just_big_enough, "whatever") is True
+
+
+@pytest.mark.parametrize("bad", [1, "nope", object()])
+def test_stability_check_rejects_anything_not_callable(tmp_path, bad):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "a.txt").write_text("a")
+
+    with pytest.raises(ValidationError, match="stability_check"):
+        compress_folder(src, tmp_path / "w.zip", stability_check=bad, fsync=False)
+
+
+def test_stability_check_can_pull_in_a_small_file_stability_retries_would_skip(tmp_path):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "small.txt").write_bytes(b"tiny")
+
+    calls = []
+
+    def check(st, path):
+        calls.append((st.st_size, path))
+        return True  # guard even a file well under _STABILITY_MIN_SIZE
+
+    compress_folder(
+        src, tmp_path / "w.zip",
+        stability_retries=2, stability_check=check, fsync=False,
+    )
+
+    assert len(calls) == 1
+    assert calls[0][0] == len(b"tiny")
+    assert calls[0][1].endswith("small.txt")
+
+
+@pytest.mark.parametrize("fmt", FORMATS)
+def test_stability_check_returning_false_leaves_a_large_file_unguarded(tmp_path, monkeypatch, fmt):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "big.bin").write_bytes(b"x" * (internals._STABILITY_MIN_SIZE + 1024))
+
+    def boom(*a, **kw):
+        raise AssertionError("_read_stable must not run when stability_check says no")
+
+    monkeypatch.setattr(internals, "_read_stable", boom)
+
+    compress_folder(
+        src, tmp_path / "w", format=fmt,
+        stability_retries=3, stability_check=lambda st, path: False, fsync=False,
+    )
+
+
+@pytest.mark.parametrize("fmt", FORMATS)
+def test_a_custom_stability_check_still_produces_a_correct_archive(tmp_path, fmt):
+    src = tmp_path / "src"
+    src.mkdir()
+    content = os.urandom(4096)  # well under _STABILITY_MIN_SIZE
+    (src / "small.bin").write_bytes(content)
+
+    archive = compress_folder(
+        src, tmp_path / "w", format=fmt,
+        stability_retries=2, stability_check=lambda st, path: True, fsync=False,
+    )
+    dest = tmp_path / "x"
+    extract_archive(archive, dest)
+
+    assert (dest / "small.bin").read_bytes() == content
+
+
+def test_default_stability_retries_never_touches_a_large_file_specially(tmp_path, monkeypatch):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "big.bin").write_bytes(b"x" * (internals._STABILITY_MIN_SIZE + 1024))
+
+    def boom(*a, **kw):
+        raise AssertionError("_read_stable must not run when stability_retries=0")
+
+    monkeypatch.setattr(internals, "_read_stable", boom)
+
+    compress_folder(src, tmp_path / "w.zip", fsync=False)  # stability_retries defaults to 0
+
+
+def test_a_small_file_bypasses_stability_retries_entirely(tmp_path, monkeypatch):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "small.txt").write_bytes(b"tiny")
+
+    def boom(*a, **kw):
+        raise AssertionError("_read_stable must not run for a file under _STABILITY_MIN_SIZE")
+
+    monkeypatch.setattr(internals, "_read_stable", boom)
+
+    compress_folder(src, tmp_path / "w.zip", stability_retries=5, fsync=False)
+
+
+@pytest.mark.parametrize("fmt", FORMATS)
+def test_stability_retries_still_produces_a_correct_archive(tmp_path, fmt):
+    src = tmp_path / "src"
+    src.mkdir()
+    content = os.urandom(internals._STABILITY_MIN_SIZE + 1024)
+    (src / "big.bin").write_bytes(content)
+
+    archive = compress_folder(src, tmp_path / "w", format=fmt, stability_retries=3, fsync=False)
+    dest = tmp_path / "x"
+    extract_archive(archive, dest)
+
+    assert (dest / "big.bin").read_bytes() == content
+
+
+@pytest.mark.parametrize("fmt", FORMATS)
+def test_a_large_file_changing_during_compression_warns_after_exhausting_retries(tmp_path, caplog, fmt):
+    # _read_stable's own read tolerates a size change mid-copy exactly like
+    # zipfile does -- it just reads until EOF -- so a writer that changes
+    # size freely cannot trip a container's own unrelated read error here,
+    # unlike the direct, unguarded path tarfile takes -- unlike that path,
+    # though, the ungated size *check* right before _read_stable is called
+    # is itself a plain, unguarded stat(), so a writer that truncates the
+    # file (as write_bytes() does, briefly, on every call) can still catch
+    # it looking too small for even that check to engage, falling through
+    # to tarfile's own direct read and its unrelated truncation error. The
+    # handle here is opened once and written into in place instead, at a
+    # fixed size, so the file is never transiently shorter than it claims.
+    src = tmp_path / "src"
+    src.mkdir()
+    target = src / "big.bin"
+    size = internals._STABILITY_MIN_SIZE + 1024
+    target.write_bytes(b"a" * size)
+
+    stop = threading.Event()
+
+    def keep_writing(handle):
+        n = 0
+        while not stop.is_set():
+            handle.seek(0)
+            handle.write(bytes([n % 256]) * size)
+            handle.flush()
+            os.utime(target, None)
+            n += 1
+
+    handle = open(target, "r+b")
+    writer = threading.Thread(target=keep_writing, args=(handle,), daemon=True)
+    writer.start()
+    time.sleep(0.05)
+
+    try:
+        with caplog.at_level("WARNING"):
+            compress_folder(src, tmp_path / "w", format=fmt, stability_retries=2, fsync=False)
+    finally:
+        stop.set()
+        writer.join(timeout=2)
+        handle.close()
+
+    assert "kept changing across" in caplog.text
+
+
+@pytest.mark.skipif(internals.WZip is None, reason="fastzip not importable here")
+def test_stability_retries_still_works_with_workers(tmp_path):
+    # fastzip's write() only enqueues the read and returns -- the temp file
+    # _read_stable made is not removed until the whole archive is done, so
+    # this is really a test that pending_tmp waits for WZip.__exit__ to
+    # drain fastzip's pipeline before cleaning up, and that the member it
+    # produced from the temp file is intact regardless.
+    src = tmp_path / "src"
+    src.mkdir()
+    content = os.urandom(internals._STABILITY_MIN_SIZE + 1024)
+    (src / "big.bin").write_bytes(content)
+
+    before = set(Path(tempfile.gettempdir()).glob("pytrove-stability-*"))
+    archive = compress_folder(src, tmp_path / "w.zip", workers=2, stability_retries=3, fsync=False)
+    after = set(Path(tempfile.gettempdir()).glob("pytrove-stability-*"))
+
+    dest = tmp_path / "x"
+    extract_archive(archive, dest)
+
+    assert (dest / "big.bin").read_bytes() == content
+    # pending_tmp only unlinks once WZip.__exit__ has returned -- if it ran
+    # too early this would still find one behind.
+    assert after == before
+
+
+# --- delete_source / delete_archive -----------------------------------------
+
+def test_delete_source_removes_the_folder_once_the_archive_is_written(tree, tmp_path):
+    archive = compress_folder(tree, tmp_path / "w.zip", delete_source=True, fsync=False)
+
+    assert archive.is_file()
+    assert not tree.exists()
+
+
+def test_delete_source_is_off_by_default(tree, tmp_path):
+    compress_folder(tree, tmp_path / "w.zip", fsync=False)
+
+    assert tree.exists()
+
+
+def test_delete_source_never_runs_if_writing_the_archive_fails(tmp_path, monkeypatch):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "a.txt").write_text("a")
+
+    def boom(*a, **kw):
+        raise OSError("disk is on fire")
+
+    monkeypatch.setattr(internals._Compressor, "write", boom)
+
+    with pytest.raises(OSError):
+        compress_folder(src, tmp_path / "w.zip", delete_source=True, fsync=False)
+
+    assert src.exists()
+
+
+@pytest.mark.parametrize("fmt", FORMATS)
+def test_delete_archive_removes_the_file_once_extraction_finishes(tmp_path, fmt):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "a.txt").write_text("a")
+
+    archive = compress_folder(src, tmp_path / "w", format=fmt, fsync=False)
+    dest = tmp_path / "x"
+    extract_archive(archive, dest, delete_archive=True)
+
+    assert (dest / "a.txt").read_text() == "a"
+    assert not archive.exists()
+
+
+def test_delete_archive_is_off_by_default(tmp_path):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "a.txt").write_text("a")
+
+    archive = compress_folder(src, tmp_path / "w.zip", fsync=False)
+    extract_archive(archive, tmp_path / "x")
+
+    assert archive.exists()
+
+
+def test_delete_archive_never_runs_if_extraction_fails(tmp_path, monkeypatch):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "a.txt").write_text("a")
+
+    archive = compress_folder(src, tmp_path / "w.zip", fsync=False)
+
+    def boom(*a, **kw):
+        raise OSError("disk is on fire")
+
+    monkeypatch.setattr(internals._Extractor, "run", boom)
+
+    with pytest.raises(OSError):
+        extract_archive(archive, tmp_path / "x", delete_archive=True)
+
+    assert archive.exists()

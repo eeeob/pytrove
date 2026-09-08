@@ -19,6 +19,7 @@ import zipfile
 import stat
 import sys
 import io
+import shutil
 
 from collections import deque
 from concurrent.futures import Executor, ThreadPoolExecutor, wait
@@ -38,7 +39,7 @@ from typing import (
 from .errors import ValidationError, ArchiveLimitError, ArchivePolicyError
 from .enums import ArchiveFormat, ArchiveLinkPolicy, ArchiveOverwritePolicy
 from .typings.archive import ArchiveLimits
-from .files_tools import remove_path, remove_file, remove_folder, remove_paths, ensure_dir
+from .files_tools import remove_path, remove_file, remove_folder, remove_paths, remove_files, ensure_dir, ensure_path
 from ._files_tools import _is_dir, _is_link
 from .iter_tools import dedupe
 from .callable_tools import safe_call
@@ -77,6 +78,16 @@ _COPY_BUF = 1 << 20
 #: a header claiming more is describing something that is not a link.
 _LINK_MAX = 4096
 
+#: Below this, a file is read straight through, however many
+#: stability_retries were asked for -- reading it is already so quick that
+#: a concurrent edit landing inside that one read is a vanishing chance,
+#: not worth the extra copy through a temp file that guarding against it
+#: costs (see _read_stable).
+_STABILITY_MIN_SIZE = 1 << 20
+
+
+
+
 
 _MISS = object()
 _NT = os.name == "nt"
@@ -108,6 +119,170 @@ def _format_from_suffix(name: str) -> Optional[ArchiveFormat]:
             return fmt
 
     return None
+
+def _default_stability_check(st: os.stat_result, _) -> bool:
+    """stability_retries's own rule for which files are worth guarding,
+    kept as an ordinary function rather than inlined so that it is also
+    what `stability_check` defaults to -- a caller who wants to add to
+    this rather than replace it can still call it themselves:
+
+        lambda st, path: _default_stability_check(st, path) or path.endswith(".db")
+
+    Size alone, against _STABILITY_MIN_SIZE: reading anything smaller is
+    already too quick for a concurrent edit to realistically land inside,
+    so guarding it would cost more than the risk it guards against.
+    """
+
+    return st.st_size >= _STABILITY_MIN_SIZE
+
+
+def _same_stat(a: os.stat_result, b: os.stat_result) -> bool:
+    """Whether two stat() calls on the same path describe the same file,
+    for the purpose of _read_stable: no read happened in between that a
+    third party could have raced.
+
+    size and mtime alone are what any platform offers, and what the old
+    check here used before it was replaced. st_ctime_ns is added on top
+    everywhere it means what BorgBackup relies on it for -- POSIX bumps it
+    on any real change to the file, content or metadata, and nothing in
+    user space can set it back the way mtime can be set back with
+    os.utime(). Windows is a different story: st_ctime there is the
+    file's *creation* time, not a change time at all, so it never moves
+    for an edit in place -- comparing it anyway costs nothing (it will
+    simply always agree) and is not given its own branch only to skip it.
+    """
+
+    return (
+        (a.st_size, a.st_mtime_ns, a.st_ctime_ns)
+        == (b.st_size, b.st_mtime_ns, b.st_ctime_ns)
+    )
+
+
+def _warn_if_changed(path: str, before: Optional[os.stat_result]) -> None:
+    """Log a warning if `path` no longer matches the stat taken before it
+    was handed to zf.write()/tf.add() on the direct, unguarded path -- the
+    one stability_retries never touches, whether because it is 0 (the
+    default) or because `path` fell under _STABILITY_MIN_SIZE.
+
+    Deliberately not the stability_retries mechanism: no temp file, no
+    retry, nothing read twice. One stat() was already spent deciding
+    whether to guard this file at all; this is the one stat() after the
+    write that turns that into a before/after pair, so a race is not
+    silent purely because nothing asked for it to be guarded against.
+
+    `before` is None when even that first stat() failed, in which case
+    there is nothing to compare and this does nothing -- the write itself
+    already reported that failure. A failure on this second stat() (the
+    file now gone entirely, say) is not reported either: a file that did
+    not survive to be stat'd again said more clearly than this ever could
+    that it changed.
+    """
+
+    if before is None:
+        return
+
+    try:
+        after = os.stat(path)
+    except OSError:
+        return
+
+    if not _same_stat(before, after):
+        log.warning(
+            "compress_folder: %r changed while being archived -- the "
+            "archived copy may mix bytes from before and after the change. "
+            "Pass stability_retries>0 to guard against this.", path,
+        )
+
+
+def _read_stable(path: str, retries: int) -> Tuple[str, os.stat_result, bool]:
+    """Copy `path` into a real temp file verified stable across the whole
+    copy, retrying into a fresh temp file up to `retries` more times if it
+    was not.
+
+    Verified means _same_stat agrees on a stat() taken right before the
+    copy starts and another taken right after it ends -- bracketing the
+    read that produced the temp file's content, rather than only checking
+    before it as an earlier version of this did, which caught nothing a
+    change during the read itself.
+
+    The copy itself is shutil.copyfile rather than a hand-written read/
+    write loop -- there is no reason to write out the buffered-chunk loop
+    every other place in this module does when the standard library
+    already ships one, and shutil.copyfile's is the faster one on top of
+    that: on Linux and macOS it tries os.sendfile/fcopyfile first, a
+    kernel-side copy that never brings the bytes through this process at
+    all, falling back to the same buffered loop only where that is not
+    available (Windows among them). What it must not be handed is
+    shutil.copystat -- copystat takes two paths and stats the source one
+    itself, which is exactly the second, unbracketed read of the live
+    path this function exists to not do. The mtime and mode carried onto
+    tmp_path below are read out of the stat this function already took
+    and already verified, not a fresh one.
+
+    Returns (tmp_path, stat, settled). Before returning, tmp_path's mtime
+    and permission bits are set to match `stat`, so a caller can hand
+    tmp_path straight to zf.write()/tf.add() and let zipfile/tarfile build
+    the member's own header exactly as they would for the original path --
+    nothing here reimplements ZipInfo.from_file or gettarinfo, and nothing
+    needs to: tmp_path is a file this function alone wrote and closed
+    before either of them ever looks at it, so re-stating it is not the
+    race that reading the original path a second time would be. Ownership
+    (uid/gid), extended attributes, ACLs and any creation/birth time are
+    not carried over. The first needs privileges an ordinary caller
+    generally does not have; the rest are moot regardless of privilege,
+    because nothing downstream would ever see them -- ZipInfo.from_file
+    and gettarinfo read only mode, size and mtime (plus uid/gid for tar)
+    off a stat() to begin with, on the *original*, unguarded path just the
+    same, so a member built from tmp_path already carries everything a
+    member built from `path` ever would.
+
+    `settled` is False only once every attempt has been spent without two
+    stats ever agreeing; the temp file from the last of them is still
+    returned, and a caller archives it anyway, with a warning.
+
+    The caller owns tmp_path and must remove it once done with it.
+
+    Raises whatever open()/read()/write() raise -- a file that vanishes
+    partway through is the caller's business to notice and log, in the
+    same words it already uses for one that vanishes at any other point.
+    """
+
+    tmp_path = last_stat = None
+    settled = False
+
+    try:
+        for attempt in range(retries + 1):
+            if tmp_path is not None:
+                os.unlink(tmp_path)
+
+            fd, tmp_path = tempfile.mkstemp(prefix="pytrove-stability-")
+            os.close(fd)  # shutil.copyfile opens its own handle to it.
+
+            before = os.stat(path)
+            shutil.copyfile(path, tmp_path)
+            after = os.stat(path)
+            last_stat = before
+
+            if _same_stat(before, after):
+                settled = True
+                break
+
+            log.info(
+                "compress_folder: %r changed while being read (attempt %d/%d), "
+                "reading it again", path, attempt + 1, retries + 1,
+            )
+
+        os.utime(tmp_path, ns=(last_stat.st_atime_ns, last_stat.st_mtime_ns))
+        os.chmod(tmp_path, stat.S_IMODE(last_stat.st_mode))
+    except Exception:
+        if tmp_path is not None:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+        raise
+
+    return tmp_path, last_stat, settled
 
 
 def _split_workers(workers, who: str) -> Tuple[Optional[int], Optional[Executor]]:
@@ -483,7 +658,10 @@ class _Compressor:
     flt: "_Filter"
     follow_links: bool = False
 
-    def write(self, out, fmt, level=None, workers=None) -> None:
+    def write(
+        self, out, fmt, level=None, workers=None,
+        stability_retries=0, stability_check=_default_stability_check,
+    ) -> None:
         """Walk the tree into `out` in whichever container `fmt` names.
 
         `workers` is one argument doing two jobs, because it is one
@@ -496,6 +674,17 @@ class _Compressor:
         Only the zip writer can use a pool. The tar formats compress one
         stream, so a count goes to the codec and a pool has nothing to do
         there -- see _write_tar.
+
+        `stability_retries` is 0 by default, meaning every file is read
+        straight through exactly as it always was here -- nothing added,
+        nothing checked. Above 0, `stability_check` decides which files it
+        changes anything for (see _write_zip/_write_tar) -- by default,
+        _default_stability_check, the same size rule this always used:
+        a file under _STABILITY_MIN_SIZE is read and gone before a
+        concurrent edit has a realistic chance of landing inside that
+        read, so the whole mechanism -- an extra copy through a temp file,
+        verified stable before it counts -- would cost more than the risk
+        it is guarding against.
         """
 
         count, pool = _split_workers(workers, "compress_folder")
@@ -504,9 +693,9 @@ class _Compressor:
             # `level or 6`, which this used to say, turned level=0 into 6 --
             # and 0 is a real setting there: store the bytes, compress
             # nothing. Only None means "whatever the format's default is".
-            self._write_zip(out, 6 if level is None else level, count, pool)
+            self._write_zip(out, 6 if level is None else level, count, pool, stability_retries, stability_check)
         else:
-            self._write_tar(out, fmt, level, count, pool)
+            self._write_tar(out, fmt, level, count, pool, stability_retries, stability_check)
 
     def __iter__(self) -> Iterator[_WalkEntry]:
         """Yield (absolute path, relative posix arcname, is_dir) for the archive.
@@ -644,13 +833,30 @@ class _Compressor:
                 emitted.add(branch)
                 yield os.path.join(self.root, *parts[:i]), branch, True
 
-    def _write_zip(self, out, level, workers, executor) -> None:
+    def _write_zip(self, out, level, workers, executor, stability_retries=0, stability_check=_default_stability_check) -> None:
         """Write every walked entry into a zip container.
 
         Two writers, and which one is decided here rather than by the
         caller: fastzip when a pool was asked for and it is installed,
-        zipfile otherwise. They differ in what reaches the archive -- see
-        the directory record below -- so the choice is worth reading.
+        zipfile otherwise. Both skip directories -- see the loop below --
+        and both honour stability_retries the same way: what differs
+        between them is only when a verified-stable temp file is safe to
+        remove, not whether one is made.
+
+        zipfile's write() reads the file before it returns, so the temp
+        file _read_stable made for it is removed in the same iteration,
+        right after. fastzip's own write() only enqueues the open onto a
+        background thread and returns at once -- the actual open, mmap and
+        close happen later, on its own schedule -- so removing the temp
+        file that early would race its content against a read that has not
+        started yet. What guarantees "later" ever arrives is WZip.__exit__
+        (read in its source): it joins both of fastzip's internal threads
+        and shuts its own io executor down with the default wait=True
+        before returning, which does not happen until every write() this
+        call made -- ours included -- has been opened, read and closed.
+        pending_tmp is what lets this method wait for exactly that before
+        cleaning up: appended to instead of removed on the fastzip path,
+        and only unlinked once the `with zf:` block below has returned.
         """
 
         entries = iter(self)
@@ -668,41 +874,119 @@ class _Compressor:
 
         if use_fastzip:
             zf = WZip(
-                Path(name if isinstance(name := getattr(out, "name", None), (str, os.PathLike)) else "archive.zip"), 
-                fobj=out, threads=workers or None, executor=executor, force_zip64=True, 
+                Path(name if isinstance(name := getattr(out, "name", None), (str, os.PathLike)) else "archive.zip"),
+                fobj=out, threads=workers or None, executor=executor, force_zip64=True,
             )
         else:
             zf = zipfile.ZipFile(
-                out, "w", zipfile.ZIP_DEFLATED, 
+                out, "w", zipfile.ZIP_DEFLATED,
                 allowZip64=True, compresslevel=level, strict_timestamps=False
             )
 
-        with zf:
-            for path, arcname, is_dir in entries:
-                # fastzip writes members, not entries: it has no directory
-                # record to add. Nothing is lost by leaving them out -- the
-                # extractor creates a member's parents anyway -- but an archive
-                # written with workers does list one fewer name.
-                if is_dir and use_fastzip:
-                    continue
+        pending_tmp: List[str] = []
 
-                try:
-                    if use_fastzip:
-                        zf.write(Path(path), archive_path=Path(arcname))
-                    else:
-                        # ZipInfo.from_file appends the "/" that marks a
-                        # directory, so the arcname is passed as it is.
-                        zf.write(path, arcname)
-                except OSError as exc:
-                    log.warning("compress_folder: skipped %r (%s)", path, exc)
+        try:
+            with zf:
+                for path, arcname, is_dir in entries:
+                    # Neither writer needs a directory record. fastzip never
+                    # had one to begin with -- it writes members, not
+                    # entries -- and zipfile does not need one either:
+                    # extract_archive creates a member's parents from its
+                    # own path regardless, so a directory entry here would
+                    # only be one more name for nothing to read back.
+                    if is_dir:
+                        continue
 
-    def _write_tar(self, out, fmt, level, workers=None, executor=None) -> None:
+                    tmp_path = None
+
+                    # One stat() up front either decides stability_retries's
+                    # own gate below, or -- when that gate never fires --
+                    # becomes the "before" half of _warn_if_changed's cheap
+                    # passive check further down. Either way it is spent
+                    # once, not twice.
+                    #
+                    # Plain os.stat, deliberately: a symlink only ever
+                    # reaches here already resolved to a file inside root
+                    # (__iter__ checks that, and skips it entirely unless
+                    # follow_links=True), and `path` stays the symlink's own
+                    # path -- what changes is that stat() (unlike lstat())
+                    # reads through it to the target, exactly as zf.write()/
+                    # tf.add() already do for this same `path` on the
+                    # direct, unguarded branch below. Same target, same
+                    # syscall either way, so this and that branch see one
+                    # file, not two.
+                    try:
+                        before_stat = os.stat(path)
+                    except OSError:
+                        before_stat = None
+
+                    if (
+                        stability_retries > 0
+                        and before_stat is not None
+                        and stability_check(before_stat, path)
+                    ):
+                        try:
+                            tmp_path, _, settled = _read_stable(path, stability_retries)
+                        except OSError as exc:
+                            log.warning("compress_folder: skipped %r (%s)", path, exc)
+                            continue
+
+                        if settled:
+                            log.debug("compress_folder: %r read and verified stable before archiving", path)
+                        else:
+                            log.warning(
+                                "compress_folder: %r kept changing across %d read "
+                                "attempt(s), archiving the last one anyway -- its "
+                                "content may not match any single instant",
+                                path, stability_retries + 1,
+                            )
+
+                    try:
+                        if use_fastzip:
+                            # tmp_path is the verified-stable copy; either
+                            # way this only enqueues the read, so removing
+                            # tmp_path is pending_tmp's job, not this
+                            # try/finally's. No _warn_if_changed here either:
+                            # fastzip's write() returns before the read even
+                            # starts, so a stat taken right after it would
+                            # race that read instead of bracketing it.
+                            if tmp_path is not None:
+                                pending_tmp.append(tmp_path)
+
+                            zf.write(
+                                ensure_path(tmp_path if tmp_path is not None else path), 
+                                archive_path=ensure_path(arcname)
+                            )
+                        elif tmp_path is not None:
+                            # tmp_path is the verified-stable copy, so
+                            # zf.write builds the member's header from it
+                            # exactly as it would from `path`.
+                            zf.write(tmp_path, arcname)
+                        else:
+                            zf.write(path, arcname)
+                            _warn_if_changed(path, before_stat)
+                    except OSError as exc:
+                        log.warning("compress_folder: skipped %r (%s)", path, exc)
+                    finally:
+                        if tmp_path is not None and not use_fastzip:
+                            remove_file(tmp_path, return_exc=True)
+                            
+        finally:
+            remove_files(pending_tmp, return_exc=True)
+            
+
+    def _write_tar(self, out, fmt, level, workers=None, executor=None, stability_retries=0, stability_check=_default_stability_check) -> None:
         """Write every walked entry into a tar container, compressed.
 
         A pool cannot be used here and is not quietly dropped. A tar is one
         stream: members are written into it in order, so there is nothing to
         hand to a second thread. What parallelism tar.zst has lives inside
         the codec and is asked for with a count, not with an executor.
+
+        stability_retries applies here without the fastzip complication
+        _write_zip has: nothing on this path is asynchronous, so a temp
+        file this method creates is also the one it removes, in the same
+        iteration.
         """
 
         entries = iter(self)
@@ -755,16 +1039,74 @@ class _Compressor:
         # the same one _Compressor.__iter__ already made by yielding a
         # symlink's target as content under follow_symlinks.
         with compressor as stream, tarfile.open(fileobj=stream, mode="w|", dereference=True) as tf:
-            for path, arcname, _ in entries:
+            for path, arcname, is_dir in entries:
+                tmp_path = None
+                before_stat = None
+
+                if not is_dir:
+                    # One stat() up front either decides stability_retries's
+                    # own gate below, or -- when that gate never fires --
+                    # becomes the "before" half of _warn_if_changed's cheap
+                    # passive check further down. Either way it is spent
+                    # once, not twice.
+                    #
+                    # Plain os.stat, deliberately: a symlink only ever
+                    # reaches here already resolved to a file inside root
+                    # (__iter__ checks that, and skips it entirely unless
+                    # follow_links=True), and `path` stays the symlink's own
+                    # path -- what changes is that stat() (unlike lstat())
+                    # reads through it to the target, exactly as zf.write()/
+                    # tf.add() already do for this same `path` on the
+                    # direct, unguarded branch below. Same target, same
+                    # syscall either way, so this and that branch see one
+                    # file, not two.
+                    try:
+                        before_stat = os.stat(path)
+                    except OSError:
+                        before_stat = None
+
+                    if (
+                        stability_retries > 0
+                        and before_stat is not None
+                        and stability_check(before_stat, path)
+                    ):
+                        try:
+                            tmp_path, _, settled = _read_stable(path, stability_retries)
+                        except OSError as exc:
+                            log.warning("compress_folder: skipped %r (%s)", path, exc)
+                            continue
+
+                        if settled:
+                            log.debug("compress_folder: %r read and verified stable before archiving", path)
+                        else:
+                            log.warning(
+                                "compress_folder: %r kept changing across %d read "
+                                "attempt(s), archiving the last one anyway -- its "
+                                "content may not match any single instant",
+                                path, stability_retries + 1,
+                            )
+
                 # recursive=False because the walk already yields every member,
                 # with the include/exclude rules applied.
                 try:
-                    tf.add(path, arcname=arcname, recursive=False)
+                    if tmp_path is not None:
+                        # tmp_path is the verified-stable copy, so tf.add
+                        # builds the member's header from it exactly as it
+                        # would from `path` -- the same code path either way.
+                        tf.add(tmp_path, arcname=arcname, recursive=False)
+                    else:
+                        tf.add(path, arcname=arcname, recursive=False)
+                        if not is_dir:
+                            _warn_if_changed(path, before_stat)
                 except OSError as exc:
                     # Same policy as the zip path: a file that vanished mid-run
                     # is dropped rather than failing the whole backup.
                     log.warning("compress_folder: skipped %r (%s)", path, exc)
                     continue
+                finally:
+                    if tmp_path is not None:
+                        remove_file(tmp_path, return_exc=True)
+                        
 
 
 

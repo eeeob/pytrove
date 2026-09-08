@@ -1,14 +1,17 @@
+import os
+
 from pathlib import Path
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 from concurrent.futures import Executor
 
 from .typings import ArchiveLimits, NestedContainer, PathLike
 from .enums import ArchiveFormat
 from .errors import ValidationError
 from .iter_tools import iter_flat_cont
-from .files_tools import atomic_write, resolve_path
+from .files_tools import atomic_write, resolve_path, remove_folder, remove_file
 from ._archive_tools import (
     _Compressor,
+    _default_stability_check,
     _Extractor,
     _Filter,
     _Rule,
@@ -31,6 +34,9 @@ def compress_folder(
     follow_links: bool = False,
     exclude_hidden: bool = True,
     fsync: bool = True,
+    stability_retries: int = 0,
+    stability_check: Callable[[os.stat_result, str], bool] = _default_stability_check,
+    delete_source: bool = False,
     ) -> Path:
 
     """Archive the folder at `src` into `dest`, and return the archive path.
@@ -309,8 +315,82 @@ def compress_folder(
     metadata bugs; delegating parallelism to fastzip made the bypass
     unnecessary and it is gone.
 
+    `stability_retries` is 0 by default, meaning a file is still read
+    straight through, once, exactly as this always did -- nothing extra
+    read, nothing retried. Set above 0 to guard against a file being
+    edited while it is archived, which neither container format notices on
+    its own: a same-size in-place rewrite races its read silently, and
+    what lands in the archive can be a mix of the bytes from before the
+    edit and after it.
+
+    Even at 0, that race is not left unreported. A stat() taken right
+    before the write and another right after it are compared regardless
+    of `stability_retries`, and a mismatch logs a warning -- no temp file,
+    no retry, nothing read twice, just the one extra stat() needed to turn
+    silence into a warning. What `stability_retries` above 0 adds on top
+    is the retry that keeps such a file out of the archive damaged in the
+    first place.
+
+    A guarded file is read into a temp file first and only handed to the
+    archive once a stat() taken right before that read and another right
+    after it agree that nothing changed in between; if they do not, the
+    whole read is retried into a fresh temp file, up to `stability_retries`
+    times over. Exhausting every attempt without ever seeing two stats
+    agree does not fail the archive -- the last read is used anyway, with
+    a warning, since refusing a file that will not settle is worse than
+    the now-bounded chance it is torn. The temp file's own mtime and
+    permission bits are set to match the verified stat before it is
+    handed to zipfile/tarfile, so the member it produces is built by
+    ZipFile.write()/TarFile.add() exactly as it would be from the
+    original path.
+
+    Which files are worth guarding at all is `stability_check`'s call, not
+    a fixed rule: it is handed the stat() taken before the write and the
+    file's own path, and only a file it returns true for is ever guarded,
+    however high `stability_retries` is set. It defaults to
+    _default_stability_check -- a file has to be at least 1 MiB large,
+    because reading anything smaller is already too quick for a
+    concurrent edit to realistically land inside, so guarding it would
+    cost more than the risk it guards against. Passing a `stability_check`
+    of your own replaces that rule rather than adding to it; call
+    pytrove._archive_tools._default_stability_check from inside your own
+    to build on it instead of starting over:
+
+        stability_check=lambda st, path: st.st_size > 0 and path.endswith(".db")
+
+    A `stability_check` that raises is not caught here -- the exception
+    reaches the caller unchanged, exactly as a broken `dir_check` does on
+    extract_archive.
+
+    This applies together with `workers` enabling fastzip too, temp file
+    and all -- fastzip's own write() only enqueues the read and returns,
+    so a guarded file's temp copy is not removed until the whole archive
+    is done, once fastzip's pipeline is guaranteed to have opened, read
+    and closed every one of them (see _write_zip).
+
+    `delete_source` is off by default. Set it to remove the whole `src`
+    tree once the archive is safely in place -- after atomic_write's own
+    rename, so a failure partway through writing, or a run interrupted
+    before then, never costs `src` a byte: nothing here runs until
+    `dest_path` already holds the finished archive, fsynced or not per
+    `fsync`. The removal itself is not swallowed either: a tree that will
+    not go -- something inside it open, a permission refused -- raises
+    rather than leaving compress_folder looking like it silently chose to
+    keep `src` around.
+
     Available as `backup_folder` too, the name this had before.
     """
+
+    if not isinstance(stability_retries, int) or isinstance(stability_retries, bool) or stability_retries < 0:
+        raise ValidationError(
+            f"compress_folder: stability_retries takes a non-negative int, "
+            f"not {stability_retries!r}"
+        )
+
+    if not callable(stability_check):
+        raise ValidationError(
+            f"compress_folder: stability_check takes a callable, not {stability_check!r}"
+        )
 
     src = resolve_path(src, strict=True)
     dest = resolve_path(dest)
@@ -378,7 +458,10 @@ def compress_folder(
     )
 
     with atomic_write(dest_path, binary=True, fsync=fsync) as out:
-        walk.write(out, fmt, level, workers)
+        walk.write(out, fmt, level, workers, stability_retries, stability_check)
+
+    if delete_source:
+        remove_folder(src)
 
     return dest_path
 
@@ -398,6 +481,7 @@ def extract_archive(
     workers: Optional[Union[int, Executor]] = None,
     atomic: bool = True,
     cleanup_on_error: bool = False,
+    delete_archive: bool = False,
     ) -> Path:
 
     """Extract the archive at `src` into `dest`, and return `dest`.
@@ -489,6 +573,17 @@ def extract_archive(
     Pass True to remove what was created before the archive turned out to be
     wrong.
 
+    `delete_archive` is off by default. Set it to remove `src` once this
+    is about to return successfully -- after the atomic move into `dest`,
+    under `atomic`, or after the last member otherwise -- so a run that
+    raises never costs the archive itself: nothing here runs until every
+    check above has already passed. A member the filter dropped or a
+    refusal logged and skipped does not stop this -- those are already
+    this function's ordinary outcome, not a reason to keep `src` around
+    when nothing else failed. Like `delete_source` on compress_folder, a
+    removal that fails is not swallowed: it raises, rather than leaving
+    the archive behind silently.
+
     Raises ValidationError for an archive whose contents do not match its
     own metadata or whose format cannot be identified at all,
     ArchiveLimitError for a ceiling, ArchivePolicyError for a policy set
@@ -520,11 +615,14 @@ def extract_archive(
         _require_zstd()
 
     _Extractor(
-        src, dest, 
+        src, dest,
         _Filter.from_rules(iter_flat_cont(include), iter_flat_cont(exclude), who="extract_archive"),
-        limits, 
-        password.encode() if isinstance(password, str) else password, 
+        limits,
+        password.encode() if isinstance(password, str) else password,
     ).run(fmt, workers, atomic, cleanup_on_error)
+
+    if delete_archive:
+        remove_file(src)
 
     return dest
 

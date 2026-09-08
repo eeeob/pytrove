@@ -3,7 +3,7 @@ from pathlib import Path
 
 try:
     from pyrogram.types.user_and_chats.user import Link
-
+    from pyrogram import Client as PyroClient
     from pyrogram.enums import ParseMode
     from pyrogram.types import CallbackQuery as Query, Message, User, Chat
     from pyrogram.utils import get_channel_id
@@ -46,8 +46,15 @@ _DEVICES: Final[Dict[PlatformDevice, Union[AndroidDevice, Tuple[AndroidDevice, .
 }
 _FLATTED_DEVICES = flat_cont(_DEVICES.values())
 
-INVITE_LINK_RE = re.compile(r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:joinchat/|\+))([\w-]+)$")
-CHANNEL_MESSAGE_LINK_RE = re.compile(r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:c/)?)([\w]+)(?:.+)?$")
+
+try:
+    CHAT_LINK_PATTERN = PyroClient.CHAT_LINK_PATTERN
+except (NameError, AttributeError):
+    CHAT_LINK_PATTERN = re.compile(r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:c/)?)([\w]+)(?:.+)?$")
+try:
+    INVITE_LINK_PATTERN = PyroClient.INVITE_LINK_PATTERN
+except (NameError, AttributeError):
+    INVITE_LINK_PATTERN = re.compile(r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:joinchat/|\+))([\w-]+)$")
     
 
 def _build_points():
@@ -98,12 +105,12 @@ def format_tg_username(
     
     if not target:
         return default
+
+    match = CHAT_LINK_PATTERN.match(target.lower())
     
-    if bool(INVITE_LINK_RE.match(target.lower())):
+    if not match and INVITE_LINK_PATTERN.match(target.lower()):
         return target if with_invite_link else default
     
-    
-    match = CHANNEL_MESSAGE_LINK_RE.match(target.lower())
     target = (match.group(1) if match else target.replace("@", "")).strip()
 
     if with_at:
@@ -136,11 +143,11 @@ def format_tg_link(
         return default
     
     target = to_str(target)
-
-    if INVITE_LINK_RE.match(target):
+    match = CHAT_LINK_PATTERN.match(target.lower())
+    
+    if not match and INVITE_LINK_PATTERN.match(target):
         return target
     
-    match = CHANNEL_MESSAGE_LINK_RE.match(target.lower())
     target = to_int((match.group(1) if match else target.replace("@", "")).strip())
     
     if isinstance(target, int):
@@ -160,6 +167,13 @@ def format_hidden_tg_link(
     text: str, 
     parse_mode: Optional["ParseMode"] = None
     ) -> str:
+
+    # Add hidden text because some Telegram clients hide or remove short links.
+    # When that happens, the real text does not appear, so we slightly extend the
+    # text to keep the links visible and effective in the message without changing
+    # the actual link itself.
+    if len(text) <= 3:
+        text += "⁪⁬⁪⁬⁮⁪⁬⁪⁬⁮⁪⁬⁪⁬⁮⁪⁬⁪⁬⁮⁪⁬⁪⁬⁮⁪⁬⁪⁬⁮⁪⁬⁪⁬⁮⁪⁬⁪⁬⁮⁪⁬⁪⁬⁮⁪⁬⁪⁬⁮⁪⁬⁪⁬⁮⁪⁬⁪⁬⁮ ⁪⁬⁪⁬⁮⁪⁬⁪⁬⁮ ⁪⁬"
 
     if parse_mode is None:
         parse_mode = ParseMode.HTML
