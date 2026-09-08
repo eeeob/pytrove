@@ -200,6 +200,6 @@ __all__ = (
     "flat_map",
     "pad_list",
     "dedupe",
-    "shuffle", 
+    "shuffle",
 
 )

@@ -3,6 +3,7 @@ from typing import Union, overload, Optional
 
 from .typings import _True, _False, _T, Number, StrInt
 from .validate_tools import validation
+from .data_tools import map_deep
 
 import ast
 import operator
@@ -60,6 +61,23 @@ def to_int(value: Union[str, _T], as_int: bool = True):
         return int(value) if (as_int or "." not in value) else float(value)
     except (ValueError, TypeError):
         return value
+
+
+def to_int_deep(data: _T, as_int: bool = False) -> _T:
+    """to_int, offered to every leaf under `data` instead of to one value
+    -- and, for a mapping, to every key too, not only its values.
+
+    map_deep(data, ...) with to_int itself as the function -- see it for
+    what "every leaf, keys included, whatever the type" actually means and
+    what it costs. Reach for map_deep directly for any other per-leaf
+    transform; this is only to_int's own name kept for the one it's
+    always meant.
+
+    `as_int` is to_int's own: False (the default) lets a "3.5" become a
+    float, True forces every convertible leaf to an int.
+    """
+
+    return map_deep(data, lambda value: to_int(value, as_int))
 
 
 @overload
@@ -122,8 +140,9 @@ def jitter(
     return random.uniform(low, high)
 
 __all__ = (
-    "to_int", 
-    "calc", "reverse_discount", 
-    "apply_discount", "jitter", 
+    "to_int",
+    "to_int_deep",
+    "calc", "reverse_discount",
+    "apply_discount", "jitter",
 
 )

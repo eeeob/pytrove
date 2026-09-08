@@ -16,7 +16,8 @@ from enum import Enum
 import pytest
 
 from pytrove import (clean_none_kw, clean_none_values, enum_to_value,
-                     get_nested_dict_value, value_to_enum)
+                     get_nested_dict_value, map_deep, map_deep_kv, snapshot,
+                     value_to_enum)
 from pytrove.classes import (DefaultWeakKeyDict, DefaultWeakValueDict,
                              KeyDefaultDict, KeyDefaultWeakKeyDict,
                              KeyDefaultWeakValueDict)
@@ -74,6 +75,143 @@ class Box:
 
 
 # --- the transforms themselves -------------------------------------------
+
+def test_map_deep_applies_func_to_every_leaf():
+    data = {"a": "x", "b": ["y", "z"]}
+    assert map_deep(data, str.upper) == {"A": "X", "B": ["Y", "Z"]}
+
+
+def test_map_deep_converts_a_mapping_key_as_well_as_its_value():
+    assert map_deep({"a": "b"}, str.upper) == {"A": "B"}
+
+
+def test_map_deep_applies_func_to_a_bare_leaf():
+    assert map_deep("x", str.upper) == "X"
+
+
+def test_map_deep_preserves_the_container_type():
+    result = map_deep(("a", "b"), str.upper)
+    assert type(result) is tuple
+    assert result == ("A", "B")
+
+
+def test_map_deep_kv_applies_value_func_to_every_leaf_value():
+    assert map_deep_kv({"a": "x", "b": ["y", "z"]}, str.upper) == {"a": "X", "b": ["Y", "Z"]}
+
+
+def test_map_deep_kv_leaves_keys_untouched_by_default():
+    assert map_deep_kv({"a": 1}, lambda v: v + 1) == {"a": 2}
+
+
+def test_map_deep_kv_applies_key_func_to_a_bare_leaf_key():
+    assert map_deep_kv({"a": 1}, str, key_func=str.upper) == {"A": "1"}
+
+
+def test_map_deep_kv_uses_value_func_for_a_container_key_not_key_func():
+    # A tuple key has no "keys" of its own to offer key_func -- it is
+    # rebuilt the same way any other container is, through value_func.
+    result = map_deep_kv({(1, 2): "x"}, str.upper, key_func=lambda k: "should not run")
+
+    assert result == {(1, 2): "X"}
+
+
+def test_map_deep_kv_recurses_into_a_nested_mapping_with_both_funcs():
+    data = {"a": {"b": 1}}
+    assert map_deep_kv(data, lambda v: v + 1, key_func=str.upper) == {"A": {"B": 2}}
+
+
+def test_map_deep_kv_applies_value_func_to_a_bare_leaf():
+    assert map_deep_kv("x", str.upper) == "X"
+
+
+def test_map_deep_kv_preserves_the_container_type():
+    result = map_deep_kv(("a", "b"), str.upper)
+    assert type(result) is tuple
+    assert result == ("A", "B")
+
+
+def test_snapshot_equals_the_original():
+    data = {"a": [1, 2, {3, 4}], "b": (5, [6, 7])}
+    assert snapshot(data) == data
+
+
+def test_snapshot_breaks_the_link_at_every_level():
+    data = {"a": [1, 2]}
+    result = snapshot(data)
+
+    data["a"].append(99)
+    data["b"] = "new"
+
+    assert result == {"a": [1, 2]}
+
+
+def test_snapshot_leaves_a_leaf_untouched():
+    assert snapshot("text") == "text"
+    assert snapshot(5) == 5
+    assert snapshot(None) is None
+    assert snapshot(b"raw") == b"raw"
+
+
+def test_snapshot_leaves_a_non_container_key_untouched():
+    key = "k"
+    result = snapshot({key: [3, 4]})
+
+    assert next(iter(result)) is key
+
+
+def test_snapshot_rebuilds_a_container_key_into_an_equal_one():
+    # A tuple key is walked exactly as a value is -- it comes back equal,
+    # not the same object, since map_deep does not skip a mapping's keys.
+    key = (1, 2)
+    result = snapshot({key: [3, 4]})
+
+    got = next(iter(result))
+    assert got == key and got is not key
+
+
+def test_snapshot_preserves_dict_and_list_subclasses():
+    od = OrderedDict(x=1, y=[2, 3])
+    result = snapshot(od)
+
+    assert type(result) is OrderedDict
+    assert result == od
+    assert result["y"] is not od["y"]
+
+    dq = deque([1, [2, 3]])
+    result = snapshot(dq)
+
+    assert type(result) is deque
+    assert list(result) == [1, [2, 3]]
+    assert result[1] is not dq[1]
+
+
+def test_snapshot_preserves_tuple_and_recurses_into_it():
+    data = (1, [2, 3], (4, 5))
+    result = snapshot(data)
+
+    assert type(result) is tuple
+    assert result == data
+    assert result[1] is not data[1]
+
+
+def test_snapshot_keeps_a_defaultdicts_factory():
+    dd = defaultdict(list, {"a": [1, 2]})
+    result = snapshot(dd)
+
+    assert type(result) is defaultdict
+    assert result.default_factory is list
+    assert result == {"a": [1, 2]}
+    assert result["a"] is not dd["a"]
+
+
+def test_snapshot_returns_a_range_untouched():
+    # A range holds only ints -- nothing under it needed decoupling in the
+    # first place, so getting the same object back is the correct answer,
+    # not a fallback that happened to be good enough.
+    r = range(3)
+    with caplog_at_warning():
+        assert snapshot(r) is r
+
 
 def test_enum_to_value_replaces_members_recursively():
     assert enum_to_value(Color.RED) == "red"

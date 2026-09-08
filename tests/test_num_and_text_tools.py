@@ -1,4 +1,4 @@
-from pytrove import to_int, calc, apply_discount, reverse_discount, clean_spaces, to_str, split_part
+from pytrove import to_int, to_int_deep, calc, apply_discount, reverse_discount, clean_spaces, to_str, split_part
 
 
 def test_to_int_basic():
@@ -6,6 +6,37 @@ def test_to_int_basic():
     assert to_int("5.5", as_int=False) == 5.5
     assert to_int("notanumber") == "notanumber"
     assert to_int("+123") == "+123"  # leading '+' is treated as non-numeric passthrough
+
+
+def test_to_int_deep_converts_every_leaf():
+    data = {"id": "123", "tags": ["1", "2.5", "x"], "meta": {"count": "10"}}
+    assert to_int_deep(data) == {"id": 123, "tags": [1, 2.5, "x"], "meta": {"count": 10}}
+
+
+def test_to_int_deep_converts_keys_too():
+    assert to_int_deep({"1": "a", "2": "b"}) == {1: "a", 2: "b"}
+
+
+def test_to_int_deep_walks_a_set():
+    assert to_int_deep({"1", "2"}) == {1, 2}
+
+
+def test_to_int_deep_preserves_container_type():
+    result = to_int_deep(("1", "2", ["3"]))
+    assert type(result) is tuple
+    assert result == (1, 2, [3])
+
+
+def test_to_int_deep_threads_as_int_to_every_leaf():
+    # as_int=True is to_int's own -- a value with a "." only converts when
+    # int() itself accepts it outright, same as to_int("3.0", as_int=True).
+    assert to_int_deep(["3", "3.0"], as_int=True) == [3, "3.0"]
+    assert to_int_deep(["3", "3.0"], as_int=False) == [3, 3.0]
+
+
+def test_to_int_deep_leaves_a_plain_leaf_untouched():
+    assert to_int_deep("notanumber") == "notanumber"
+    assert to_int_deep(None) is None
 
 
 def test_calc_basic_arithmetic():

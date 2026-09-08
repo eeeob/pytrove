@@ -25,7 +25,7 @@ from ._devices import (
 
 from .validate_tools import is_tg_user_id
 from .num_tools import to_int
-from .text_tools import to_str
+from .text_tools import to_str, clean_spaces
 from .date_tools import date_to_stamp, time_utc
 from .files_tools import load_json
 from .iter_tools import flat_cont
@@ -160,6 +160,56 @@ def format_tg_link(
         target = f"https://t.me/{target}"
     
     return target
+
+@_optional_import(("kurigram", "tg"))
+def parse_tg_target(target: StrInt) -> StrInt:
+    """A chat/user target -- an id already, a phone number, a t.me channel-
+    message link or a bare/@-prefixed username -- read down to what
+    Pyrogram's own methods (get_chat, send_message, ...) actually take: an
+    int wherever the target names one, a string otherwise.
+
+    An int is returned as it is; nothing here needs to guess what it
+    names. Anything else is read in this order:
+
+      a phone number, once "+", "()", "-" and whitespace are stripped, is
+      the digits alone, as an int -- +967 (777) 123-456 and 967777123456
+      both resolve the same way.
+
+      a t.me channel-message link (CHAT_LINK_PATTERN, what format_tg_link
+      and format_tg_username already match against) gives up the id in
+      it, converted through get_channel_id -- the same call format_tg_link
+      makes going the other way -- since a bare id parsed out of a link is
+      not yet the internal chat id Pyrogram expects. A capture that is not
+      itself numeric (a channel's public part, not its id) is returned as
+      the string it is instead of being forced through int().
+
+      an invite link (INVITE_LINK_PATTERN) is returned untouched -- there
+      is no id to read out of one, an invite hash is not a username.
+
+      anything else is a username, stripped of "@", "+" and whitespace and
+      lowercased, exactly what format_tg_username builds back into one.
+    """
+
+    if isinstance(target, int):
+        return target
+
+    target = clean_spaces(target)
+    phone = re.sub(r"[+()\s-]", "", target)
+
+    if phone.isdigit():
+        return int(phone)
+
+    match = CHAT_LINK_PATTERN.match(target.lower())
+
+    if not match:
+        if INVITE_LINK_PATTERN.match(target):
+            return target
+        return re.sub(r"[@+\s]", "", target.lower())
+
+    try:
+        return get_channel_id(int(match.group(1)))
+    except ValueError:
+        return match.group(1)
 
 @_optional_import(("kurigram", "tg"))
 def format_hidden_tg_link(
@@ -310,9 +360,10 @@ async def fetch_tg_email_code(
 
 __all__ = (
     "extract_pyro_update_text", 
-    "format_tg_username", 
-    "format_tg_link", 
-    "format_hidden_tg_link", 
+    "format_tg_username",
+    "format_tg_link",
+    "parse_tg_target",
+    "format_hidden_tg_link",
     "mention_tg_user", 
     "split_tg_message", 
     "rand_tg_device", 
