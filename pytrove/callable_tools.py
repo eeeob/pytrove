@@ -435,6 +435,28 @@ def call_all(*funcs, lazy = False): #type: ignore
     return tuple(func() for func in funcs) #type: ignore
 
 
+def juxt(*funcs: Callable[_P, _T]) -> Callable[_P, Tuple[_T, ...]]:
+    """The inverse of map: one call's arguments, fanned out to every callable
+    in `funcs`, results collected into a tuple in that same order.
+
+        juxt(str.upper, str.lower, len)("Ab")   ->  ('AB', 'ab', 2)
+
+    map(f, values) runs one function across many values; this runs many
+    functions across one call. `juxt(*funcs)(*args, **kwargs)` is exactly
+    `tuple(f(*args, **kwargs) for f in funcs)` -- nothing is scheduled,
+    threaded or cached, so a callable that raises stops the rest just as
+    writing the tuple out by hand would.
+
+    `funcs` is captured once, here, so the returned callable holds no
+    per-call setup and is free to be reused or composed.
+    """
+
+    def fanned(*args: _P.args, **kwargs: _P.kwargs) -> Tuple[_T, ...]:
+        return tuple(func(*args, **kwargs) for func in funcs)
+
+    return fanned
+
+
 def ignore_arguments(func: Callable[[], _T]) -> Callable[..., _T]:
     """
     Return a wrapper that ignores all positional and keyword arguments before
@@ -505,6 +527,7 @@ __all__ = (
     "ignore_arguments",
     "return_constant",
     "call_all",
+    "juxt",
     "middleware",
 
 )

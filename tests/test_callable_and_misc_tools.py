@@ -1,6 +1,6 @@
 import pytest
 
-from pytrove import safe_call, raise_if, to_coroutine, set_func_attrs
+from pytrove import safe_call, raise_if, to_coroutine, set_func_attrs, juxt
 from pytrove import generate_secret, patch_cls
 
 
@@ -112,3 +112,30 @@ def test_patch_cls_requires_single_base():
         @patch_cls
         class BadPatch(Multi, dict):
             pass
+
+
+def test_juxt_fans_one_call_across_every_function():
+    assert juxt(str.upper, str.lower, len)("Ab") == ("AB", "ab", 2)
+
+
+def test_juxt_passes_through_args_and_kwargs():
+    fanned = juxt(
+        lambda a, b, c=0: a + b + c,
+        lambda a, b, c=0: a * b * (c or 1),
+    )
+    assert fanned(2, 3, c=4) == (9, 24)
+
+
+def test_juxt_with_no_functions_returns_an_empty_tuple():
+    assert juxt()(1, 2, 3) == ()
+
+
+def test_juxt_result_is_reusable():
+    fanned = juxt(len, lambda s: s[0])
+    assert fanned("abc") == (3, "a")
+    assert fanned("xy") == (2, "x")
+
+
+def test_juxt_does_not_swallow_a_raising_function():
+    with pytest.raises(ZeroDivisionError):
+        juxt(len, lambda _: 1 / 0)("abc")
