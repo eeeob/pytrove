@@ -7,7 +7,7 @@ from .typings import (
     _True, _False, 
     _P, _T, _ExcT, 
 )
-from .validate_tools import is_exception, iscoroutinefunction_wrapped
+from .validate_tools import is_exception, iscoroutinefunction_wrapped, is_container
 from .iter_tools import iter_flat_cont
 
 from ._async_tools import (
@@ -197,6 +197,7 @@ async def safe_await(
     log_exc = True,
     ):
 
+    is_not_cont_first = not is_container(awaitables[0]) if awaitables else True
     caller_stack = traceback.extract_stack()[:-1]
 
     results = []
@@ -223,7 +224,7 @@ async def safe_await(
 
         results.append(result)
 
-    return results[0] if len(results) == 1 else results
+    return results[0] if len(results) == 1 and is_not_cont_first else results
 
 
 
