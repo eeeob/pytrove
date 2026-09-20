@@ -435,6 +435,36 @@ async def call_sync_or_await(func: MaybeAwaitableCallable[_P, _T], *args: _P.arg
 
     return result
 
+async def cancel_task(task: asyncio.Task, msg: Optional[str] = None) -> bool:
+    """Cancel *task* and wait until its cancellation has been processed.
+
+    Returns ``True`` when the task accepted the cancellation request and
+    ``False`` when it was already done or could not be cancelled. A task
+    cannot cancel itself; attempting to do so raises :class:`RuntimeError`.
+
+    .. warning::
+       The caller should avoid cancelling a parent task while that parent is
+       waiting for a child task through another task. This may interrupt the
+       parent before the child finishes handling cancellation and leave the
+       task hierarchy in an unexpected state.
+    """
+
+    if task is asyncio.current_task():
+        raise RuntimeError("Cannot cancel the current task")
+    
+    if not task.cancel(msg):
+        return False
+
+    await asafe_call(
+        task, 
+        include_exc=asyncio.CancelledError, 
+        log_exc=False, 
+        return_exc=False, 
+        raise_exc=False, 
+    )
+
+    return True
+    
 
     
     
@@ -448,4 +478,5 @@ __all__ = [
     "run_awaitable_in_coro",
     "gather_abort",
     "call_sync_or_await", 
+    "cancel_task", 
 ]
