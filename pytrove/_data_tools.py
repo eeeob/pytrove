@@ -1,4 +1,6 @@
-from typing import Any, Callable, Iterator, Mapping, Optional, Tuple
+from __future__ import annotations
+
+from typing import Any, Callable, Iterator, Mapping, Final
 
 import copy
 import logging
@@ -9,10 +11,10 @@ log = logging.getLogger(__name__)
 
 #: Sentinel meaning "drop this item" -- distinct from None, which a caller may
 #: legitimately want kept.
-_MESS = object()
+_MESS: Final = object()
 
 
-def _transform(data: Container, func: Optional[Callable] = None) -> Iterator:
+def _transform(data: Container, func: Callable | None = None) -> Iterator:
     """Yield `data`'s items through `func`, dropping any _MESS. Lazy: a fresh
     one of these is handed to each reconstruction attempt below rather than
     materialised once, so the common case pays for exactly one pass."""
@@ -24,7 +26,7 @@ def _transform(data: Container, func: Optional[Callable] = None) -> Iterator:
         if item is not _MESS:
             yield item
 
-def _transform_mapping(data: Mapping, key_func: Optional[Callable] = None, value_func: Optional[Callable] = None) -> Iterator[Tuple[Any, Any]]:
+def _transform_mapping(data: Mapping, key_func: Callable | None = None, value_func: Callable | None = None) -> Iterator[tuple[Any, Any]]:
     """Yield `data`'s pairs, each side through its own function. A _MESS from
     either side drops the whole pair; the key is judged first so a pair that
     is going anyway never pays for a value transform that gets discarded."""
@@ -45,7 +47,7 @@ def _transform_mapping(data: Mapping, key_func: Optional[Callable] = None, value
         yield key, value
 
 
-def _filled(data: Container, func: Optional[Callable], new: Any) -> bool:
+def _filled(data: Container, func: Callable | None, new: Any) -> bool:
     """Whether `new` actually received the items it was built from.
 
     Some constructors accept the wrong argument without complaining (a
@@ -75,7 +77,7 @@ def _mapping_filled(as_dict: dict, new: Any) -> bool:
     return bool(new) or not as_dict
 
 
-def _refilled(data: Any, items: Any) -> Optional[Any]:
+def _refilled(data: Any, items: Any) -> Any | None:
     """A copy of `data`, cleared and refilled from `items`, or None.
 
     The last resort before the type is given up on: copy.copy carries across
@@ -110,7 +112,7 @@ def _refilled(data: Any, items: Any) -> Optional[Any]:
     return new
 
 
-def _reconstruct(data: Container, func: Optional[Callable] = None) -> Container:
+def _reconstruct(data: Container, func: Callable | None = None) -> Container:
     """Rebuild `data` as its own type, every item passed through `func`.
 
     `type(data)(items)` is the goal, and is exactly what happens for a list,
@@ -175,7 +177,7 @@ def _reconstruct(data: Container, func: Optional[Callable] = None) -> Container:
     return data
 
 
-def _reconstruct_mapping(data: Mapping, key_func: Optional[Callable] = None, value_func: Optional[Callable] = None) -> Mapping:
+def _reconstruct_mapping(data: Mapping, key_func: Callable | None = None, value_func: Callable | None = None) -> Mapping:
     """Rebuild `data` as its own mapping type, both sides transformed.
 
     The pairs are folded through dict() first -- unlike _reconstruct, this

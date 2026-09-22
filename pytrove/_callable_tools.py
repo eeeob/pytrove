@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 from typing import (
-    Callable, Any, Optional,
-    Tuple, Type, TypeAlias,
-    TypeVar, Union, Coroutine,
-    Protocol, Awaitable, overload
+    Callable, Any,
+    TypeAlias,
+    TypeVar, Coroutine,
+    Protocol, Awaitable, overload,
+    Final,
 )
 from .typings import _P, _T, _VT, _True, _False
 
@@ -15,16 +18,16 @@ _AT = TypeVar("_AT", covariant=True)  # middleware(): after's return type -- sam
 
 class _WaitOnErrorDecorator(Protocol[_P, _ET]):
     @overload
-    def __call__(self, func: Callable[_P, _Coro[_T]]) -> Callable[_P, _Coro[Union[_T, _ET]]]: ...
+    def __call__(self, func: Callable[_P, _Coro[_T]]) -> Callable[_P, _Coro[_T | _ET]]: ...
     @overload
-    def __call__(self, func: Callable[_P, _T]) -> Callable[_P, Union[_T, _ET]]: ...
+    def __call__(self, func: Callable[_P, _T]) -> Callable[_P, _T | _ET]: ...
 
 
 class _AwaitOnErrorDecorator(Protocol[_P, _ET]):
     @overload
-    def __call__(self, func: Callable[_P, _Coro[_T]]) -> Callable[_P, _Coro[Union[_T, _ET]]]: ...
+    def __call__(self, func: Callable[_P, _Coro[_T]]) -> Callable[_P, _Coro[_T | _ET]]: ...
     @overload
-    def __call__(self, func: Callable[_P, _T]) -> Callable[_P, Union[_T, Awaitable[_ET]]]: ...
+    def __call__(self, func: Callable[_P, _T]) -> Callable[_P, _T | Awaitable[_ET]]: ...
 
 
 class _WaitAfterDecorator(Protocol[_P, _T, _AT]):
@@ -38,7 +41,7 @@ class _AwaitAfterDecorator(Protocol[_P, _T, _AT]):
     @overload
     def __call__(self, func: Callable[_P, _Coro[_T]]) -> Callable[_P, _Coro[_AT]]: ...
     @overload
-    def __call__(self, func: Callable[_P, _T]) -> Callable[_P, Union[_T, Awaitable[_AT]]]: ...
+    def __call__(self, func: Callable[_P, _T]) -> Callable[_P, _T | Awaitable[_AT]]: ...
 
 
 # call_all(lazy=True)'s return type -- calling it re-enters call_all itself
@@ -49,14 +52,14 @@ class _AwaitAfterDecorator(Protocol[_P, _T, _AT]):
 # overload's return type).
 class _LazyCallAll(Protocol[_T]):
     @overload
-    def __call__(self, *funcs: Callable[[], _VT], lazy: _False = False) -> Tuple[Union[_T, _VT], ...]: ...
+    def __call__(self, *funcs: Callable[[], _VT], lazy: _False = False) -> tuple[_T | _VT, ...]: ...
     @overload
-    def __call__(self, *funcs: Callable[[], _VT], lazy: _True) -> "_LazyCallAll[Union[_T, _VT]]": ...
+    def __call__(self, *funcs: Callable[[], _VT], lazy: _True) -> _LazyCallAll[_T | _VT]: ...
 
 
-_ExcFilter: TypeAlias = Optional[Union[Type[BaseException], Tuple[Type[BaseException], ...]]]
-_ExcLogger: TypeAlias = Union[bool, Callable[[BaseException], Any]]
+_ExcFilter: TypeAlias = type[BaseException] | tuple[type[BaseException], ...] | None
+_ExcLogger: TypeAlias = bool | Callable[[BaseException], Any]
 
 # SystemExit/KeyboardInterrupt always propagate out of safe_call, unconditionally
 # -- there is no override, so exclude_exc can never usefully name them.
-_HARD_PROPAGATE = (SystemExit, KeyboardInterrupt)
+_HARD_PROPAGATE: Final[tuple[type[SystemExit], type[KeyboardInterrupt]]] = (SystemExit, KeyboardInterrupt)

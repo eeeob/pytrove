@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 
 if sys.version_info >= (3, 11):
@@ -6,8 +8,7 @@ else:
     from typing_extensions import Unpack
 
 from typing import (
-    Any, List, Union, Optional,
-    Literal, cast, overload,
+    Any, Literal, cast, overload,
 )
 
 from pathlib import Path
@@ -127,13 +128,13 @@ def remove_files(
     *files: NestedContainer[PathLike],
     return_exc: _False = False,
     log_exc: bool = False,
-) -> List[Path]: ...
+) -> list[Path]: ...
 @overload
 def remove_files(
     *files: NestedContainer[PathLike],
     return_exc: _True,
     log_exc: bool = False,
-) -> List[Union[Path, OSError]]: ...
+) -> list[Path | OSError]: ...
 def remove_files(
     *files: NestedContainer[PathLike],
     return_exc: bool = False,
@@ -245,13 +246,13 @@ def remove_folders(
     *folders: NestedContainer[PathLike],
     return_exc: _False = False,
     log_exc: bool = False,
-) -> List[Path]: ...
+) -> list[Path]: ...
 @overload
 def remove_folders(
     *folders: NestedContainer[PathLike],
     return_exc: _True,
     log_exc: bool = False,
-) -> List[Union[Path, OSError]]: ...
+) -> list[Path | OSError]: ...
 def remove_folders(
     *folders: NestedContainer[PathLike],
     return_exc: bool = False,
@@ -329,13 +330,13 @@ def remove_paths(
     *paths: NestedContainer[PathLike],
     return_exc: _False = False,
     log_exc: bool = False,
-) -> List[Path]: ...
+) -> list[Path]: ...
 @overload
 def remove_paths(
     *paths: NestedContainer[PathLike],
     return_exc: _True,
     log_exc: bool = False,
-) -> List[Union[Path, OSError]]: ...
+) -> list[Path | OSError]: ...
 def remove_paths(
     *paths: NestedContainer[PathLike],
     return_exc: bool = False,
@@ -375,8 +376,8 @@ def atomic_write(
     path: PathLike,
     binary: bool = False,
     encoding: str = "utf-8",
-    mode: Optional[int] = None,
-    lock: Optional[LockProtocol] = None,
+    mode: int | None = None,
+    lock: LockProtocol | None = None,
     fsync: bool = True,
     ):
 
@@ -443,10 +444,10 @@ def atomic_write(
 
 def write_file(
     path: PathLike,
-    content: Union[str, bytes],
+    content: str | bytes,
     encoding: str = "utf-8",
-    mode: Optional[int] = None,
-    lock: Optional[LockProtocol] = None,
+    mode: int | None = None,
+    lock: LockProtocol | None = None,
     fsync: bool = True,
     ) -> None:
 
@@ -491,16 +492,16 @@ def truncate_file(
     path: PathLike,
     size: int,
     cut: TruncateSide = ...,
-    spill: Union[_True, PathLike] = ...,
+    spill: _True | PathLike = ...,
     fsync: bool = True,
-) -> List[Path]: ...
+) -> list[Path]: ...
 def truncate_file(
     path: PathLike,
     size: int,
     cut: TruncateSide = TruncateSide.HEAD,
-    spill: Union[bool, PathLike] = False,
+    spill: bool | PathLike = False,
     fsync: bool = True,
-    ) -> Union[Path, List[Path]]:
+    ) -> Path | list[Path]:
 
     """Leave `size` bytes in `path`, and return where the rest went.
 
@@ -577,7 +578,7 @@ def truncate_file(
         return [] if spill else path
 
     dropped = total - size
-    parts: List[Path] = []
+    parts: list[Path] = []
 
     # Copying, not cutting. This block only ever reads `path` -- the file
     # still has every byte it started with when the block ends, and the
@@ -677,7 +678,7 @@ def read_file(
     path: PathLike,
     *,
     binary: Literal[True],
-    lock: Optional[LockProtocol] = None,
+    lock: LockProtocol | None = None,
     **kw
 ) -> bytes: ...
 @overload
@@ -686,7 +687,7 @@ def read_file(
     *,
     binary: Literal[False] = False,
     encoding: str = "utf-8",
-    lock: Optional[LockProtocol] = None, 
+    lock: LockProtocol | None = None, 
     **kw
 ) -> str: ...
 def read_file(
@@ -694,7 +695,7 @@ def read_file(
     *, 
     binary: bool = False, 
     encoding: str = "utf-8", 
-    lock: Optional[LockProtocol] = None, 
+    lock: LockProtocol | None = None, 
     **kw
 ):
     """Read the file at `path`, as text by default or as bytes with
@@ -725,9 +726,9 @@ def read_file(
 def read_json(
     path: PathLike,
     default: _T = cast(dict, _NOT_SET),
-    lock: Optional[LockProtocol] = None,
+    lock: LockProtocol | None = None,
     **kw,
-    ) -> Union[JsonValue, _T]:
+    ) -> JsonValue | _T:
 
     """Parse the JSON file at `path`, or return `default` if it is missing.
 
@@ -747,7 +748,7 @@ def read_json(
 def write_json(
     path: PathLike,
     data: JsonValue,
-    lock: Optional[LockProtocol] = None,
+    lock: LockProtocol | None = None,
     fsync: bool = True,
     **kw,
     ) -> None:
@@ -811,13 +812,13 @@ save_json = write_json
 def read_pickle(
     path: PathLike,
     default: _T = cast(dict, _NOT_SET),
-    lock: Optional[LockProtocol] = None,
+    lock: LockProtocol | None = None,
     *,
-    allow_classes: Optional[NestedContainer[type]] = None,
-    allow_modules: Optional[NestedContainer[str]] = None,
-    safe: Union[PickleSafety, bool] = PickleSafety.STRICT,
+    allow_classes: NestedContainer[type] | None = None,
+    allow_modules: NestedContainer[str] | None = None,
+    safe: PickleSafety | bool = PickleSafety.STRICT,
     **kw,
-    ) -> Union[Any, _T]:
+    ) -> Any | _T:
 
     """Unpickle the object stored in the file at `path`.
 
@@ -882,7 +883,7 @@ def read_pickle(
 def write_pickle(
     path: PathLike, 
     data: Any, 
-    lock: Optional[LockProtocol] = None,
+    lock: LockProtocol | None = None,
     fsync: bool = True,
     **kw,
     ) -> None:
@@ -937,8 +938,8 @@ def write_pickle(
 def load_ref_json(
     path: PathLike, 
     default: _T = cast(dict, _NOT_SET), 
-    lock: Optional[LockProtocol] = None, **kw
-    ) -> Union[JsonValue, _T]:
+    lock: LockProtocol | None = None, **kw
+    ) -> JsonValue | _T:
 
     """Load the JSON file at `path` and resolve every `$ref` inside it.
 

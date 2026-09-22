@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 from typing import (
     Any, Awaitable, Callable, TYPE_CHECKING,
-    Dict, Optional, Generic, Set,
-    overload, Type, Hashable, ClassVar, TypeVar
+    Generic,
+    overload, Hashable, ClassVar, TypeVar
 )
 
 try:
@@ -73,20 +75,20 @@ class classproperty(Generic[_T, _VT]):
     @overload
     def __new__(
         cls,
-        fget: Callable[[Type[_T]], _VT],
+        fget: Callable[[type[_T]], _VT],
         *,
-        doc: Optional[str] = None,
+        doc: str | None = None,
         cached: bool = False
-    ) -> "classproperty[_T, _VT]": ...
+    ) -> classproperty[_T, _VT]: ...
     @overload
     def __new__(
         cls,
         fget: None = None,
         *,
-        doc: Optional[str] = None,
+        doc: str | None = None,
         cached: bool = False
     ) -> Callable[
-        [Callable[[Type[_T]], _VT]], "classproperty[_T, _VT]"
+        [Callable[[type[_T]], _VT]], "classproperty[_T, _VT]"
         ]: ...
     def __new__(cls, fget = None, *, doc = None, cached = False):
         if fget is None:
@@ -96,9 +98,9 @@ class classproperty(Generic[_T, _VT]):
 
     def __init__(
         self,
-        fget: Callable[[Type[_T]], _VT],
+        fget: Callable[[type[_T]], _VT],
         *,
-        doc: Optional[str] = None,
+        doc: str | None = None,
         cached: bool = False
     ) -> None:
 
@@ -112,7 +114,7 @@ class classproperty(Generic[_T, _VT]):
     @overload
     def __get__(self, _: Any, owner: None) -> Self: ...
     @overload
-    def __get__(self, _: Any, owner: Type[_T]) -> _VT: ...
+    def __get__(self, _: Any, owner: type[_T]) -> _VT: ...
     def __get__(self, _, owner):
         if owner is None:
             return self
@@ -160,7 +162,7 @@ class FrozenClassAttrs:
             )
         super().__setattr__(name, value)
 
-class KeyDefaultDict(Dict[_KT, _VT]):
+class KeyDefaultDict(dict[_KT, _VT]):
     def __init__(self, default_factory: Callable[[_KT], _VT]) -> None:
         super().__init__()
         self.default_factory = default_factory
@@ -189,8 +191,8 @@ if HAS_WRAPT:
         def __init__(
             self,
             obj: Any,
-            blocked: Optional["MaybeContainer[str]"] = None,
-            allowed: Optional["MaybeContainer[str]"] = None,
+            blocked: MaybeContainer[str] | None = None,
+            allowed: MaybeContainer[str] | None = None,
             ):
 
             blocked = to_frozenset(blocked)
@@ -240,9 +242,9 @@ if HAS_WRAPT:
         def __init__(
                 self,
                 obj: _T,
-                blocked: Optional["MaybeContainer[str]"] = None,
-                allowed: Optional["MaybeContainer[str]"] = None,
-                callback: Optional[Callable[[_T], Any]] = None
+                blocked: MaybeContainer[str] | None = None,
+                allowed: MaybeContainer[str] | None = None,
+                callback: Callable[[_T], Any] | None = None
             ):
             super().__init__(
                 weakref.proxy(obj, callback),
@@ -299,7 +301,7 @@ class AioThreadWorker:
 
     def __init__(
         self,
-        name: Optional[str] = None,
+        name: str | None = None,
         concurrency: int = 0,
         loop_factory = None,
         exception_handler = None,
@@ -348,14 +350,14 @@ class AioThreadWorker:
 
         # Created in run(), not here, so nothing is spawned until the worker is
         # actually started. Assigned exactly once and never reset to None.
-        self.__thread: Optional[threading.Thread] = None
-        self.__loop: Optional[asyncio.AbstractEventLoop] = None
+        self.__thread: threading.Thread | None = None
+        self.__loop: asyncio.AbstractEventLoop | None = None
 
         # All three are asyncio primitives bound to the worker's own loop, so
         # they are built inside __worker() and only touched from that loop.
-        self.__tasks: Optional[Set["asyncio.Task[Any]"]] = None
-        self.__slots: Optional[asyncio.Semaphore] = None
-        self.__drain: Optional[asyncio.Event] = None
+        self.__tasks: set[asyncio.Task[Any]] | None = None
+        self.__slots: asyncio.Semaphore | None = None
+        self.__drain: asyncio.Event | None = None
 
         # Only ever goes False -> True, which is what makes the lock-free
         # is_stopping() checks elsewhere safe to act on.
@@ -363,7 +365,7 @@ class AioThreadWorker:
         # Filled by run()'s safe_call handler if the worker thread dies, so
         # wait_for_running() can surface the real cause instead of a bare
         # "thread ended".
-        self.__thread_exc: Optional[BaseException] = None
+        self.__thread_exc: BaseException | None = None
 
         if run_now:
             self.run()
@@ -552,7 +554,7 @@ class AioThreadWorker:
 
     # ---------------- lifecycle ----------------
 
-    def run(self, wait: Optional[Number] = None) -> None:
+    def run(self, wait: Number | None = None) -> None:
         """Start the worker thread. Idempotent while the worker is alive.
 
         Returns as soon as the thread is spawned; pass `wait` (seconds) to
@@ -605,7 +607,7 @@ class AioThreadWorker:
         if wait is not None:
             self.wait_for_running(wait)
 
-    def wait_for_running(self, timeout: Optional[Number] = None) -> None:
+    def wait_for_running(self, timeout: Number | None = None) -> None:
         """Block until the worker can accept work, or raise explaining why it
         never will. Returns immediately if it is already running.
 
@@ -647,7 +649,7 @@ class AioThreadWorker:
                     f"worker did not start running within {timeout!r} seconds"
                 )
 
-    async def join(self, timeout: Optional[Number] = None, ) -> None:
+    async def join(self, timeout: Number | None = None, ) -> None:
         """Stop the worker and wait for it: refuse new submissions, let every
         in-flight one finish, then wait for the thread to end.
 
@@ -836,7 +838,7 @@ class AioThreadWorker:
 if HAS_PYMONGO:
     class MongoIndex(IndexModel):
         @classmethod
-        def from_dict(cls, dct: Dict[str, Any]):
+        def from_dict(cls, dct: dict[str, Any]):
             dct.pop("v", None)
             dct.pop("name", None)
 
@@ -990,7 +992,7 @@ class WeakRegistry(Generic[_WeakRegistryKT], ABC):
     __slots__ = "__weakref__",
 
 
-    def __init_subclass__(cls, allow_duplicate_keys: Optional[bool] = None, **kwargs: Any) -> None:
+    def __init_subclass__(cls, allow_duplicate_keys: bool | None = None, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
 
         # None means "not given" here -- setting cls.allow_duplicate_keys
@@ -1008,7 +1010,7 @@ class WeakRegistry(Generic[_WeakRegistryKT], ABC):
         def __instances__(cls):
             return weakref.WeakValueDictionary()
 
-    def __init__(self, key: Optional[_WeakRegistryKT] = None) -> None:
+    def __init__(self, key: _WeakRegistryKT | None = None) -> None:
         key = id(self) if key is None else key
         instances = self.__class__.__instances__
 
@@ -1063,9 +1065,9 @@ class SyncAwaitableRunner:
 
     def __init__(
         self,
-        name: Optional[str] = None,
+        name: str | None = None,
         lazy: bool = False,
-        loop_factory: Optional[Callable[[], asyncio.AbstractEventLoop]] = None,
+        loop_factory: Callable[[], asyncio.AbstractEventLoop] | None = None,
         ) -> None:
 
         if loop_factory is not None and not callable(loop_factory):
@@ -1087,10 +1089,10 @@ class SyncAwaitableRunner:
 
         self.__lock = threading.RLock()
 
-        self.__thread: Optional[threading.Thread] = None
-        self.__loop: Optional[asyncio.AbstractEventLoop] = None
+        self.__thread: threading.Thread | None = None
+        self.__loop: asyncio.AbstractEventLoop | None = None
 
-        self.__stopping: Optional[asyncio.Event] = None
+        self.__stopping: asyncio.Event | None = None
         self.__closed: bool = False
 
         if not lazy:

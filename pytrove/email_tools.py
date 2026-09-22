@@ -1,4 +1,4 @@
-from typing import Optional
+from __future__ import annotations
 
 try:
     from aioimaplib import aioimaplib
@@ -56,7 +56,7 @@ def parse_email_bytes(bytes_msg: bytearray, multi_part_sep: str = "\n") -> str:
     return text.strip()
 
 
-def detect_email_provider(email: str) -> Optional[ImapEmailProvider]:
+def detect_email_provider(email: str) -> ImapEmailProvider | None:
     if not is_email(email):
         raise ValidationError(f"{email} is not valid email")
 

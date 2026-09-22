@@ -7,6 +7,8 @@ iter_tools and callable_tools -- none of which imports back, so this cannot
 take part in a cycle.
 """
 
+from __future__ import annotations
+
 import gzip
 import logging
 import ntpath
@@ -28,10 +30,10 @@ from fnmatch import fnmatchcase
 from functools import lru_cache
 from pathlib import Path
 from typing import (
-    NoReturn, Callable, FrozenSet,
-    Literal, Optional, Tuple, Union,
-    Iterator, NamedTuple, List, 
-    TypeAlias, Iterable,
+    NoReturn, Callable,
+    Literal,
+    Iterator, NamedTuple,
+    TypeAlias, Iterable, Final,
     TYPE_CHECKING,
 )
 
@@ -71,28 +73,28 @@ log = logging.getLogger(__name__)
 #: How much of a member is held in memory while it is copied out. One
 #: buffer per member being written, so a 4 GB file costs this and not its
 #: own size.
-_COPY_BUF = 1 << 20
+_COPY_BUF: Final[int] = 1 << 20
 
 #: The longest link destination read out of a zip member's data. A
 #: destination is a path, and 4096 is the longest any platform stores one;
 #: a header claiming more is describing something that is not a link.
-_LINK_MAX = 4096
+_LINK_MAX: Final[int] = 4096
 
 #: Below this, a file is read straight through, however many
 #: stability_retries were asked for -- reading it is already so quick that
 #: a concurrent edit landing inside that one read is a vanishing chance,
 #: not worth the extra copy through a temp file that guarding against it
 #: costs (see _read_stable).
-_STABILITY_MIN_SIZE = 1 << 20
+_STABILITY_MIN_SIZE: Final[int] = 1 << 20
 
 
 
 
 
-_MISS = object()
-_NT = os.name == "nt"
+_MISS: Final = object()
+_NT: Final[bool] = os.name == "nt"
 
-_SUFFIXES = (
+_SUFFIXES: Final[tuple[tuple[str, ArchiveFormat], ...]] = (
     (".zip", ArchiveFormat.ZIP),
     (".tar.zst", ArchiveFormat.TAR_ZST),
     (".tar.gz", ArchiveFormat.TAR_GZ),
@@ -102,14 +104,14 @@ _SUFFIXES = (
 
 # --- type aliases ----------------------------------------------------
 
-_WalkEntry: TypeAlias = Tuple[str, str, bool]
-_RawEntry: TypeAlias = Optional[Union["os.DirEntry", zipfile.ZipInfo, tarfile.TarInfo]]
-_Rule: TypeAlias = Union[str, Callable[[str, _RawEntry], bool]]
+_WalkEntry: TypeAlias = tuple[str, str, bool]
+_RawEntry: TypeAlias = os.DirEntry | zipfile.ZipInfo | tarfile.TarInfo | None
+_Rule: TypeAlias = str | Callable[[str, _RawEntry], bool]
 
 
 # --- helpers ---------------------------------------------------------
 
-def _format_from_suffix(name: str) -> Optional[ArchiveFormat]:
+def _format_from_suffix(name: str) -> ArchiveFormat | None:
     """Which format a name claims to be, or None if it claims nothing."""
 
     lower = name.lower()
@@ -158,7 +160,7 @@ def _same_stat(a: os.stat_result, b: os.stat_result) -> bool:
     )
 
 
-def _warn_if_changed(path: str, before: Optional[os.stat_result]) -> None:
+def _warn_if_changed(path: str, before: os.stat_result | None) -> None:
     """Log a warning if `path` no longer matches the stat taken before it
     was handed to zf.write()/tf.add() on the direct, unguarded path -- the
     one stability_retries never touches, whether because it is 0 (the
@@ -194,7 +196,7 @@ def _warn_if_changed(path: str, before: Optional[os.stat_result]) -> None:
         )
 
 
-def _read_stable(path: str, retries: int) -> Tuple[str, os.stat_result, bool]:
+def _read_stable(path: str, retries: int) -> tuple[str, os.stat_result, bool]:
     """Copy `path` into a real temp file verified stable across the whole
     copy, retrying into a fresh temp file up to `retries` more times if it
     was not.
@@ -285,7 +287,7 @@ def _read_stable(path: str, retries: int) -> Tuple[str, os.stat_result, bool]:
     return tmp_path, last_stat, settled
 
 
-def _split_workers(workers, who: str) -> Tuple[Optional[int], Optional[Executor]]:
+def _split_workers(workers, who: str) -> tuple[int | None, Executor | None]:
     """Read the one `workers` argument as a count and a pool.
 
     One argument does two jobs because it is one decision: how much
@@ -310,7 +312,7 @@ def _split_workers(workers, who: str) -> Tuple[Optional[int], Optional[Executor]
     )
 
 if hasattr(os.stat_result, "st_file_attributes"):
-    def _is_hidden(_, entry: Optional[os.DirEntry]) -> bool:
+    def _is_hidden(_, entry: os.DirEntry | None) -> bool:
         try:
             return (
                 entry is not None and 
@@ -322,7 +324,7 @@ if hasattr(os.stat_result, "st_file_attributes"):
         except OSError:
             return False
 else:
-    def _is_hidden(_, entry: Optional[os.DirEntry]) -> bool:
+    def _is_hidden(_, entry: os.DirEntry | None) -> bool:
         return entry is not None and entry.name.startswith(".")
 
 
@@ -400,11 +402,11 @@ class _Rules(NamedTuple):
     translation and a cache lookup per pattern per entry.
     """
 
-    paths: FrozenSet[str] = frozenset()
-    funcs: Tuple[Callable[[str, _RawEntry], bool], ...] = ()
-    names: FrozenSet[str] = frozenset()
-    globs: Tuple[str, ...] = ()
-    spec: Optional["PathSpec[GitIgnoreSpec]"] = None
+    paths: frozenset[str] = frozenset()
+    funcs: tuple[Callable[[str, _RawEntry], bool], ...] = ()
+    names: frozenset[str] = frozenset()
+    globs: tuple[str, ...] = ()
+    spec: PathSpec[GitIgnoreSpec] | None = None
 
     def __bool__(self):
         return any(self)
@@ -482,7 +484,7 @@ class _Filter:
         )
 
     @classmethod
-    def from_rules(cls, include: Iterable[_Rule], exclude: Iterable[_Rule], who: str = "compress_folder") -> "_Filter":
+    def from_rules(cls, include: Iterable[_Rule], exclude: Iterable[_Rule], who: str = "compress_folder") -> _Filter:
         """Build a filter from the two sides, naming `who` in any complaint.
 
         sort() is shared by both public functions and cached on the rules
@@ -655,7 +657,7 @@ class _Compressor:
     """
 
     root: str
-    flt: "_Filter"
+    flt: _Filter
     follow_links: bool = False
 
     def write(
@@ -883,7 +885,7 @@ class _Compressor:
                 allowZip64=True, compresslevel=level, strict_timestamps=False
             )
 
-        pending_tmp: List[str] = []
+        pending_tmp: list[str] = []
 
         try:
             with zf:
@@ -1133,11 +1135,11 @@ class _Member(NamedTuple):
     """
 
     name: str
-    raw: Union[zipfile.ZipInfo, tarfile.TarInfo]
+    raw: zipfile.ZipInfo | tarfile.TarInfo
     size: int #الحجم قبل الضغط
     packed: int #الحجم مضغوط
     kind: Literal["dir", "file", "symlink", "hardlink", "other"]
-    target: Optional[str] = None
+    target: str | None = None
 
 @dataclass(slots=True)
 class _Limiter:
@@ -1446,13 +1448,13 @@ class _ZipReaders:
     """
 
     src: Path
-    pwd: Optional[bytes]
+    pwd: bytes | None
 
     #: The three below are built here rather than passed in: a handle store
     #: is only ever its own, and sharing one between two extractions would
     #: hand a worker a file the other one is closing.
     _local: threading.local = field(init=False, default_factory=threading.local)
-    _all: List[zipfile.ZipFile] = field(init=False, default_factory=list)
+    _all: list[zipfile.ZipFile] = field(init=False, default_factory=list)
     _lock: threading.Lock = field(init=False, default_factory=threading.Lock)
 
     def get(self) -> zipfile.ZipFile:
@@ -1530,15 +1532,15 @@ class _Extractor:
 
     src: Path
     dest: Path
-    flt: "_Filter"
-    limits: "ArchiveLimits" = ArchiveLimits()
-    password: Optional[bytes] = None
+    flt: _Filter
+    limits: ArchiveLimits = ArchiveLimits()
+    password: bytes | None = None
     _root: Path = field(init=False, default=None)                              # type: ignore[assignment]
-    _limiter: "_Limiter" = field(init=False, default=None)                     # type: ignore[assignment]
+    _limiter: _Limiter = field(init=False, default=None)                     # type: ignore[assignment]
     _cleared: dict = field(init=False, default_factory=dict)
     _ancestry: dict = field(init=False, default_factory=dict)
     _made: set = field(init=False, default_factory=set)
-    _built: Optional[list] = field(init=False, default=None)    
+    _built: list | None = field(init=False, default=None)    
 
     # --- entry points ----------------------------------------------------
 
@@ -1922,7 +1924,7 @@ class _Extractor:
 
         return self.flt.matches(m.name, m.raw)
 
-    def _under(self, name: str) -> Optional[Path]:
+    def _under(self, name: str) -> Path | None:
         """Where a posix name under the root lands, or None if it may not.
 
         The filesystem half of _place, in a method because _link needs the
@@ -1997,7 +1999,7 @@ class _Extractor:
 
     # --- whether it may be written ---------------------------------------
 
-    def _place(self, m: _Member) -> Optional[Path]:
+    def _place(self, m: _Member) -> Path | None:
         """Where this member goes, or None if it is not to be written.
 
         Called one member ahead of its own write, and the whole of what
@@ -2359,7 +2361,7 @@ class _Extractor:
 
     # --- the two containers ----------------------------------------------
 
-    def _zip_copy(self, readers: "_ZipReaders", m: _Member, target: Path) -> None:
+    def _zip_copy(self, readers: _ZipReaders, m: _Member, target: Path) -> None:
         """Write one member into place, on whichever thread runs this.
 
         Zip only, and the reason the prefix is there: this is what a worker

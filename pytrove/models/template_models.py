@@ -4,8 +4,7 @@ import inspect
 import warnings
 
 from typing import (
-    Dict, Union, Optional, List,
-    FrozenSet, Mapping, Any, ClassVar,
+    Mapping, Any, ClassVar,
     TYPE_CHECKING, overload,
 )
 
@@ -64,7 +63,7 @@ from ..classes import classproperty
 from .base import BaseDataClass
 
 
-def compile_lines(lines: Optional[List[Union[str, TemplateLineDict, TemplateEachLineDict]]]) -> Optional[List[Union[CompiledLine, CompiledEachLine]]]:
+def compile_lines(lines: list[str | TemplateLineDict | TemplateEachLineDict] | None) -> list[CompiledLine | CompiledEachLine] | None:
     """
     Compile a block of lines - the shape `message` and each rich message format share.
     Returns None for an empty block, so it is simply absent rather than blank.
@@ -75,7 +74,7 @@ def compile_lines(lines: Optional[List[Union[str, TemplateLineDict, TemplateEach
         for line in (lines or ())
     ] or None
 
-def format_lines(lines: Optional[List[Union[CompiledLine, CompiledEachLine]]], kw: Mapping[str, Any]) -> Optional[str]:
+def format_lines(lines: list[CompiledLine | CompiledEachLine] | None, kw: Mapping[str, Any]) -> str | None:
     """Render a block of lines into text, dropping the ones that opt out."""
 
     return "\n".join(
@@ -90,7 +89,7 @@ def format_lines(lines: Optional[List[Union[CompiledLine, CompiledEachLine]]], k
 class CompiledDefaults(BaseDataClass):
     """Base for every compiled part that can carry its own fallback values."""
 
-    default_keys: Optional[Dict[str, JsonValue]] = None
+    default_keys: dict[str, JsonValue] | None = None
 
     def with_defaults(self, kw: Mapping[str, Any]) -> Mapping[str, Any]:
         """Layer default_keys beneath kw, so any value the caller actually passed always wins."""
@@ -109,8 +108,8 @@ class CompiledConditional(CompiledDefaults):
     present for `all_of`/`any_of` too, exactly as if the caller had passed it.
     """
 
-    any_of: Optional[FrozenSet[str]] = None
-    all_of: Optional[FrozenSet[str]] = None
+    any_of: frozenset[str] | None = None
+    all_of: frozenset[str] | None = None
 
     def __post_init__(self) -> None:
         self.any_of = to_frozenset(self.any_of) or None
@@ -133,13 +132,13 @@ class CompiledLine(CompiledConditional):
     text: str
 
     @classmethod
-    def compile(cls, item: Union[str, TemplateLineDict]) -> Self:
+    def compile(cls, item: str | TemplateLineDict) -> Self:
         if isinstance(item, str):
             item = {"text": item}
 
         return cls.from_dict(item, True)
 
-    def format(self, kw: Mapping[str, Any]) -> Optional[str]:
+    def format(self, kw: Mapping[str, Any]) -> str | None:
         kw = self.with_defaults(kw)
 
         if self.can_format(kw):
@@ -165,7 +164,7 @@ class CompiledEachLine(BaseDataClass):
         item["item"] = CompiledLine.compile(item["item"])
         return cls.from_dict(item, True)
 
-    def format(self, kw: Mapping[str, Any]) -> Optional[str]:
+    def format(self, kw: Mapping[str, Any]) -> str | None:
         each = kw.get(self.each)
 
         if not each or not is_container(each):
@@ -193,7 +192,7 @@ class CompiledButton(CompiledConditional):
     text: str
     type: TemplateButtonType
     value: str
-    meta: Optional[Dict[str, Union[StrInt, ButtonStyle]]] = None
+    meta: dict[str, StrInt | ButtonStyle] | None = None
 
     @classmethod
     def compile(cls, item: TemplateButtonDict) -> Self:
@@ -201,11 +200,11 @@ class CompiledButton(CompiledConditional):
 
     @classproperty(cached=True)
     @_optional_import(("kurigram", "tg"))
-    def _buttons_params(cls) -> FrozenSet[str]:
+    def _buttons_params(cls) -> frozenset[str]:
         return frozenset(inspect.signature(InlineKeyboardButton).parameters.keys())
 
     @_optional_import(("kurigram", "tg"))
-    def format(self, kw: Mapping[str, Any]) -> Optional[InlineKeyboardButton]:
+    def format(self, kw: Mapping[str, Any]) -> InlineKeyboardButton | None:
         parameters = self._buttons_params
         
         if self.type not in parameters:
@@ -250,7 +249,7 @@ class CompiledEachButton(BaseDataClass):
 
     each: str
     item: CompiledButton
-    row_width: Optional[int] = None
+    row_width: int | None = None
 
     @classmethod
     def compile(cls, item: TemplateEachButtonDict) -> Self:
@@ -258,7 +257,7 @@ class CompiledEachButton(BaseDataClass):
         return cls.from_dict(item, True)
 
     @_optional_import(("kurigram", "tg"))
-    def format(self, kw: Mapping[str, Any]) -> Optional[List[List[InlineKeyboardButton]]]:
+    def format(self, kw: Mapping[str, Any]) -> list[list[InlineKeyboardButton]] | None:
         each = kw.get(self.each)
 
         if not each or not is_container(each):
@@ -293,7 +292,7 @@ class CompiledButtonRow(BaseDataClass):
     button object as a shorthand for a row holding just it.
     """
 
-    buttons: List[CompiledButton]
+    buttons: list[CompiledButton]
 
     @classmethod
     def compile(cls, item: MaybeList[TemplateButtonDict]) -> Self:
@@ -306,7 +305,7 @@ class CompiledButtonRow(BaseDataClass):
         )
 
     @_optional_import(("kurigram", "tg"))
-    def format(self, kw: Mapping[str, Any]) -> Optional[List[InlineKeyboardButton]]:
+    def format(self, kw: Mapping[str, Any]) -> list[InlineKeyboardButton] | None:
         return [btn for button in self.buttons if (btn := button.format(kw)) is not None] or None
 
 
@@ -322,10 +321,10 @@ class CompiledRichMessage(CompiledDefaults):
     format() keyword arguments for this rich message's own lines.
     """
 
-    html: Optional[List[Union[CompiledLine, CompiledEachLine]]] = None
-    markdown: Optional[List[Union[CompiledLine, CompiledEachLine]]] = None
-    is_rtl: Optional[bool] = None
-    skip_entity_detection: Optional[bool] = None
+    html: list[CompiledLine | CompiledEachLine] | None = None
+    markdown: list[CompiledLine | CompiledEachLine] | None = None
+    is_rtl: bool | None = None
+    skip_entity_detection: bool | None = None
 
     @classmethod
     def compile(cls, item: TemplateRichMessageDict) -> Self:
@@ -335,7 +334,7 @@ class CompiledRichMessage(CompiledDefaults):
         return cls.from_dict(item, True)
 
     @_optional_import(("kurigram>=2.2.24", "tg"))
-    def format(self, kw: Mapping[str, Any]) -> Optional[InputRichMessage]:
+    def format(self, kw: Mapping[str, Any]) -> InputRichMessage | None:
         kw = self.with_defaults(kw)
 
         for lines, parse in ((self.html, "html"), (self.markdown, "markdown")):
@@ -361,15 +360,15 @@ if HAS_PYROGRAM:
         anything else in the template sees them - message, buttons, and rich_message alike.
         """
 
-        message: Optional[List[Union[CompiledLine, CompiledEachLine]]] = None
-        buttons: Optional[List[Union[CompiledButtonRow, CompiledEachButton]]] = None
-        rich_message: Optional[CompiledRichMessage] = None
-        parse_mode: Optional[ParseMode] = None
-        key_time: Optional[str] = None
+        message: list[CompiledLine | CompiledEachLine] | None = None
+        buttons: list[CompiledButtonRow | CompiledEachButton] | None = None
+        rich_message: CompiledRichMessage | None = None
+        parse_mode: ParseMode | None = None
+        key_time: str | None = None
 
 
         @classmethod
-        def compile(cls, template: TemplateDict, parse_mode: Optional[ParseMode] = None, key_time: Optional[str] = None) -> Self:
+        def compile(cls, template: TemplateDict, parse_mode: ParseMode | None = None, key_time: str | None = None) -> Self:
             """
             Compile one template object. `parse_mode`/`key_time` are the file-wide
             defaults, used only where the template does not set its own.
@@ -403,18 +402,18 @@ if HAS_PYROGRAM:
             if self.key_time is not None and self.key_time not in kw:
                 kw[self.key_time] = arabic_time()
 
-        def format_message(self, kw: Mapping[str, Any]) -> Optional[str]:
+        def format_message(self, kw: Mapping[str, Any]) -> str | None:
             self.apply_key_time(kw)
             return format_lines(self.message, kw)
 
-        def format_rich_message(self, kw: Mapping[str, Any]) -> Optional[InputRichMessage]:
+        def format_rich_message(self, kw: Mapping[str, Any]) -> InputRichMessage | None:
             if self.rich_message is None:
                 return None
 
             self.apply_key_time(kw)
             return self.rich_message.format(kw)
 
-        def format_keyboard(self, kw: Mapping[str, Any]) -> Optional[InlineKeyboardMarkup]:
+        def format_keyboard(self, kw: Mapping[str, Any]) -> InlineKeyboardMarkup | None:
             rows = []
 
             for buttons in (self.buttons or ()):
@@ -452,9 +451,9 @@ if HAS_PYROGRAM:
         def compile_from_file(
             cls,
             path: PathLike,
-            parse_mode: Optional[ParseMode] = None,
-            key_time: Optional[str] = None,
-            ) -> NestedStrKeyDict["CompiledTemplate"]:
+            parse_mode: ParseMode | None = None,
+            key_time: str | None = None,
+            ) -> NestedStrKeyDict[CompiledTemplate]:
             """
             Compile every template in a JSON file.
 
@@ -482,8 +481,8 @@ if HAS_PYROGRAM:
         def compile_template(
             cls,
             template: NestedStrKeyDict[JsonValue],
-            parse_mode: Optional[ParseMode] = None,
-            key_time: Optional[str] = None,
+            parse_mode: ParseMode | None = None,
+            key_time: str | None = None,
             *,
             is_single_template: _True,
             ) -> Self: ...
@@ -492,17 +491,17 @@ if HAS_PYROGRAM:
         def compile_template(
             cls,
             template: NestedStrKeyDict[JsonValue],
-            parse_mode: Optional[ParseMode] = None,
-            key_time: Optional[str] = None,
+            parse_mode: ParseMode | None = None,
+            key_time: str | None = None,
             *,
             is_single_template: _False = False,
-            ) -> NestedStrKeyDict["CompiledTemplate"]: ...
+            ) -> NestedStrKeyDict[CompiledTemplate]: ...
         @classmethod
         def compile_template(
             cls,
             template: NestedStrKeyDict[JsonValue],
-            parse_mode: Optional[ParseMode] = None,
-            key_time: Optional[str] = None,
+            parse_mode: ParseMode | None = None,
+            key_time: str | None = None,
             *, 
             is_single_template: bool = False,
             ): #type: ignore

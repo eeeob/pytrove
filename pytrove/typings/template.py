@@ -9,7 +9,6 @@ were a package-wide type rather than one belonging to this one feature.
 from __future__ import annotations
 
 from typing import (
-    Dict, Union, List,
     Literal, TypedDict, TypeAlias,
     TYPE_CHECKING,
 )
@@ -36,7 +35,7 @@ TemplateParseMode: TypeAlias = Literal["html", "markdown"]
 class TemplateDefaultsDict(TypedDict):
     """Keys every renderable part accepts to carry its own fallback values."""
 
-    default_keys: NotRequired[Dict[str, JsonValue]]
+    default_keys: NotRequired[dict[str, JsonValue]]
     "Fallback values for keys not passed to format()."
 
 class TemplateConditionalDict(TemplateDefaultsDict):
@@ -50,14 +49,14 @@ class TemplateLineDict(TemplateConditionalDict):
     text: str
 class TemplateEachLineDict(TypedDict):
     each: str
-    item: Union[str, TemplateLineDict]
+    item: str | TemplateLineDict
 
 class TemplateButtonDict(TemplateConditionalDict):
     text: str
     type: TemplateButtonType
     value: str
 
-    meta: NotRequired[Dict[str, StrInt]]
+    meta: NotRequired[dict[str, StrInt]]
     """Extra InlineKeyboardButton arguments, as written in the JSON -- so raw
     values only, never enum members (`"style": "primary"`, not
     ButtonStyle.PRIMARY). CompiledButton.meta is the widened counterpart:
@@ -69,14 +68,14 @@ class TemplateEachButtonDict(TypedDict):
     row_width: NotRequired[int]
 
 class TemplateRichMessageDict(TemplateDefaultsDict):
-    html: NotRequired[List[Union[str, TemplateLineDict, TemplateEachLineDict]]]
-    markdown: NotRequired[List[Union[str, TemplateLineDict, TemplateEachLineDict]]]
+    html: NotRequired[list[str | TemplateLineDict | TemplateEachLineDict]]
+    markdown: NotRequired[list[str | TemplateLineDict | TemplateEachLineDict]]
     is_rtl: NotRequired[bool]
     skip_entity_detection: NotRequired[bool]
 
 class TemplateDict(TemplateDefaultsDict):
-    message: NotRequired[List[Union[str, TemplateLineDict, TemplateEachLineDict]]]
-    buttons: NotRequired[List[Union[MaybeList[TemplateButtonDict], TemplateEachButtonDict]]]
+    message: NotRequired[list[str | TemplateLineDict | TemplateEachLineDict]]
+    buttons: NotRequired[list[MaybeList[TemplateButtonDict] | TemplateEachButtonDict]]
     parse_mode: NotRequired[TemplateParseMode]
     rich_message: NotRequired[TemplateRichMessageDict]
     key_time: NotRequired[str]

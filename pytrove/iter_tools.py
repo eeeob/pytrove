@@ -1,8 +1,9 @@
+from __future__ import annotations
+
 from typing import (
-    List, Set, Union, Any,
-    FrozenSet, Tuple, Iterable,
-    Generator, Optional, Callable,
-    Mapping, TypeVar, overload, 
+    Any, Iterable,
+    Generator, Callable,
+    Mapping, TypeVar, overload,
 )
 from collections.abc import MutableSequence
 
@@ -14,7 +15,7 @@ import random
 _MS = TypeVar("_MS", bound=MutableSequence[_T])
 
 
-def to_list(value: Optional[MaybeContainer[_T]]) -> List[_T]:
+def to_list(value: MaybeContainer[_T] | None) -> list[_T]:
     """`value` as a list: itself if it's a container, `[value]` otherwise,
     `[]` for None."""
 
@@ -22,21 +23,21 @@ def to_list(value: Optional[MaybeContainer[_T]]) -> List[_T]:
         return list(value)
     return [value] if value is not None else []
 
-def to_tuple(value: Optional[MaybeContainer[_T]]) -> Tuple[_T, ...]:
+def to_tuple(value: MaybeContainer[_T] | None) -> tuple[_T, ...]:
     """to_list, as a tuple."""
 
     if is_container(value):
         return tuple(value)
     return (value, ) if value is not None else tuple()
 
-def to_set(value: Optional[MaybeContainer[_T]]) -> Set[_T]:
+def to_set(value: MaybeContainer[_T] | None) -> set[_T]:
     """to_list, as a set."""
 
     if is_container(value):
         return set(value)
     return {value} if value is not None else set()
 
-def to_frozenset(value: Optional[MaybeContainer[_T]]) -> FrozenSet[_T]:
+def to_frozenset(value: MaybeContainer[_T] | None) -> frozenset[_T]:
     """to_list, as a frozenset."""
 
     if is_container(value):
@@ -45,7 +46,7 @@ def to_frozenset(value: Optional[MaybeContainer[_T]]) -> FrozenSet[_T]:
 
 
 @overload
-def iter_flat_cont(*containers: NestedContainer[Optional[_T]], exclude_none: _True = True) -> Generator[_T, None, None]: ...
+def iter_flat_cont(*containers: NestedContainer[_T | None], exclude_none: _True = True) -> Generator[_T, None, None]: ...
 @overload
 def iter_flat_cont(*containers: NestedContainer[_T], exclude_none: _False) -> Generator[_T, None, None]: ...
 def iter_flat_cont(*containers, exclude_none = True):
@@ -63,19 +64,19 @@ def iter_flat_cont(*containers, exclude_none = True):
 
 
 @overload
-def flat_cont(*containers: NestedContainer[Optional[_T]], exclude_none: _True = True) -> List[_T]: ...
+def flat_cont(*containers: NestedContainer[_T | None], exclude_none: _True = True) -> list[_T]: ...
 @overload
-def flat_cont(*containers: NestedContainer[_T], exclude_none: _False) -> List[_T]: ...
+def flat_cont(*containers: NestedContainer[_T], exclude_none: _False) -> list[_T]: ...
 def flat_cont(*containers, exclude_none = True):
     """iter_flat_cont, collected into a list."""
     return list(iter_flat_cont(*containers, exclude_none=exclude_none))
 
 @overload
-def iter_flat_map(*containers: Mapping[_KT, NestedContainerMappingValue[_KT, Optional[_VT]]], exclude_none: _True = True) -> Generator[Union[_KT, _VT], None, None]: ...
+def iter_flat_map(*containers: Mapping[_KT, NestedContainerMappingValue[_KT, _VT | None]], exclude_none: _True = True) -> Generator[_KT | _VT, None, None]: ...
 @overload
-def iter_flat_map(*containers: Mapping[_KT, NestedContainerMappingValue[_KT, _VT]], exclude_none: _False) -> Generator[Union[_KT, _VT], None, None]: ...
+def iter_flat_map(*containers: Mapping[_KT, NestedContainerMappingValue[_KT, _VT]], exclude_none: _False) -> Generator[_KT | _VT, None, None]: ...
 @overload
-def iter_flat_map(*containers: NestedContainer[Optional[_T]], exclude_none: _True = True) -> Generator[_T, None, None]: ...
+def iter_flat_map(*containers: NestedContainer[_T | None], exclude_none: _True = True) -> Generator[_T, None, None]: ...
 @overload
 def iter_flat_map(*containers: NestedContainer[_T], exclude_none: _False) -> Generator[_T, None, None]: ...
 def iter_flat_map(*containers, exclude_none: bool = True):
@@ -102,13 +103,13 @@ def iter_flat_map(*containers, exclude_none: bool = True):
             yield item
 
 @overload
-def flat_map(*containers: Mapping[_KT, NestedContainerMappingValue[_KT, Optional[_VT]]], exclude_none: _True = True) -> List[Union[_KT, _VT]]: ...
+def flat_map(*containers: Mapping[_KT, NestedContainerMappingValue[_KT, _VT | None]], exclude_none: _True = True) -> list[_KT | _VT]: ...
 @overload
-def flat_map(*containers: Mapping[_KT, NestedContainerMappingValue[_KT, _VT]], exclude_none: _False) -> List[Union[_KT, _VT]]: ...
+def flat_map(*containers: Mapping[_KT, NestedContainerMappingValue[_KT, _VT]], exclude_none: _False) -> list[_KT | _VT]: ...
 @overload
-def flat_map(*containers: NestedContainer[Optional[_T]], exclude_none: _True = True) -> List[_T]: ...
+def flat_map(*containers: NestedContainer[_T | None], exclude_none: _True = True) -> list[_T]: ...
 @overload
-def flat_map(*containers: NestedContainer[_T], exclude_none: _False) -> List[_T]: ...
+def flat_map(*containers: NestedContainer[_T], exclude_none: _False) -> list[_T]: ...
 def flat_map(*containers, exclude_none: bool = True):
     """iter_flat_map, collected into a list."""
 
@@ -122,11 +123,11 @@ def iter_flat_cont_by(*containers: Any, is_container: Callable[[Any], bool] = is
         elif not exclude_none or item is not None:
             yield item
 
-def flat_cont_by(*containers: Any, is_container: Callable[[Any], bool] = is_container, exclude_none: bool = True) -> List[Any]:
+def flat_cont_by(*containers: Any, is_container: Callable[[Any], bool] = is_container, exclude_none: bool = True) -> list[Any]:
     return list(iter_flat_cont_by(*containers, is_container=is_container, exclude_none=exclude_none))
 
 
-def dedupe(iterable: Iterable[_T], hashable: bool = True) -> List[_T]:
+def dedupe(iterable: Iterable[_T], hashable: bool = True) -> list[_T]:
     """Remove duplicate elements from `iterable`, always keeping first-seen
     order.
 
@@ -153,7 +154,7 @@ def dedupe(iterable: Iterable[_T], hashable: bool = True) -> List[_T]:
 
     return result
 
-def pad_list(values: List[_VT], length: int, exact: bool = False, default: _T = None) -> List[Union[_VT, _T]]:
+def pad_list(values: list[_VT], length: int, exact: bool = False, default: _T = None) -> list[_VT | _T]:
     """Pad `values` in place to `length`, filling missing positions with
     `default` -- mutates the list itself rather than building a new one, and
     returns it back for convenience.
@@ -175,7 +176,7 @@ def pad_list(values: List[_VT], length: int, exact: bool = False, default: _T = 
 @overload
 def shuffle(seq: _MS) -> _MS: ...
 @overload
-def shuffle(seq: Iterable[_T]) -> List[_T]: ...
+def shuffle(seq: Iterable[_T]) -> list[_T]: ...
 def shuffle(seq):
     if not isinstance(seq, MutableSequence):
         seq = list(seq)

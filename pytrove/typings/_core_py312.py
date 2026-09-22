@@ -5,11 +5,13 @@ syntax is a hard SyntaxError on older interpreters, so this module must
 never be imported unconditionally.
 """
 
+from __future__ import annotations
+
 from typing import (
     Collection, Iterator, Reversible,
-    Sequence, AbstractSet, Any, Dict, 
-    Callable, Coroutine, Awaitable, List, 
-    Mapping, 
+    Sequence, AbstractSet, Any,
+    Callable, Coroutine, Awaitable,
+    Mapping,
 )
 
 
@@ -29,10 +31,10 @@ type Container[I] = (
 )
 
 
-type MaybeList[I] = List[I] | I
+type MaybeList[I] = list[I] | I
 type MaybeContainer[I] = Container[I] | I
 type NestedContainer[I] = Container[NestedContainer[I]] | I
-type NestedStrKeyDict[V] = Dict[str, NestedStrKeyDict[V] | V]
+type NestedStrKeyDict[V] = dict[str, NestedStrKeyDict[V] | V]
 
 
 type NestedContainerMappingValue[K, V] = (

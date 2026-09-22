@@ -6,13 +6,15 @@ that scope, since the whole package is re-exported flat from
 pytrove.typings.
 """
 
+from __future__ import annotations
+
 from typing import (
-    Collection, Union, Reversible, Iterator, 
-    Sequence, AbstractSet, TypeAlias, 
-    Any, Dict, Annotated, Callable, Coroutine, 
-    Awaitable, ParamSpec, TypeVar, Literal, 
-    TypedDict, Hashable, Protocol, List, Mapping
-    
+    Collection, Reversible, Iterator,
+    Sequence, AbstractSet, TypeAlias,
+    Any, Annotated, Callable, Coroutine,
+    Awaitable, ParamSpec, TypeVar, Literal,
+    TypedDict, Hashable, Protocol, Mapping
+
 )
 
 from enum import EnumMeta as EnumType, Enum  # EnumType is only an alias for EnumMeta added in 3.11
@@ -36,55 +38,51 @@ if sys.version_info >= (3, 12):
     from ._core_py312 import *
 else:
     #يجب المحافظة على ترتيب الاولويات
-    ContainerWithoutMapping: TypeAlias = Union[
-        Sequence[_T], 
-        AbstractSet[_T], 
-        Collection[_T], 
-        Reversible[_T], 
-        Iterator[_T], 
-    ]
-    Container: TypeAlias = Union[
-        Sequence[_T],
-        AbstractSet[_T],
-        Collection[_T],
-        Reversible[_T],
-        Iterator[_T],
-    ]
+    ContainerWithoutMapping: TypeAlias = (
+        Sequence[_T]
+        | AbstractSet[_T]
+        | Collection[_T]
+        | Reversible[_T]
+        | Iterator[_T]
+    )
+    Container: TypeAlias = (
+        Sequence[_T]
+        | AbstractSet[_T]
+        | Collection[_T]
+        | Reversible[_T]
+        | Iterator[_T]
+    )
 
 
-    MaybeList: TypeAlias = Union[List[_T], _T]
-    MaybeContainer: TypeAlias = Union[Container[_T], _T]
-    NestedStrKeyDict: TypeAlias = Dict[str, Union["NestedStrKeyDict[_T]", _T]]
-    NestedContainer: TypeAlias = Union[Container["NestedContainer[_T]"], _T]
+    MaybeList: TypeAlias = list[_T] | _T
+    MaybeContainer: TypeAlias = Container[_T] | _T
+    NestedStrKeyDict: TypeAlias = dict[str, "NestedStrKeyDict[_T]" | _T]
+    NestedContainer: TypeAlias = Container["NestedContainer[_T]"] | _T
 
 
 
-    NestedContainerMappingValue: TypeAlias = Union[
-        Mapping[_KT, "NestedContainerMappingValue[_KT, _VT]"],
-        ContainerWithoutMapping["NestedContainerMappingValue[_KT, _VT]"],
-        _VT,
-    ]
+    NestedContainerMappingValue: TypeAlias = (
+        Mapping[_KT, "NestedContainerMappingValue[_KT, _VT]"]
+        | ContainerWithoutMapping["NestedContainerMappingValue[_KT, _VT]"]
+        | _VT
+    )
 
 
-    MaybeCoroutine: TypeAlias = Union[Coroutine[Any, Any, _T], _T]
+    MaybeCoroutine: TypeAlias = Coroutine[Any, Any, _T] | _T
     MaybeCoroutineCallable: TypeAlias = Callable[_P, MaybeCoroutine[_T]]
-    MaybeAwaitableCallable: TypeAlias = Callable[_P, Union[_T, Awaitable[_T]]]
-    MaybeAwaitable: TypeAlias = Union[MaybeCoroutineCallable[_P, _T], Awaitable[_T]]
+    MaybeAwaitableCallable: TypeAlias = Callable[_P, _T | Awaitable[_T]]
+    MaybeAwaitable: TypeAlias = MaybeCoroutineCallable[_P, _T] | Awaitable[_T]
     
 
 
-JsonValue: TypeAlias = Union[
-    str, bool, int, float, None,
-    List['JsonValue'],
-    Dict[str, 'JsonValue'],
-    ]
+JsonValue: TypeAlias = str | bool | int | float | None | list['JsonValue'] | dict[str, 'JsonValue']
 
-NotContainer: TypeAlias = Union[bytearray, bytes, str, memoryview, EnumType, Awaitable]
+NotContainer: TypeAlias = bytearray | bytes | str | memoryview | EnumType | Awaitable
 PhoneNumber: TypeAlias = Annotated[str, "Phone number in international format, e.g. +967xxxxxxxxx"]
 RegionCode: TypeAlias = Annotated[str, "ISO region code, verify that it is valid"]
-Number: TypeAlias = Union[int, float]
-StrInt: TypeAlias = Union[int, str]
-PathLike: TypeAlias = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
+Number: TypeAlias = int | float
+StrInt: TypeAlias = int | str
+PathLike: TypeAlias = str | bytes | os.PathLike[str] | os.PathLike[bytes]
 
 
 _CT = TypeVar("_CT", bound=type)

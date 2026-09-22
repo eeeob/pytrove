@@ -1,8 +1,9 @@
+from __future__ import annotations
+
 
 from typing import (
-    Any, Union, Optional,
-    Mapping, Type, TypeAlias,
-    Tuple, 
+    Any, Union,
+    Mapping, TypeAlias, Final,
     overload, get_args, get_origin,
 )
 
@@ -69,19 +70,25 @@ import logging
 
 
 
-TG_CHANNEL_MSG_LINK_PATTERN = re.compile(r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:c/)?)([\w]+)(?:/\d+)*/(\d+)/?$")
-TG_BOT_COMMAND_PATTERN = re.compile(r"^/[A-Za-z][\w\d]*$")
-EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+TG_CHANNEL_MSG_LINK_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:c/)?)([\w]+)(?:/\d+)*/(\d+)/?$"
+)
+TG_BOT_COMMAND_PATTERN: Final[re.Pattern[str]] = re.compile(r"^/[A-Za-z][\w\d]*$")
+EMAIL_PATTERN: Final[re.Pattern[str]] = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
-_CONTAINER = tuple(get_origin(arg) or arg for arg in get_args(getattr(Container, "__value__", Container)))
-_NOT_CONTAINER = tuple(get_origin(arg) or arg for arg in get_args(getattr(NotContainer, "__value__", NotContainer)))
+_CONTAINER: Final[tuple[type, ...]] = tuple(
+    get_origin(arg) or arg for arg in get_args(getattr(Container, "__value__", Container))
+)
+_NOT_CONTAINER: Final[tuple[type, ...]] = tuple(
+    get_origin(arg) or arg for arg in get_args(getattr(NotContainer, "__value__", NotContainer))
+)
 
 
-_ClassInfo: TypeAlias = Union[type, UnionType, Tuple["_ClassInfo", ...]]
+_ClassInfo: TypeAlias = type | UnionType | tuple["_ClassInfo", ...]
 
 log = logging.getLogger(__name__)
 
-def _flatten_class_info(class_info: _ClassInfo) -> Tuple[type, ...]:
+def _flatten_class_info(class_info: _ClassInfo) -> tuple[type, ...]:
     """Normalize `class_info` into the plain tuple-of-types form isinstance()/
     issubclass() have always accepted on every supported version.
 
@@ -127,16 +134,16 @@ def is_subclass(cls: type, class_info: _ClassInfo) -> bool:
 def is_exception(obj: Any) -> TypeIs[BaseException]:
     return isinstance(obj, BaseException)
 
-def is_container(obj: Union['Container[_T]', Any]) -> TypeIs['Container[_T]']:
+def is_container(obj: Container[_T] | Any) -> TypeIs[Container[_T]]:
     return isinstance(obj, _CONTAINER) and not isinstance(obj, _NOT_CONTAINER)
 
-def is_mapping(obj: Union[Mapping[_KT, _VT], Any]) -> TypeIs[Mapping[_KT, _VT]]:
+def is_mapping(obj: Mapping[_KT, _VT] | Any) -> TypeIs[Mapping[_KT, _VT]]:
     return isinstance(obj, Mapping)
 
-def is_sub_mapping(obj: Any) -> TypeIs[Type[Mapping]]:
+def is_sub_mapping(obj: Any) -> TypeIs[type[Mapping]]:
     return isinstance(obj, type) and issubclass(obj, Mapping)
 
-def is_sub_container(obj: Any) -> TypeIs[Type[Container]]:
+def is_sub_container(obj: Any) -> TypeIs[type[Container]]:
     return isinstance(obj, type) and issubclass(obj, _CONTAINER) and not issubclass(obj, _NOT_CONTAINER)
 
 @_optional_import(("kurigram", "tg"))
@@ -165,7 +172,7 @@ def is_tg_bot_token(bot_token: Any) -> TypeIs[str]:
     )
 
 @_optional_import(("kurigram", "tg"))
-def is_tg_bot_command(message: Union["Message", str]) -> TypeIs[str]:
+def is_tg_bot_command(message: Message | str) -> TypeIs[str]:
     if isinstance(message, Message):
         message = message.text or ""
 
@@ -200,7 +207,7 @@ def is_tg_otp_code(code, with_str = True, remove_spaces = False):
 
 @_optional_import(("phonenumbers", "phone"))
 def is_phone_number(
-    phone_number: Union[StrInt, "phonenumbers.PhoneNumber"], 
+    phone_number: StrInt | phonenumbers.PhoneNumber,
     remove_spaces: bool = True, 
     resolve: bool = True
     ) -> TypeIs[StrInt]:
@@ -331,9 +338,9 @@ async def is_accessible_received_email(email: str, password: str):
             log.error("Failed to log out from the IMAP server", exc_info=e)
     
 @overload
-def validation(cond: _True, custom_exc: Optional[Union[BaseException, str]] = None) -> None: ...
+def validation(cond: _True, custom_exc: BaseException | str | None = None) -> None: ...
 @overload
-def validation(cond: _False, custom_exc: Optional[Union[BaseException, str]] = None) -> Never: ...
+def validation(cond: _False, custom_exc: BaseException | str | None = None) -> Never: ...
 def validation(cond: bool, custom_exc = None):
     if not cond:
         if is_exception(custom_exc):
@@ -382,7 +389,7 @@ def checker_lookup(origin_type: Any, *_):
         except (ValueError, TypeError) as exc:
             raise TypeCheckError(str(exc)) from exc
 
-    def validate_container(value, origin_type, args: Tuple[Any], memo: TypeCheckMemo, *_):
+    def validate_container(value, origin_type, args: tuple[Any], memo: TypeCheckMemo, *_):
         if not is_container(value):
             raise TypeCheckError("is not container")
 

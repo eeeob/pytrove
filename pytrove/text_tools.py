@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 from typing import (
-    Union, Mapping, 
-    Any, Literal, Optional, 
-    Callable, List, overload, cast
+    Mapping,
+    Any, Literal,
+    Callable, overload, cast,
+    Final,
 )
 
 from .typings import (
@@ -18,14 +21,14 @@ from .iter_tools import to_list, flat_cont
 import re
 
 
-_SNAKE1_PATTERN = re.compile(r"(.)([A-Z][a-z]+)")
-_SNAKE2_PATTERN = re.compile(r"([a-z0-9])([A-Z])")
+_SNAKE1_PATTERN: Final[re.Pattern[str]] = re.compile(r"(.)([A-Z][a-z]+)")
+_SNAKE2_PATTERN: Final[re.Pattern[str]] = re.compile(r"([a-z0-9])([A-Z])")
 
 
-_NOT_SET = object()
+_NOT_SET: Final = object()
 
 
-def to_str(value: _T) -> Union[str, _T]:
+def to_str(value: _T) -> str | _T:
     return (
         value 
         if value is None or isinstance(value, (bool, str)) or is_container(value) 
@@ -43,7 +46,7 @@ def split_part(
     strip: bool = True, 
     remove_spaces: bool = False, 
     default: _T = cast(str, _NOT_SET)
-    ) -> Union[str, _T]:
+    ) -> str | _T:
 
     try:
         value = value.split(sep)[part]
@@ -58,7 +61,7 @@ def split_part(
     except IndexError:
         return value if default is _NOT_SET else default
 
-def chunk_text(text: str, max_length: int = TgMessageLength.TEXT) -> List[str]:
+def chunk_text(text: str, max_length: int = TgMessageLength.TEXT) -> list[str]:
     """Split `text` into pieces of at most `max_length` characters, preferring
     to break on a newline, then a space, so words/lines aren't cut mid-way.
 
@@ -128,37 +131,37 @@ def format_exc_tree(exc: BaseException) -> str:
 def numbering(
     values: 'ContainerWithoutMapping[_T]', 
     start: int = 1, 
-    line_parser: Optional[Callable[[_T, int], str]] = None, 
+    line_parser: Callable[[_T, int], str] | None = None, 
     line_sep: str = "\n", 
     ) -> str : ... 
 @overload
 def numbering(
     values: Mapping[_KT, _VT], 
     start: int = 1, 
-    line_parser: Optional[Callable[[_KT, _VT, int], str]] = None, 
+    line_parser: Callable[[_KT, _VT, int], str] | None = None, 
     line_sep: str = "\n", 
     ) -> str : ... 
 @overload
 def numbering(
     values: 'ContainerWithoutMapping[_T]',
     start: int = 1,
-    line_parser: Optional[Callable[[_T, int], str]] = None,
+    line_parser: Callable[[_T, int], str] | None = None,
     *, 
     line_sep: Literal[None],
-) -> List[str]: ...
+) -> list[str]: ...
 @overload
 def numbering(
     values: Mapping[_KT, _VT],
     start: int = 1,
-    line_parser: Optional[Callable[[_KT, _VT, int], str]] = None,
+    line_parser: Callable[[_KT, _VT, int], str] | None = None,
     *, 
     line_sep: Literal[None],
-) -> List[str]: ...
+) -> list[str]: ...
 def numbering(
     values: Container, 
     start: int = 1, 
-    line_parser: Optional[Callable[..., str]] = None, 
-    line_sep: Optional[str] = "\n", 
+    line_parser: Callable[..., str] | None = None, 
+    line_sep: str | None = "\n", 
     ):
 
     is_map = is_mapping(values)
@@ -219,9 +222,9 @@ def smart_split(
     strip: bool = ...,
     remove_spaces: bool = ...,
     max_split: int = ...,
-    part_filter: Optional[Callable[[str], bool]] = ...,
+    part_filter: Callable[[str], bool] | None = ...,
     *,
-    separator: Union[str, Callable[[], str]],
+    separator: str | Callable[[], str],
 ) -> _T: ...
 @overload
 def smart_split(
@@ -231,8 +234,8 @@ def smart_split(
     strip: bool = ...,
     remove_spaces: bool = ...,
     max_split: int = ...,
-    part_filter: Optional[Callable[[str], bool]] = ...,
-    separator: Union[str, Callable[[], str]],
+    part_filter: Callable[[str], bool] | None = ...,
+    separator: str | Callable[[], str],
 ) -> str: ...
 @overload
 def smart_split(
@@ -242,10 +245,10 @@ def smart_split(
     strip: bool = ...,
     remove_spaces: bool = ...,
     max_split: int = ...,
-    part_filter: Optional[Callable[[str], bool]] = ...,
+    part_filter: Callable[[str], bool] | None = ...,
     *,
-    separator: Union[str, Callable[[], str]],
-) -> List[_T]: ...
+    separator: str | Callable[[], str],
+) -> list[_T]: ...
 @overload
 def smart_split(
     text: NestedContainer[str],
@@ -254,9 +257,9 @@ def smart_split(
     strip: bool = ...,
     remove_spaces: bool = ...,
     max_split: int = ...,
-    part_filter: Optional[Callable[[str], bool]] = ...,
-    separator: Union[str, Callable[[], str]],
-) -> List[str]: ...
+    part_filter: Callable[[str], bool] | None = ...,
+    separator: str | Callable[[], str],
+) -> list[str]: ...
 @overload
 def smart_split(
     text: NestedContainer[str],
@@ -265,9 +268,9 @@ def smart_split(
     strip: bool = ...,
     remove_spaces: bool = ...,
     max_split: int = ...,
-    part_filter: Optional[Callable[[str], bool]] = ...,
-    separator: Union[str, Callable[[], str]],
-) -> List[_T]: ...
+    part_filter: Callable[[str], bool] | None = ...,
+    separator: str | Callable[[], str],
+) -> list[_T]: ...
 @overload
 def smart_split(
     text: NestedContainer[str],
@@ -275,9 +278,9 @@ def smart_split(
     strip: bool = ...,
     remove_spaces: bool = ...,
     max_split: int = ...,
-    part_filter: Optional[Callable[[str], bool]] = ...,
-    separator: Union[str, Callable[[], str]],
-) -> List[str]: ...
+    part_filter: Callable[[str], bool] | None = ...,
+    separator: str | Callable[[], str],
+) -> list[str]: ...
 def smart_split(
     text: NestedContainer[str],
     indexing = None,

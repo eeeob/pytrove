@@ -1,4 +1,4 @@
-from typing import Dict, Union, Optional
+from __future__ import annotations
 
 from .typings import CountryInfo, RegionCode, StrInt
 from .phone_tools import cc_from_rc, is_rc
@@ -17,8 +17,8 @@ except ImportError:
 
 from ._optional import _optional_import
 
-_COUNTRIES: Optional[Dict[str, CountryInfo]] = None
-_COUNTRIES_BY_CC: Optional[Dict[int, CountryInfo]] = None
+_COUNTRIES: dict[str, CountryInfo] | None = None
+_COUNTRIES_BY_CC: dict[int, CountryInfo] | None = None
 
 @_optional_import((("pycountry", "phonenumbers"), "country"))
 def _build_countries():
@@ -59,7 +59,7 @@ def get_cfullname(rc_or_cc: StrInt) -> str:
 
 
 @_optional_import(("babel", "locale"))
-def _primary_official_language(rc: RegionCode) -> Optional[str]:
+def _primary_official_language(rc: RegionCode) -> str | None:
     """ISO 639 code of `rc`'s primary official language, picked from Babel's
     CLDR territory-language data by highest population share among languages
     marked official there; `None` if the territory has no language marked
@@ -158,12 +158,12 @@ def get_clanguage_name(rc: RegionCode, native: bool = True) -> str:
 
 
 @_optional_import((("pycountry", "phonenumbers"), "country"))
-def get_countries() -> Dict[str, CountryInfo]:
+def get_countries() -> dict[str, CountryInfo]:
     _build_countries()
     return _COUNTRIES
 
 @_optional_import((("pycountry", "phonenumbers"), "country"))
-def get_countries_by_cc() -> Dict[int, CountryInfo]:
+def get_countries_by_cc() -> dict[int, CountryInfo]:
     _build_countries()
     return _COUNTRIES_BY_CC
 

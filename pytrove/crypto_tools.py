@@ -1,4 +1,6 @@
-from typing import Union, Callable, overload
+from __future__ import annotations
+
+from typing import Callable, overload
 
 try:
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -45,7 +47,7 @@ def _drive_deterministic_key(password: str) -> bytes:
 
 
 @_optional_import(("cryptography", "crypto"))
-def encrypt(data: Union[bytes, str], password: str) -> bytes:
+def encrypt(data: bytes | str, password: str) -> bytes:
     """AES-GCM encryption with a random salt and nonce, prepended to the
     ciphertext so decrypt() can recover them without a separate channel.
     Encrypting the same `data`/`password` twice produces different output
@@ -95,7 +97,7 @@ def decrypt(encrypted_data: bytes, password: str, data_resolver=None):
     return data_bytes if data_resolver is None else data_resolver(data_bytes)
 
 @_optional_import(("cryptography", "crypto"))
-def d_encrypt(data: Union[bytes, str], password: str) -> bytes:
+def d_encrypt(data: bytes | str, password: str) -> bytes:
     """AES-SIV deterministic encryption ("d_" = deterministic): the same
     `data`/`password` always produces the exact same ciphertext, because the
     key is derived from `password` alone (via _drive_deterministic_key(),

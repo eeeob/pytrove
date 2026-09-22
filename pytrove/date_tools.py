@@ -1,4 +1,6 @@
-from typing import Optional, overload
+from __future__ import annotations
+
+from typing import overload
 from datetime import datetime, timezone, timedelta
 
 from .typings import _False, _True, Number
@@ -11,20 +13,20 @@ import time
 @overload
 def stamp_to_date(
     stamp_time: Number, #utc
-    tz: Optional[timezone] = ...,
+    tz: timezone | None = ...,
     as_str: _False = ...,
     with_tzinfo: bool = ...
 ) -> datetime: ...
 @overload
 def stamp_to_date(
     stamp_time: Number,
-    tz: Optional[timezone] = ...,
+    tz: timezone | None = ...,
     as_str: _True = ...,
     with_tzinfo: bool = ...
 ) -> str: ...
 def stamp_to_date(
     stamp_time: Number,
-    tz: Optional[timezone] = timezone.utc,
+    tz: timezone | None = timezone.utc,
     as_str: bool = False,
     with_tzinfo: bool = False
     ):
@@ -40,20 +42,20 @@ def stamp_to_date(
 @overload
 def date_to_stamp(
     date: str,
-    tz: Optional[timezone] = ...,
+    tz: timezone | None = ...,
     format: str = ...,
     as_int: _True = ...
 ) -> int: ...
 @overload
 def date_to_stamp(
     date: str,
-    tz: Optional[timezone] = ...,
+    tz: timezone | None = ...,
     format: str = ...,
     as_int: _False = ...
 ) -> float: ...
 def date_to_stamp(
     date: str,
-    tz: Optional[timezone] = timezone.utc,
+    tz: timezone | None = timezone.utc,
     format: str = "%d %b %Y, %H:%M",
     as_int: bool = True
     ):
@@ -131,7 +133,7 @@ def time_utc(as_int: bool = False):
 
 
 
-def arabic_time(date: Optional[datetime] = None) -> str:
+def arabic_time(date: datetime | None = None) -> str:
     if date is None:
         date = date_utc_3()
 

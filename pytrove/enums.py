@@ -1,4 +1,6 @@
-from typing import Optional
+from __future__ import annotations
+
+from typing import Final
 
 import sys
 
@@ -181,7 +183,7 @@ class ImapEmailProvider(Enum):
         return self.value[1]
     
     @classmethod
-    def from_domain(cls, domain: str) -> Optional["ImapEmailProvider"]:
+    def from_domain(cls, domain: str) -> ImapEmailProvider | None:
         return IMAP_DOMAIN_TO_PROVIDER.get(domain.lower())
     
 class PlatformDevice(StrEnum):
@@ -198,7 +200,7 @@ class TimeUnit(IntEnum):
     YEAR = MONTH * 12
 
 
-IMAP_DOMAIN_TO_PROVIDER = {
+IMAP_DOMAIN_TO_PROVIDER: Final[dict[str, ImapEmailProvider]] = {
     "gmail.com": ImapEmailProvider.GMAIL,
     "outlook.com": ImapEmailProvider.OUTLOOK,
     "hotmail.com": ImapEmailProvider.OUTLOOK,

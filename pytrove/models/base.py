@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from typing import (
-    Dict, Any, ClassVar, List, FrozenSet,
+    Any, ClassVar,
     get_args, get_type_hints, get_origin
 )
 
@@ -35,10 +37,10 @@ class BaseDataClass:
     by _ensure_field_meta() -- see there for how fields/enums are discovered.
     """
 
-    __public_field_names__: ClassVar[List[str]]
-    __private_field_names__: ClassVar[List[str]]
-    __raw_private_fields__: ClassVar[FrozenSet[str]]
-    __enums_types__: ClassVar[FrozenSet[EnumType]]
+    __public_field_names__: ClassVar[list[str]]
+    __private_field_names__: ClassVar[list[str]]
+    __raw_private_fields__: ClassVar[frozenset[str]]
+    __enums_types__: ClassVar[frozenset[EnumType]]
 
     @classmethod
     def _ensure_field_meta(cls) -> None:
@@ -54,7 +56,7 @@ class BaseDataClass:
 
         `_deep_extract` walks a field's type hint recursively via
         get_origin()/get_args() to find every Enum class inside it -- so
-        `Optional[SomeEnum]`, `List[SomeEnum]`, `Dict[str, SomeEnum]` etc. are
+        `SomeEnum | None`, `list[SomeEnum]`, `dict[str, SomeEnum]` etc. are
         all detected, not just a bare `SomeEnum` annotation.
         """
 
@@ -117,7 +119,7 @@ class BaseDataClass:
         self, 
         without_none_values: bool = False, 
         enums_to_values: bool = False, 
-        ) -> Dict[str, Any]:
+        ) -> dict[str, Any]:
 
         dct = asdict(self)
 
@@ -132,7 +134,7 @@ class BaseDataClass:
         self,
         without_none_values: bool = False,
         enums_to_values: bool = False,
-        ) -> Dict[str, Any]:
+        ) -> dict[str, Any]:
 
         self.__class__._ensure_field_meta()
 

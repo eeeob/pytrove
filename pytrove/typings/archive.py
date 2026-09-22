@@ -11,9 +11,11 @@ the four policies as public enums. It imports nothing internal at all, so
 the foundation layer stays acyclic.
 """
 
+from __future__ import annotations
+
 
 from pathlib import Path
-from typing import Callable, NamedTuple, Optional
+from typing import Callable, NamedTuple
 from ..enums import ArchiveDuplicatePolicy, ArchiveLinkPolicy, ArchiveOverwritePolicy
 
 
@@ -154,14 +156,14 @@ class ArchiveLimits(NamedTuple):
     where both answers are defensible.
     """
 
-    max_files: Optional[int] = None
-    max_total_size: Optional[int] = None
-    max_file_size: Optional[int] = None
-    max_ratio: Optional[float] = None
-    max_depth: Optional[int] = None
-    max_dir_entries: Optional[int] = None
-    max_root_entries: Optional[int] = None
-    dir_check: Optional[Callable[[Path], Optional[bool]]] = None
+    max_files: int | None = None
+    max_total_size: int | None = None
+    max_file_size: int | None = None
+    max_ratio: float | None = None
+    max_depth: int | None = None
+    max_dir_entries: int | None = None
+    max_root_entries: int | None = None
+    dir_check: Callable[[Path], bool | None] | None = None
 
     symlinks: ArchiveLinkPolicy = ArchiveLinkPolicy.ERROR
     hardlinks: ArchiveLinkPolicy = ArchiveLinkPolicy.ERROR
@@ -169,7 +171,7 @@ class ArchiveLimits(NamedTuple):
     duplicates: ArchiveDuplicatePolicy = ArchiveDuplicatePolicy.SKIP
 
     @classmethod
-    def permissive(cls, **kw) -> "ArchiveLimits":
+    def permissive(cls, **kw) -> ArchiveLimits:
         """Links restored, for an archive whose maker you are.
 
         Only what can be made safe is relaxed: a link is still refused if

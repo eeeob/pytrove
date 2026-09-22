@@ -1,15 +1,17 @@
+from __future__ import annotations
+
 import asyncio
 import sys
 
 from typing import (
-    Any, Awaitable, List, Optional, Union, 
-    TypeAlias, Type, Tuple, 
+    Any, Awaitable,
+    TypeAlias, Final,
     TYPE_CHECKING, overload
 )
 from .typings import MaybeAwaitableCallable, _True, _False, _T
 
 
-_PY314 = sys.version_info >= (3, 14)
+_PY314: Final[bool] = sys.version_info >= (3, 14)
 
 def _get_fut_loop(fut):
     try:
@@ -20,7 +22,7 @@ def _get_fut_loop(fut):
         return get_loop()
     return fut._loop
 
-def _get_running_loop() -> Optional[asyncio.AbstractEventLoop]:
+def _get_running_loop() -> asyncio.AbstractEventLoop | None:
     try:
         return asyncio.get_running_loop()
     except RuntimeError:
@@ -35,15 +37,15 @@ class _GatheringFuture(asyncio.Future):
 
     if not TYPE_CHECKING:
         @property
-        def cancel_message(self) -> Optional[Any]:
+        def cancel_message(self) -> Any | None:
             return getattr(self, "_cancel_message", None)
         
         @cancel_message.setter
-        def cancel_message(self, value: Optional[Any]):
+        def cancel_message(self, value: Any | None):
             setattr(self, "_cancel_message", value)
 
 
-        def cancel(self, msg: Optional[Any] = None) -> bool:
+        def cancel(self, msg: Any | None = None) -> bool:
             # Cancelling the outer future does not cancel *this* future
             # immediately -- it forwards the request to every child and lets
             # them unwind first, exactly like asyncio.gather(). _done_callback
@@ -66,9 +68,9 @@ class _GatheringFuture(asyncio.Future):
 
 
 @overload
-def _gather_cancel_on_error(*awaitables: Awaitable[_T], return_exceptions: _False = False) -> asyncio.Future[List[_T]]:...
+def _gather_cancel_on_error(*awaitables: Awaitable[_T], return_exceptions: _False = False) -> asyncio.Future[list[_T]]:...
 @overload
-def _gather_cancel_on_error(*awaitables: Awaitable[_T], return_exceptions: _True) -> asyncio.Future[List[Union[_T, Exception]]]:...
+def _gather_cancel_on_error(*awaitables: Awaitable[_T], return_exceptions: _True) -> asyncio.Future[list[_T | Exception]]:...
 def _gather_cancel_on_error(*awaitables, return_exceptions = False):
     """Reimplementation of asyncio.gather() that cancels every sibling as soon
     as one fails (asyncio.gather() itself leaves the rest running).
@@ -206,7 +208,7 @@ def _gather_cancel_on_error(*awaitables, return_exceptions = False):
 
 
 
-_ExcFilter: TypeAlias = Optional[Union[Type[BaseException], Tuple[Type[BaseException], ...]]]
-_ExcLogger: TypeAlias = Union[bool, MaybeAwaitableCallable[[BaseException], Any]]
+_ExcFilter: TypeAlias = type[BaseException] | tuple[type[BaseException], ...] | None
+_ExcLogger: TypeAlias = bool | MaybeAwaitableCallable[[BaseException], Any]
 
-_HARD_PROPAGATE = (SystemExit, KeyboardInterrupt)
+_HARD_PROPAGATE: Final[tuple[type[SystemExit], type[KeyboardInterrupt]]] = (SystemExit, KeyboardInterrupt)

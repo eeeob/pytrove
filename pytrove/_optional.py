@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import importlib.util
 import functools
 import operator
 import re
 
-from typing import Any, List, Optional, Tuple, Union, Callable
+from typing import Any, Callable, Final
 
 try:
     from typing import Never
@@ -19,10 +21,10 @@ from .typings import _P, _T
 # "kurigram>=2.2.24", "wrapt>=1.16,<2". Everything up to the first comparison
 # operator is the importable/distribution name; the rest is one or more
 # comma-separated specifiers, all of which must hold.
-_SPEC_RE = re.compile(r"^\s*([^<>=!~\s]+)\s*(.*)$")
-_CLAUSE_RE = re.compile(r"(==|!=|>=|<=|~=|>|<)\s*([^,\s]+)")
+_SPEC_RE: Final[re.Pattern[str]] = re.compile(r"^\s*([^<>=!~\s]+)\s*(.*)$")
+_CLAUSE_RE: Final[re.Pattern[str]] = re.compile(r"(==|!=|>=|<=|~=|>|<)\s*([^,\s]+)")
 
-_OPERATORS = {
+_OPERATORS: Final[dict[str, Callable[[Any, Any], bool]]] = {
     "==": operator.eq,
     "!=": operator.ne,
     ">=": operator.ge,
@@ -32,7 +34,7 @@ _OPERATORS = {
 }
 
 
-def _parse_version(v: str) -> Tuple[int, ...]:
+def _parse_version(v: str) -> tuple[int, ...]:
     """Turn "2.2.24" / "1.16.0rc1" into a comparable tuple of ints.
 
     Only the numeric release segment is kept -- a trailing pre/post/dev
@@ -47,7 +49,7 @@ def _parse_version(v: str) -> Tuple[int, ...]:
         if (m := re.match(r"\d+", part))
     )
 
-def _split_spec(spec: str) -> Tuple[str, str]:
+def _split_spec(spec: str) -> tuple[str, str]:
     """Split "kurigram>=2.2.24" into ("kurigram", ">=2.2.24")."""
 
     m = _SPEC_RE.match(spec)
@@ -96,8 +98,8 @@ def _is_installed(package: str) -> bool:
     return _version_ok(name, clauses)
 
 def _build_error_msg(
-    packages: Tuple[Tuple[Union[str, Tuple[str, ...]], str], ...],
-    missing: List[Tuple[Tuple[str, ...], str]],
+    packages: tuple[tuple[str | tuple[str, ...], str], ...],
+    missing: list[tuple[tuple[str, ...], str]],
 ) -> str:
     all_extras = ", ".join(extra for _, extra in packages)
     all_names = ", ".join(
@@ -114,8 +116,8 @@ def _build_error_msg(
         f"Missing  : {missing_names}"
     )
 
-def _get_missing(*packages: Tuple[Union[str, Tuple[str, ...]], str]) -> List[Tuple[Tuple[str, ...], str]]:
-    missing: List[Tuple[Tuple[str, ...], str]] = []
+def _get_missing(*packages: tuple[str | tuple[str, ...], str]) -> list[tuple[tuple[str, ...], str]]:
+    missing: list[tuple[tuple[str, ...], str]] = []
 
     for pkgs, extra in packages:
         if isinstance(pkgs, str):
@@ -129,7 +131,7 @@ def _get_missing(*packages: Tuple[Union[str, Tuple[str, ...]], str]) -> List[Tup
     return missing
 
 
-def _optional_import(*packages: Tuple[Union[str, Tuple[str, ...]], str]) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
+def _optional_import(*packages: tuple[str | tuple[str, ...], str]) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
     missing = _get_missing(*packages)
     error_msg = _build_error_msg(packages, missing) if missing else None
 
@@ -142,7 +144,7 @@ def _optional_import(*packages: Tuple[Union[str, Tuple[str, ...]], str]) -> Call
         return wrapper
     return decorator
 
-def _unavailable_class(name: str, *packages: Tuple[Union[str, Tuple[str, ...]], str]) -> type[Any]:
+def _unavailable_class(name: str, *packages: tuple[str | tuple[str, ...], str]) -> type[Any]:
     """Build a stand-in class for a public class whose optional dependency is
     missing, so the module can still define the name and import cleanly --
     only *using* the class raises, not importing it.

@@ -1,4 +1,6 @@
-from typing import Union, List, Callable, Optional, Awaitable, overload, Type, Tuple
+from __future__ import annotations
+
+from typing import Callable, Awaitable, Generator, overload
 from concurrent.futures import ThreadPoolExecutor
 
 from .typings import (
@@ -23,6 +25,7 @@ import logging
 import contextvars
 import inspect
 import traceback
+import types
 
 
 log = logging.getLogger(__file__)
@@ -30,10 +33,10 @@ log = logging.getLogger(__file__)
 
 
 def _log_exc(
-    header: Optional[str],
-    caller_stack: List[traceback.FrameSummary],
+    header: str | None,
+    caller_stack: list[traceback.FrameSummary],
     exc: BaseException,
-    index: Optional[int] = None,
+    index: int | None = None,
 ) -> None:
     exc_trace = traceback.format_exception(type(exc), exc, exc.__traceback__)
     caller_trace = traceback.format_list(caller_stack)
@@ -55,7 +58,7 @@ def _log_exc(
 async def to_thread(
     func: Callable[_P, _T],
     *args: _P.args,
-    executor: Optional[ThreadPoolExecutor] = None,
+    executor: ThreadPoolExecutor | None = None,
     log_exc: bool = True,
     **kwargs: _P.kwargs,
 ) -> _T: ...
@@ -63,11 +66,11 @@ async def to_thread(
 async def to_thread(
     func: Callable[_P, _T],
     *args: _P.args,
-    executor: Optional[ThreadPoolExecutor] = None,
+    executor: ThreadPoolExecutor | None = None,
     log_exc: bool = True,
     return_exc: _True,
     **kwargs: _P.kwargs,
-) -> Union[_T, Exception]: ...
+) -> _T | Exception: ...
 
 async def to_thread(
     func,
@@ -98,15 +101,15 @@ async def to_thread(
 
 @overload
 async def gather_helper(
-    *awaitables: NestedContainer[Optional[Awaitable[_T]]],
+    *awaitables: NestedContainer[Awaitable[_T] | None],
     log_exc: bool = True,
-) -> List[_T]: ...
+) -> list[_T]: ...
 @overload
 async def gather_helper(
-    *awaitables: NestedContainer[Optional[Awaitable[_T]]],
+    *awaitables: NestedContainer[Awaitable[_T] | None],
     return_exc: _True,
     log_exc: bool = True,
-) -> List[Union[_T, Exception]]: ...
+) -> list[_T | Exception]: ...
 async def gather_helper(
     *awaitables,
     return_exc = False,
@@ -127,15 +130,15 @@ async def gather_helper(
 
 @overload
 async def gather_abort(
-    *awaitables: NestedContainer[Optional[Awaitable[_T]]], 
+    *awaitables: NestedContainer[Awaitable[_T] | None], 
     log_exc: bool = True, 
-) -> List[_T]: ...
+) -> list[_T]: ...
 @overload
 async def gather_abort(
-    *awaitables: NestedContainer[Optional[Awaitable[_T]]],
+    *awaitables: NestedContainer[Awaitable[_T] | None],
     return_exc: _True,
     log_exc: bool = True,
-) -> List[Union[_T, Exception]]: ...
+) -> list[_T | Exception]: ...
 async def gather_abort(
     *awaitables, 
     return_exc = False, 
@@ -158,7 +161,7 @@ async def safe_await(
     awaitables: Awaitable[_T],
     *,
     log_exc: bool = True,
-) -> Union[_T, Exception]: ...
+) -> _T | Exception: ...
 @overload
 async def safe_await(
     awaitables: Awaitable[_T],
@@ -168,28 +171,28 @@ async def safe_await(
 ) -> _T: ...
 @overload
 async def safe_await(
-    awaitables: Container[NestedContainer[Optional[Awaitable[_T]]]],
+    awaitables: Container[NestedContainer[Awaitable[_T] | None]],
     *, 
     log_exc: bool = True,
-) -> List[Union[_T, Exception]]: ...
+) -> list[_T | Exception]: ...
 @overload
 async def safe_await(
-    awaitables: Container[NestedContainer[Optional[Awaitable[_T]]]],
+    awaitables: Container[NestedContainer[Awaitable[_T] | None]],
     *, 
     return_exc: _False,
     log_exc: bool = True,
-) -> List[_T]: ...
+) -> list[_T]: ...
 @overload
 async def safe_await(
-    *awaitables: NestedContainer[Optional[Awaitable[_T]]],
+    *awaitables: NestedContainer[Awaitable[_T] | None],
     log_exc: bool = True,
-) -> List[Union[_T, Exception]]: ...
+) -> list[_T | Exception]: ...
 @overload
 async def safe_await(
-    *awaitables: NestedContainer[Optional[Awaitable[_T]]],
+    *awaitables: NestedContainer[Awaitable[_T] | None],
     return_exc: _False,
     log_exc: bool = True,
-) -> List[_T]: ...
+) -> list[_T]: ...
 
 async def safe_await(
     *awaitables,
@@ -235,7 +238,7 @@ async def asafe_call(
     include_exc: _ExcFilter = None,
     exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
-) -> Optional[_T]: ...
+) -> _T | None: ...
 @overload
 async def asafe_call(
     awaitable: Awaitable[_T],
@@ -244,25 +247,25 @@ async def asafe_call(
     include_exc: _ExcFilter = None,
     exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
-) -> Optional[_T]: ...
+) -> _T | None: ...
 @overload
 async def asafe_call(
     awaitable: Awaitable[_T],
     *,
     return_exc: _True,
-    include_exc: Type[_ExcT],
+    include_exc: type[_ExcT],
     exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
-) -> Union[_T, _ExcT]: ...
+) -> _T | _ExcT: ...
 @overload
 async def asafe_call(
     awaitable: Awaitable[_T],
     *,
     return_exc: _True,
-    include_exc: Tuple[Type[_ExcT], ...],
+    include_exc: tuple[type[_ExcT], ...],
     exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
-) -> Union[_T, _ExcT]: ...
+) -> _T | _ExcT: ...
 @overload
 async def asafe_call(
     awaitable: Awaitable[_T],
@@ -271,7 +274,7 @@ async def asafe_call(
     include_exc: _ExcFilter = None,
     exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
-) -> Union[_T, BaseException]: ...
+) -> _T | BaseException: ...
 @overload
 async def asafe_call(
     awaitable: Awaitable[_T],
@@ -356,7 +359,7 @@ async def asafe_call(
 async def maybe_awaitable(
     awaitable_or_callable: MaybeAwaitable[_P, _T],
     *args: _P.args,
-    executor: Optional[ThreadPoolExecutor] = None,
+    executor: ThreadPoolExecutor | None = None,
     log_exc: bool = True,
     **kwargs: _P.kwargs,
 ) -> _T: ...
@@ -364,11 +367,11 @@ async def maybe_awaitable(
 async def maybe_awaitable(
     awaitable_or_callable: MaybeAwaitable[_P, _T],
     *args: _P.args,
-    executor: Optional[ThreadPoolExecutor] = None,
+    executor: ThreadPoolExecutor | None = None,
     return_exc: _True,
     log_exc: bool = True,
     **kwargs: _P.kwargs,
-) -> Union[_T, Exception]: ...
+) -> _T | Exception: ...
 
 async def maybe_awaitable(
     awaitable_or_callable,
@@ -410,7 +413,7 @@ async def maybe_awaitable(
         )
 
 
-async def safe_wait_task(task: asyncio.Task[_T], canceled_ok = True, exc_ok = False) -> Optional[_T]:
+async def safe_wait_task(task: asyncio.Task[_T], canceled_ok = True, exc_ok = False) -> _T | None:
     try:
         return await task
     except asyncio.CancelledError as e:
@@ -424,6 +427,23 @@ async def run_awaitable_in_coro(awaitable: Awaitable[_T]) -> _T:
     return await awaitable
 
 
+@types.coroutine
+def yield_to_loop() -> Generator[None, None, None]:
+    """The cheapest possible checkpoint: suspend the current task for exactly
+    one iteration of the event loop, then resume.
+
+    A bare `yield` here is exactly what asyncio's own zero-delay fast path
+    (`asyncio.sleep(0)`) does internally, minus the extra call it makes to
+    get there -- so `await yield_to_loop()` is that same checkpoint without
+    the indirection. Reach for it inside a long synchronous stretch of an
+    otherwise-async function (a tight loop doing CPU work between awaits,
+    for instance) to give other tasks a turn without actually waiting on
+    anything.
+    """
+
+    yield
+
+
 async def call_sync_or_await(func: MaybeAwaitableCallable[_P, _T], *args: _P.args, **kwargs: _P.kwargs) -> _T:
     result = func(*args, **kwargs)
 
@@ -433,7 +453,7 @@ async def call_sync_or_await(func: MaybeAwaitableCallable[_P, _T], *args: _P.arg
     return result
 
 
-async def cancel_task(task: asyncio.Task, msg: Optional[str] = None) -> bool:
+async def cancel_task(task: asyncio.Task, msg: str | None = None) -> bool:
     """Cancel *task* and wait until its cancellation has been processed.
 
     Returns ``True`` when the task accepted the cancellation request and
@@ -474,7 +494,8 @@ __all__ = [
     "safe_wait_task",
     "maybe_awaitable",
     "run_awaitable_in_coro",
+    "yield_to_loop",
     "gather_abort",
-    "call_sync_or_await", 
-    "cancel_task", 
+    "call_sync_or_await",
+    "cancel_task",
 ]

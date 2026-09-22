@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import os
 
 from pathlib import Path
-from typing import Callable, Optional, Union
+from typing import Callable
 from concurrent.futures import Executor
 
 from .typings import ArchiveLimits, NestedContainer, PathLike
@@ -26,11 +28,11 @@ def compress_folder(
     src: PathLike,
     dest: PathLike,
     *,
-    format: Optional[Union[ArchiveFormat, str]] = None,
-    include: Optional[NestedContainer[_Rule]] = None,
-    exclude: Optional[NestedContainer[_Rule]] = None,
-    level: Optional[int] = None,
-    workers: Optional[Union[int, Executor]] = None,
+    format: ArchiveFormat | str | None = None,
+    include: NestedContainer[_Rule] | None = None,
+    exclude: NestedContainer[_Rule] | None = None,
+    level: int | None = None,
+    workers: int | Executor | None = None,
     follow_links: bool = False,
     exclude_hidden: bool = True,
     fsync: bool = True,
@@ -474,11 +476,11 @@ def extract_archive(
     src: PathLike,
     dest: PathLike,
     *,
-    include: Optional[NestedContainer[_Rule]] = None,
-    exclude: Optional[NestedContainer[_Rule]] = None,
+    include: NestedContainer[_Rule] | None = None,
+    exclude: NestedContainer[_Rule] | None = None,
     limits: ArchiveLimits = ArchiveLimits(),
-    password: Optional[Union[str, bytes]] = None,
-    workers: Optional[Union[int, Executor]] = None,
+    password: str | bytes | None = None,
+    workers: int | Executor | None = None,
     atomic: bool = True,
     cleanup_on_error: bool = False,
     delete_archive: bool = False,

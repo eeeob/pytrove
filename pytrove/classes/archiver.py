@@ -1,4 +1,6 @@
-from typing import List, Optional, Set, TYPE_CHECKING
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 from pathlib import Path
 
 import asyncio
@@ -35,16 +37,16 @@ class PeriodicArchiver:
     which job or root it belongs to.
     """
 
-    def __init__(self, jobs: NestedContainer["ArchiveJob"], *, base_exclude: NestedContainer = (),):
+    def __init__(self, jobs: NestedContainer[ArchiveJob], *, base_exclude: NestedContainer = (),):
         self.jobs = tuple(iter_flat_cont(jobs))
         self.base_exclude = base_exclude
 
         self._locks: DefaultWeakValueDict[int, asyncio.Lock] = DefaultWeakValueDict(asyncio.Lock)
 
-        self._task: Optional["asyncio.Task[None]"] = None
-        self._running: Set["asyncio.Task[None]"] = set()
+        self._task: asyncio.Task[None] | None = None
+        self._running: set[asyncio.Task[None]] = set()
 
-    def _siblings(self, job: "ArchiveJob") -> List[str]:
+    def _siblings(self, job: ArchiveJob) -> list[str]:
         """Every other job's own archive name, but only among jobs that
         share `job`'s root -- a job living somewhere else can never collide
         with this one, so it has nothing to be excluded for."""
@@ -55,13 +57,13 @@ class PeriodicArchiver:
             if other is not job and other.root == job.root
         ]
 
-    def _should_run(self, job: "ArchiveJob") -> bool:
+    def _should_run(self, job: ArchiveJob) -> bool:
         if job.should_run is not None:
             return job.should_run()
 
         return time.monotonic() - job.last_run >= job.min_interval
 
-    async def create(self, job: "ArchiveJob") -> Path:
+    async def create(self, job: ArchiveJob) -> Path:
         """Build `job`'s archive and return its path -- off the event loop,
         via to_thread, same as the rest of a job's own cycle (run_job).
 
@@ -87,7 +89,7 @@ class PeriodicArchiver:
             delete_source=job.delete_source,
         )
 
-    async def run_job(self, job: "ArchiveJob") -> None:
+    async def run_job(self, job: ArchiveJob) -> None:
         """create -> on_archive -> delete, once, for `job` alone --
         guarded by `job`'s own lock so a slow on_archive never overlaps a
         second run of the same job. `on_error` (or the default log) runs

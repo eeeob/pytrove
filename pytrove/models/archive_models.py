@@ -1,4 +1,6 @@
-from typing import Awaitable, Callable, Optional, Union
+from __future__ import annotations
+
+from typing import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from concurrent.futures import Executor
@@ -46,23 +48,23 @@ class ArchiveJob:
     name: str
     root: PathLike
     dest_name: Callable[[], str]
-    on_archive: Callable[["ArchiveJob", Path], Awaitable[None]]
-    on_error: Optional[Callable[["ArchiveJob", Exception], Awaitable[None]]] = None
+    on_archive: Callable[[ArchiveJob, Path], Awaitable[None]]
+    on_error: Callable[[ArchiveJob, Exception], Awaitable[None]] | None = None
 
     archive_format: ArchiveFormat = ArchiveFormat.ZIP
-    include: Optional[NestedContainer[_Rule]] = None
-    exclude: Optional[NestedContainer[_Rule]] = None
+    include: NestedContainer[_Rule] | None = None
+    exclude: NestedContainer[_Rule] | None = None
     exclude_hidden: bool = True
     stability_retries: int = 0
 
-    level: Optional[int] = None
-    workers: Optional[Union[int, Executor]] = None
+    level: int | None = None
+    workers: int | Executor | None = None
     follow_links: bool = False
     fsync: bool = True
     stability_check: Callable[[os.stat_result, str], bool] = _default_stability_check
     delete_source: bool = False
 
-    should_run: Optional[Callable[[], bool]] = None
+    should_run: Callable[[], bool] | None = None
     min_interval: float = TimeUnit.HOUR * 12
     poll_interval: float = TimeUnit.MINUTE * 10
 

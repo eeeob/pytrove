@@ -1,4 +1,6 @@
-from typing import Union, Optional, overload
+from __future__ import annotations
+
+from typing import overload
 
 try:
     from phonenumbers import (
@@ -23,16 +25,16 @@ from ._optional import _optional_import
 
 @overload
 def parse_phone(
-    phone_number: Union[PhoneNumber, int, "PhoneNumberObj"], 
+    phone_number: PhoneNumber | int | PhoneNumberObj, 
     clean: bool = True, 
     ) -> PhoneNumber: ...
 @overload
 def parse_phone(
-    phone_number: Union[PhoneNumber, int, "PhoneNumberObj"], 
+    phone_number: PhoneNumber | int | PhoneNumberObj, 
     clean: bool = True, 
     *, 
     return_numobj: _True
-    ) -> "PhoneNumberObj": ...
+    ) -> PhoneNumberObj: ...
 @_optional_import(("phonenumbers", "phone"))
 def parse_phone(
     phone_number, 
@@ -64,7 +66,7 @@ def cc_from_rc(rc: RegionCode) -> int:
     return country_code_for_valid_region(rc.lower())
 
 @_optional_import(("phonenumbers", "phone"))
-def cc_from_phone(phone_number: Union[PhoneNumber, "PhoneNumberObj"]) -> int:
+def cc_from_phone(phone_number: PhoneNumber | PhoneNumberObj) -> int:
     if not isinstance(phone_number, PhoneNumberObj):
         phone_number = parse_phone(phone_number, return_numobj=True)
         
@@ -78,7 +80,7 @@ def rc_from_cc(cc: int) -> RegionCode:
     return rc.lower()
 
 @_optional_import(("phonenumbers", "phone"))
-def rc_from_phone(phone_number: Union[PhoneNumber, "PhoneNumberObj"]) -> RegionCode:
+def rc_from_phone(phone_number: PhoneNumber | PhoneNumberObj) -> RegionCode:
     if not isinstance(phone_number, PhoneNumberObj):
         phone_number = parse_phone(phone_number, return_numobj=True)
         
@@ -88,7 +90,7 @@ def rc_from_phone(phone_number: Union[PhoneNumber, "PhoneNumberObj"]) -> RegionC
     return rc.lower()
         
 @_optional_import(("phonenumbers", "phone"))
-def resolve_rc(value: Union[RegionCode, PhoneNumber, "PhoneNumberObj", int]) -> Optional[RegionCode]:
+def resolve_rc(value: RegionCode | PhoneNumber | PhoneNumberObj | int) -> RegionCode | None:
     if isinstance(value, int):
         return rc_from_cc(value)
     elif isinstance(value, PhoneNumberObj):

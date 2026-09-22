@@ -1,4 +1,6 @@
-from typing import Union, Dict, Any, Callable, Mapping, Literal, Optional, Tuple, Type, TypeVar, overload
+from __future__ import annotations
+
+from typing import Any, Callable, Mapping, Literal, TypeVar, overload
 from enum import Enum
 
 from .typings import (
@@ -35,7 +37,7 @@ def _none_cleaner(v):
 @overload
 def map_deep(
     data: Mapping[_KT, NestedContainerMappingValue[_KT, _VT]],
-    func: Callable[[Union[_KT, _VT]], _R],
+    func: Callable[[_KT | _VT], _R],
     ) -> Mapping[_R, NestedContainerMappingValue[_R, _R]]: ...
 @overload
 def map_deep(data: NestedContainer[_T], func: Callable[[_T], _R]) -> NestedContainer[_R]: ...
@@ -110,7 +112,7 @@ def map_deep_kv(
 def map_deep_kv(
     data: NestedContainer[_T],
     value_func: Callable[[_T], _R],
-    key_func: Optional[Callable[[Any], Any]] = None,
+    key_func: Callable[[Any], Any] | None = None,
     ) -> NestedContainer[_R]: ...
 def map_deep_kv(data, value_func, key_func=None):
     """map_deep, with a mapping's two sides given their own function instead
@@ -195,28 +197,28 @@ def enum_to_value(data: _T) -> _T:
 @overload
 def value_to_enum(
     values: Mapping[_KT, _VT],
-    enum_classes: NestedContainer[Type[_EnumT]],
+    enum_classes: NestedContainer[type[_EnumT]],
     map_resolve_type: Literal["k", "K"],
-    ) -> Mapping[Union[_KT, _EnumT], _VT]: ...
+    ) -> Mapping[_KT | _EnumT, _VT]: ...
 @overload
 def value_to_enum(
     values: Mapping[_KT, _VT],
-    enum_classes: NestedContainer[Type[_EnumT]],
+    enum_classes: NestedContainer[type[_EnumT]],
     map_resolve_type: Literal["v", "V"] = "v",
-    ) -> Mapping[_KT, Union[_EnumT, _VT]]: ...
+    ) -> Mapping[_KT, _EnumT | _VT]: ...
 @overload
 def value_to_enum(
     values: 'Container[ _T]',
-    enum_classes: NestedContainer[Type[_EnumT]],
-    ) -> 'Container[Union[_EnumT, _T]]': ...
+    enum_classes: NestedContainer[type[_EnumT]],
+    ) -> 'Container[_EnumT | _T]': ...
 @overload
 def value_to_enum(
     values: _T,
-    enum_classes: NestedContainer[Type[_EnumT]],
-    ) -> Union[_EnumT, _T]: ...
+    enum_classes: NestedContainer[type[_EnumT]],
+    ) -> _EnumT | _T: ...
 def value_to_enum(
     values: Any,
-    enum_classes: NestedContainer[Type[_EnumT]],
+    enum_classes: NestedContainer[type[_EnumT]],
     map_resolve_type = "v"
     ):
     """Recursively replace raw values with their matching enum member,
@@ -291,7 +293,7 @@ def clean_none_values(data: _T) -> _T:
 
     return data
 
-def clean_none_kw(**kwargs) -> Dict[str, Any]:
+def clean_none_kw(**kwargs) -> dict[str, Any]:
     """clean_none_values over keyword arguments, for building a call's kwargs.
 
     The shape this exists for is forwarding optional arguments onward without
@@ -340,7 +342,7 @@ def get_nested_dict_key(path_dct: NestedStrKeyDict[Literal[True, 1]], sep: str =
     silently treating it as correct.
     """
 
-    def flatten(current_dict: NestedStrKeyDict[Literal[True, 1]], current_path: str = "") -> Tuple[str, Literal[1]]:
+    def flatten(current_dict: NestedStrKeyDict[Literal[True, 1]], current_path: str = "") -> tuple[str, Literal[1]]:
         key, value = next(iter(current_dict.items()))
 
         new_path = f"{current_path}{sep}{key}" if current_path else key

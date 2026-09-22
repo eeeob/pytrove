@@ -1,4 +1,6 @@
-from typing import Generic, Tuple, Mapping, Optional, Any, Union, Dict
+from __future__ import annotations
+
+from typing import Generic, Tuple, Mapping, Any, Final
 
 try:
     from typing import Self
@@ -27,16 +29,16 @@ from .base import BaseDataClass
 import asyncio
 import random
 
-_NOT_SET = object()
+_NOT_SET: Final = object()
 
-_INV_PHI = 0.6180339887498949   # (5 ** 0.5 - 1) / 2 -- the golden-ratio step
+_INV_PHI: Final[float] = 0.6180339887498949   # (5 ** 0.5 - 1) / 2 -- the golden-ratio step
 
 
 @dataclass(slots=True)
 class DeferredCall(Generic[_T]):
     func: MaybeAwaitable[..., _T]
-    args: Optional[Tuple] = None
-    kw: Optional[Mapping] = None
+    args: Tuple | None = None
+    kw: Mapping | None = None
 
     when: TriggerOn = TriggerOn.SUCCESS
     
@@ -51,7 +53,7 @@ class DeferredCall(Generic[_T]):
             
         )
 
-    async def run(self, *args: Any, executor: Optional[ThreadPoolExecutor] = None, **kw: Any) -> _T:
+    async def run(self, *args: Any, executor: ThreadPoolExecutor | None = None, **kw: Any) -> _T:
         """Run `func` -- `args`/`kw` given here are appended to/merged over
         whatever was set on the instance at construction, so a one-off extra
         argument does not need a new DeferredCall just to carry it.
@@ -73,9 +75,9 @@ class DeferredCall(Generic[_T]):
 @dataclass(slots=True)
 class JsonContainer(Generic[_KT, _VT], BaseDataClass):
     path: PathLike
-    lock: Optional[RLock] = None
+    lock: RLock | None = None
 
-    data: Dict[_KT, _VT] = field(default=_NOT_SET, init=False)
+    data: dict[_KT, _VT] = field(default=_NOT_SET, init=False)
 
     def is_loaded(self) -> bool:
         return self.data is not _NOT_SET
@@ -98,7 +100,7 @@ class JsonContainer(Generic[_KT, _VT], BaseDataClass):
             **kw
         )
     
-    def get(self, key: _KT, default: Optional[_T] = None) -> Optional[Union[_VT, _T]]:
+    def get(self, key: _KT, default: _T | None = None) -> _VT | _T | None:
         self.load()
         return self.data.get(key, default)
     
@@ -117,7 +119,7 @@ class JsonContainer(Generic[_KT, _VT], BaseDataClass):
             if save_now:
                 self.save()
     
-    def update(self, update: Dict[_KT, _VT], save_now: bool = False) -> None:
+    def update(self, update: dict[_KT, _VT], save_now: bool = False) -> None:
         self.load()
 
         self.data.update(update)
@@ -131,7 +133,7 @@ class JsonContainer(Generic[_KT, _VT], BaseDataClass):
     async def async_save(self, **kw) -> None:
         await to_thread(self.save, **kw)
     
-    async def async_get(self, key: _KT, default: Optional[_T] = None) -> Optional[Union[_VT, _T]]:
+    async def async_get(self, key: _KT, default: _T | None = None) -> _VT | _T | None:
         if not self.is_loaded():
             await self.async_load()
         return self.data.get(key, default)
@@ -154,7 +156,7 @@ class JsonContainer(Generic[_KT, _VT], BaseDataClass):
             if save_now:
                 await self.async_save()
 
-    async def async_update(self, update: Dict[_KT, _VT], save_now: bool = False) -> None:
+    async def async_update(self, update: dict[_KT, _VT], save_now: bool = False) -> None:
         if not self.is_loaded():
             await self.async_load()
 
@@ -169,21 +171,21 @@ class DelayedCallback(Generic[_T]):
     delay: Number
     callback: MaybeAwaitable[..., _T]
 
-    args: Optional[Tuple[Any, ...]] = None
-    kw: Optional[Mapping[str, Any]] = None
+    args: tuple[Any, ...] | None = None
+    kw: Mapping[str, Any] | None = None
 
-    on_finished: Optional[MaybeCoroutineCallable[[Self], Any]] = None
+    on_finished: MaybeCoroutineCallable[[Self], Any] | None = None
     cancel_event: asyncio.Event = field(default_factory=asyncio.Event)
 
     callback_started: bool = field(default=False, init=False)
-    _task: Optional[asyncio.Task[Optional[_T]]] = field(
+    _task: asyncio.Task[_T | None] | None = field(
         default=None, 
         init=False, 
         repr=False, 
     )
 
     
-    async def wait(self) -> Optional[_T]:
+    async def wait(self) -> _T | None:
         """Wait out `delay`, then run `callback` -- unless cancel() sets
         `cancel_event` first, in which case the callback never runs at all.
 
@@ -211,7 +213,7 @@ class DelayedCallback(Generic[_T]):
             if self.on_finished is not None:
                 await maybe_awaitable(self.on_finished, self)
 
-    def start(self) -> asyncio.Task[Optional[_T]]:
+    def start(self) -> asyncio.Task[_T | None]:
         if self._task is None:
             self._task = asyncio.create_task(self.wait())
 
@@ -246,7 +248,7 @@ class DelayedCallback(Generic[_T]):
         self._task = None
 
     @property
-    def task(self) -> Optional[asyncio.Task[Optional[_T]]]:
+    def task(self) -> asyncio.Task[_T | None] | None:
         return self._task
 
     @property
@@ -312,9 +314,9 @@ class Jitter:
     bias: float = 0.5
     wobble: float = 1.0
     min_distance: float = 0.0
-    rng: Optional[random.Random] = None
+    rng: random.Random | None = None
 
-    last: Optional[float] = field(default=None, init=False)
+    last: float | None = field(default=None, init=False)
     _u: float = field(default=0.0, init=False, repr=False)
 
     def __post_init__(self) -> None:

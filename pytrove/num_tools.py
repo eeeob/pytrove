@@ -1,5 +1,7 @@
+from __future__ import annotations
 
-from typing import Union, overload, Optional
+
+from typing import overload, Final, Callable, Any
 
 from .typings import _True, _False, _T, Number, StrInt
 from .validate_tools import validation
@@ -14,19 +16,19 @@ from math import sqrt
 
 
 log = logging.getLogger(__name__)
-CALC_ALLOWED_CHARS = frozenset("0123456789*/-+.")
+CALC_ALLOWED_CHARS: Final[frozenset[str]] = frozenset("0123456789*/-+.")
 
 # Explicit allow-list of AST node/operator types for calc()'s expression
 # evaluator. Anything else (function calls, attribute access, subscripts,
 # names, Pow/**, etc.) raises instead of evaluating -- there is no eval()/
 # exec() involved, so no code path can escape basic arithmetic on numbers.
-_CALC_BINOPS = {
+_CALC_BINOPS: Final[dict[type[ast.operator], Callable[[Any, Any], Any]]] = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,
     ast.Mult: operator.mul,
     ast.Div: operator.truediv,
 }
-_CALC_UNARYOPS = {
+_CALC_UNARYOPS: Final[dict[type[ast.unaryop], Callable[[Any], Any]]] = {
     ast.UAdd: operator.pos,
     ast.USub: operator.neg,
 }
@@ -52,10 +54,10 @@ def _eval_calc_ast(node):
 @overload
 def to_int(value: str, as_int: _True = ...) -> StrInt: ...
 @overload
-def to_int(value: str, as_int: _False) -> Union[StrInt, float]: ...
+def to_int(value: str, as_int: _False) -> StrInt | float: ...
 @overload
 def to_int(value: _T, as_int: bool = ...) -> _T: ...
-def to_int(value: Union[str, _T], as_int: bool = True):
+def to_int(value: str | _T, as_int: bool = True):
     if not isinstance(value, str) or value.startswith("+"):
         return value
     
@@ -83,12 +85,12 @@ def to_int_deep(data: _T, as_int: bool = False) -> _T:
 
 
 @overload
-def calc(value: str, as_int: _False = ...) -> Union[StrInt, float]: ...
+def calc(value: str, as_int: _False = ...) -> StrInt | float: ...
 @overload
 def calc(value: str, as_int: _True) -> StrInt: ...
 @overload
 def calc(value: _T, as_int: bool = ...) -> _T: ...
-def calc(value: Union[str, _T], as_int: bool = False):
+def calc(value: str | _T, as_int: bool = False):
     if not isinstance(value, str):
         return value
     
@@ -113,11 +115,11 @@ def calc(value: Union[str, _T], as_int: bool = False):
     return value
 
 
-def apply_discount(price: Number, discount_percent: Number, ndigits: Optional[int] = 4) -> float:
+def apply_discount(price: Number, discount_percent: Number, ndigits: int | None = 4) -> float:
     validation(discount_percent <= 100, "discount_percent must be <= 100")
     return round(price * (1 - discount_percent / 100), ndigits)
 
-def reverse_discount(discounted_price: Number, discount_percent: Number, ndigits: Optional[int] = 4) -> float:
+def reverse_discount(discounted_price: Number, discount_percent: Number, ndigits: int | None = 4) -> float:
     validation(0 <= discount_percent < 100, "discount_percent must be between 0 and < 100")
     return round(discounted_price / (1 - discount_percent / 100), ndigits)
 
@@ -169,10 +171,10 @@ def jitter(
     decrease: float,
     increase: float,
     bias: float = 0.5,
-    previous: Optional[float] = None,
+    previous: float | None = None,
     min_distance: float = 0.0,
     *,
-    rng: Optional[random.Random] = None,
+    rng: random.Random | None = None,
 ) -> float:
     """A random value near `value`, `decrease`/`increase` giving how far
     below/above it may land as fractions of it (``0.1`` == 10%), `bias`

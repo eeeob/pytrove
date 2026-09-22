@@ -1,4 +1,6 @@
-from typing import Optional, Union, Callable
+from __future__ import annotations
+
+from typing import Callable
 from pathlib import Path
 
 from dataclasses import dataclass
@@ -15,10 +17,10 @@ import io
 
 @dataclass(slots=True, kw_only=True)
 class _LoggerModel:
-    logger: Optional[Union[Logger, str]] = None
+    logger: Logger | str | None = None
 
-    level: Optional[int] = None
-    filter: Optional[Callable[[LogRecord], bool]] = None
+    level: int | None = None
+    filter: Callable[[LogRecord], bool] | None = None
 
     def resolve_logger(self) -> Logger:
         logger = self.logger
@@ -32,10 +34,10 @@ class _LoggerModel:
     
 @dataclass(slots=True, kw_only=True)
 class LogHandlerOptions(_LoggerModel):
-    handler: Union[Handler, io.IOBase, Path, str]
-    formatter: Optional[Formatter] = None
+    handler: Handler | io.IOBase | Path | str
+    formatter: Formatter | None = None
 
-    def resolve_handler(self) -> Union[FileHandler, StreamHandler]:
+    def resolve_handler(self) -> FileHandler | StreamHandler:
         hdlr = self.handler
 
         if isinstance(hdlr, (Path, str)):
@@ -49,8 +51,8 @@ class LogHandlerOptions(_LoggerModel):
 
 @dataclass(slots=True, kw_only=True)
 class LoggerOptions(_LoggerModel):
-    propagate: Optional[bool] = None
-    reset_level: Optional[bool] = None
+    propagate: bool | None = None
+    reset_level: bool | None = None
 
 
 

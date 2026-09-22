@@ -1,4 +1,6 @@
-from typing import Union, Optional, Tuple, List, Iterator, overload
+from __future__ import annotations
+
+from typing import Iterator, overload
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
 
@@ -11,7 +13,7 @@ import logging
 
 
 
-def flush_logger_handler(handler: Optional[logging.Handler] = None) -> None:
+def flush_logger_handler(handler: logging.Handler | None = None) -> None:
     if handler is None:
         for logger in logging.Logger.manager.loggerDict.values():
             if isinstance(logger, logging.Logger):
@@ -34,17 +36,17 @@ def attach_logger_handlers(
 def attach_logger_handlers(
     hdlrs_options: LogHandlerOptions, 
     return_loggers: _True
-    ) -> Tuple[logging.Logger, logging.Handler]: ...
+    ) -> tuple[logging.Logger, logging.Handler]: ...
 @overload
 def attach_logger_handlers(
     hdlrs_options: 'Container[NestedContainer[LogHandlerOptions]]', 
     return_loggers: _False = ...
-    ) -> List[logging.Handler]: ...
+    ) -> list[logging.Handler]: ...
 @overload
 def attach_logger_handlers(
     hdlrs_options: 'Container[NestedContainer[LogHandlerOptions]]', 
     return_loggers: _True
-    ) -> List[Tuple[logging.Logger, logging.Handler]]: ...
+    ) -> list[tuple[logging.Logger, logging.Handler]]: ...
 
 def attach_logger_handlers(
     hdlrs_options: NestedContainer[LogHandlerOptions], 
@@ -73,7 +75,7 @@ def attach_logger_handlers(
     return handlers[0] if len(handlers) == 1 else handlers
 
 
-def set_loggers(loggers_options: NestedContainer[LoggerOptions]) -> Union[logging.Logger, List[logging.Logger]]:
+def set_loggers(loggers_options: NestedContainer[LoggerOptions]) -> logging.Logger | list[logging.Logger]:
     loggers = []
 
     for options in iter_flat_cont(loggers_options):

@@ -1,4 +1,6 @@
-from typing import Any, Callable, Optional, Tuple, Iterator, Type, overload
+from __future__ import annotations
+
+from typing import Any, Callable, Iterator, Type, overload
 from .typings import _CT
 
 
@@ -132,14 +134,14 @@ def patch_cls(
     *, 
     preserve_old: bool = True, 
     setter: Callable[[type, str, Any], None] = setattr, 
-    include_dunders: Tuple[str, ...] = ("__init__",),
+    include_dunders: tuple[str, ...] = ("__init__",),
     ) -> Callable[[_CT], _CT]: ...
 def patch_cls(
-    patch_class: Optional[_CT] = None,
+    patch_class: _CT | None = None,
     *,
     preserve_old: bool = True,
     setter: Callable[[type, str, Any], None] = setattr,
-    include_dunders: Tuple[str, ...] = ("__init__",),
+    include_dunders: tuple[str, ...] = ("__init__",),
     ):
     """Class decorator: monkey-patch the decorated class's single base with
     every member of the decorated class's own body, then return the base

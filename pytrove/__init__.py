@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .__meta__ import __version__
 
 from .validate_tools import *

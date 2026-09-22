@@ -1,4 +1,6 @@
-from typing import Union, Tuple, Optional, List, Dict, Final, overload
+from __future__ import annotations
+
+from typing import Final, overload
 from pathlib import Path
 
 try:
@@ -37,14 +39,14 @@ from ._optional import _optional_import
 import random
 import re
 
-_POINTS: Optional[Tuple[Tuple[int, float]]] = None
+_POINTS: tuple[tuple[int, float]] | None = None
 
-_DEVICES: Final[Dict[PlatformDevice, Union[AndroidDevice, Tuple[AndroidDevice, ...]]]] = {
+_DEVICES: Final[dict[PlatformDevice, AndroidDevice | tuple[AndroidDevice, ...]]] = {
     PlatformDevice.ANDROID: AndroidDevice, 
     PlatformDevice.IOS: iOSDeivce, 
     PlatformDevice.DESKTOP: (WindowsDevice, LinuxDevice, macOSDevice)
 }
-_FLATTED_DEVICES = flat_cont(_DEVICES.values())
+_FLATTED_DEVICES: Final[list[AndroidDevice]] = flat_cont(_DEVICES.values())
 
 
 try:
@@ -67,7 +69,7 @@ def _build_points():
         )
 
 @_optional_import(("kurigram", "tg"))
-def extract_pyro_update_text(update: Union["Message", "Query"]) -> str | bytes:
+def extract_pyro_update_text(update: Message | Query) -> str | bytes:
     if isinstance(update, Message):
         txt = update.text or update.caption or ""
     elif isinstance(update, Query):
@@ -80,20 +82,20 @@ def extract_pyro_update_text(update: Union["Message", "Query"]) -> str | bytes:
 
 @overload
 def format_tg_username(
-    target: Union[str, "Chat", "User"], 
+    target: str | Chat | User, 
     with_invite_link: bool = False, 
     with_at: bool = True, 
-    ) -> Optional[str]: ...
+    ) -> str | None: ...
 @overload
 def format_tg_username(
-    target: Union[str, "Chat", "User"], 
+    target: str | Chat | User, 
     with_invite_link: bool = False, 
     with_at: bool = True, 
     default: _T = ...
-    ) -> Union[str, _T]: ...
+    ) -> str | _T: ...
 @_optional_import(("kurigram", "tg"))
 def format_tg_username(
-    target: Union[str, "Chat", "User"], 
+    target: str | Chat | User, 
     with_invite_link: bool = False, 
     with_at: bool = True, 
     default = None
@@ -120,16 +122,16 @@ def format_tg_username(
     
 @overload
 def format_tg_link(
-    target: Union[StrInt, "Message", "Chat", "User"], 
-    ) -> Optional[str]: ...
+    target: StrInt | Message | Chat | User, 
+    ) -> str | None: ...
 @overload
 def format_tg_link(
-    target: Union[StrInt, "Message", "Chat", "User"], 
+    target: StrInt | Message | Chat | User, 
     default: _T
-    ) -> Union[str, _T]: ...
+    ) -> str | _T: ...
 @_optional_import(("kurigram", "tg"))
 def format_tg_link(
-    target: Union[StrInt, "Message", "Chat", "User"], 
+    target: StrInt | Message | Chat | User, 
     default = None
     ):
 
@@ -215,7 +217,7 @@ def parse_tg_target(target: StrInt) -> StrInt:
 def format_hidden_tg_link(
     url: str, 
     text: str, 
-    parse_mode: Optional["ParseMode"] = None
+    parse_mode: ParseMode | None = None
     ) -> str:
 
     # Add hidden text because some Telegram clients hide or remove short links.
@@ -235,8 +237,8 @@ def format_hidden_tg_link(
 @_optional_import(("kurigram", "tg"))
 def mention_tg_user(
     user_id: int, 
-    user_full_name: Optional[str] = None, 
-    parse_mode: Optional["ParseMode"] = None
+    user_full_name: str | None = None, 
+    parse_mode: ParseMode | None = None
     ) -> str:
 
     if user_full_name is None:
@@ -252,7 +254,7 @@ def split_tg_message(
     text: str, 
     length: int = TgMessageLength.TEXT, 
     reverse: bool = False, 
-    ) -> List[str]:
+    ) -> list[str]:
 
     text = text.strip()
 
@@ -264,7 +266,7 @@ def split_tg_message(
     if reverse:
         lines = reversed(lines)
 
-    messages: List[str] = []
+    messages: list[str] = []
     current = ""
 
     for line in lines:
@@ -291,10 +293,10 @@ def split_tg_message(
 
 
 @overload
-def rand_tg_device(platform_device: Optional[PlatformDevice] = ..., to_tuple: _False = False) -> DeviceInfo: ...
+def rand_tg_device(platform_device: PlatformDevice | None = ..., to_tuple: _False = False) -> DeviceInfo: ...
 @overload
-def rand_tg_device(platform_device: Optional[PlatformDevice] = ..., *, to_tuple: _True) -> Tuple[str, str]: ...
-def rand_tg_device(platform_device: Optional[PlatformDevice] = None, to_tuple: bool = False):
+def rand_tg_device(platform_device: PlatformDevice | None = ..., *, to_tuple: _True) -> tuple[str, str]: ...
+def rand_tg_device(platform_device: PlatformDevice | None = None, to_tuple: bool = False):
     device = (
         _DEVICES[platform_device] 
         if platform_device is not None 

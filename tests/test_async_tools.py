@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from pytrove import to_thread, gather_helper, gather_abort, safe_await
+from pytrove import to_thread, gather_helper, gather_abort, safe_await, yield_to_loop
 
 
 
@@ -65,3 +65,20 @@ async def test_safe_await_single_returns_exception_by_default():
 async def test_safe_await_raises_when_return_exc_false():
     with pytest.raises(ValueError):
         await safe_await(_boom(), return_exc=False, log_exc=False)
+
+
+async def test_yield_to_loop_returns_none():
+    assert await yield_to_loop() is None
+
+
+async def test_yield_to_loop_interleaves_concurrent_tasks():
+    order = []
+
+    async def worker(name):
+        for i in range(3):
+            order.append(f"{name}{i}")
+            await yield_to_loop()
+
+    await asyncio.gather(worker("A"), worker("B"))
+
+    assert order == ["A0", "B0", "A1", "B1", "A2", "B2"]

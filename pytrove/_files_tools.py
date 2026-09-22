@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import logging
 import os
@@ -50,7 +52,7 @@ except ImportError as e:
 
 from pathlib import Path
 from pickle import _compat_pickle  # type: ignore[attr-defined]
-from typing import Any, Dict, FrozenSet, Tuple, TypedDict, Union
+from typing import Any, TypedDict, Final
 from .enums import PickleSafety
 
 
@@ -64,9 +66,9 @@ else:
 
 log = logging.getLogger(__name__)
 
-_NOT_SET = object()
-_COPY_BUF = 1 << 20
-_SPILL_PARTS = 10
+_NOT_SET: Final = object()
+_COPY_BUF: Final[int] = 1 << 20
+_SPILL_PARTS: Final[int] = 10
 
 # orjson is 10x faster than json at dumping, but it is not a drop-in: it
 # takes no keyword arguments beyond `default` and `option` flags, only ever
@@ -78,7 +80,7 @@ _SPILL_PARTS = 10
 # no separator setting, so its compact form is `{"a":1}` where json writes
 # `{"a": 1}`. Anything comparing JSON files byte-for-byte (a checksum, a
 # golden-file test) should pin `indent` rather than rely on the default.
-_ORJSON_DUMP_KEYS = frozenset({"ensure_ascii", "indent", "sort_keys", "default"})
+_ORJSON_DUMP_KEYS: Final[frozenset[str]] = frozenset({"ensure_ascii", "indent", "sort_keys", "default"})
 
 if HAS_ORJSON:
     # orjson serialises datetime/date/time and dataclasses natively, which
@@ -108,7 +110,7 @@ if HAS_ORJSON:
 # itself. What is deliberately absent matters more than what is here --
 # builtins.eval/exec/getattr/__import__, os.system, subprocess.*, and every
 # other callable a crafted pickle would name to get code running.
-_SAFE_PICKLE_CLASSES: FrozenSet[Tuple[str, str]] = frozenset({
+_SAFE_PICKLE_CLASSES: Final[frozenset[tuple[str, str]]] = frozenset({
     ("builtins", name) for name in (
         "bool", "bytearray", "bytes", "complex", "dict", "float",
         "frozenset", "int", "list", "set", "slice", "str", "tuple",
@@ -135,14 +137,14 @@ _SAFE_PICKLE_CLASSES: FrozenSet[Tuple[str, str]] = frozenset({
 # builtins that evaluate or import. This is the one tier defined by what it
 # denies rather than what it allows, so it is inherently best-effort -- an
 # import path nobody thought of is not on the list.
-_UNSAFE_PICKLE_MODULES: FrozenSet[str] = frozenset({
+_UNSAFE_PICKLE_MODULES: Final[frozenset[str]] = frozenset({
     "os", "nt", "posix", "subprocess", "sys", "shutil", "socket",
     "ctypes", "importlib", "multiprocessing", "pty", "runpy", "code",
     "codeop", "timeit", "webbrowser", "platform", "marshal", "pickle",
     "signal", "atexit", "gc", "gettext", "gzip", "bdb", "pdb",
 })
 
-_UNSAFE_PICKLE_CLASSES: FrozenSet[Tuple[str, str]] = frozenset({
+_UNSAFE_PICKLE_CLASSES: Final[frozenset[tuple[str, str]]] = frozenset({
     ("builtins", name) for name in (
         "eval", "exec", "compile", "open", "__import__", "input",
         "getattr", "setattr", "delattr", "globals", "locals", "vars",
@@ -162,7 +164,7 @@ def _is_dir(path) -> bool:
 
     return stat.S_ISDIR(st.st_mode) and not _is_link(path)
 
-def _next_part(folder: "Path", stem: str) -> int:
+def _next_part(folder: Path, stem: str) -> int:
     """The first free number for a "<stem>.N" part file in `folder`.
 
     One past the highest that is already there, rather than 1, so a second
@@ -195,7 +197,7 @@ def _next_part(folder: "Path", stem: str) -> int:
 
     return highest + 1
 
-def _json_dumps(data: Any, kw: Dict[str, Any]) -> Union[str, bytes]:
+def _json_dumps(data: Any, kw: dict[str, Any]) -> str | bytes:
     """Serialise `data`, via orjson when `kw` allows it, else json."""
 
     if HAS_ORJSON and not (kw.keys() - _ORJSON_DUMP_KEYS):
@@ -215,7 +217,7 @@ def _json_dumps(data: Any, kw: Dict[str, Any]) -> Union[str, bytes]:
 
     return json.dumps(data, **kw)
 
-def _json_loads(content: Union[str, bytes], kw: Dict[str, Any]) -> Any:
+def _json_loads(content: str | bytes, kw: dict[str, Any]) -> Any:
     """Parse `content`, via orjson when `kw` is empty, else json.
 
     Any kwarg at all (object_hook, parse_float, cls, ...) means json --
@@ -227,7 +229,7 @@ def _json_loads(content: Union[str, bytes], kw: Dict[str, Any]) -> Any:
 
     return json.loads(content, **kw)
 
-def _normalise_global(module: str, name: str) -> Tuple[str, str]:
+def _normalise_global(module: str, name: str) -> tuple[str, str]:
     """Map a Python 2 module/name pair to its Python 3 equivalent.
 
     Protocols 0-2 write the Python 2 names for compatibility -- a set is
@@ -302,8 +304,8 @@ class _RestrictedUnpickler(pickle.Unpickler):
         self,
         file: Any,
         level: PickleSafety,
-        allowed: FrozenSet[Tuple[str, str]],
-        allowed_modules: FrozenSet[str],
+        allowed: frozenset[tuple[str, str]],
+        allowed_modules: frozenset[str],
         **kw
     ) -> None:
 

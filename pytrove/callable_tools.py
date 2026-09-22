@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 from typing import (
     Callable, Any, Awaitable, Hashable,
-    Optional, Tuple, Type, Union,
     Concatenate, overload,
 )
 
@@ -43,7 +44,7 @@ def safe_call(
     exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
     **kwargs: _P.kwargs,
-) -> Optional[_T]: ...
+) -> _T | None: ...
 @overload
 def safe_call(
     func: Callable[_P, _T],
@@ -53,27 +54,27 @@ def safe_call(
     exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
     **kwargs: _P.kwargs,
-) -> Optional[_T]: ...
+) -> _T | None: ...
 @overload
 def safe_call(
     func: Callable[_P, _T],
     *args: _P.args,
     return_exc: _True,
-    include_exc: Type[_ExcT],
+    include_exc: type[_ExcT],
     exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
     **kwargs: _P.kwargs,
-) -> Union[_T, _ExcT]: ...
+) -> _T | _ExcT: ...
 @overload
 def safe_call(
     func: Callable[_P, _T],
     *args: _P.args,
     return_exc: _True,
-    include_exc: Tuple[Type[_ExcT], ...],
+    include_exc: tuple[type[_ExcT], ...],
     exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
     **kwargs: _P.kwargs,
-) -> Union[_T, _ExcT]: ...
+) -> _T | _ExcT: ...
 @overload
 def safe_call(
     func: Callable[_P, _T],
@@ -83,7 +84,7 @@ def safe_call(
     exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
     **kwargs: _P.kwargs,
-) -> Union[_T, BaseException]: ...
+) -> _T | BaseException: ...
 @overload
 def safe_call(
     func: Callable[_P, _T],
@@ -165,9 +166,9 @@ def safe_call(func, *args, return_exc = False, raise_exc = False, include_exc = 
             return e
 
 def raise_if(
-    exc: Union[BaseException, Callable[[], BaseException]], 
-    bool_value: Optional[bool] = None, 
-    values: NestedContainer[Optional[Hashable]] = None,
+    exc: BaseException | Callable[[], BaseException], 
+    bool_value: bool | None = None, 
+    values: NestedContainer[Hashable | None] = None,
     always: bool = False,
     ) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
 
@@ -203,7 +204,7 @@ def raise_if(
 def middleware(
     func: Callable[_P, _Coro[_T]], 
     *, 
-    before: Optional[MaybeAwaitableCallable[_P, Any]] = None, 
+    before: MaybeAwaitableCallable[_P, Any] | None = None, 
     after: None = None, 
     on_error: None = None, 
 ) -> Callable[_P, _Coro[_T]]: ...
@@ -211,15 +212,15 @@ def middleware(
 def middleware(
     func: Callable[_P, _Coro[_T]],
     *,
-    before: Optional[MaybeAwaitableCallable[_P, Any]] = None,
+    before: MaybeAwaitableCallable[_P, Any] | None = None,
     after: None = None,
     on_error: MaybeAwaitableCallable[Concatenate[BaseException, _P], _ET],
-) -> Callable[_P, _Coro[Union[_T, _ET]]]: ...
+) -> Callable[_P, _Coro[_T | _ET]]: ...
 @overload
 def middleware(
     func: Callable[_P, _Coro[_T]],
     *,
-    before: Optional[MaybeAwaitableCallable[_P, Any]] = None,
+    before: MaybeAwaitableCallable[_P, Any] | None = None,
     after: MaybeAwaitableCallable[Concatenate[_T, _P], _AT],
     on_error: None = None,
 ) -> Callable[_P, _Coro[_AT]]: ...
@@ -227,15 +228,15 @@ def middleware(
 def middleware(
     func: Callable[_P, _Coro[_T]],
     *,
-    before: Optional[MaybeAwaitableCallable[_P, Any]] = None,
+    before: MaybeAwaitableCallable[_P, Any] | None = None,
     on_error: MaybeAwaitableCallable[Concatenate[BaseException, _P], _ET],
-    after: MaybeAwaitableCallable[Concatenate[Union[_T, _ET], _P], _AT],
+    after: MaybeAwaitableCallable[Concatenate[_T | _ET, _P], _AT],
 ) -> Callable[_P, _Coro[_AT]]: ...
 @overload
 def middleware(
     func: Callable[_P, _T],
     *,
-    before: Optional[Callable[_P, Any]] = None,
+    before: Callable[_P, Any] | None = None,
     after: None = None,
     on_error: None = None,
 ) -> Callable[_P, _T]: ...
@@ -243,15 +244,15 @@ def middleware(
 def middleware(
     func: Callable[_P, _T],
     *,
-    before: Optional[Callable[_P, Any]] = None,
+    before: Callable[_P, Any] | None = None,
     after: None = None,
     on_error: Callable[Concatenate[BaseException, _P], _ET],
-) -> Callable[_P, Union[_T, _ET]]: ...
+) -> Callable[_P, _T | _ET]: ...
 @overload
 def middleware(
     func: Callable[_P, _T],
     *,
-    before: Optional[Callable[_P, Any]] = None,
+    before: Callable[_P, Any] | None = None,
     after: Callable[Concatenate[_T, _P], _AT],
     on_error: None = None,
 ) -> Callable[_P, _AT]: ...
@@ -259,15 +260,15 @@ def middleware(
 def middleware(
     func: Callable[_P, _T],
     *,
-    before: Optional[Callable[_P, Any]] = None, 
+    before: Callable[_P, Any] | None = None, 
     on_error: Callable[Concatenate[BaseException, _P], _ET], 
-    after: Callable[Concatenate[Union[_T, _ET], _P], _AT], 
+    after: Callable[Concatenate[_T | _ET, _P], _AT], 
 ) -> Callable[_P, _AT]: ...
 @overload
 def middleware(
     func: None = None,
     *,
-    before: Optional[Callable[_P, Any]] = None,
+    before: Callable[_P, Any] | None = None,
     after: None = None,
     on_error: None = None,
 ) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]: ...
@@ -275,7 +276,7 @@ def middleware(
 def middleware(
     func: None = None,
     *,
-    before: Optional[Callable[_P, Any]] = None,
+    before: Callable[_P, Any] | None = None,
     after: None = None,
     on_error: Callable[Concatenate[BaseException, _P], Awaitable[_ET]],
 ) -> _AwaitOnErrorDecorator[_P, _ET]: ...
@@ -283,7 +284,7 @@ def middleware(
 def middleware(
     func: None = None,
     *,
-    before: Optional[Callable[_P, Any]] = None,
+    before: Callable[_P, Any] | None = None,
     after: None = None,
     on_error: Callable[Concatenate[BaseException, _P], _ET],
 ) -> _WaitOnErrorDecorator[_P, _ET]: ...
@@ -291,7 +292,7 @@ def middleware(
 def middleware(
     func: None = None,
     *,
-    before: Optional[Callable[_P, Any]] = None,
+    before: Callable[_P, Any] | None = None,
     after: Callable[Concatenate[_T, _P], Awaitable[_AT]],
     on_error: None = None,
 ) -> _AwaitAfterDecorator[_P, _T, _AT]: ...
@@ -299,7 +300,7 @@ def middleware(
 def middleware(
     func: None = None,
     *,
-    before: Optional[Callable[_P, Any]] = None,
+    before: Callable[_P, Any] | None = None,
     after: Callable[Concatenate[_T, _P], _AT],
     on_error: None = None,
 ) -> _WaitAfterDecorator[_P, _T, _AT]: ...
@@ -377,7 +378,7 @@ def to_coroutine(func: Callable[_P, _T]) -> Callable[_P, _Coro[_T]]:
 
     return functools.wraps(func)(wrapper) #type: ignore
 
-def run_awaitable_sync(awaitable: Awaitable[_T], loop: Optional[asyncio.AbstractEventLoop] = None) -> _T:
+def run_awaitable_sync(awaitable: Awaitable[_T], loop: asyncio.AbstractEventLoop | None = None) -> _T:
     """Run an awaitable to completion from synchronous code and return its result.
 
     If `loop` is omitted, a fresh event loop is created, driven, and torn down
@@ -447,7 +448,7 @@ def set_func_attrs(func = None, **kw):
 
 
 @overload
-def call_all(*funcs: Callable[[], _T], lazy: _False = False) -> Tuple[_T, ...]: ...
+def call_all(*funcs: Callable[[], _T], lazy: _False = False) -> tuple[_T, ...]: ...
 @overload
 def call_all(*funcs: Callable[[], _T], lazy: _True) -> _LazyCallAll[_T]: ...
 def call_all(*funcs, lazy = False): #type: ignore
@@ -472,7 +473,7 @@ def call_all(*funcs, lazy = False): #type: ignore
     return tuple(func() for func in funcs) #type: ignore
 
 
-def juxt(*funcs: Callable[_P, _T]) -> Callable[_P, Tuple[_T, ...]]:
+def juxt(*funcs: Callable[_P, _T]) -> Callable[_P, tuple[_T, ...]]:
     """The inverse of map: one call's arguments, fanned out to every callable
     in `funcs`, results collected into a tuple in that same order.
 
@@ -488,7 +489,7 @@ def juxt(*funcs: Callable[_P, _T]) -> Callable[_P, Tuple[_T, ...]]:
     per-call setup and is free to be reused or composed.
     """
 
-    def fanned(*args: _P.args, **kwargs: _P.kwargs) -> Tuple[_T, ...]:
+    def fanned(*args: _P.args, **kwargs: _P.kwargs) -> tuple[_T, ...]:
         return tuple(func(*args, **kwargs) for func in funcs)
 
     return fanned
@@ -524,7 +525,7 @@ def return_constant(
     value: _T = None, 
 ) -> Callable[[Callable[_P, Any]], Callable[_P, _T]]: ...
 def return_constant(
-    func: Optional[Callable[_P, Any]] = None, 
+    func: Callable[_P, Any] | None = None, 
     *, 
     value: _T = None, 
 ):
