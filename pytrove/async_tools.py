@@ -93,7 +93,7 @@ async def to_thread(
         if return_exc:
             return e
         
-        raise
+        raise e
 
 
 @overload
@@ -334,22 +334,19 @@ async def asafe_call(
         raise
     except BaseException as e:
         if exclude_exc is not None and isinstance(e, exclude_exc):
-            raise
+            raise e
 
         if include_exc is not None and not isinstance(e, include_exc):
-            raise
+            raise e
 
         if log_exc:
             if callable(log_exc):
-                try:
-                    await maybe_awaitable(log_exc, e, log_exc=False)
-                except BaseException as le:
-                    raise le from e
+                await maybe_awaitable(log_exc, e, log_exc=False, return_exc=False)
             else:
                 log.error("error in asafe_call(%r)" % (awaitable,), exc_info=e)
 
         if raise_exc:
-            raise
+            raise e
 
         if return_exc:
             return e
@@ -416,12 +413,12 @@ async def maybe_awaitable(
 async def safe_wait_task(task: asyncio.Task[_T], canceled_ok = True, exc_ok = False) -> Optional[_T]:
     try:
         return await task
-    except asyncio.CancelledError:
+    except asyncio.CancelledError as e:
         if not canceled_ok:
-            raise
-    except Exception:
+            raise e
+    except Exception as e:
         if not exc_ok:
-            raise
+            raise e
 
 async def run_awaitable_in_coro(awaitable: Awaitable[_T]) -> _T:
     return await awaitable

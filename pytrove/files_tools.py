@@ -211,10 +211,10 @@ def remove_files(
             safe_call(setattr, exc, "filename", str(file), include_exc=AttributeError)
 
             if not return_exc:
-                raise
+                raise exc
 
             if log_exc:
-                log.exception("remove_files: could not remove %s", str(file))
+                log.error("remove_files: could not remove %s", str(file), exc_info=exc)
 
             removed.append(exc)
         else:
@@ -309,10 +309,10 @@ def remove_folders(
             safe_call(setattr, exc, "filename", str(folder), include_exc=AttributeError)
 
             if not return_exc:
-                raise
+                raise exc
 
             if log_exc:
-                log.exception("remove_folders: could not remove %s", str(folder))
+                log.error("remove_folders: could not remove %s", str(folder), exc_info=exc)
 
             removed.append(exc)
         else:

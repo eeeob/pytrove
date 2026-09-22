@@ -396,7 +396,7 @@ def checker_lookup(origin_type: Any, *_):
                 check_type_internal(v, args[0], memo)
             except TypeCheckError as exc:
                 exc.append_path_element(f"item {i}")
-                raise
+                raise exc
 
     if isinstance(origin_type, type) and issubclass(origin_type, Enum):
         return validate_enum

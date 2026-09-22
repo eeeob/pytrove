@@ -41,9 +41,9 @@ async def test_gather_abort_cancels_siblings_on_error():
     async def _slow():
         try:
             await asyncio.sleep(10)
-        except asyncio.CancelledError:
+        except asyncio.CancelledError as e:
             cancelled.set()
-            raise
+            raise e
 
     with pytest.raises(ValueError):
         await gather_abort(_slow(), _boom(), log_exc=False)

@@ -274,13 +274,13 @@ def _read_stable(path: str, retries: int) -> Tuple[str, os.stat_result, bool]:
 
         os.utime(tmp_path, ns=(last_stat.st_atime_ns, last_stat.st_mtime_ns))
         os.chmod(tmp_path, stat.S_IMODE(last_stat.st_mode))
-    except Exception:
+    except Exception as e:
         if tmp_path is not None:
             try:
                 os.unlink(tmp_path)
             except OSError:
                 pass
-        raise
+        raise e
 
     return tmp_path, last_stat, settled
 
@@ -1632,12 +1632,12 @@ class _Extractor:
                 self._tar(fmt, workers)
 
             self._inspect(self._root)
-        except:
+        except BaseException as e:
             if staged is not None:
                 remove_path(staged, return_exc=True, log_exc=True)
             elif self._built:
                 remove_paths(dedupe(self._built), return_exc=True, log_exc=True)
-            raise
+            raise e
 
         if staged is None:
             return
@@ -1662,16 +1662,16 @@ class _Extractor:
         try:
             try:
                 os.replace(staged, self.dest)
-            except OSError:
+            except OSError as e:
                 if not self.dest.exists():
-                    raise
+                    raise e
 
                 self._graft(staged, self.dest)
                 remove_path(staged, return_exc=True, log_exc=True)
-        except:
+        except BaseException as e:
             log.error("extract_archive: could not put %s at %r -- what came out "
                       "of it is in %r", self.src.name, str(self.dest), str(staged))
-            raise
+            raise e
         
 
     def _inspect(self, root: Path) -> None:

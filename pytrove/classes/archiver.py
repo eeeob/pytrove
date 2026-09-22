@@ -105,7 +105,7 @@ class PeriodicArchiver:
                 if job.on_error is not None:
                     await job.on_error(job, e)
                 else:
-                    log.exception("Archive job %r failed", job.name, exc_info=e)
+                    log.error("Archive job %r failed", job.name, exc_info=e)
             finally:
                 if path is not None:
                     await to_thread(remove_file, path)

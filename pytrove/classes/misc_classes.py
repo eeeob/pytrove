@@ -805,7 +805,7 @@ class AioThreadWorker:
 
         try:
             return await coro()
-        except asyncio.CancelledError:
+        except asyncio.CancelledError as e:
             # cancelling() (3.11+) counts cancellations requested against *this*
             # task, so zero means our caller never asked -- the CancelledError
             # can only have come from the worker's teardown cancelling the
@@ -818,7 +818,7 @@ class AioThreadWorker:
                     "AioThreadWorker stopped before this task completed"
                 ) from None
 
-            raise
+            raise e
 
 
     __call__ = submit
@@ -1220,11 +1220,11 @@ class SyncAwaitableRunner:
         if not self.started:
             try:
                 self.start()
-            except RuntimeError:
+            except RuntimeError as e:
                 # Lost a race to start against another caller -- fine, unless
                 # the reason is that the runner is closed, which is fatal.
                 if self.closed:
-                    raise
+                    raise e
 
         loop = self.__loop
 

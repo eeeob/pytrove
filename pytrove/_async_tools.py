@@ -149,7 +149,10 @@ def _gather_cancel_on_error(*awaitables, return_exceptions = False):
                     result = e
 
                 if result is None:
-                    result = child.result()
+                    try:
+                        result = child.result()
+                    except (Exception, asyncio.CancelledError) as e:
+                        result = e
 
                 results.append(result)
 

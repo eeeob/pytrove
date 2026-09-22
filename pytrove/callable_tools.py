@@ -123,17 +123,14 @@ def safe_call(func, *args, return_exc = False, include_exc = None, exclude_exc =
         raise
     except BaseException as e:
         if exclude_exc is not None and isinstance(e, exclude_exc):
-            raise
+            raise e
 
         if include_exc is not None and not isinstance(e, include_exc):
-            raise
+            raise e
 
         if log_exc:
             if callable(log_exc):
-                try:
-                    log_exc(e)
-                except BaseException as le:
-                    raise le from e
+                log_exc(e)
             else:
                 log.error("error in safe_call(%r)" % (func,), exc_info=e)
 
@@ -283,14 +280,27 @@ def middleware(func=None, **kw: Any): #type: ignore
     if func is None:
         return functools.partial(middleware, **kw)
 
-    if iscoroutinefunction_wrapped(func):
-        for _k in list(kw.keys()):
-            if _k not in ("before", "after", "on_error"):
-                raise
-            if (_call := kw[_k]) is None:
-                continue
-            kw[_k] = functools.partial(call_sync_or_await, _call)
+    is_corofunc = iscoroutinefunction_wrapped(func)
 
+    for _k in list(kw.keys()):
+        if _k not in ("before", "after", "on_error"):
+            raise TypeError(
+                f"middleware() got an unexpected keyword argument {_k!r}"
+            )
+        
+        if (_call := kw[_k]) is None:
+            continue
+
+        if not callable(_call):
+            raise TypeError(
+                f"middleware() argument { _k!r} must be callable or None"
+            )
+        
+        kw[_k] = functools.partial(call_sync_or_await, _call) if is_corofunc else _call
+
+    
+
+    if is_corofunc:
         async def wrapper(*args: Any, **kwargs: Any):
             if (before := kw.get("before")) is not None:
                 await before(*args, **kwargs)
@@ -301,7 +311,7 @@ def middleware(func=None, **kw: Any): #type: ignore
                 raise
             except BaseException as e:
                 if (on_error := kw.get("on_error")) is None:
-                    raise
+                    raise e
                 result = await on_error(e, *args, **kwargs)
 
             if (after := kw.get("after")) is not None:
@@ -319,7 +329,7 @@ def middleware(func=None, **kw: Any): #type: ignore
                 raise
             except BaseException as e:
                 if (on_error := kw.get("on_error")) is None:
-                    raise
+                    raise e
                 result = on_error(e, *args, **kwargs)
 
             if (after := kw.get("after")) is not None:
