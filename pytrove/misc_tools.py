@@ -1,6 +1,6 @@
 from __future__ import annotations as _annotations
 
-from typing import Any, Callable, Iterator, Type, overload
+from typing import Any, Callable, Iterator, overload
 from .typings import _CT
 
 
@@ -11,7 +11,7 @@ import string
 import functools
 
 
-def unwrap_cls(cls: Type) -> int:
+def unwrap_cls(cls: type) -> int:
     count = 0
 
     for name in dir(cls):
@@ -187,7 +187,7 @@ def patch_cls(
     return _apply
 
 
-def walk_subclasses(cls: Type, include_base: bool = False) -> Iterator[Type]:
+def walk_subclasses(cls: type, include_base: bool = False) -> Iterator[type]:
     if include_base:
         yield cls
 

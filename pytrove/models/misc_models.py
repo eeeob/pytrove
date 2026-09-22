@@ -1,6 +1,6 @@
 from __future__ import annotations as _annotations
 
-from typing import Generic, Tuple, Mapping, Any, Final
+from typing import Generic, Mapping, Any, Final
 
 try:
     from typing import Self
@@ -37,7 +37,7 @@ _INV_PHI: Final[float] = 0.6180339887498949   # (5 ** 0.5 - 1) / 2 -- the golden
 @dataclass(slots=True)
 class DeferredCall(Generic[_T]):
     func: MaybeAwaitable[..., _T]
-    args: Tuple | None = None
+    args: tuple | None = None
     kw: Mapping | None = None
 
     when: TriggerOn = TriggerOn.SUCCESS
