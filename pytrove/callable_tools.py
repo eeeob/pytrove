@@ -84,7 +84,17 @@ def safe_call(
     log_exc: _ExcLogger = False,
     **kwargs: _P.kwargs,
 ) -> Union[_T, BaseException]: ...
-def safe_call(func, *args, return_exc = False, include_exc = None, exclude_exc = None, log_exc = False, **kwargs):
+@overload
+def safe_call(
+    func: Callable[_P, _T],
+    *args: _P.args,
+    raise_exc: _True,
+    include_exc: _ExcFilter = None,
+    exclude_exc: _ExcFilter = None,
+    log_exc: _ExcLogger = False,
+    **kwargs: _P.kwargs,
+) -> _T: ...
+def safe_call(func, *args, return_exc = False, raise_exc = False, include_exc = None, exclude_exc = None, log_exc = False, **kwargs):
     """Call `func(*args, **kwargs)`, swallowing whatever it raises.
 
     Returns None on failure, or the exception itself when `return_exc=True`.
@@ -103,11 +113,25 @@ def safe_call(func, *args, return_exc = False, include_exc = None, exclude_exc =
     decide yourself what to do with it. An exception raised by that
     callable is not caught -- it propagates out of safe_call as-is.
 
+    `raise_exc=True` (mirroring async_tools.asafe_call) runs `log_exc` as
+    above but then always re-raises via a bare `raise` (preserving the
+    original traceback) instead of swallowing or returning the exception --
+    useful for the logging/handling side effect alone, without changing
+    whether the caller sees the error. `return_exc` and `raise_exc` are
+    mutually exclusive and raise TypeError immediately if both are True,
+    before `func` is even called.
+
     SystemExit and KeyboardInterrupt always propagate, unconditionally --
     neither can be swallowed, and there is no way to opt back in via
     `include_exc`. Naming either of them (or a subclass) in `exclude_exc` is
     redundant and raises TypeError immediately, before `func` is even called.
     """
+
+    if return_exc and raise_exc:
+        raise TypeError(
+            "safe_call: return_exc and raise_exc cannot both be True -- "
+            "raise_exc means the exception is never returned, only re-raised"
+        )
 
     if exclude_exc is not None:
         for exc_type in exclude_exc if isinstance(exclude_exc, tuple) else (exclude_exc,):
@@ -119,8 +143,8 @@ def safe_call(func, *args, return_exc = False, include_exc = None, exclude_exc =
 
     try:
         return func(*args, **kwargs)
-    except _HARD_PROPAGATE:
-        raise
+    except _HARD_PROPAGATE as e:
+        raise e
     except BaseException as e:
         if exclude_exc is not None and isinstance(e, exclude_exc):
             raise e
@@ -133,6 +157,9 @@ def safe_call(func, *args, return_exc = False, include_exc = None, exclude_exc =
                 log_exc(e)
             else:
                 log.error("error in safe_call(%r)" % (func,), exc_info=e)
+
+        if raise_exc:
+            raise e
 
         if return_exc:
             return e
@@ -307,8 +334,8 @@ def middleware(func=None, **kw: Any): #type: ignore
 
             try:
                 result = await func(*args, **kwargs)
-            except _HARD_PROPAGATE:
-                raise
+            except _HARD_PROPAGATE as e:
+                raise e
             except BaseException as e:
                 if (on_error := kw.get("on_error")) is None:
                     raise e
@@ -325,8 +352,8 @@ def middleware(func=None, **kw: Any): #type: ignore
 
             try:
                 result = func(*args, **kwargs)
-            except _HARD_PROPAGATE:
-                raise
+            except _HARD_PROPAGATE as e:
+                raise e
             except BaseException as e:
                 if (on_error := kw.get("on_error")) is None:
                     raise e

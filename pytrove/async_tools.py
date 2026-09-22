@@ -330,8 +330,8 @@ async def asafe_call(
 
     try:
         return await awaitable
-    except _HARD_PROPAGATE:
-        raise
+    except _HARD_PROPAGATE as e:
+        raise e
     except BaseException as e:
         if exclude_exc is not None and isinstance(e, exclude_exc):
             raise e
@@ -341,7 +341,7 @@ async def asafe_call(
 
         if log_exc:
             if callable(log_exc):
-                await maybe_awaitable(log_exc, e, log_exc=False, return_exc=False)
+                await call_sync_or_await(log_exc, e)
             else:
                 log.error("error in asafe_call(%r)" % (awaitable,), exc_info=e)
 
@@ -431,6 +431,7 @@ async def call_sync_or_await(func: MaybeAwaitableCallable[_P, _T], *args: _P.arg
         result = await result
 
     return result
+
 
 async def cancel_task(task: asyncio.Task, msg: Optional[str] = None) -> bool:
     """Cancel *task* and wait until its cancellation has been processed.

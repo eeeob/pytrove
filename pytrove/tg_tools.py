@@ -67,7 +67,7 @@ def _build_points():
         )
 
 @_optional_import(("kurigram", "tg"))
-def extract_pyro_update_text(update: Union["Message", "Query"]) -> str:
+def extract_pyro_update_text(update: Union["Message", "Query"]) -> str | bytes:
     if isinstance(update, Message):
         txt = update.text or update.caption or ""
     elif isinstance(update, Query):
