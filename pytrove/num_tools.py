@@ -102,7 +102,7 @@ def calc(value: Union[str, _T], as_int: bool = False):
             try:
                 c_value = _eval_calc_ast(ast.parse(c_value, mode="eval"))
             except Exception as e:
-                log.exception(e)
+                log.error("Failed to evaluate calculation expression: %s", c_value, exc_info=e)
 
         if isinstance(c_value, (int, float)):
             value = c_value

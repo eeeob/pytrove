@@ -303,8 +303,8 @@ async def is_valid_tg_app(api_id: StrInt, api_hash: str) -> bool:
     finally:
         try:
             await c.disconnect()
-        except Exception:
-            log.exception("Failed to disconnect the Telegram client")
+        except Exception as e:
+            log.error("Failed to disconnect the Telegram client", exc_info=e)
 
 @_optional_import(("aioimaplib", "imap"))
 async def is_accessible_received_email(email: str, password: str):
@@ -327,8 +327,8 @@ async def is_accessible_received_email(email: str, password: str):
     finally:
         try:
             await c.logout()
-        except Exception:
-            log.exception("Failed to log out from the IMAP server")
+        except Exception as e:
+            log.error("Failed to log out from the IMAP server", exc_info=e)
     
 @overload
 def validation(cond: _True, custom_exc: Optional[Union[BaseException, str]] = None) -> None: ...
