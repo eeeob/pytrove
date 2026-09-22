@@ -5,7 +5,7 @@ syntax is a hard SyntaxError on older interpreters, so this module must
 never be imported unconditionally.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 from typing import (
     Collection, Iterator, Reversible,

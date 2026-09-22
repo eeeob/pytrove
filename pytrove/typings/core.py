@@ -6,7 +6,7 @@ that scope, since the whole package is re-exported flat from
 pytrove.typings.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 from typing import (
     Collection, Reversible, Iterator,

@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 from .typings import CountryInfo, RegionCode, StrInt
 from .phone_tools import cc_from_rc, is_rc

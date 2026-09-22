@@ -6,8 +6,6 @@ that feature (`template` -> `Template*`), since they all land in this one
 namespace together.
 """
 
-from __future__ import annotations
-
 from .archive import *
 from .core import *
 from .template import *

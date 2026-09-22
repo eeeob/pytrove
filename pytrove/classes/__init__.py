@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from .misc_classes import *
 from .archiver import *
 

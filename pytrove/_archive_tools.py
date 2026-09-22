@@ -7,7 +7,7 @@ iter_tools and callable_tools -- none of which imports back, so this cannot
 take part in a cycle.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import gzip
 import logging

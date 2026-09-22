@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from .base import *
 from .logging_models import *
 from .misc_models import *

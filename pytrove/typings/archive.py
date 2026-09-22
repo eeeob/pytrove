@@ -11,7 +11,7 @@ the four policies as public enums. It imports nothing internal at all, so
 the foundation layer stays acyclic.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 
 from pathlib import Path

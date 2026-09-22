@@ -6,7 +6,7 @@ unprefixed `LineDict`/`ButtonDict`/`ParseMode` would read there as if it
 were a package-wide type rather than one belonging to this one feature.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 from typing import (
     Literal, TypedDict, TypeAlias,
