@@ -1,6 +1,6 @@
 from __future__ import annotations as _annotations
 
-from typing import Callable, Awaitable, Generator, overload
+from typing import Callable, Awaitable, overload
 from concurrent.futures import ThreadPoolExecutor
 
 from .typings import (
@@ -25,7 +25,6 @@ import logging
 import contextvars
 import inspect
 import traceback
-import types
 
 
 log = logging.getLogger(__file__)
@@ -427,21 +426,15 @@ async def run_awaitable_in_coro(awaitable: Awaitable[_T]) -> _T:
     return await awaitable
 
 
-@types.coroutine
-def yield_to_loop() -> Generator[None, None, None]:
-    """The cheapest possible checkpoint: suspend the current task for exactly
-    one iteration of the event loop, then resume.
+async def yield_control() -> None:
+    """Suspend the current task for one event-loop iteration, then resume.
 
-    A bare `yield` here is exactly what asyncio's own zero-delay fast path
-    (`asyncio.sleep(0)`) does internally, minus the extra call it makes to
-    get there -- so `await yield_to_loop()` is that same checkpoint without
-    the indirection. Reach for it inside a long synchronous stretch of an
-    otherwise-async function (a tight loop doing CPU work between awaits,
-    for instance) to give other tasks a turn without actually waiting on
-    anything.
+    Use it inside a long synchronous stretch of an async function (a tight
+    CPU loop between awaits, for instance) to let other tasks run without
+    waiting on anything.
     """
 
-    yield
+    await asyncio.sleep(0)
 
 
 async def call_sync_or_await(func: MaybeAwaitableCallable[_P, _T], *args: _P.args, **kwargs: _P.kwargs) -> _T:
@@ -494,7 +487,7 @@ __all__ = [
     "safe_wait_task",
     "maybe_awaitable",
     "run_awaitable_in_coro",
-    "yield_to_loop",
+    "yield_control",
     "gather_abort",
     "call_sync_or_await",
     "cancel_task",
