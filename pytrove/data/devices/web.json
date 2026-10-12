@@ -1,0 +1,471 @@
+{
+ "schema": 1,
+ "platform": "web",
+ "updated": "2026-10-12",
+ "model_format": "navigator.userAgent verbatim, which is what both Telegram web clients send",
+ "version_format": "navigator.platform -- Win32, MacIntel, or uname sysname + machine on Linux",
+ "sources": [
+  "https://github.com/morethanwords/tweb/blob/master/src/lib/appManagers/networkerFactory.ts -- Telegram Web K: deviceModel = USER_AGENT, systemVersion = navigator.platform",
+  "https://github.com/Ajaxy/telegram-tt/blob/master/src/api/gramjs/methods/client.ts -- Telegram Web A: the same two fields",
+  "https://github.com/chromium/chromium/blob/main/components/embedder_support/user_agent_utils.cc -- the Chromium UA template and the frozen platform tokens",
+  "https://github.com/mozilla/gecko-dev/blob/master/netwerk/protocol/http/nsHttpHandler.cpp -- BuildUserAgent, mPlatform, mOscpu and UA_SPARE_PLATFORM",
+  "https://github.com/WebKit/WebKit/blob/main/Source/WebCore/page/NavigatorBase.cpp -- NavigatorBase::platform(), the system_version values",
+  "https://learn.microsoft.com/en-us/microsoft-edge/web-platform/user-agent-guidance -- the Edg token and where it goes",
+  "https://versionhistory.googleapis.com/v1/chrome/platforms/win/channels/stable/versions/all/releases -- released Chrome versions per platform",
+  "https://product-details.mozilla.org/1.0/firefox_history_major_releases.json -- released Firefox majors and their dates",
+  "https://edgeupdates.microsoft.com/api/products?view=enterprise -- released Edge versions per platform"
+ ],
+ "notes": [
+  "model is the whole User-Agent string, not a device name: a browser has no model to report, so both web clients send navigator.userAgent as it stands. This is also why a web session draws a browser icon in every client -- Telegram Android matches 'chrome'/'firefox'/'edge' inside device_model and Telegram Desktop matches 'chrome'/'firefox'/'edg/', both before they look at the platform.",
+  "Every string is generated from the browsers' own frozen templates rather than collected, because there is nothing left to collect: Chromium pins its platform token and its minor version, Gecko pins the Windows OS version to 10.0, and only the major version still moves. The majors and their dates come from each vendor's own release feed.",
+  "Only the newest 4 majors per browser and system are kept. Browsers update themselves, so a session further behind than that is not a realistic thing to report.",
+  "Desktop only, on purpose. A phone browser is a real web session but a rare one, and it would need its own frozen tokens and its own navigator.platform values to be honest rather than guessed.",
+  "Safari is absent: WebKit freezes the UA prefix but the 'Version/x.y Safari/605.1.15' suffix is Safari's own application name and Apple publishes no machine-readable version feed, so the numbers would have to be invented. macOS is still covered, by Chrome, Edge and Firefox.",
+  "Each device lists exactly one version because a UA and navigator.platform describe the same machine: a UA claiming Windows cannot report 'MacIntel'."
+ ],
+ "versions": [
+  {
+   "version": "Win32"
+  },
+  {
+   "version": "MacIntel"
+  },
+  {
+   "version": "Linux x86_64"
+  }
+ ],
+ "devices": [
+  {
+   "model": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+   "browser": "Chrome",
+   "major": 155,
+   "system": "Linux",
+   "brand": "Chrome on Linux",
+   "released": "2026-10-06",
+   "versions": [
+    "Linux x86_64"
+   ],
+   "source": "Chrome release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+   "browser": "Chrome",
+   "major": 154,
+   "system": "Linux",
+   "brand": "Chrome on Linux",
+   "released": "2026-09-22",
+   "versions": [
+    "Linux x86_64"
+   ],
+   "source": "Chrome release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+   "browser": "Chrome",
+   "major": 153,
+   "system": "Linux",
+   "brand": "Chrome on Linux",
+   "released": "2026-09-08",
+   "versions": [
+    "Linux x86_64"
+   ],
+   "source": "Chrome release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+   "browser": "Chrome",
+   "major": 152,
+   "system": "Linux",
+   "brand": "Chrome on Linux",
+   "released": "2026-08-25",
+   "versions": [
+    "Linux x86_64"
+   ],
+   "source": "Chrome release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+   "browser": "Chrome",
+   "major": 156,
+   "system": "Windows",
+   "brand": "Chrome on Windows",
+   "released": "2026-10-07",
+   "versions": [
+    "Win32"
+   ],
+   "source": "Chrome release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+   "browser": "Chrome",
+   "major": 155,
+   "system": "Windows",
+   "brand": "Chrome on Windows",
+   "released": "2026-09-23",
+   "versions": [
+    "Win32"
+   ],
+   "source": "Chrome release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+   "browser": "Chrome",
+   "major": 154,
+   "system": "Windows",
+   "brand": "Chrome on Windows",
+   "released": "2026-09-09",
+   "versions": [
+    "Win32"
+   ],
+   "source": "Chrome release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+   "browser": "Chrome",
+   "major": 153,
+   "system": "Windows",
+   "brand": "Chrome on Windows",
+   "released": "2026-08-26",
+   "versions": [
+    "Win32"
+   ],
+   "source": "Chrome release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+   "browser": "Chrome",
+   "major": 156,
+   "system": "macOS",
+   "brand": "Chrome on macOS",
+   "released": "2026-10-07",
+   "versions": [
+    "MacIntel"
+   ],
+   "source": "Chrome release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+   "browser": "Chrome",
+   "major": 155,
+   "system": "macOS",
+   "brand": "Chrome on macOS",
+   "released": "2026-09-23",
+   "versions": [
+    "MacIntel"
+   ],
+   "source": "Chrome release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+   "browser": "Chrome",
+   "major": 154,
+   "system": "macOS",
+   "brand": "Chrome on macOS",
+   "released": "2026-09-09",
+   "versions": [
+    "MacIntel"
+   ],
+   "source": "Chrome release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+   "browser": "Chrome",
+   "major": 153,
+   "system": "macOS",
+   "brand": "Chrome on macOS",
+   "released": "2026-08-26",
+   "versions": [
+    "MacIntel"
+   ],
+   "source": "Chrome release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0",
+   "browser": "Edge",
+   "major": 155,
+   "system": "Linux",
+   "brand": "Edge on Linux",
+   "released": "2026-10-08",
+   "versions": [
+    "Linux x86_64"
+   ],
+   "source": "Edge release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0",
+   "browser": "Edge",
+   "major": 154,
+   "system": "Linux",
+   "brand": "Edge on Linux",
+   "released": "2026-09-24",
+   "versions": [
+    "Linux x86_64"
+   ],
+   "source": "Edge release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+   "browser": "Edge",
+   "major": 153,
+   "system": "Linux",
+   "brand": "Edge on Linux",
+   "released": "2026-09-11",
+   "versions": [
+    "Linux x86_64"
+   ],
+   "source": "Edge release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0",
+   "browser": "Edge",
+   "major": 152,
+   "system": "Linux",
+   "brand": "Edge on Linux",
+   "released": "2026-08-28",
+   "versions": [
+    "Linux x86_64"
+   ],
+   "source": "Edge release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0",
+   "browser": "Edge",
+   "major": 155,
+   "system": "Windows",
+   "brand": "Edge on Windows",
+   "released": "2026-10-08",
+   "versions": [
+    "Win32"
+   ],
+   "source": "Edge release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0",
+   "browser": "Edge",
+   "major": 154,
+   "system": "Windows",
+   "brand": "Edge on Windows",
+   "released": "2026-09-24",
+   "versions": [
+    "Win32"
+   ],
+   "source": "Edge release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+   "browser": "Edge",
+   "major": 153,
+   "system": "Windows",
+   "brand": "Edge on Windows",
+   "released": "2026-09-11",
+   "versions": [
+    "Win32"
+   ],
+   "source": "Edge release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0",
+   "browser": "Edge",
+   "major": 152,
+   "system": "Windows",
+   "brand": "Edge on Windows",
+   "released": "2026-08-28",
+   "versions": [
+    "Win32"
+   ],
+   "source": "Edge release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0",
+   "browser": "Edge",
+   "major": 155,
+   "system": "macOS",
+   "brand": "Edge on macOS",
+   "released": "2026-10-08",
+   "versions": [
+    "MacIntel"
+   ],
+   "source": "Edge release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0",
+   "browser": "Edge",
+   "major": 154,
+   "system": "macOS",
+   "brand": "Edge on macOS",
+   "released": "2026-09-24",
+   "versions": [
+    "MacIntel"
+   ],
+   "source": "Edge release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+   "browser": "Edge",
+   "major": 153,
+   "system": "macOS",
+   "brand": "Edge on macOS",
+   "released": "2026-09-11",
+   "versions": [
+    "MacIntel"
+   ],
+   "source": "Edge release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0",
+   "browser": "Edge",
+   "major": 152,
+   "system": "macOS",
+   "brand": "Edge on macOS",
+   "released": "2026-08-28",
+   "versions": [
+    "MacIntel"
+   ],
+   "source": "Edge release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (X11; Linux x86_64; rv:157.0) Gecko/20100101 Firefox/157.0",
+   "browser": "Firefox",
+   "major": 157,
+   "system": "Linux",
+   "brand": "Firefox on Linux",
+   "released": "2026-09-29",
+   "versions": [
+    "Linux x86_64"
+   ],
+   "source": "Firefox release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (X11; Linux x86_64; rv:156.0) Gecko/20100101 Firefox/156.0",
+   "browser": "Firefox",
+   "major": 156,
+   "system": "Linux",
+   "brand": "Firefox on Linux",
+   "released": "2026-09-15",
+   "versions": [
+    "Linux x86_64"
+   ],
+   "source": "Firefox release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (X11; Linux x86_64; rv:155.0) Gecko/20100101 Firefox/155.0",
+   "browser": "Firefox",
+   "major": 155,
+   "system": "Linux",
+   "brand": "Firefox on Linux",
+   "released": "2026-09-01",
+   "versions": [
+    "Linux x86_64"
+   ],
+   "source": "Firefox release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (X11; Linux x86_64; rv:154.0) Gecko/20100101 Firefox/154.0",
+   "browser": "Firefox",
+   "major": 154,
+   "system": "Linux",
+   "brand": "Firefox on Linux",
+   "released": "2026-08-18",
+   "versions": [
+    "Linux x86_64"
+   ],
+   "source": "Firefox release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:157.0) Gecko/20100101 Firefox/157.0",
+   "browser": "Firefox",
+   "major": 157,
+   "system": "Windows",
+   "brand": "Firefox on Windows",
+   "released": "2026-09-29",
+   "versions": [
+    "Win32"
+   ],
+   "source": "Firefox release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:156.0) Gecko/20100101 Firefox/156.0",
+   "browser": "Firefox",
+   "major": 156,
+   "system": "Windows",
+   "brand": "Firefox on Windows",
+   "released": "2026-09-15",
+   "versions": [
+    "Win32"
+   ],
+   "source": "Firefox release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:155.0) Gecko/20100101 Firefox/155.0",
+   "browser": "Firefox",
+   "major": 155,
+   "system": "Windows",
+   "brand": "Firefox on Windows",
+   "released": "2026-09-01",
+   "versions": [
+    "Win32"
+   ],
+   "source": "Firefox release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:154.0) Gecko/20100101 Firefox/154.0",
+   "browser": "Firefox",
+   "major": 154,
+   "system": "Windows",
+   "brand": "Firefox on Windows",
+   "released": "2026-08-18",
+   "versions": [
+    "Win32"
+   ],
+   "source": "Firefox release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:157.0) Gecko/20100101 Firefox/157.0",
+   "browser": "Firefox",
+   "major": 157,
+   "system": "macOS",
+   "brand": "Firefox on macOS",
+   "released": "2026-09-29",
+   "versions": [
+    "MacIntel"
+   ],
+   "source": "Firefox release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:156.0) Gecko/20100101 Firefox/156.0",
+   "browser": "Firefox",
+   "major": 156,
+   "system": "macOS",
+   "brand": "Firefox on macOS",
+   "released": "2026-09-15",
+   "versions": [
+    "MacIntel"
+   ],
+   "source": "Firefox release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:155.0) Gecko/20100101 Firefox/155.0",
+   "browser": "Firefox",
+   "major": 155,
+   "system": "macOS",
+   "brand": "Firefox on macOS",
+   "released": "2026-09-01",
+   "versions": [
+    "MacIntel"
+   ],
+   "source": "Firefox release feed + the browser's own UA template"
+  },
+  {
+   "model": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:154.0) Gecko/20100101 Firefox/154.0",
+   "browser": "Firefox",
+   "major": 154,
+   "system": "macOS",
+   "brand": "Firefox on macOS",
+   "released": "2026-08-18",
+   "versions": [
+    "MacIntel"
+   ],
+   "source": "Firefox release feed + the browser's own UA template"
+  }
+ ]
+}
