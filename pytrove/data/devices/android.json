@@ -50,6 +50,18 @@
  ],
  "devices": [
   {
+   "model": "OPPOCPH2217",
+   "manufacturer": "OPPO",
+   "code": "CPH2217",
+   "name": "Reno5 F",
+   "brand": "oppo",
+   "released": "2022-08-15",
+   "versions": [
+    "SDK 33"
+   ],
+   "source": "dumps.tadiphone.dev firmware + play catalog"
+  },
+  {
    "model": "OPPOCPH2263",
    "manufacturer": "OPPO",
    "code": "CPH2263",
@@ -114,18 +126,6 @@
    "manufacturer": "OPPO",
    "code": "CPH2519",
    "name": "Find N3 Flip",
-   "brand": "oppo",
-   "released": "2022-08-15",
-   "versions": [
-    "SDK 33"
-   ],
-   "source": "dumps.tadiphone.dev firmware + play catalog"
-  },
-  {
-   "model": "OPPOCPH2579",
-   "manufacturer": "OPPO",
-   "code": "CPH2579",
-   "name": "A38",
    "brand": "oppo",
    "released": "2022-08-15",
    "versions": [
@@ -5887,6 +5887,18 @@
    "source": "dumps.tadiphone.dev firmware + play catalog"
   },
   {
+   "model": "OPPOPLB110",
+   "manufacturer": "OPPO",
+   "code": "PLB110",
+   "name": "Find X8s+",
+   "brand": "oppo",
+   "released": "2024-09-03",
+   "versions": [
+    "SDK 35"
+   ],
+   "source": "dumps.tadiphone.dev firmware + play catalog"
+  },
+  {
    "model": "Xiaomi2201122C",
    "manufacturer": "Xiaomi",
    "code": "2201122C",
@@ -6359,6 +6371,18 @@
    "manufacturer": "realme",
    "code": "RMX5054",
    "name": "realme 14 Pro+ 5G",
+   "brand": "realme",
+   "released": "2024-09-03",
+   "versions": [
+    "SDK 35"
+   ],
+   "source": "dumps.tadiphone.dev firmware + play catalog"
+  },
+  {
+   "model": "realmeRMX5070",
+   "manufacturer": "realme",
+   "code": "RMX5070",
+   "name": "realme 14 5G",
    "brand": "realme",
    "released": "2024-09-03",
    "versions": [
@@ -11670,6 +11694,30 @@
    "manufacturer": "Xiaomi",
    "code": "2608BPX34C",
    "name": "Xiaomi 18 Fold",
+   "brand": "xiaomi",
+   "released": "2026-06-16",
+   "versions": [
+    "SDK 37"
+   ],
+   "source": "miui-updates-tracker + play catalog"
+  },
+  {
+   "model": "XiaomiM154FF",
+   "manufacturer": "Xiaomi",
+   "code": "M154FF",
+   "name": "Xiaomi 18 Pro Max",
+   "brand": "xiaomi",
+   "released": "2026-06-16",
+   "versions": [
+    "SDK 37"
+   ],
+   "source": "miui-updates-tracker + play catalog"
+  },
+  {
+   "model": "XiaomiM610BB",
+   "manufacturer": "Xiaomi",
+   "code": "M610BB",
+   "name": "Xiaomi 18 Pro",
    "brand": "xiaomi",
    "released": "2026-06-16",
    "versions": [

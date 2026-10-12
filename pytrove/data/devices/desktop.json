@@ -3308,6 +3308,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "B760M-C",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "FP6D4-P1",
    "os": [
     "windows",
@@ -3489,15 +3498,6 @@
   },
   {
    "model": "IMB-1223",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "ASRock",
-   "source": "linuxhw/DMI"
-  },
-  {
-   "model": "IMB-195",
    "os": [
     "windows",
     "linux"
@@ -3974,6 +3974,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "G614JZ",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "G713QE",
    "os": [
     "windows",
@@ -4262,15 +4271,6 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "NZXT",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "ASUS",
-   "source": "linuxhw/DMI"
-  },
-  {
    "model": "P11C-I Series",
    "os": [
     "windows",
@@ -4343,15 +4343,6 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "ROG Strix G35CG",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "ASUS",
-   "source": "linuxhw/DMI"
-  },
-  {
    "model": "S5602ZA",
    "os": [
     "windows",
@@ -4389,6 +4380,15 @@
   },
   {
    "model": "UP5401ZA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "UX363JA",
    "os": [
     "windows",
     "linux"
@@ -4685,6 +4685,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "Aspire A317-51G",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "Aspire A317-53",
    "os": [
     "windows",
@@ -4821,15 +4830,6 @@
   },
   {
    "model": "Aspire AV15-53P",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "Acer",
-   "source": "linuxhw/DMI"
-  },
-  {
-   "model": "Aspire C22-865",
    "os": [
     "windows",
     "linux"
@@ -5711,15 +5711,6 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "Inspiron 5502",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "Dell",
-   "source": "linuxhw/DMI"
-  },
-  {
    "model": "Inspiron 5585",
    "os": [
     "windows",
@@ -6026,6 +6017,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "Latitude 9510",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "Latitude E5470",
    "os": [
     "windows",
@@ -6269,7 +6269,25 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "AX370-Gaming K7",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "AX370M-Gaming 3",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B360 HD3P-LM",
    "os": [
     "windows",
     "linux"
@@ -6288,15 +6306,6 @@
   },
   {
    "model": "B365M D3H",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "Gigabyte",
-   "source": "linuxhw/DMI"
-  },
-  {
-   "model": "B365M GAMING HD",
    "os": [
     "windows",
     "linux"
@@ -6360,15 +6369,6 @@
   },
   {
    "model": "B460MDS3HV2",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "Gigabyte",
-   "source": "linuxhw/DMI"
-  },
-  {
-   "model": "B550 AORUS PRO",
    "os": [
     "windows",
     "linux"
@@ -7151,15 +7151,6 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "HP All-in-One 27-cb0xxx",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "HP",
-   "source": "linuxhw/DMI"
-  },
-  {
    "model": "HP ENVY Laptop 13-ba0xxx",
    "os": [
     "windows",
@@ -7368,6 +7359,15 @@
   },
   {
    "model": "HP EliteDesk 800 G5 SFF",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Laptop 14",
    "os": [
     "windows",
     "linux"
@@ -7889,15 +7889,6 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "20HJS0RE02",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "Lenovo",
-   "source": "linuxhw/DMI"
-  },
-  {
    "model": "20HMS25S00",
    "os": [
     "windows",
@@ -8070,6 +8061,15 @@
   },
   {
    "model": "20MAS1720G",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20MVS08500",
    "os": [
     "windows",
     "linux"
@@ -8366,6 +8366,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "21CB005RAU",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "21CCS43W00",
    "os": [
     "windows",
@@ -8412,15 +8421,6 @@
   },
   {
    "model": "21E60059MX",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "Lenovo",
-   "source": "linuxhw/DMI"
-  },
-  {
-   "model": "21ED004JGE",
    "os": [
     "windows",
     "linux"
@@ -9707,15 +9707,6 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "960XFG",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "Other",
-   "source": "linuxhw/DMI"
-  },
-  {
    "model": "960XFH",
    "os": [
     "windows",
@@ -10230,6 +10221,15 @@
   },
   {
    "model": "iMac18,3",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "iMac19,1",
    "os": [
     "windows",
     "linux"
