@@ -10,10 +10,17 @@ from datetime import date
 from pathlib import Path
 from typing import NamedTuple
 
-#: The repository root, which is also where the output lives.
-ROOT = Path(__file__).resolve().parent.parent.parent
+#: This tool's own directory, and the repository root above it. Derived from
+#: TOOL_DIR rather than counting `.parent` from here, so moving a module
+#: between `src/` and a subpackage of it cannot silently shift every path.
+TOOL_DIR = Path(__file__).resolve().parent.parent
+ROOT = TOOL_DIR.parent.parent
+
 OUT_DIR = ROOT / "pytrove" / "data" / "devices"
-CACHE_DIR = ROOT / "tools" / ".device-cache"
+
+#: Every tool keeps its downloads in its own `.cache`, so one tool's cache is
+#: never cleared by another's run and `tools/*/.cache/` ignores all of them.
+CACHE_DIR = TOOL_DIR / ".cache"
 
 USER_AGENT = {"User-Agent": "pytrove-device-data"}
 TODAY = date.today().isoformat()

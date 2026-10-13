@@ -6,12 +6,16 @@ Run it when the catalogs go stale -- new phones, new OS releases, new browsers:
     python -m tools.device_catalogs --offline        # rebuild from the cache
     python -m tools.device_catalogs --only android   # one platform
 
-Run it from the repository root: `tools` resolves as a namespace package, so
-there is no launcher script and no second place for a constant to hide.
+Run it from the repository root; `tools` resolves as a namespace package.
+`python -m tools device_catalogs` is the front door: it checks every source
+and cleans the stale cache first (tools/_preflight), then runs this. The form
+above skips both and builds from whatever the cache holds.
 
-Downloads land in tools/.device-cache (gitignored). Only the four JSON files
-under pytrove/data/devices are written, so the library code never changes with
-the data.
+This directory is the tool's `src/`. Beside it sit the sections that are not
+logic -- `sources/`, `config/`, `ported/`, `schedule/`, `docs/` -- and
+`.cache/`, which holds the downloads and is gitignored. Only the four JSON
+files under pytrove/data/devices are written, so the library code never
+changes with the data.
 
 Sources, all public:
 
@@ -39,7 +43,8 @@ Every network step caches its download, so a first run is slow (the DMI step
 reads a few thousand probe files) and `--offline` afterwards is instant and
 produces byte-identical output.
 
-One module per responsibility, each owning the constants only it needs:
+One module per responsibility, each owning the constants only it needs
+(all of them in this `src/` directory):
 
     shared.py     paths, the schema number, the small helpers
     cache.py      Cache -- the only thing that touches the network
