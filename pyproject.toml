@@ -85,3 +85,38 @@ packages = ["pytrove"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+# Each selected rule enforces a CONTRIBUTING.md rule, noted beside it.
+[tool.ruff]
+target-version = "py310"
+# PEP 695 syntax, imported only on 3.12+ (see `typings/core.py`).
+per-file-target-version = { "pytrove/typings/_core_py312.py" = "py312" }
+
+[tool.ruff.lint]
+select = [
+    "F",       # 3.3: no unused imports; 1.9: no wildcard imports
+    "UP",      # 4.1: built-in generics and `|` unions; 4.2: UP037, no quoted annotations
+    "I002",    # 4.2: the `__future__` import in every module
+    "ANN",     # 4.6: complete type hints
+    "EM",      # 4.5: exception messages assigned to a variable first
+    "S101",    # 4.5: no `assert` runtime guards
+    "PGH003",  # 4.7: no bare `type: ignore`
+    "D",       # 5.3-5.5: Google-style docstrings
+]
+ignore = [
+    "ANN401",  # 4.6 forbids `Any` only as a way around a type error, not everywhere
+    "D100",    # 3.3: a module docstring is optional ("if present")
+    "D104",    # same, for a package's `__init__.py`
+]
+
+[tool.ruff.lint.isort]
+required-imports = ["from __future__ import annotations as _annotations"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# 1.9: wildcard imports are allowed only in interface-aggregation files.
+"**/__init__.py" = ["F401", "F403"]
+# Tests assert by design, and 5.3 covers library functions, not test cases.
+"tests/**" = ["S101", "D"]
