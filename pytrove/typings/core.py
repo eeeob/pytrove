@@ -1,105 +1,168 @@
-"""The package-wide type aliases, TypeVars and protocols.
+"""Type aliases, type variables and protocols general to the whole package.
 
-Everything here is general to pytrove as a whole -- anything scoped to one
-feature lives in its own sibling module (see template.py) and is named for
-that scope, since the whole package is re-exported flat from
-pytrove.typings.
+Types scoped to one feature live in a sibling module named for it (see
+`template.py`), because `pytrove.typings` re-exports every module flat.
 """
 
 from __future__ import annotations as _annotations
 
-from typing import (
-    Collection, Reversible, Iterator,
-    Sequence, AbstractSet, TypeAlias,
-    Any, Annotated, Callable, Coroutine,
-    Awaitable, ParamSpec, TypeVar, Literal,
-    TypedDict, Hashable, Protocol, Mapping
-
-)
-
-from enum import EnumMeta as EnumType, Enum  # EnumType is only an alias for EnumMeta added in 3.11
-
-import sys
 import os
-
-
-class LockProtocol(Protocol):
-    def acquire(self) -> bool: ...
-    def release(self) -> Any: ...
-
+import sys
+from collections.abc import (
+    Awaitable,
+    Callable,
+    Collection,
+    Coroutine,
+    Hashable,
+    Iterator,
+    Mapping,
+    Reversible,
+    Sequence,
+    Set,
+)
+from enum import Enum, EnumMeta as EnumType  # `EnumType` became the name of `EnumMeta` only in 3.11.
+from typing import Annotated, Any, Literal, ParamSpec, Protocol, TypeAlias, TypedDict, TypeVar
 
 _P = ParamSpec("_P")
-_T = TypeVar("_T")
-_KT = TypeVar("_KT", bound=Hashable)
-_VT = TypeVar("_VT")
+"""The parameters of a wrapped callable."""
 
+_T = TypeVar("_T")
+"""Any value type."""
+
+_KT = TypeVar("_KT", bound=Hashable)
+"""A mapping key type."""
+
+_VT = TypeVar("_VT")
+"""A mapping value type."""
+
+_CT = TypeVar("_CT", bound=type)
+"""A class."""
+
+_FT = TypeVar("_FT", bound=Callable[..., Any])
+"""A callable, kept with its exact type through a decorator."""
+
+_ExcT = TypeVar("_ExcT", bound=BaseException)
+"""An exception type."""
+
+_EnumT = TypeVar("_EnumT", bound=Enum)
+"""An enum class."""
+
+_True: TypeAlias = Literal[True]
+"""The `True` literal, for `@overload`s that dispatch on a boolean flag."""
+
+_False: TypeAlias = Literal[False]
+"""The `False` literal, for `@overload`s that dispatch on a boolean flag."""
 
 if sys.version_info >= (3, 12):
-    from ._core_py312 import *
+    from ._core_py312 import (
+        Container,
+        ContainerWithoutMapping,
+        JsonValue,
+        MaybeAwaitable,
+        MaybeAwaitableCallable,
+        MaybeContainer,
+        MaybeCoroutine,
+        MaybeCoroutineCallable,
+        MaybeList,
+        NestedContainer,
+        NestedContainerMappingValue,
+        NestedStrKeyDict,
+    )
 else:
-    #يجب المحافظة على ترتيب الاولويات
-    ContainerWithoutMapping: TypeAlias = (
-        Sequence[_T]
-        | AbstractSet[_T]
-        | Collection[_T]
-        | Reversible[_T]
-        | Iterator[_T]
-    )
-    Container: TypeAlias = (
-        Sequence[_T]
-        | AbstractSet[_T]
-        | Collection[_T]
-        | Reversible[_T]
-        | Iterator[_T]
-    )
+    # يجب المحافظة على ترتيب الاولويات
+    ContainerWithoutMapping: TypeAlias = Sequence[_T] | Set[_T] | Collection[_T] | Reversible[_T] | Iterator[_T]
+    """An iterable container that is not read as a mapping."""
 
+    Container: TypeAlias = Sequence[_T] | Set[_T] | Collection[_T] | Reversible[_T] | Iterator[_T]
+    """An iterable container; see `NotContainer` for the iterables that do not count."""
 
     MaybeList: TypeAlias = list[_T] | _T
+    """One value, or a list of them."""
+
     MaybeContainer: TypeAlias = Container[_T] | _T
+    """One value, or a container of them."""
+
     NestedStrKeyDict: TypeAlias = dict[str, "NestedStrKeyDict[_T]" | _T]
+    """A dict with string keys whose values are leaves or further such dicts."""
+
     NestedContainer: TypeAlias = Container["NestedContainer[_T]"] | _T
-
-
+    """A leaf, or a container of leaves and further such containers, at any depth."""
 
     NestedContainerMappingValue: TypeAlias = (
         Mapping[_KT, "NestedContainerMappingValue[_KT, _VT]"]
         | ContainerWithoutMapping["NestedContainerMappingValue[_KT, _VT]"]
         | _VT
     )
+    """A leaf, or a mapping or container of further such values, at any depth."""
 
+    JsonValue: TypeAlias = str | bool | int | float | None | list["JsonValue"] | dict[str, "JsonValue"]
+    """Any value `json` can represent."""
 
     MaybeCoroutine: TypeAlias = Coroutine[Any, Any, _T] | _T
+    """A value, or a coroutine resolving to it."""
+
     MaybeCoroutineCallable: TypeAlias = Callable[_P, MaybeCoroutine[_T]]
+    """A plain function or a coroutine function."""
+
     MaybeAwaitableCallable: TypeAlias = Callable[_P, _T | Awaitable[_T]]
+    """A callable whose result may or may not need awaiting."""
+
     MaybeAwaitable: TypeAlias = MaybeCoroutineCallable[_P, _T] | Awaitable[_T]
-    
-
-
-JsonValue: TypeAlias = str | bool | int | float | None | list['JsonValue'] | dict[str, 'JsonValue']
+    """A callable to run, or an awaitable already created."""
 
 NotContainer: TypeAlias = bytearray | bytes | str | memoryview | EnumType | Awaitable
+"""Iterables that are treated as single values rather than containers."""
+
 PhoneNumber: TypeAlias = Annotated[str, "Phone number in international format, e.g. +967xxxxxxxxx"]
+"""A phone number in international format."""
+
 RegionCode: TypeAlias = Annotated[str, "ISO region code, verify that it is valid"]
+"""A two-letter ISO 3166 region code."""
+
 Number: TypeAlias = int | float
+"""An integer or a float."""
+
 StrInt: TypeAlias = int | str
+"""An integer or its string form."""
+
 PathLike: TypeAlias = str | bytes | os.PathLike[str] | os.PathLike[bytes]
+"""Anything `open` and `os` accept as a path."""
 
 
-_CT = TypeVar("_CT", bound=type)
-_FT = TypeVar("_FT", bound=Callable[..., Any])
-_ExcT = TypeVar("_ExcT", bound=BaseException)
-_EnumT = TypeVar("_EnumT", bound=Enum)
+class LockProtocol(Protocol):
+    """A lock the file tools can hold around a read or write, such as `threading.Lock`."""
 
-_True: TypeAlias = Literal[True]
-_False: TypeAlias = Literal[False]
+    def acquire(self) -> bool:
+        """Acquire the lock, blocking until it is free.
+
+        Returns:
+            Whether the lock was acquired.
+        """
+        ...
+
+    def release(self) -> Any:
+        """Release the lock.
+
+        Returns:
+            Whatever the lock's own `release` returns; it is ignored.
+        """
+        ...
 
 
 class CountryInfo(TypedDict):
+    """One country, as `country_tools.get_cinfo` returns it.
+
+    Attributes:
+        cc: The international calling code, such as `966`.
+        rc: The ISO 3166 region code, such as `"SA"`.
+        flag: The flag emoji.
+        name: The English name.
+    """
+
     cc: int
     rc: str
     flag: str
     name: str
-
 
 
 __all__ = (
@@ -113,19 +176,24 @@ __all__ = (
     "MaybeAwaitable",
     "CountryInfo",
     "Number",
-    "StrInt", 
+    "StrInt",
     "MaybeCoroutineCallable",
-    "MaybeContainer", 
-    "JsonValue", 
-    "PathLike", 
-    "LockProtocol", 
-    "MaybeAwaitableCallable", 
-    "MaybeCoroutine", 
-    "MaybeList", 
-    "NestedContainerMappingValue", 
-    "_P", "_T", "_CT", "_FT",
-    "_KT", "_VT", "_True", "_False",
-    "_EnumT", "_ExcT", 
-
-
+    "MaybeContainer",
+    "JsonValue",
+    "PathLike",
+    "LockProtocol",
+    "MaybeAwaitableCallable",
+    "MaybeCoroutine",
+    "MaybeList",
+    "NestedContainerMappingValue",
+    "_P",
+    "_T",
+    "_CT",
+    "_FT",
+    "_KT",
+    "_VT",
+    "_True",
+    "_False",
+    "_EnumT",
+    "_ExcT",
 )
