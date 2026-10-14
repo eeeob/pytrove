@@ -1,0 +1,555 @@
+#  device_catalogs -- source registry
+#  ===================================
+#
+#  Every upstream this tool depends on, what it must still look like, and what
+#  the tool loses if it dies. Read by `tools/_preflight`, which imports no code
+#  from here: this file is the only thing the checker and the generator share.
+#
+#  Two kinds of entry:
+#
+#    [[source]]   an upstream. `url` is fetched whole and cached; `probe_url`
+#                 is an endpoint the tool queries per item or clones, so one
+#                 representative request proves it is alive and still shaped
+#                 right. A probe_url caches nothing itself.
+#
+#    [[derived]]  a cache file the tool produced. No URL, so no fingerprint:
+#                 a file built from 5,700 requests cannot be revalidated. It
+#                 goes stale when a source it was built from changes, or by age.
+#
+#  `consumed_by` and `on_removal` are required on every source. A dead source
+#  is a code change, not a retry -- each one has bespoke handling in src/ --
+#  so the failure report prints both, and whoever reads it should not have to
+#  go looking.
+#
+#  Policies the janitor applies, and nothing else:
+#    delete   drop the file; it will be refetched
+#    merge    rename to <name>.prev<ext>; the tool merges on its next harvest
+#    keep     never remove automatically (too expensive to rebuild)
+#    warn     say so, touch nothing
+#
+#  ---------------------------------------------------------------------------
+#  Deliberately NOT here: URLs that src/ cites but never fetches. They are
+#  documentation, and registering them would have the checker report changes
+#  nobody acts on. Each lands in a later section instead:
+#
+#    source.android.com/.../build-numbers          -> [[watch]]  (config/)
+#    endoflife.date/api/windows.json               -> [[watch]]  (config/)
+#    repology.org/api/v1/project/glibc             -> [[watch]]  (config/)
+#    DrKLO/Telegram ConnectionsManager.java        -> [[citation]] (ported/)
+#    Telegram-iOS AppDelegate.swift                -> [[citation]] (ported/)
+#    desktop-app/lib_base base_platform_info.cpp   -> [[citation]] (ported/)
+#    desktop-app/lib_base base_info_win.cpp        -> [[citation]] (ported/)
+#    desktop-app/lib_base base_info_linux.cpp      -> [[citation]] (ported/)
+#    chromium user_agent_utils.cc                  -> [[citation]] (ported/)
+#    mozilla-central nsHttpHandler.cpp             -> [[citation]] (ported/)
+#    WebKit NavigatorBase.cpp                      -> [[citation]] (ported/)
+#    dumps.tadiphone.dev/dumps (the web UI)        -> never; the API is below
+#  ---------------------------------------------------------------------------
+
+[tool]
+name = "device_catalogs"
+#  Directories inside .cache that must never survive a run. The DMI step
+#  clones a repository and wipes it when done; a run interrupted in between
+#  leaves megabytes of git objects nothing will read again.
+scratch = ["dmi-repo"]
+
+
+# ===========================================================================
+#  iOS
+# ===========================================================================
+
+[[source]]
+id = "appledb_devices"
+url = "https://api.appledb.dev/device/main.json"
+cache = "appledb_device.json"
+on_change = "delete"
+consumed_by = "src/ios.py :: IOSBuilder.identifiers(); APPLEDB_URL, APPLEDB_FILE"
+on_removal = """
+iPhone identifiers and release dates. Nothing substitutes: the iOS catalog
+would have no device list and no launch dates, so IOSBuilder.build() would
+have nothing to iterate. Apple publishes no equivalent feed."""
+notes = """
+A community project, so the shape is worth watching rather than trusting.
+`released` is a string on some entries and a list on others, and absent
+entirely on unreleased hardware -- identifiers() already handles all three."""
+
+  [source.contract]
+  kind = "json_list"
+  min_items = 500
+  item_keys = ["type", "identifier", "name", "released"]
+
+  [source.fingerprint]
+  #  iPhone entries only: the file carries every Apple device ever made, so
+  #  a new iPad would otherwise read as a change to this tool's inputs.
+  kind = "regex_count"
+  pattern = '"type":\s*"iPhone"'
+
+
+[[source]]
+id = "mtapi_environment"
+url = "https://raw.githubusercontent.com/TelegramMessenger/Telegram-iOS/master/submodules/MtProtoKit/Sources/MTApiEnvironment.m"
+cache = "mtapi_environment.m"
+on_change = "delete"
+consumed_by = """
+src/ios.py :: IOSBuilder.telegram_names(); MTAPI_URL, MTAPI_FILE, MTAPI_OPEN,
+MTAPI_CLOSE, NAME_BLOCK"""
+on_removal = """
+The iOS model strings themselves. There is no substitute at all: Apple's
+marketing names are the wrong values -- the client hardcodes its own table and
+reports 'Unknown iPhone' for anything it omits -- so the iOS catalog cannot be
+built from any other source."""
+notes = """
+The most fragile source here, and the reason this contract exists. The parser
+finds the method by string index and then reads it with a regex, so a refactor
+upstream raises ValueError in the middle of a build. The contract turns that
+into a stop before the build, with a report that says what to re-verify."""
+
+  [source.contract]
+  kind = "text"
+  must_contain = ["- (NSString *)platformString"]
+  must_match = 'return @"iPhone'
+  min_matches = 40
+
+  [source.fingerprint]
+  kind = "regex_count"
+  pattern = 'return @"iPhone'
+
+
+[[source]]
+id = "ipsw_device_api"
+#  Queried once per device, so there is no single body to cache. One stable
+#  identifier (iPhone 15 Pro) proves the endpoint is alive and still shaped
+#  right; its own cache is the [[derived]] entry ipsw_firmwares below.
+probe_url = "https://api.ipsw.me/v4/device/iPhone16,1?type=ipsw"
+consumed_by = "src/ios.py :: IOSBuilder.firmwares(); IPSW_URL, REQUEST_PAUSE"
+on_removal = """
+Every released iOS firmware per device, which is what makes each iPhone's
+version list measured rather than guessed. Without it every device would have
+to be paired with every iOS version, which is wrong: an iPhone XS never ran
+iOS 27."""
+notes = """
+Also the staleness signal for the whole iOS catalog: the fingerprint is the
+newest iOS major this endpoint reports, so the dashboard says '27 -> 28' the
+week a major ships. A 404 on one device is normal and handled -- iPhone19,4
+('iPhone Duo') is in the client's name table but has no firmware listing yet."""
+
+  [source.contract]
+  kind = "json_object"
+  object_keys = ["identifier", "name", "firmwares"]
+
+  [source.fingerprint]
+  kind = "regex_max_int"
+  pattern = '"version":\s*"(\d+)\.'
+
+
+# ===========================================================================
+#  Android
+# ===========================================================================
+
+[[source]]
+id = "play_catalog"
+url = "https://storage.googleapis.com/play_public/supported_devices.csv"
+cache = "play_devices.csv"
+on_change = "delete"
+consumed_by = """
+src/android.py :: AndroidBuilder.load_play_catalog(), model_codes(),
+add_firmware_brands() via play_names; PLAY_URL, PLAY_FILE, PLAY_ENCODING"""
+on_removal = """
+Every Android Build.MODEL code, for all ten brands. The android catalog cannot
+be built without it, and no other public source lists retail model codes --
+the firmware dumps prove a code exists but only for the market they came from."""
+notes = """
+Google publishes it as UTF-16, not UTF-8, which is why the contract declares
+the encoding. It is also the display-name source: Telegram's server rewrites
+'samsungSM-S918B' into 'Samsung Galaxy S23 Ultra' from these same two columns."""
+
+  [source.contract]
+  kind = "csv"
+  encoding = "utf-16"
+  must_have_columns = ["Retail Branding", "Marketing Name", "Model"]
+  min_rows = 20_000
+
+  [source.fingerprint]
+  kind = "csv_rows"
+
+
+[[source]]
+id = "eol_samsung_mobile"
+url = "https://endoflife.date/api/samsung-mobile.json"
+cache = "eol_samsung-mobile.json"
+on_change = "delete"
+consumed_by = "src/android.py :: add_eol_families(); EOL_URL, EOL_FILE, EOL_FAMILIES"
+on_removal = """
+Release dates for Samsung, which is 425 of 912 devices and the largest group
+share. Without a real release date there is no true launch API level, so those
+devices would have to leave the catalog rather than be dated by guess."""
+
+  [source.contract]
+  kind = "json_list"
+  min_items = 5
+  #  `support` is absent from motorola-mobility and `link` from oneplus, so
+  #  only the three keys every family really carries are required.
+  item_keys = ["cycle", "releaseDate", "eol"]
+
+  [source.fingerprint]
+  kind = "json_len"
+
+
+[[source]]
+id = "eol_pixel"
+url = "https://endoflife.date/api/pixel.json"
+cache = "eol_pixel.json"
+on_change = "delete"
+consumed_by = "src/android.py :: add_eol_families(); EOL_FAMILIES, pixel_name()"
+on_removal = "Release dates for Google Pixel; its 19 devices would leave the catalog."
+
+  [source.contract]
+  kind = "json_list"
+  min_items = 5
+  item_keys = ["cycle", "releaseDate", "eol"]
+
+  [source.fingerprint]
+  kind = "json_len"
+
+
+[[source]]
+id = "eol_oneplus"
+url = "https://endoflife.date/api/oneplus.json"
+cache = "eol_oneplus.json"
+on_change = "delete"
+consumed_by = "src/android.py :: add_eol_families(); EOL_FAMILIES, oneplus_name()"
+on_removal = "Release dates for OnePlus; its 28 devices would leave the catalog."
+
+  [source.contract]
+  kind = "json_list"
+  min_items = 5
+  item_keys = ["cycle", "releaseDate", "eol"]
+
+  [source.fingerprint]
+  kind = "json_len"
+
+
+[[source]]
+id = "eol_motorola_mobility"
+url = "https://endoflife.date/api/motorola-mobility.json"
+cache = "eol_motorola-mobility.json"
+on_change = "delete"
+consumed_by = "src/android.py :: add_eol_families(); EOL_FAMILIES, motorola_name()"
+on_removal = "Release dates for Motorola; its 114 devices would leave the catalog."
+
+  [source.contract]
+  kind = "json_list"
+  min_items = 5
+  item_keys = ["cycle", "releaseDate", "eol"]
+
+  [source.fingerprint]
+  kind = "json_len"
+
+
+[[source]]
+id = "xiaomi_latest"
+url = "https://raw.githubusercontent.com/XiaomiFirmwareUpdater/miui-updates-tracker/master/data/latest.yml"
+cache = "xiaomi_latest.yml"
+on_change = "delete"
+consumed_by = """
+src/android.py :: add_xiaomi(), parse_flat_yaml(); XIAOMI_BASE, XIAOMI_LATEST,
+XIAOMI_LATEST_FILE, XIAOMI_BRANCH, XIAOMI_REGION_CODE, XIAOMI_REGION_NAME,
+XIAOMI_BRANDS, XIAOMI_BACK"""
+on_removal = """
+The newest shipped Android release per Xiaomi device -- the only dating signal
+for Xiaomi, Redmi and POCO, since endoflife.date tracks no Chinese brand. About
+235 devices leave the catalog, and GROUP_SHARES xiaomi / redmi / poco in
+pytrove/_devices.py become dead weights."""
+notes = """
+Read by a hand-written YAML reader rather than PyYAML, which is why the
+contract counts entries instead of trusting a parse: a layout change upstream
+would make parse_flat_yaml return nothing and the build would quietly produce
+a catalog with no Xiaomi in it. Note the keys are alphabetical, so `android`
+is the first key of each item and `codename` is not."""
+
+  [source.contract]
+  kind = "text"
+  must_contain = ["codename:", "branch: Stable"]
+  must_match = '^- android:'
+  min_matches = 1000
+
+  [source.fingerprint]
+  kind = "regex_count"
+  pattern = '^- android:'
+
+
+[[source]]
+id = "xiaomi_devices"
+url = "https://raw.githubusercontent.com/XiaomiFirmwareUpdater/miui-updates-tracker/master/data/devices.yml"
+cache = "xiaomi_devices.yml"
+on_change = "delete"
+consumed_by = "src/android.py :: add_xiaomi(), parse_codenames(); XIAOMI_DEVICES, XIAOMI_DEVICES_FILE"
+on_removal = """
+Codename to marketing name for Xiaomi. Without it add_xiaomi() falls back to
+the tracker's own `name` field, which carries regional suffixes; the devices
+survive but their names degrade, so Google's catalog matches fewer of them."""
+notes = """
+A mapping of codename to a list of names, one top-level key per device -- not
+a list of mappings like latest.yml, which is why it has its own reader."""
+
+  [source.contract]
+  kind = "text"
+  must_match = '^\S+:$'
+  min_matches = 500
+
+  [source.fingerprint]
+  kind = "regex_count"
+  pattern = '^\S+:$'
+
+
+[[source]]
+id = "dumps_gitlab_api"
+#  Queried per brand and then per dump, so nothing to cache as one body. The
+#  probe asks for the five lowest project ids, which never change, so this
+#  stays a pure liveness check instead of reporting a change every week.
+probe_url = "https://dumps.tadiphone.dev/api/v4/groups/dumps%2Fvivo/projects?order_by=id&sort=asc&per_page=5&include_subgroups=true"
+consumed_by = """
+src/firmware.py :: FirmwareHarvest.api(), dumps(), file(), tree(), resolve();
+BASE, BRANDS, MIN_ANDROID, MAX_PAGES, PROP_PATH, OVERLAY_*"""
+on_removal = """
+The retail Build.MODEL codes and Android ceilings for OPPO, realme and vivo --
+87 devices, and the only evidence for those three brands anywhere. It is also
+where every manufacturer casing in MANUFACTURER was measured, so losing it
+means no way to verify that samsung is lowercase and OPPO is not."""
+notes = """
+A self-hosted GitLab. No authentication, and the API caps page size at 100,
+which is what MAX_PAGES exists for. The group has no cheap 'anything new'
+signal, so firmware_records below goes stale by age rather than by this."""
+
+  [source.contract]
+  kind = "json_list"
+  min_items = 1
+  item_keys = ["id", "default_branch", "path_with_namespace"]
+
+
+# ===========================================================================
+#  Desktop
+# ===========================================================================
+
+[[source]]
+id = "linuxhw_dmi_repo"
+#  Cloned, not fetched. The git smart-HTTP ref advertisement proves the remote
+#  is alive and yields its HEAD without transferring anything.
+probe_url = "https://github.com/linuxhw/DMI.git"
+consumed_by = "src/dmi.py :: DmiHarvest.paths(), git(); REPO, CLONE_DIR, PATHS_FILE"
+on_removal = """
+The list of ~163,000 probe paths, and so the entire desktop hardware pool: 821
+models across nine vendors. Nothing else publishes real dmidecode output, and
+the folder names in the repository are not what machines report -- the fields
+have to come out of the probe files themselves."""
+notes = """
+Cloned blobless and shallow rather than read through the GitHub API, which
+caps anonymous callers at 60 requests an hour and truncates large trees. The
+fingerprint is the HEAD commit, so it moves most weeks: the repository takes
+contributions daily. That is informative and harmless, because the caches
+built from it are policy `keep` and a change alone never triggers a rebuild."""
+
+  [source.contract]
+  kind = "git_refs"
+
+  [source.fingerprint]
+  kind = "git_head"
+
+
+[[source]]
+id = "linuxhw_dmi_raw"
+#  The CDN that serves the individual probe files, 5,700 of them per harvest.
+#  README.md is the one path in that repository guaranteed to exist.
+probe_url = "https://raw.githubusercontent.com/linuxhw/DMI/master/README.md"
+consumed_by = "src/dmi.py :: DmiHarvest.read_probe(); RAW, WORKERS, SAMPLES"
+on_removal = """
+The probe bodies themselves. The path list alone is useless: folder names are
+that project's own labels, so every DMI field has to be read out of the files."""
+notes = """
+Separate from the repository entry because they fail independently: the git
+remote can be fine while the raw CDN throttles. A 429 here is expected rather
+than alarming -- a harvest makes thousands of requests through it."""
+
+  [source.contract]
+  kind = "text"
+  must_contain = ["DMI"]
+
+  [source.fingerprint]
+  kind = "bytes_len"
+
+
+# ===========================================================================
+#  Web
+# ===========================================================================
+
+[[source]]
+id = "chrome_releases_win"
+url = "https://versionhistory.googleapis.com/v1/chrome/platforms/win/channels/stable/versions/all/releases"
+cache = "chrome_releases_win.json"
+on_change = "delete"
+consumed_by = "src/web.py :: WebBuilder.chrome_majors(); CHROME_URL, CHROME_FILE, PLATFORMS[].chrome_slug"
+on_removal = """
+Released Chrome majors and their first-serving dates on Windows. Chrome on
+Windows is the largest single web group (50 of 100 share), so losing it takes
+the biggest slice of the web catalog with it."""
+
+  [source.contract]
+  kind = "json_object"
+  object_keys = ["releases"]
+
+  [source.fingerprint]
+  kind = "regex_max_int"
+  pattern = '"version":\s*"(\d+)\.'
+
+
+[[source]]
+id = "chrome_releases_mac"
+url = "https://versionhistory.googleapis.com/v1/chrome/platforms/mac/channels/stable/versions/all/releases"
+cache = "chrome_releases_mac.json"
+on_change = "delete"
+consumed_by = "src/web.py :: WebBuilder.chrome_majors(); CHROME_URL, CHROME_FILE"
+on_removal = "Released Chrome majors on macOS; Chrome on macOS leaves the catalog."
+notes = """
+A separate feed per platform on purpose: Google rolls a major to Linux days
+after Windows, and the catalog reflects that -- Chrome on Linux really does
+sit one major behind."""
+
+  [source.contract]
+  kind = "json_object"
+  object_keys = ["releases"]
+
+  [source.fingerprint]
+  kind = "regex_max_int"
+  pattern = '"version":\s*"(\d+)\.'
+
+
+[[source]]
+id = "chrome_releases_linux"
+url = "https://versionhistory.googleapis.com/v1/chrome/platforms/linux/channels/stable/versions/all/releases"
+cache = "chrome_releases_linux.json"
+on_change = "delete"
+consumed_by = "src/web.py :: WebBuilder.chrome_majors(); CHROME_URL, CHROME_FILE"
+on_removal = "Released Chrome majors on Linux; Chrome on Linux leaves the catalog."
+
+  [source.contract]
+  kind = "json_object"
+  object_keys = ["releases"]
+
+  [source.fingerprint]
+  kind = "regex_max_int"
+  pattern = '"version":\s*"(\d+)\.'
+
+
+[[source]]
+id = "firefox_releases"
+url = "https://product-details.mozilla.org/1.0/firefox_history_major_releases.json"
+cache = "firefox_releases.json"
+on_change = "delete"
+consumed_by = "src/web.py :: WebBuilder.firefox_majors(); FIREFOX_URL, FIREFOX_FILE"
+on_removal = """
+Released Firefox majors and their dates. Firefox is the only Gecko row in the
+catalog, so all nine of its user agents go -- and with them the only non
+Chromium template, which is the one that proves the generator is not just
+emitting one shape."""
+notes = """
+One global feed, not per platform: Mozilla ships a major to every desktop
+system on the same day, which is why all three Firefox rows share a major."""
+
+  [source.contract]
+  kind = "json_object"
+  min_items = 50
+
+  [source.fingerprint]
+  kind = "regex_max_int"
+  pattern = '"(\d+)\.[\d.]*":'
+
+
+[[source]]
+id = "edge_releases"
+url = "https://edgeupdates.microsoft.com/api/products?view=enterprise"
+cache = "edge_releases.json"
+on_change = "delete"
+consumed_by = "src/web.py :: WebBuilder.edge_majors(); EDGE_URL, EDGE_FILE, EDGE_PRODUCT, EDGE_ARCH"
+on_removal = "Released Edge versions per platform; its nine user agents leave the catalog."
+notes = """
+One response covering every channel, which the builder filters to Stable. The
+fingerprint is therefore the newest major across ALL channels -- Beta or Dev,
+usually two ahead of Stable. That is deliberate: it still moves exactly when
+the feed moves, and no regex can filter by channel without parsing structure."""
+
+  [source.contract]
+  kind = "json_list"
+  min_items = 1
+  item_keys = ["Product", "Releases"]
+
+  [source.fingerprint]
+  kind = "regex_max_int"
+  pattern = '"ProductVersion":\s*"(\d+)\.'
+
+
+# ===========================================================================
+#  Produced caches
+# ===========================================================================
+
+[[derived]]
+id = "ipsw_firmwares"
+cache = "ipsw_iphones.json"
+derives_from = ["appledb_devices", "ipsw_device_api"]
+on_change = "delete"
+max_age_days = 90
+cost = "39 requests, 0.4s apart"
+consumed_by = "src/ios.py :: IOSBuilder.firmwares(); FIRMWARE_FILE"
+notes = """
+A dict keyed by identifier. Rebuilt whenever appledb lists a device it does
+not cover, and otherwise quarterly: iOS point releases land monthly, so the
+version list drifts even when no new hardware appears."""
+
+
+[[derived]]
+id = "firmware_records"
+cache = "firmware_records.json"
+derives_from = ["dumps_gitlab_api"]
+on_change = "merge"
+record_max_age_days = 730
+max_age_days = 30
+cost = "~126 dumps x 5 files, plus tree listings for the oplus overlays"
+consumed_by = "src/firmware.py :: FirmwareHarvest.records(); RECORDS_FILE"
+notes = """
+The only cache that accumulates, and the reason the merge policy exists. The
+harvest sees the newest 400 projects per brand, so as dumps pile up older
+devices scroll out of the window and would silently leave the catalog -- we
+watched OPPOCPH2579 drop out of one run and return in the next. Merging keeps
+every (brand, code) a dump has ever proved, with `last_seen` stamped on each
+record and anything unseen for two years dropped.
+
+The janitor only renames this file to firmware_records.prev.json; the merge is
+done by FirmwareHarvest, which already keys records by (brand, code) and
+breaks ties on the Android release. Stale by age rather than by dependency,
+because the dumps group offers no cheap signal that anything new landed."""
+
+
+[[derived]]
+id = "dmi_paths"
+cache = "dmi_paths.txt"
+derives_from = ["linuxhw_dmi_repo"]
+on_change = "keep"
+max_age_days = 365
+cost = "a blobless shallow clone, ~9 MB of trees"
+consumed_by = "src/dmi.py :: DmiHarvest.paths(); PATHS_FILE"
+notes = "One line per probe path, ~163,000 of them."
+
+
+[[derived]]
+id = "dmi_records"
+cache = "dmi_records.json"
+derives_from = ["linuxhw_dmi_repo", "linuxhw_dmi_raw"]
+on_change = "keep"
+max_age_days = 365
+cost = "5,700 requests at 16 workers, the heaviest step in the tool by far"
+consumed_by = "src/dmi.py :: DmiHarvest.records(); RECORDS_FILE"
+notes = """
+Policy `keep`, and that is not a preference. The repository takes commits
+daily, so `delete` would make any upstream movement trigger 5,700 requests --
+weekly. PC hardware turns over slowly and the per-vendor cap means a re-harvest
+rotates about 1% of the pool, so once a year is the honest cadence. Delete it
+by hand when you want it rebuilt."""

@@ -1,0 +1,157 @@
+{
+ "lock_schema": 1,
+ "tool": "device_catalogs",
+ "sources": {
+  "appledb_devices": {
+   "fingerprint": 67,
+   "http": {
+    "etag": "W/\"6acd9f5c-ac267\"",
+    "last_modified": "Tue, 13 Oct 2026 03:02:52 GMT"
+   },
+   "contract": "ok",
+   "declaration": "e9acd1551706",
+   "first_seen": "2026-10-13"
+  },
+  "chrome_releases_linux": {
+   "fingerprint": 155,
+   "contract": "ok",
+   "declaration": "c8a1cb37a2ee",
+   "first_seen": "2026-10-13"
+  },
+  "chrome_releases_mac": {
+   "fingerprint": 156,
+   "contract": "ok",
+   "declaration": "c8a1cb37a2ee",
+   "first_seen": "2026-10-13"
+  },
+  "chrome_releases_win": {
+   "fingerprint": 156,
+   "contract": "ok",
+   "declaration": "c8a1cb37a2ee",
+   "first_seen": "2026-10-13"
+  },
+  "dumps_gitlab_api": {
+   "sha256": "12b2c0638e53e6791048c1d8088623d05f12cd7d7774c8d9940c12f35deb21a3",
+   "bytes": 18635,
+   "http": {
+    "etag": "W/\"12b2c0638e53e6791048c1d8088623d0\""
+   },
+   "contract": "ok",
+   "declaration": "356eeeb0d839",
+   "first_seen": "2026-10-13"
+  },
+  "edge_releases": {
+   "fingerprint": 157,
+   "contract": "ok",
+   "declaration": "9b8d96841949",
+   "first_seen": "2026-10-13"
+  },
+  "eol_motorola_mobility": {
+   "fingerprint": 155,
+   "http": {
+    "etag": "\"725f28a5c711376a966c79cd6d930883-ssl\""
+   },
+   "contract": "ok",
+   "declaration": "79d1d483f321",
+   "first_seen": "2026-10-13"
+  },
+  "eol_oneplus": {
+   "fingerprint": 12,
+   "http": {
+    "etag": "\"e56ac663ba984eb46d841bfb55f6688e-ssl\""
+   },
+   "contract": "ok",
+   "declaration": "79d1d483f321",
+   "first_seen": "2026-10-13"
+  },
+  "eol_pixel": {
+   "fingerprint": 39,
+   "http": {
+    "etag": "\"4447089ac1113d77ea775a1c34d0e4e3-ssl\""
+   },
+   "contract": "ok",
+   "declaration": "79d1d483f321",
+   "first_seen": "2026-10-13"
+  },
+  "eol_samsung_mobile": {
+   "fingerprint": 441,
+   "http": {
+    "etag": "\"ccf1685df92dee2e4f584c3048cb6063-ssl\""
+   },
+   "contract": "ok",
+   "declaration": "79d1d483f321",
+   "first_seen": "2026-10-13"
+  },
+  "firefox_releases": {
+   "fingerprint": 157,
+   "http": {
+    "etag": "\"36db67b102e05805a88a3d4f7f72f559\"",
+    "last_modified": "Fri, 09 Oct 2026 13:57:02 GMT"
+   },
+   "contract": "ok",
+   "declaration": "2c360e26500b",
+   "first_seen": "2026-10-13"
+  },
+  "ipsw_device_api": {
+   "fingerprint": 27,
+   "http": {
+    "last_modified": "Tue, 13 Oct 2026 04:34:46 GMT"
+   },
+   "contract": "ok",
+   "declaration": "114877ed1d57",
+   "first_seen": "2026-10-13"
+  },
+  "linuxhw_dmi_raw": {
+   "fingerprint": 105607,
+   "http": {
+    "etag": "\"f0c18b769ea5dc10148bc365998f3e2ac583e616f4267e8e3ce540accdaa7a2a\""
+   },
+   "contract": "ok",
+   "declaration": "6840f378bd63",
+   "first_seen": "2026-10-13"
+  },
+  "linuxhw_dmi_repo": {
+   "fingerprint": "57b21bc6fdd863380e99c228c22aafcd1509528c",
+   "contract": "ok",
+   "declaration": "f3a02ffbd714",
+   "first_seen": "2026-10-13"
+  },
+  "mtapi_environment": {
+   "fingerprint": 55,
+   "http": {
+    "etag": "\"7905a6c907ca18a5d1c1b6e04c79cc5655a0f58b0d545ee3dee610a4becddafb\""
+   },
+   "contract": "ok",
+   "declaration": "e37c5eff9fcf",
+   "first_seen": "2026-10-13"
+  },
+  "play_catalog": {
+   "fingerprint": 54128,
+   "http": {
+    "etag": "\"d8cc5d5445c9af407c657167deb08d4e\"",
+    "last_modified": "Mon, 12 Oct 2026 12:05:08 GMT"
+   },
+   "contract": "ok",
+   "declaration": "b8fa63c3f3f0",
+   "first_seen": "2026-10-13"
+  },
+  "xiaomi_devices": {
+   "fingerprint": 1441,
+   "http": {
+    "etag": "\"14a01f747f9eb7373b3b4a49dd66fb8ad913f68c0007246c9b304fe0bbaf4638\""
+   },
+   "contract": "ok",
+   "declaration": "af694553cf23",
+   "first_seen": "2026-10-13"
+  },
+  "xiaomi_latest": {
+   "fingerprint": 3666,
+   "http": {
+    "etag": "\"46182c53c23b63b480352d2f5130b1d542b90adc4f8bf3280e8166c0f2c086d4\""
+   },
+   "contract": "ok",
+   "declaration": "2c98d014106e",
+   "first_seen": "2026-10-13"
+  }
+ }
+}
