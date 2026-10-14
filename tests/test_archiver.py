@@ -355,7 +355,7 @@ async def test_restart_replaces_the_scheduling_task(tree):
     await archiver.stop()
 
 
-async def test_loop_keeps_dispatching_while_an_earlier_run_is_still_in_flight(tree):
+async def test_loop_keeps_ticking_while_a_slow_run_is_in_flight_without_duplicating_it(tree):
     finished = asyncio.Event()
 
     async def slow_on_archive(job, path):
@@ -367,10 +367,9 @@ async def test_loop_keeps_dispatching_while_an_earlier_run_is_still_in_flight(tr
     archiver.start()
     await asyncio.sleep(0.05)  # several poll intervals
 
-    # Every later dispatch queues behind the first on the same job's lock,
-    # but the loop itself never waited for that first run_job to return
-    # before ticking again and dispatching another.
-    assert len(archiver._running) > 1
+    # The loop never waits on the slow run, but a job that is still running
+    # is not dispatched again -- one run in flight, not one queued per tick.
+    assert len(archiver._running) == 1
     assert not archiver._task.done()
 
     finished.set()

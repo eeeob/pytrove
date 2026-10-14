@@ -37,7 +37,7 @@ class PeriodicArchiver:
     which job or root it belongs to.
     """
 
-    def __init__(self, jobs: NestedContainer[ArchiveJob], *, base_exclude: NestedContainer = (),):
+    def __init__(self, jobs: NestedContainer[ArchiveJob], *, base_exclude: NestedContainer[str] = (),):
         self.jobs = tuple(iter_flat_cont(jobs))
         self.base_exclude = base_exclude
 
@@ -45,6 +45,7 @@ class PeriodicArchiver:
 
         self._task: asyncio.Task[None] | None = None
         self._running: set[asyncio.Task[None]] = set()
+        self._active: set[int] = set()
 
     def _siblings(self, job: ArchiveJob) -> list[str]:
         """Every other job's own archive name, but only among jobs that
@@ -121,10 +122,14 @@ class PeriodicArchiver:
             await asyncio.sleep(interval)
 
             for job in self.jobs:
-                if self._should_run(job):
-                    task = asyncio.create_task(self.run_job(job))
-                    self._running.add(task)
-                    task.add_done_callback(self._running.discard)
+                if id(job) in self._active or not self._should_run(job):
+                    continue
+
+                self._active.add(id(job))
+                task = asyncio.create_task(self.run_job(job))
+                self._running.add(task)
+                task.add_done_callback(self._running.discard)
+                task.add_done_callback(lambda _, key=id(job): self._active.discard(key))
 
     def start(self) -> None:
         """Start the scheduling loop. A no-op while it is already running."""
