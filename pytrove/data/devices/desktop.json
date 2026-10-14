@@ -1,7 +1,7 @@
 {
  "schema": 1,
  "platform": "desktop",
- "updated": "2026-10-12",
+ "updated": "2026-10-13",
  "os": {
   "windows": {
    "model_format": "DeviceModelPretty of real DMI records: SystemProductName, else SystemFamily + BaseBoardProduct; 15 chars, HP names up to 32",
@@ -2458,21 +2458,6 @@
   },
   {
    "os": "linux",
-   "version": "FreeBSD 14.3-RELEASE ubuntu GNOME Wayland",
-   "weight": 29.76
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 14.3-RELEASE ubuntu GNOME X11",
-   "weight": 15.84
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 14.3-RELEASE ubuntu GNOME Xwayland",
-   "weight": 2.4
-  },
-  {
-   "os": "linux",
    "version": "FreeBSD 14.3-RELEASE GNOME Wayland",
    "weight": 23.56
   },
@@ -2563,36 +2548,6 @@
   },
   {
    "os": "linux",
-   "version": "FreeBSD 14.3-RELEASE pop GNOME Wayland",
-   "weight": 3.72
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 14.3-RELEASE pop GNOME X11",
-   "weight": 1.98
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 14.3-RELEASE pop GNOME Xwayland",
-   "weight": 0.3
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 14.3-RELEASE Budgie GNOME Wayland",
-   "weight": 2.48
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 14.3-RELEASE Budgie GNOME X11",
-   "weight": 1.32
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 14.3-RELEASE Budgie GNOME Xwayland",
-   "weight": 0.2
-  },
-  {
-   "os": "linux",
    "version": "FreeBSD 14.3-RELEASE Hyprland Wayland",
    "weight": 3.72
   },
@@ -2619,51 +2574,6 @@
   {
    "os": "linux",
    "version": "FreeBSD 14.3-RELEASE sway Xwayland",
-   "weight": 0.1
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 14.3-RELEASE Unity Wayland",
-   "weight": 1.24
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 14.3-RELEASE Unity X11",
-   "weight": 0.66
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 14.3-RELEASE Unity Xwayland",
-   "weight": 0.1
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 14.3-RELEASE Deepin Wayland",
-   "weight": 2.48
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 14.3-RELEASE Deepin X11",
-   "weight": 1.32
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 14.3-RELEASE Deepin Xwayland",
-   "weight": 0.2
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 14.3-RELEASE Pantheon Wayland",
-   "weight": 1.24
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 14.3-RELEASE Pantheon X11",
-   "weight": 0.66
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 14.3-RELEASE Pantheon Xwayland",
    "weight": 0.1
   },
   {
@@ -2695,21 +2605,6 @@
    "os": "linux",
    "version": "FreeBSD 14.3-RELEASE LXDE Xwayland",
    "weight": 0.1
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 15.0-RELEASE ubuntu GNOME Wayland",
-   "weight": 14.88
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 15.0-RELEASE ubuntu GNOME X11",
-   "weight": 7.92
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 15.0-RELEASE ubuntu GNOME Xwayland",
-   "weight": 1.2
   },
   {
    "os": "linux",
@@ -2803,36 +2698,6 @@
   },
   {
    "os": "linux",
-   "version": "FreeBSD 15.0-RELEASE pop GNOME Wayland",
-   "weight": 1.86
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 15.0-RELEASE pop GNOME X11",
-   "weight": 0.99
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 15.0-RELEASE pop GNOME Xwayland",
-   "weight": 0.15
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 15.0-RELEASE Budgie GNOME Wayland",
-   "weight": 1.24
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 15.0-RELEASE Budgie GNOME X11",
-   "weight": 0.66
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 15.0-RELEASE Budgie GNOME Xwayland",
-   "weight": 0.1
-  },
-  {
-   "os": "linux",
    "version": "FreeBSD 15.0-RELEASE Hyprland Wayland",
    "weight": 1.86
   },
@@ -2859,51 +2724,6 @@
   {
    "os": "linux",
    "version": "FreeBSD 15.0-RELEASE sway Xwayland",
-   "weight": 0.05
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 15.0-RELEASE Unity Wayland",
-   "weight": 0.62
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 15.0-RELEASE Unity X11",
-   "weight": 0.33
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 15.0-RELEASE Unity Xwayland",
-   "weight": 0.05
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 15.0-RELEASE Deepin Wayland",
-   "weight": 1.24
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 15.0-RELEASE Deepin X11",
-   "weight": 0.66
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 15.0-RELEASE Deepin Xwayland",
-   "weight": 0.1
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 15.0-RELEASE Pantheon Wayland",
-   "weight": 0.62
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 15.0-RELEASE Pantheon X11",
-   "weight": 0.33
-  },
-  {
-   "os": "linux",
-   "version": "FreeBSD 15.0-RELEASE Pantheon Xwayland",
    "weight": 0.05
   },
   {
@@ -3506,6 +3326,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "IMB-195",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "IMB-X1316",
    "os": [
     "windows",
@@ -3669,15 +3498,6 @@
   },
   {
    "model": "Z370 Pro4-IB",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "ASRock",
-   "source": "linuxhw/DMI"
-  },
-  {
-   "model": "Z370M Pro4",
    "os": [
     "windows",
     "linux"
@@ -4010,15 +3830,6 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "G834JZR",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "ASUS",
-   "source": "linuxhw/DMI"
-  },
-  {
    "model": "GA401IHR",
    "os": [
     "windows",
@@ -4271,6 +4082,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "NZXT",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "P11C-I Series",
    "os": [
     "windows",
@@ -4335,6 +4155,15 @@
   },
   {
    "model": "ROG STRIX G15CF",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "ROG Strix G35CG",
    "os": [
     "windows",
     "linux"
@@ -4551,15 +4380,6 @@
   },
   {
    "model": "X515JA",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "ASUS",
-   "source": "linuxhw/DMI"
-  },
-  {
-   "model": "X515MA",
    "os": [
     "windows",
     "linux"
@@ -5387,15 +5207,6 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "060K5C",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "Dell",
-   "source": "linuxhw/DMI"
-  },
-  {
    "model": "0D4MD1",
    "os": [
     "windows",
@@ -5703,6 +5514,15 @@
   },
   {
    "model": "Inspiron 5402",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 5502",
    "os": [
     "windows",
     "linux"
@@ -6287,15 +6107,6 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "B360 HD3P-LM",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "Gigabyte",
-   "source": "linuxhw/DMI"
-  },
-  {
    "model": "B360M-D3H",
    "os": [
     "windows",
@@ -6306,6 +6117,15 @@
   },
   {
    "model": "B365M D3H",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B365M GAMING HD",
    "os": [
     "windows",
     "linux"
@@ -6369,6 +6189,15 @@
   },
   {
    "model": "B460MDS3HV2",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B550 AORUS PRO",
    "os": [
     "windows",
     "linux"
@@ -6585,15 +6414,6 @@
   },
   {
    "model": "H310M S2",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "Gigabyte",
-   "source": "linuxhw/DMI"
-  },
-  {
-   "model": "H310M S2P 2.0",
    "os": [
     "windows",
     "linux"
@@ -7007,6 +6827,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "103C53311M 84EF",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "510-p010",
    "os": [
     "windows",
@@ -7017,6 +6846,15 @@
   },
   {
    "model": "84FA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "84FD",
    "os": [
     "windows",
     "linux"
@@ -7053,33 +6891,6 @@
   },
   {
    "model": "8C75",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "HP",
-   "source": "linuxhw/DMI"
-  },
-  {
-   "model": "Berknip",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "HP",
-   "source": "linuxhw/DMI"
-  },
-  {
-   "model": "Dratini",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "HP",
-   "source": "linuxhw/DMI"
-  },
-  {
-   "model": "Gumboz",
    "os": [
     "windows",
     "linux"
@@ -7133,6 +6944,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "HP 340S G7",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "HP 470 G8",
    "os": [
     "windows",
@@ -7143,6 +6963,15 @@
   },
   {
    "model": "HP All-in-One 22-df0xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP All-in-One 27-cb0xxx",
    "os": [
     "windows",
     "linux"
@@ -7206,15 +7035,6 @@
   },
   {
    "model": "HP Elite Dragonfly 13.5 inch G3",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "HP",
-   "source": "linuxhw/DMI"
-  },
-  {
-   "model": "HP EliteBook 1040 14 inch G9",
    "os": [
     "windows",
     "linux"
@@ -7448,6 +7268,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "HP Laptop 15-gw0xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "HP Laptop 15s-du2xxx",
    "os": [
     "windows",
@@ -7664,15 +7493,6 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "HP ProBook 455R G6",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "HP",
-   "source": "linuxhw/DMI"
-  },
-  {
    "model": "HP ProBook 640 G8",
    "os": [
     "windows",
@@ -7862,15 +7682,6 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "20EQS6LN1P",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "Lenovo",
-   "source": "linuxhw/DMI"
-  },
-  {
    "model": "20FRS01V00",
    "os": [
     "windows",
@@ -7889,7 +7700,7 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "20HMS25S00",
+   "model": "20HJS0RE02",
    "os": [
     "windows",
     "linux"
@@ -7916,7 +7727,7 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "20JES0AJ00",
+   "model": "20J7S25C00",
    "os": [
     "windows",
     "linux"
@@ -8429,6 +8240,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "21ED004JGE",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "21FCCTO1WW",
    "os": [
     "windows",
@@ -8780,6 +8600,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "GE MS-1542",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "GE MS-1543",
    "os": [
     "windows",
@@ -8925,15 +8754,6 @@
   },
   {
    "model": "MS-7B29",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "MSI",
-   "source": "linuxhw/DMI"
-  },
-  {
-   "model": "MS-7B49",
    "os": [
     "windows",
     "linux"
@@ -9455,15 +9275,6 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "15Z90RT-G.AD75B",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "Other",
-   "source": "linuxhw/DMI"
-  },
-  {
    "model": "15ZD90S-GX56K",
    "os": [
     "windows",
@@ -9699,6 +9510,15 @@
   },
   {
    "model": "960QHA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "960XFG",
    "os": [
     "windows",
     "linux"

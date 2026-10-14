@@ -35,6 +35,16 @@ class DmiHarvest:
     SAMPLES: ClassVar[int] = 420
     WORKERS: ClassVar[int] = 16
 
+    #: The share of the sample that must actually arrive. Sixteen threads
+    #: against raw.githubusercontent gets throttled, and a throttled probe was
+    #: dropped silently: a cold rebuild then wrote a catalog built from a
+    #: slightly different sample every time, which is why eleven of 821 models
+    #: changed between two builds of an identical commit. The loss cannot be
+    #: removed -- it is somebody else's rate limit -- but it can be stated and
+    #: it can be bounded, so a badly throttled run stops instead of quietly
+    #: producing a thinner catalogue. Normal loss is well under one percent.
+    MIN_READ: ClassVar[float] = 0.90
+
     PATHS_FILE: ClassVar[str] = "dmi_paths.txt"
     RECORDS_FILE: ClassVar[str] = "dmi_records.json"
     CLONE_DIR: ClassVar[str] = "dmi-repo"
@@ -167,6 +177,14 @@ class DmiHarvest:
         with ThreadPoolExecutor(max_workers=self.WORKERS) as pool:
             records = [r for r in pool.map(self.read_probe, wanted) if r]
 
-        print(f"  read {len(records)} probes")
+        lost = len(wanted) - len(records)
+        print(f"  read {len(records)} of {len(wanted)} probes"
+              + (f" ({lost} unreachable)" if lost else ""))
+        if wanted and len(records) < len(wanted) * self.MIN_READ:
+            raise SystemExit(
+                f"only {len(records)} of {len(wanted)} DMI probes could be read "
+                f"({len(records) / len(wanted):.0%}, floor "
+                f"{self.MIN_READ:.0%}).\nraw.githubusercontent is rate limiting "
+                f"this run; nothing was written. retry later.")
         self.cache.write_json(self.RECORDS_FILE, records)
         return records

@@ -1,7 +1,7 @@
 {
  "schema": 1,
  "platform": "web",
- "updated": "2026-10-12",
+ "updated": "2026-10-13",
  "model_format": "navigator.userAgent verbatim, which is what both Telegram web clients send",
  "version_format": "navigator.platform -- Win32, MacIntel, or uname sysname + machine on Linux",
  "sources": [

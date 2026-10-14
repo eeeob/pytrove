@@ -51,6 +51,20 @@ class DesktopBuilder(Builder):
         r"not specified|^none$|^n/?a$|unknown|example|placeholder|^\d+$|^\W)", re.I)
     HAS_LETTER: ClassVar[re.Pattern[str]] = re.compile(r"[A-Za-z]")
 
+    #: ChromeOS machines name their reference platform in the DMI family, so
+    #: `Google_Zork` or `Google_Hatch` identifies one from its probe alone and
+    #: nothing has to be recognised by product name. They are dropped rather
+    #: than tagged Linux-only, for the same reason Huawei is not in the Android
+    #: pool: the string would be wrong for almost everyone who could send it.
+    #: Windows is not installable on them at all -- coreboot, no CSM, no
+    #: vendor drivers -- so `Berknip` beside "Windows 11 x64" is a machine
+    #: that cannot exist. And on ChromeOS itself Telegram Desktop runs inside
+    #: the Crostini VM, which reports the VM's own firmware and not the board,
+    #: so the probe's string is not what that client sends either. Only a
+    #: Chromebook with unlocked firmware and Linux installed over ChromeOS
+    #: would report it, and that is far too narrow to model.
+    CHROME_OS_FAMILY: ClassVar[str] = "Google_"
+
     #: What FinalizeDeviceModel reports when the firmware exposes nothing
     #: usable, which covers virtual machines and many custom builds.
     FALLBACK_MODEL: ClassVar[str] = "Desktop"
@@ -99,6 +113,22 @@ class DesktopBuilder(Builder):
         Share("Hyprland", 3), Share("sway", 1), Share("Unity", 1),
         Share("Deepin", 2), Share("Pantheon", 1), Share("COSMIC", 1), Share("LXDE", 1),
     )
+
+    #: Desktop identifiers a non-Linux kernel can never report, so the kernel
+    #: x desktop product does not invent a machine that cannot exist. Three of
+    #: them are a distribution's own session name rather than the desktop's --
+    #: `ubuntu:GNOME` and `pop:GNOME` are set by Ubuntu's and Pop!_OS's session
+    #: files, and upstream budgie-desktop exports a bare `Budgie`, so
+    #: `Budgie GNOME` is Ubuntu Budgie's. The other three simply have no
+    #: FreeBSD port: checked against the ports tree, `x11/cinnamon`,
+    #: `x11/budgie-desktop`, `x11-wm/cosmic-comp`, `x11/gnome-shell`,
+    #: `x11/plasma6-plasma-desktop`, `x11/xfce4`, `x11/mate`, `x11/lxqt`,
+    #: `x11/lxde-meta`, `x11-wm/hyprland` and `x11-wm/sway` are all there
+    #: while deepin, unity and pantheon are not.
+    LINUX_ONLY_DESKTOPS: ClassVar[frozenset[str]] = frozenset({
+        "ubuntu GNOME", "pop GNOME", "Budgie GNOME",
+        "Unity", "Deepin", "Pantheon",
+    })
     SESSIONS: ClassVar[tuple[Share, ...]] = (
         Share("Wayland", 62), Share("X11", 33), Share("Xwayland", 5),
     )
@@ -201,6 +231,8 @@ class DesktopBuilder(Builder):
 
         by_vendor: dict[str, dict[str, str]] = collections.defaultdict(dict)
         for record in records:
+            if record.get("family", "").startswith(self.CHROME_OS_FAMILY):
+                continue
             model = LibBase.device_model_from_dmi(
                 record["product"], record["family"], record["board"])
             if not model or self.JUNK.search(model) or not self.HAS_LETTER.search(model):
@@ -263,14 +295,20 @@ class DesktopBuilder(Builder):
     def unix_versions(cls) -> list[dict[str, Any]]:
         """Every kernel x desktop x session x libc string the client can join.
 
-        The four are independent, so the product is the whole reachable set;
-        BSD is pinned to the empty libc because it is never glibc.
+        Session and libc are independent of each other, but both are
+        constrained by the kernel, so the product is taken per kernel rather
+        than once: BSD is pinned to the empty libc because it is never glibc,
+        and it drops the desktop identifiers no BSD can report, which would
+        otherwise pair a FreeBSD release with Ubuntu's own session name.
         """
 
         out: list[dict[str, Any]] = []
         for kernel in cls.KERNELS:
-            libcs = cls.LIBC if kernel.name == "Linux" else (Share("", 100),)
-            for desktop in cls.DESKTOPS:
+            linux = kernel.name == "Linux"
+            libcs = cls.LIBC if linux else (Share("", 100),)
+            desktops = cls.DESKTOPS if linux else tuple(
+                d for d in cls.DESKTOPS if d.name not in cls.LINUX_ONLY_DESKTOPS)
+            for desktop in desktops:
                 for session in cls.SESSIONS:
                     for libc in libcs:
                         parts = (kernel.name, desktop.name, session.name, libc.name)

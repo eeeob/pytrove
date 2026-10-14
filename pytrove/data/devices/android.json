@@ -1,7 +1,7 @@
 {
  "schema": 1,
  "platform": "android",
- "updated": "2026-10-12",
+ "updated": "2026-10-13",
  "model_format": "Build.MANUFACTURER + Build.MODEL (no separator), as Telegram Android sends it",
  "version_format": "SDK followed by Build.VERSION.SDK_INT",
  "sources": [
@@ -126,6 +126,18 @@
    "manufacturer": "OPPO",
    "code": "CPH2519",
    "name": "Find N3 Flip",
+   "brand": "oppo",
+   "released": "2022-08-15",
+   "versions": [
+    "SDK 33"
+   ],
+   "source": "dumps.tadiphone.dev firmware + play catalog"
+  },
+  {
+   "model": "OPPOCPH2579",
+   "manufacturer": "OPPO",
+   "code": "CPH2579",
+   "name": "A38",
    "brand": "oppo",
    "released": "2022-08-15",
    "versions": [
@@ -758,18 +770,6 @@
    "source": "miui-updates-tracker + play catalog"
   },
   {
-   "model": "realmeRMX3081",
-   "manufacturer": "realme",
-   "code": "RMX3081",
-   "name": "realme 8Pro",
-   "brand": "realme",
-   "released": "2022-08-15",
-   "versions": [
-    "SDK 33"
-   ],
-   "source": "dumps.tadiphone.dev firmware + play catalog"
-  },
-  {
    "model": "realmeRMX3085",
    "manufacturer": "realme",
    "code": "RMX3085",
@@ -870,18 +870,6 @@
    "manufacturer": "vivo",
    "code": "I2214",
    "name": "iQOO Neo7",
-   "brand": "vivo",
-   "released": "2022-08-15",
-   "versions": [
-    "SDK 33"
-   ],
-   "source": "dumps.tadiphone.dev firmware + play catalog"
-  },
-  {
-   "model": "vivoPA2373",
-   "manufacturer": "vivo",
-   "code": "PA2373",
-   "name": "vivo Pad2",
    "brand": "vivo",
    "released": "2022-08-15",
    "versions": [
@@ -1228,9 +1216,7 @@
    "versions": [
     "SDK 33",
     "SDK 34",
-    "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 35"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -1244,9 +1230,7 @@
    "versions": [
     "SDK 33",
     "SDK 34",
-    "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 35"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -1260,9 +1244,7 @@
    "versions": [
     "SDK 33",
     "SDK 34",
-    "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 35"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -1276,9 +1258,7 @@
    "versions": [
     "SDK 33",
     "SDK 34",
-    "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 35"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -1292,9 +1272,7 @@
    "versions": [
     "SDK 33",
     "SDK 34",
-    "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 35"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -1308,9 +1286,7 @@
    "versions": [
     "SDK 33",
     "SDK 34",
-    "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 35"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -1324,9 +1300,7 @@
    "versions": [
     "SDK 33",
     "SDK 34",
-    "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 35"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -1340,9 +1314,7 @@
    "versions": [
     "SDK 33",
     "SDK 34",
-    "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 35"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -2044,9 +2016,7 @@
    "versions": [
     "SDK 33",
     "SDK 34",
-    "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 35"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -2123,9 +2093,7 @@
    "versions": [
     "SDK 33",
     "SDK 34",
-    "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 35"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -2234,9 +2202,7 @@
    "versions": [
     "SDK 33",
     "SDK 34",
-    "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 35"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -2250,9 +2216,7 @@
    "versions": [
     "SDK 33",
     "SDK 34",
-    "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 35"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -2266,9 +2230,7 @@
    "versions": [
     "SDK 33",
     "SDK 34",
-    "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 35"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -2282,9 +2244,7 @@
    "versions": [
     "SDK 33",
     "SDK 34",
-    "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 35"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -2298,9 +2258,7 @@
    "versions": [
     "SDK 33",
     "SDK 34",
-    "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 35"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -2314,9 +2272,7 @@
    "versions": [
     "SDK 33",
     "SDK 34",
-    "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 35"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -3741,8 +3697,7 @@
    "versions": [
     "SDK 34",
     "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 36"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -3756,8 +3711,7 @@
    "versions": [
     "SDK 34",
     "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 36"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -3771,8 +3725,7 @@
    "versions": [
     "SDK 34",
     "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 36"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -3786,8 +3739,7 @@
    "versions": [
     "SDK 34",
     "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 36"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -3801,8 +3753,7 @@
    "versions": [
     "SDK 34",
     "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 36"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -4789,8 +4740,7 @@
    "versions": [
     "SDK 34",
     "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 36"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -5305,21 +5255,6 @@
    "source": "endoflife.date/motorola-mobility + play catalog"
   },
   {
-   "model": "OnePlusOPD2403",
-   "manufacturer": "OnePlus",
-   "code": "OPD2403",
-   "name": "OnePlus Pad2",
-   "brand": "oneplus",
-   "released": "2024-07-16",
-   "versions": [
-    "SDK 34",
-    "SDK 35",
-    "SDK 36",
-    "SDK 37"
-   ],
-   "source": "endoflife.date/oneplus + play catalog"
-  },
-  {
    "model": "samsungSM-M356B",
    "manufacturer": "samsung",
    "code": "SM-M356B",
@@ -5689,8 +5624,7 @@
    "versions": [
     "SDK 34",
     "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 36"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },
@@ -5704,8 +5638,7 @@
    "versions": [
     "SDK 34",
     "SDK 35",
-    "SDK 36",
-    "SDK 37"
+    "SDK 36"
    ],
    "source": "endoflife.date/samsung-mobile + play catalog"
   },

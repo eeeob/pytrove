@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import collections
 import csv
+from datetime import date
 import io
 import re
 from typing import Any, Callable, ClassVar, NamedTuple
@@ -112,7 +113,6 @@ class AndroidBuilder(Builder):
     CONNECTIONS_MANAGER_URL: ClassVar[str] = (
         "https://github.com/DrKLO/Telegram/blob/master/TMessagesProj/src/main/java/org/telegram/tgnet/ConnectionsManager.java"
     )
-    DUMPS_URL: ClassVar[str] = "https://dumps.tadiphone.dev/dumps"
 
     #: One cache file per source, so a rename is one edit and not a search.
     PLAY_FILE: ClassVar[str] = "play_devices.csv"
@@ -148,8 +148,12 @@ class AndroidBuilder(Builder):
     #: tilts: Google's catalog lists far more Xiaomi and Redmi tablets than
     #: Samsung ones, so filtering only "tab s"/"tab a" let a brand's share be
     #: spent on slates while another brand's was not.
+    #: `\d*` on the slate words because a word boundary does not fall between
+    #: a letter and a digit: `\bpad\b` matches "Pad 2" but not "Pad2", which is
+    #: how `OnePlus Pad2` and `vivo Pad2` reached the phone pool.
     SKIP: ClassVar[re.Pattern[str]] = re.compile(
-        r"\b(watch|slate|pixelbook|pixel c|book|buds|tab|tablet|pad)\b", re.I)
+        r"\b(watch|slate|pixelbook|pixel c|book|buds|tab\d*|tablet|pad\d*)\b",
+        re.I)
     #: What a plausible Build.MODEL looks like.
     MODEL_CODE: ClassVar[re.Pattern[str]] = re.compile(r"[A-Za-z0-9 ._+-]{3,32}")
     #: Generic-system-image names that Google's catalog does carry but no retail
@@ -291,23 +295,26 @@ class AndroidBuilder(Builder):
                 return sorted(self.play[(brand, candidate)])
         return []
 
-    def sdk_range(self, released: str, max_sdk: int) -> list[str]:
+    def sdk_range(self, released: str, max_sdk: int,
+                  upgrades: int | None = None) -> list[str]:
         """The SDK levels this phone plausibly ran, from its launch level up to
         the lowest of: its support ceiling, the newest level that exists, and
-        launch + MAX_OS_UPGRADES."""
+        launch plus the upgrades its own support window allows."""
 
         launch = self.sdk_at(released)
-        top = min(max_sdk, self.API_LEVELS[-1].api, launch + self.MAX_OS_UPGRADES)
+        allowed = self.MAX_OS_UPGRADES if upgrades is None else upgrades
+        top = min(max_sdk, self.API_LEVELS[-1].api, launch + allowed)
         return [f"SDK {sdk}" for sdk in range(launch, top + 1) if sdk >= self.MIN_SDK]
 
-    def add(self, brand: str, name: str, released: str, max_sdk: int, source: str) -> bool:
+    def add(self, brand: str, name: str, released: str, max_sdk: int, source: str,
+            upgrades: int | None = None) -> bool:
         """Record every regional variant of one phone. False when nothing matched."""
 
         if self.SKIP.search(name):
             return False
 
         codes = self.model_codes(brand, name)
-        versions = self.sdk_range(released, max_sdk)
+        versions = self.sdk_range(released, max_sdk, upgrades)
         if not codes or not versions:
             return False
 
@@ -331,6 +338,54 @@ class AndroidBuilder(Builder):
             added = True
         return added
 
+    @classmethod
+    def upgrades(cls, cycle: dict[str, Any]) -> int:
+        """How many major upgrades this family's own support window allows.
+
+        The window length is the count. Samsung publishes the two together --
+        the A0x gets two OS upgrades, the A1x and A3x four, the S and Z lines
+        six or seven -- and endoflife.date carries `releaseDate` and `support`
+        per family, so the span between them says which tier a phone is in
+        without a hand-kept table. A flat four offered a Galaxy A06 Android 17
+        when its window closed two upgrades in.
+
+        `MAX_OS_UPGRADES` is the fallback for a family with no `support` date,
+        which is every Motorola one: there the span cannot be measured and a
+        conservative constant is all that is left.
+        """
+
+        rel, sup = cycle.get("releaseDate"), cycle.get("support")
+        if not (isinstance(rel, str) and isinstance(sup, str)):
+            return cls.MAX_OS_UPGRADES
+        try:
+            days = (date.fromisoformat(sup) - date.fromisoformat(rel)).days
+        except ValueError:
+            return cls.MAX_OS_UPGRADES
+        return max(0, round(days / 365.25))
+
+    @staticmethod
+    def horizon(cycle: dict[str, Any]) -> str:
+        """The last day this family could still have gained an OS release.
+
+        `support` first, because that is the field that means what is being
+        asked: endoflife.date publishes it separately from `eol`, and for
+        Samsung it is genuinely tiered -- two years for the A0x and M1x, four
+        for the A1x and A3x, six or seven for the S and Z lines -- while `eol`
+        runs two further years past it as the security window. Reading `eol`
+        offered a Galaxy A14 four OS upgrades when Samsung promised it two.
+
+        `eol` remains the fallback, because Motorola publishes no `support`
+        date at all and it is then the only bound there is; and when neither
+        is a date (a family still open-ended, where the API is a bool) there
+        is nothing to bound with, so the caller's clamp to today decides.
+        """
+
+        for key in ("support", "eol"):
+            value = cycle.get(key)
+            if isinstance(value, str):
+                return value
+        return TODAY
+
     def add_eol_families(self) -> None:
         """Samsung, Pixel, OnePlus and Motorola, which endoflife.date dates."""
 
@@ -343,12 +398,10 @@ class AndroidBuilder(Builder):
                 released = cycle.get("releaseDate") or ""
                 if not released or released < self.MIN_RELEASE:
                     continue
-                # `eol` is a date while supported and a bool once decided.
-                eol = cycle.get("eol")
-                horizon = eol if isinstance(eol, str) else TODAY
                 if self.add(brand, namer(cycle["cycle"]), released,
-                            self.sdk_at(min(horizon, TODAY)),
-                            f"endoflife.date/{product} + play catalog"):
+                            self.sdk_at(min(self.horizon(cycle), TODAY)),
+                            f"endoflife.date/{product} + play catalog",
+                            self.upgrades(cycle)):
                     matched += 1
             print(f"  {product}: {matched} families")
 
@@ -453,7 +506,7 @@ class AndroidBuilder(Builder):
         XIAOMI_BASE,
         f"{API_LEVEL_URL} -- API level release dates",
         CONNECTIONS_MANAGER_URL,
-        f"{DUMPS_URL} -- stock factory firmware build.prop, for the "
+        f"{FirmwareHarvest.WEB} -- stock factory firmware build.prop, for the "
         f"ro.product.manufacturer casing and for the OPPO, realme and vivo ceilings",
     )
 
