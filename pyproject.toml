@@ -73,6 +73,8 @@ exclude = [".github/",]
 
 [tool.hatch.version]
 path = "pytrove/__meta__.py"
+# The default pattern does not allow the `Final` annotation rule 4.3 requires.
+pattern = '^__version__: Final\[str\] = "(?P<version>[^"]+)"'
 
 
 [tool.hatch.metadata]
