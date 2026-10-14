@@ -6,13 +6,13 @@ from typing import overload, Final, Callable, Any
 from .typings import _True, _False, _T, Number, StrInt
 from .validate_tools import validation
 from .data_tools import map_deep
+from ._internal._triangular import _tri_cdf, _tri_icdf
 
 import ast
 import operator
 import logging
 import random
 
-from math import sqrt
 
 
 log = logging.getLogger(__name__)
@@ -48,7 +48,6 @@ def _eval_calc_ast(node):
         return _CALC_UNARYOPS[type(node.op)](_eval_calc_ast(node.operand))
 
     raise ValueError(f"Disallowed expression node: {type(node).__name__}")
-
 
 
 @overload
@@ -122,48 +121,6 @@ def apply_discount(price: Number, discount_percent: Number, ndigits: int | None 
 def reverse_discount(discounted_price: Number, discount_percent: Number, ndigits: int | None = 4) -> float:
     validation(0 <= discount_percent < 100, "discount_percent must be between 0 and < 100")
     return round(discounted_price / (1 - discount_percent / 100), ndigits)
-
-def _tri_cdf(x: float, low: float, high: float, mode: float) -> float:
-    """Triangular CDF at `x` -- P(X <= x) for X ~ Triangular(low, high, mode).
-
-    Both `mode == low` and `mode == high` are safe: the branch whose
-    denominator would be zero is exactly the branch no `x` in `(low, high)`
-    can reach.
-    """
-
-    if x <= low:
-        return 0.0
-
-    if x >= high:
-        return 1.0
-
-    span = high - low
-
-    if x <= mode:
-        return (x - low) * (x - low) / (span * (mode - low))
-
-    return 1.0 - (high - x) * (high - x) / (span * (high - mode))
-
-
-def _tri_icdf(u: float, low: float, high: float, mode: float) -> float:
-    """Triangular quantile -- the `x` with `_tri_cdf(x) == u`.
-
-    A plain uniform draw in `u` gives a triangular sample; a draw confined
-    to `[_tri_cdf(a), _tri_cdf(b)]` gives one truncated to `[a, b]` with no
-    draw-and-retry -- the trick behind jitter()'s anti-bunching.
-    """
-
-    span = high - low
-
-    if span <= 0.0:
-        return low
-
-    peak = (mode - low) / span
-
-    if u <= peak:
-        return low + sqrt(u * span * (mode - low))
-
-    return high - sqrt((1.0 - u) * span * (high - mode))
 
 
 def jitter(

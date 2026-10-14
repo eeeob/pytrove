@@ -40,7 +40,7 @@ else:
         ButtonStyle = str
 
 
-from .._optional import _optional_import, _unavailable_class
+from .._internal._optional import _optional_import, _unavailable_class
 from ..typings import (
     NestedStrKeyDict, MaybeList, JsonValue,
     StrInt, PathLike, _True, _False,

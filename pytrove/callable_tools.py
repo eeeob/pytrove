@@ -15,7 +15,8 @@ from .validate_tools import iscoroutinefunction_wrapped
 from .iter_tools import iter_flat_cont, to_frozenset
 from .async_tools import run_awaitable_in_coro, call_sync_or_await
 
-from ._async_tools import _get_running_loop
+from ._internal._asyncio import _get_running_loop
+from ._internal._exceptions import _HARD_PROPAGATE
 from ._callable_tools import (
     _WaitOnErrorDecorator,
     _AwaitOnErrorDecorator,
@@ -24,8 +25,7 @@ from ._callable_tools import (
     _LazyCallAll,
     _Coro,
     _ExcFilter,
-    _ExcLogger,
-    _HARD_PROPAGATE,
+    _ExcLogger,
     _AT, _ET
 )
 

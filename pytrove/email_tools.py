@@ -11,7 +11,7 @@ from .errors import ValidationError
 from .validate_tools import is_email
 from .async_tools import to_thread, safe_await
 
-from ._optional import _optional_import
+from ._internal._optional import _optional_import
 
 from email import message_from_bytes
 import html

@@ -42,7 +42,8 @@ from .errors import ValidationError, ArchiveLimitError, ArchivePolicyError
 from .enums import ArchiveFormat, ArchiveLinkPolicy, ArchiveOverwritePolicy
 from .typings.archive import ArchiveLimits
 from .files_tools import remove_path, remove_file, remove_folder, remove_paths, remove_files, ensure_dir, ensure_path
-from ._files_tools import _is_dir, _is_link
+from ._internal._fs import _is_dir, _is_link, _COPY_BUF
+from ._internal._stability import _default_stability_check
 from .iter_tools import dedupe
 from .callable_tools import safe_call
 
@@ -70,25 +71,11 @@ log = logging.getLogger(__name__)
 
 # --- constants -------------------------------------------------------
 
-#: How much of a member is held in memory while it is copied out. One
-#: buffer per member being written, so a 4 GB file costs this and not its
-#: own size.
-_COPY_BUF: Final[int] = 1 << 20
 
 #: The longest link destination read out of a zip member's data. A
 #: destination is a path, and 4096 is the longest any platform stores one;
 #: a header claiming more is describing something that is not a link.
 _LINK_MAX: Final[int] = 4096
-
-#: Below this, a file is read straight through, however many
-#: stability_retries were asked for -- reading it is already so quick that
-#: a concurrent edit landing inside that one read is a vanishing chance,
-#: not worth the extra copy through a temp file that guarding against it
-#: costs (see _read_stable).
-_STABILITY_MIN_SIZE: Final[int] = 1 << 20
-
-
-
 
 
 _MISS: Final = object()
@@ -121,21 +108,6 @@ def _format_from_suffix(name: str) -> ArchiveFormat | None:
             return fmt
 
     return None
-
-def _default_stability_check(st: os.stat_result, _) -> bool:
-    """stability_retries's own rule for which files are worth guarding,
-    kept as an ordinary function rather than inlined so that it is also
-    what `stability_check` defaults to -- a caller who wants to add to
-    this rather than replace it can still call it themselves:
-
-        lambda st, path: _default_stability_check(st, path) or path.endswith(".db")
-
-    Size alone, against _STABILITY_MIN_SIZE: reading anything smaller is
-    already too quick for a concurrent edit to realistically land inside,
-    so guarding it would cost more than the risk it guards against.
-    """
-
-    return st.st_size >= _STABILITY_MIN_SIZE
 
 
 def _same_stat(a: os.stat_result, b: os.stat_result) -> bool:
@@ -388,7 +360,6 @@ def _require_zstd() -> None:
         "Required : 'zstandard'\n"
         "Missing  : 'zstandard'"
     )
-
 
 
 class _Rules(NamedTuple):
@@ -1109,7 +1080,6 @@ class _Compressor:
                     if tmp_path is not None:
                         remove_file(tmp_path, return_exc=True)
                         
-
 
 
 class _Member(NamedTuple):
@@ -2692,7 +2662,5 @@ class _Extractor:
         return is_safe
 
     
-
-
 
 

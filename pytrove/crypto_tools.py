@@ -14,7 +14,7 @@ except ImportError:
 from .typings import _T
 from .errors import ValidationError
 
-from ._optional import _optional_import
+from ._internal._optional import _optional_import
 
 import os
 

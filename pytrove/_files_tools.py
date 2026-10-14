@@ -4,26 +4,6 @@ import json
 import logging
 import os
 import pickle
-import stat
-
-
-if hasattr(os.stat_result, "st_file_attributes"):
-    def _is_link(path):
-        try:
-            st = os.lstat(path)
-        except OSError:
-            return False
-
-        return (
-            stat.S_ISLNK(st.st_mode)
-            or (
-                st.st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT
-                and st.st_reparse_tag == stat.IO_REPARSE_TAG_MOUNT_POINT
-            )
-        )
-
-else:
-    _is_link = os.path.islink
 
 
 from pathlib import Path
@@ -43,7 +23,6 @@ else:
 log = logging.getLogger(__name__)
 
 _NOT_SET: Final = object()
-_COPY_BUF: Final[int] = 1 << 20
 _SPILL_PARTS: Final[int] = 10
 
 # orjson is 10x faster than json at dumping, but it is not a drop-in: it
@@ -132,13 +111,6 @@ _UNSAFE_PICKLE_CLASSES: Final[frozenset[tuple[str, str]]] = frozenset({
     ("operator", "itemgetter"), ("functools", "reduce"),
 })
 
-def _is_dir(path) -> bool:
-    try:
-        st = os.lstat(path)
-    except OSError:
-        return False
-
-    return stat.S_ISDIR(st.st_mode) and not _is_link(path)
 
 def _next_part(folder: Path, stem: str) -> int:
     """The first free number for a "<stem>.N" part file in `folder`.
@@ -229,7 +201,6 @@ def _normalise_global(module: str, name: str) -> tuple[str, str]:
         return _compat_pickle.IMPORT_MAPPING[module], name
 
     return key
-
 
 
 class _MkdirOptions(TypedDict, total=False):

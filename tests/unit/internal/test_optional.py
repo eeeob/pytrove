@@ -1,7 +1,7 @@
 import asyncio
 import inspect
 import pytest
-from pytrove._optional import _optional_import
+from pytrove._internal._optional import _optional_import
 
 
 def test_optional_import_keeps_coroutine_functions_as_coroutines():

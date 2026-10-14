@@ -22,7 +22,7 @@ from ..enums import TriggerOn
 from ..validate_tools import is_exception
 from ..async_tools import maybe_awaitable, to_thread, safe_wait_task
 from ..files_tools import read_json, write_json
-from ..num_tools import _tri_cdf, _tri_icdf
+from .._internal._triangular import _tri_cdf, _tri_icdf
 
 from .base import BaseDataClass
 

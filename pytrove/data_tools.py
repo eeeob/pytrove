@@ -11,7 +11,7 @@ from .typings import (
 from .errors import ValidationError
 from .validate_tools import is_container, is_mapping
 from .iter_tools import iter_flat_cont, to_frozenset
-from ._optional import _optional_import
+from ._internal._optional import _optional_import
 from ._data_tools import _MESS, _reconstruct, _reconstruct_mapping
 
 try:

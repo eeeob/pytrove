@@ -21,7 +21,7 @@ from .text_tools import clean_spaces, to_str
 from .validate_tools import is_rc, validation, is_phone_number
 from .callable_tools import safe_call
 
-from ._optional import _optional_import
+from ._internal._optional import _optional_import
 
 
 @overload

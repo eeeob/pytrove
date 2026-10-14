@@ -23,16 +23,14 @@ from .enums import PickleSafety, TruncateSide
 from .errors import ValidationError
 from .callable_tools import safe_call
 from .iter_tools import iter_flat_cont, to_frozenset, dedupe
-from ._optional import _optional_import
+from ._internal._optional import _optional_import
+from ._internal._fs import _is_dir, _is_link, _COPY_BUF
 from ._files_tools import (
     _MkdirOptions, 
-    _RestrictedUnpickler, 
-    _COPY_BUF, 
+    _RestrictedUnpickler, 
     _NOT_SET, 
     _SPILL_PARTS, 
-    _SAFE_PICKLE_CLASSES, 
-    _is_link, 
-    _is_dir, 
+    _SAFE_PICKLE_CLASSES, 
     _next_part, 
     _json_dumps, 
     _json_loads, 

@@ -15,7 +15,7 @@ except ImportError:  # Python < 3.11
 
 from importlib.metadata import distribution, version, PackageNotFoundError
 
-from .typings import _P, _T
+from ..typings import _P, _T
 
 
 # A package spec may pin a version the same way a requirement string does --

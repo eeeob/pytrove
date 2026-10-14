@@ -15,7 +15,7 @@ try:
 except ImportError:
     pass
 
-from ._optional import _optional_import
+from ._internal._optional import _optional_import
 
 _COUNTRIES: dict[str, CountryInfo] | None = None
 _COUNTRIES_BY_CC: dict[int, tuple[CountryInfo, ...]] | None = None

@@ -57,7 +57,7 @@ from .typings import (
 )
 from .errors import ValidationError
 
-from ._optional import _optional_import
+from ._internal._optional import _optional_import
 
 try:
     import phonenumbers

@@ -11,9 +11,9 @@ from .enums import ArchiveFormat
 from .errors import ValidationError
 from .iter_tools import iter_flat_cont
 from .files_tools import atomic_write, resolve_path, remove_folder, remove_file
+from ._internal._stability import _default_stability_check
 from ._archive_tools import (
-    _Compressor,
-    _default_stability_check,
+    _Compressor,
     _Extractor,
     _Filter,
     _Rule,

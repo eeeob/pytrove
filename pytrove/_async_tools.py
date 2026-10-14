@@ -9,6 +9,7 @@ from typing import (
     TYPE_CHECKING, overload
 )
 from .typings import MaybeAwaitableCallable, _True, _False, _T
+from ._internal._asyncio import _get_running_loop
 
 
 _PY314: Final[bool] = sys.version_info >= (3, 14)
@@ -21,12 +22,6 @@ def _get_fut_loop(fut):
     else:
         return get_loop()
     return fut._loop
-
-def _get_running_loop() -> asyncio.AbstractEventLoop | None:
-    try:
-        return asyncio.get_running_loop()
-    except RuntimeError:
-        return 
 
 
 class _GatheringFuture(asyncio.Future):
@@ -207,8 +202,6 @@ def _gather_cancel_on_error(*awaitables, return_exceptions = False):
     return outer
 
 
-
 _ExcFilter: TypeAlias = type[BaseException] | tuple[type[BaseException], ...] | None
 _ExcLogger: TypeAlias = bool | MaybeAwaitableCallable[[BaseException], Any]
 
-_HARD_PROPAGATE: Final[tuple[type[SystemExit], type[KeyboardInterrupt]]] = (SystemExit, KeyboardInterrupt)

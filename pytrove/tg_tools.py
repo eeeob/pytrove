@@ -33,7 +33,7 @@ from .date_tools import date_to_stamp, time_utc
 from .files_tools import load_json
 from .email_tools import fetch_emails_from, detect_email_provider
 
-from ._optional import _optional_import
+from ._internal._optional import _optional_import
 
 
 import re

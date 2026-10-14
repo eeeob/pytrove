@@ -37,7 +37,7 @@ except ImportError:
 else:
     HAS_WRAPT = True
 
-from .._optional import _unavailable_class
+from .._internal._optional import _unavailable_class
 
 from ..typings import _KT, _VT, _T, _P, Number, MaybeContainer
 from ..async_tools import to_thread

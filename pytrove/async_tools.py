@@ -11,12 +11,12 @@ from .typings import (
 )
 from .validate_tools import is_exception, iscoroutinefunction_wrapped, is_container
 from .iter_tools import iter_flat_cont
+from ._internal._exceptions import _HARD_PROPAGATE
 
 from ._async_tools import (
     _gather_cancel_on_error, 
     _ExcFilter, 
-    _ExcLogger, 
-    _HARD_PROPAGATE, 
+    _ExcLogger, 
 )
 
 import asyncio

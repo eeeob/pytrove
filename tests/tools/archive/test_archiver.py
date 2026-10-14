@@ -122,7 +122,7 @@ async def test_create_forwards_every_remaining_compress_folder_option(tree, monk
 
 
 async def test_stability_check_defaults_to_compress_folders_own_default(tree):
-    from pytrove._archive_tools import _default_stability_check
+    from pytrove._internal._stability import _default_stability_check
 
     job = make_job(tree)
     assert job.stability_check is _default_stability_check

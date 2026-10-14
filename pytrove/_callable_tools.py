@@ -5,7 +5,6 @@ from typing import (
     TypeAlias,
     TypeVar, Coroutine,
     Protocol, Awaitable, overload,
-    Final,
 )
 from .typings import _P, _T, _VT, _True, _False
 
@@ -60,6 +59,3 @@ class _LazyCallAll(Protocol[_T]):
 _ExcFilter: TypeAlias = type[BaseException] | tuple[type[BaseException], ...] | None
 _ExcLogger: TypeAlias = bool | Callable[[BaseException], Any]
 
-# SystemExit/KeyboardInterrupt always propagate out of safe_call, unconditionally
-# -- there is no override, so exclude_exc can never usefully name them.
-_HARD_PROPAGATE: Final[tuple[type[SystemExit], type[KeyboardInterrupt]]] = (SystemExit, KeyboardInterrupt)

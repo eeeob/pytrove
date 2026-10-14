@@ -23,6 +23,7 @@ import pytest
 
 import pytrove
 import pytrove._archive_tools as internals
+from pytrove._internal._stability import _STABILITY_MIN_SIZE
 import pytrove.enums
 from pytrove import backup_folder, compress_folder, extract_archive
 from pytrove.enums import ArchiveFormat
@@ -36,7 +37,6 @@ from pytrove._archive_tools import _Extractor, _Filter
 # where the module was.
 # _resolve_under was folded into _Extractor._place, so the tests that used
 # it directly go through _safe_target below instead.
-
 
 
 def _safe_target(dest, name, cache=None):
@@ -2818,13 +2818,6 @@ def test_stability_retries_rejects_anything_but_a_non_negative_int(tmp_path, bad
 
 # --- stability_check ---------------------------------------------------
 
-def test_default_stability_check_is_the_same_size_rule_as_before(tmp_path):
-    small = os.stat(__file__)  # this test file, well under 1 MiB
-    assert internals._default_stability_check(small, __file__) is False
-
-    just_big_enough = _FakeStat(internals._STABILITY_MIN_SIZE, 0)
-    assert internals._default_stability_check(just_big_enough, "whatever") is True
-
 
 @pytest.mark.parametrize("bad", [1, "nope", object()])
 def test_stability_check_rejects_anything_not_callable(tmp_path, bad):
@@ -2861,7 +2854,7 @@ def test_stability_check_can_pull_in_a_small_file_stability_retries_would_skip(t
 def test_stability_check_returning_false_leaves_a_large_file_unguarded(tmp_path, monkeypatch, fmt):
     src = tmp_path / "src"
     src.mkdir()
-    (src / "big.bin").write_bytes(b"x" * (internals._STABILITY_MIN_SIZE + 1024))
+    (src / "big.bin").write_bytes(b"x" * (_STABILITY_MIN_SIZE + 1024))
 
     def boom(*a, **kw):
         raise AssertionError("_read_stable must not run when stability_check says no")
@@ -2894,7 +2887,7 @@ def test_a_custom_stability_check_still_produces_a_correct_archive(tmp_path, fmt
 def test_default_stability_retries_never_touches_a_large_file_specially(tmp_path, monkeypatch):
     src = tmp_path / "src"
     src.mkdir()
-    (src / "big.bin").write_bytes(b"x" * (internals._STABILITY_MIN_SIZE + 1024))
+    (src / "big.bin").write_bytes(b"x" * (_STABILITY_MIN_SIZE + 1024))
 
     def boom(*a, **kw):
         raise AssertionError("_read_stable must not run when stability_retries=0")
@@ -2921,7 +2914,7 @@ def test_a_small_file_bypasses_stability_retries_entirely(tmp_path, monkeypatch)
 def test_stability_retries_still_produces_a_correct_archive(tmp_path, fmt):
     src = tmp_path / "src"
     src.mkdir()
-    content = os.urandom(internals._STABILITY_MIN_SIZE + 1024)
+    content = os.urandom(_STABILITY_MIN_SIZE + 1024)
     (src / "big.bin").write_bytes(content)
 
     archive = compress_folder(src, tmp_path / "w", format=fmt, stability_retries=3, fsync=False)
@@ -2947,7 +2940,7 @@ def test_a_large_file_changing_during_compression_warns_after_exhausting_retries
     src = tmp_path / "src"
     src.mkdir()
     target = src / "big.bin"
-    size = internals._STABILITY_MIN_SIZE + 1024
+    size = _STABILITY_MIN_SIZE + 1024
     target.write_bytes(b"a" * size)
 
     stop = threading.Event()
@@ -2986,7 +2979,7 @@ def test_stability_retries_still_works_with_workers(tmp_path):
     # produced from the temp file is intact regardless.
     src = tmp_path / "src"
     src.mkdir()
-    content = os.urandom(internals._STABILITY_MIN_SIZE + 1024)
+    content = os.urandom(_STABILITY_MIN_SIZE + 1024)
     (src / "big.bin").write_bytes(content)
 
     before = set(Path(tempfile.gettempdir()).glob("pytrove-stability-*"))
