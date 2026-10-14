@@ -144,8 +144,8 @@ def safe_call(func, *args, return_exc = False, raise_exc = False, include_exc = 
 
     try:
         return func(*args, **kwargs)
-    except _HARD_PROPAGATE as e:
-        raise e
+    except _HARD_PROPAGATE:
+        raise
     except BaseException as e:
         if exclude_exc is not None and isinstance(e, exclude_exc):
             raise e
@@ -157,7 +157,7 @@ def safe_call(func, *args, return_exc = False, raise_exc = False, include_exc = 
             if callable(log_exc):
                 log_exc(e)
             else:
-                log.error("error in safe_call(%r)" % (func,), exc_info=e)
+                log.error("error in safe_call(%r)", func, exc_info=e)
 
         if raise_exc:
             raise e
@@ -177,20 +177,26 @@ def raise_if(
 
     values = to_frozenset(iter_flat_cont(values))
 
-    def decorator(func: Callable[_P, _T]) -> Callable[_P, _T]: #type: ignore 
+    def _is_listed(result: Any) -> bool:
+        try:
+            return result in values
+        except TypeError:
+            return False
+
+    def decorator(func: Callable[_P, _T]) -> Callable[_P, _T]: #type: ignore
         if iscoroutinefunction_wrapped(func):
             async def wrapper(*args: Any, **kwargs: Any): #type: ignore
                 result = await func(*args, **kwargs) #type: ignore
-                
-                if always or result in values or (bool_value is not None and bool(result) == bool_value):
+
+                if always or _is_listed(result) or (bool_value is not None and bool(result) == bool_value):
                     raise exc() if callable(exc) else exc
-                
+
                 return result
         else:
             def wrapper(*args: Any, **kwargs: Any):
                 result = func(*args, **kwargs)
 
-                if always or result in values or (bool_value is not None and bool(result) == bool_value):
+                if always or _is_listed(result) or (bool_value is not None and bool(result) == bool_value):
                     raise exc() if callable(exc) else exc
                 
                 return result
@@ -462,9 +468,9 @@ def call_all(*funcs, lazy = False): #type: ignore
     `lazy=True` defers all of that -- `funcs` are only captured, not called
     yet -- and returns a callable that re-enters call_all with them prepended.
     Calling it with no arguments runs everything captured so far and returns
-    the tuple; calling it with more funcs (optionally `lazy=True` again)
-    extends the captured set instead -- so lazy batches can be built up
-    incrementally across multiple calls before finally being run.
+    the tuple. Calling it with more funcs runs them immediately too, unless
+    `lazy=True` is passed again, in which case they are captured and another
+    lazy callable comes back -- so lazy batches can be built up incrementally.
     """
 
     if lazy:
@@ -516,18 +522,18 @@ def ignore_arguments(func: Callable[[], _T]) -> Callable[..., _T]:
 def return_constant(
     func: Callable[_P, Any], 
     *, 
-    value: _T = None, 
+    value: _T | None = None, 
 ) -> Callable[_P, _T]: ...
 @overload
 def return_constant(
     func: None, 
     *, 
-    value: _T = None, 
+    value: _T | None = None, 
 ) -> Callable[[Callable[_P, Any]], Callable[_P, _T]]: ...
 def return_constant(
     func: Callable[_P, Any] | None = None, 
     *, 
-    value: _T = None, 
+    value: _T | None = None, 
 ):
     """
     Wrap a callable so it always returns ``value`` after execution.

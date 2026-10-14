@@ -4,10 +4,14 @@ from typing import overload
 from datetime import datetime, timezone, timedelta
 
 from .typings import _False, _True, Number
+from .enums import TimeUnit
 
 import time
 
 
+# A fixed offset from UTC (not the machine's local zone): datetime.now(tz)
+# converts the current UTC instant, so the result is the same on any host.
+UTC_PLUS_3 = timezone(timedelta(seconds=TimeUnit.HOUR * 3))
 
 
 @overload
@@ -83,7 +87,7 @@ def date_utc_3(
     with_tzinfo: bool = False
     ):
 
-    date = datetime.now(timezone.utc) + timedelta(hours=3)
+    date = datetime.now(UTC_PLUS_3)
 
     if not with_tzinfo:
         date = date.replace(tzinfo=None, microsecond=0)
@@ -119,12 +123,19 @@ def time_utc_3() -> float: ...
 @overload
 def time_utc_3(as_int: _True) -> int: ...
 def time_utc_3(as_int: bool = False):
-    stamp_time = time.time() + 60 * 60 * 3
+    """Unix timestamp shifted forward by 3 hours.
+
+    A Unix timestamp is already zone-independent, so this value is NOT the
+    real time in UTC+3 -- it is 3 hours ahead of time_utc(). Kept for
+    backward compatibility; use time_utc() for the actual timestamp.
+    """
+
+    stamp_time = time.time() + TimeUnit.HOUR * 3
     return int(stamp_time) if as_int else stamp_time
 
 
 @overload
-def time_utc() -> float: ...
+def time_utc(as_int: _False = ...) -> float: ...
 @overload
 def time_utc(as_int: _True) -> int: ...
 def time_utc(as_int: bool = False):
@@ -159,12 +170,12 @@ def arabic_time(date: datetime | None = None) -> str:
 
 
 
-__all__ = [
+__all__ = (
     "stamp_to_date",
     "date_to_stamp",
     "date_utc_3",
     "date_utc",
     "time_utc_3",
     "time_utc",
-    "arabic_time", 
-]
+    "arabic_time",
+)

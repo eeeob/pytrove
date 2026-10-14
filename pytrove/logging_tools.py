@@ -39,12 +39,12 @@ def attach_logger_handlers(
     ) -> tuple[logging.Logger, logging.Handler]: ...
 @overload
 def attach_logger_handlers(
-    hdlrs_options: 'Container[NestedContainer[LogHandlerOptions]]', 
+    hdlrs_options: Container[NestedContainer[LogHandlerOptions]], 
     return_loggers: _False = ...
     ) -> list[logging.Handler]: ...
 @overload
 def attach_logger_handlers(
-    hdlrs_options: 'Container[NestedContainer[LogHandlerOptions]]', 
+    hdlrs_options: Container[NestedContainer[LogHandlerOptions]], 
     return_loggers: _True
     ) -> list[tuple[logging.Logger, logging.Handler]]: ...
 

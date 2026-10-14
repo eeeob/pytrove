@@ -31,7 +31,7 @@ def _derive_key(master_key: str, salt: bytes) -> bytes:
     return kdf.derive(master_key.encode())
 
 @_optional_import(("cryptography", "crypto"))
-def _drive_deterministic_key(password: str) -> bytes:
+def _derive_deterministic_key(password: str) -> bytes:
     salt = hashes.Hash(hashes.SHA256(), backend=default_backend())
     salt.update(password.encode())
     static_salt = salt.finalize()[:16]
@@ -100,7 +100,7 @@ def decrypt(encrypted_data: bytes, password: str, data_resolver=None):
 def d_encrypt(data: bytes | str, password: str) -> bytes:
     """AES-SIV deterministic encryption ("d_" = deterministic): the same
     `data`/`password` always produces the exact same ciphertext, because the
-    key is derived from `password` alone (via _drive_deterministic_key(),
+    key is derived from `password` alone (via _derive_deterministic_key(),
     with no random salt) and AES-SIV needs no nonce.
 
     Deliberate tradeoff, not a bug: determinism means an attacker who sees
@@ -113,7 +113,7 @@ def d_encrypt(data: bytes | str, password: str) -> bytes:
     if isinstance(data, str):
         data = data.encode()
     
-    aessiv = AESSIV(_drive_deterministic_key(password))
+    aessiv = AESSIV(_derive_deterministic_key(password))
 
     return aessiv.encrypt(data, [])
 
@@ -125,7 +125,7 @@ def d_decrypt(encrypted_data: bytes, password: str, data_resolver: Callable[[byt
 @_optional_import(("cryptography", "crypto"))
 def d_decrypt(encrypted_data: bytes, password: str, data_resolver=None):
     
-    aessiv = AESSIV(_drive_deterministic_key(password))
+    aessiv = AESSIV(_derive_deterministic_key(password))
     
     try:
         decrypted_data = aessiv.decrypt(encrypted_data, [])

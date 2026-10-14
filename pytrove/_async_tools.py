@@ -102,7 +102,7 @@ def _gather_cancel_on_error(*awaitables, return_exceptions = False):
     """
 
     if not awaitables:
-        outer = asyncio.get_event_loop().create_future()
+        outer = asyncio.get_running_loop().create_future()
         outer.set_result([])
         return outer
 

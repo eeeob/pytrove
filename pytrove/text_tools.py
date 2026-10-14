@@ -3,7 +3,7 @@ from __future__ import annotations as _annotations
 from typing import (
     Mapping,
     Any, Literal,
-    Callable, overload, cast,
+    Callable, overload,
     Final,
 )
 
@@ -45,7 +45,7 @@ def split_part(
     part: int = 0, 
     strip: bool = True, 
     remove_spaces: bool = False, 
-    default: _T = cast(str, _NOT_SET)
+    default: _T | object = _NOT_SET
     ) -> str | _T:
 
     try:
@@ -114,8 +114,10 @@ def format_exc_tree(exc: BaseException) -> str:
     def iter_exc():
         current = exc
         level = 0
+        seen = set()
 
-        while current is not None:
+        while current is not None and id(current) not in seen:
+            seen.add(id(current))
             yield level, current
 
             current = current.__cause__ or current.__context__
@@ -129,11 +131,11 @@ def format_exc_tree(exc: BaseException) -> str:
 
 @overload
 def numbering(
-    values: 'ContainerWithoutMapping[_T]', 
-    start: int = 1, 
-    line_parser: Callable[[_T, int], str] | None = None, 
-    line_sep: str = "\n", 
-    ) -> str : ... 
+    values: ContainerWithoutMapping[_T],
+    start: int = 1,
+    line_parser: Callable[[_T, int], str] | None = None,
+    line_sep: str = "\n",
+    ) -> str : ...
 @overload
 def numbering(
     values: Mapping[_KT, _VT], 
@@ -143,7 +145,7 @@ def numbering(
     ) -> str : ... 
 @overload
 def numbering(
-    values: 'ContainerWithoutMapping[_T]',
+    values: ContainerWithoutMapping[_T],
     start: int = 1,
     line_parser: Callable[[_T, int], str] | None = None,
     *, 

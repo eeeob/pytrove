@@ -13,7 +13,7 @@ from .async_tools import to_thread, safe_await
 
 from ._optional import _optional_import
 
-import email 
+from email import message_from_bytes
 import html
 
 try:
@@ -23,8 +23,8 @@ except ImportError:
 
 
 @_optional_import(("beautifulsoup4", "bs4"))
-def parse_email_bytes(bytes_msg: bytearray, multi_part_sep: str = "\n") -> str:
-    msg = email.message_from_bytes(bytes_msg)
+def parse_email_bytes(bytes_msg: bytes | bytearray, multi_part_sep: str = "\n") -> str:
+    msg = message_from_bytes(bytes_msg)
     text = ""
 
     for part in msg.walk():
@@ -37,7 +37,7 @@ def parse_email_bytes(bytes_msg: bytearray, multi_part_sep: str = "\n") -> str:
 
             try:
                 content = payload.decode(charset, errors="ignore")
-            except:
+            except LookupError:
                 content = payload.decode(errors="ignore")
 
             sub_content_type = part.get_content_subtype().lower()
@@ -76,11 +76,11 @@ async def fetch_emails_from(
 
     client = aioimaplib.IMAP4_SSL(host=provider.host, port=provider.port)
 
-    await client.wait_hello_from_server()
-    await client.login(email, password)
-    await client.select("INBOX")
-
     try:
+        await client.wait_hello_from_server()
+        await client.login(email, password)
+        await client.select("INBOX")
+
         status, data = await client.search(f'FROM "{sender}"')
 
         if status != "OK":
@@ -89,7 +89,12 @@ async def fetch_emails_from(
         if not data or not data[0]:
             raise ValidationError("Invalid Email data %s" % data)
 
-        status, messages = await client.fetch(",".join(data[0].decode().split()[-limit:]), "BODY.PEEK[TEXT]")
+        ids = data[0].decode().split()[-limit:] if limit > 0 else []
+
+        if not ids:
+            return
+
+        status, messages = await client.fetch(",".join(ids), "BODY.PEEK[TEXT]")
 
         if status != "OK":
             raise ValidationError("Invalid Fetch Email Status %s" % status)
