@@ -1,6 +1,10 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
 from pytrove import stamp_to_date, date_to_stamp, date_utc, time_utc, arabic_time
+from datetime import timedelta
+from pytrove import (
+    date_utc_3,
+)
 
 
 def test_stamp_to_date_roundtrip():
@@ -57,3 +61,9 @@ def test_arabic_time_midnight_and_noon_hour_conversion():
     noon = datetime(2024, 1, 1, 12, 0, 0)
     assert "الساعة 12" in arabic_time(midnight)
     assert "الساعة 12" in arabic_time(noon)
+
+
+def test_date_utc_3_is_labelled_three_hours_ahead():
+    value = date_utc_3(with_tzinfo=True)
+
+    assert value.utcoffset() == timedelta(hours=3)

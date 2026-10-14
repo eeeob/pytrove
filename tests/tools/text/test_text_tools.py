@@ -2,6 +2,7 @@ from pytrove import (
     chunk_text, numbering, smart_split, format_exc_tree,
     y_or_n, en_or_dis, op_or_cl,
 )
+from pytrove import clean_spaces, to_str, split_part
 
 
 def test_chunk_text_under_limit_returns_single_chunk():
@@ -86,3 +87,28 @@ def test_en_or_dis_and_op_or_cl():
     assert en_or_dis(False) == "معطل ❌"
     assert op_or_cl(True) == "مفتوح ✅"
     assert op_or_cl(False) == "مغلق ❌"
+
+
+def test_format_exc_tree_terminates_on_a_context_cycle():
+    a = ValueError("a")
+    b = KeyError("b")
+    a.__context__ = b
+    b.__context__ = a
+
+    assert format_exc_tree(a).count("└─") == 2
+
+
+def test_clean_spaces():
+    assert clean_spaces("a b\nc") == "abc"
+    assert clean_spaces("a b\nc", with_lines=False) == "ab\nc"
+
+
+def test_to_str():
+    assert to_str(5) == "5"
+    assert to_str(None) is None
+    assert to_str([1, 2]) == [1, 2]
+
+
+def test_split_part():
+    assert split_part("a,b,c", ",", 1) == "b"
+    assert split_part("a,b", ",", 5) == "a,b"  # out-of-range index falls back to original

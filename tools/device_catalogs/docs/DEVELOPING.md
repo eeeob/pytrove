@@ -70,7 +70,7 @@ one place and never a search through a function body.
 | `cli.py`      | which builders exist, and the argument parsing                  |
 
 `libbase.py` imports nothing from the package on purpose, so
-`tests/test_devices_data.py` can load it alone and feed the shipped data back
+`tests/tools/tg/test_devices_data.py` can load it alone and feed the shipped data back
 through the client's own rules.
 
 A new platform is a `Builder` subclass with a `key`, a `platform` and a
@@ -121,7 +121,7 @@ Two consequences worth knowing before editing anything:
   Google's `Retail Branding + Marketing Name`, which is exactly this catalog's
   `brand` + `name`, and the version mapping is `AndroidBuilder.API_LEVELS` — so
   the server independently confirms both. Every code must still resolve to a
-  real device; `tests/test_devices_data.py` checks that against the cached Play
+  real device; `tests/tools/tg/test_devices_data.py` checks that against the cached Play
   catalog when it is present.
 - **Three identity fields are not ours to generate.** `platform`, `app_name` and
   `official_app` are read by the server from the `api_id`'s registration and
@@ -232,7 +232,7 @@ thing is drawn. Keep that line:
   while staying weighted — never modulo-indexed.
 
 Every group named in the data needs an explicit share, and
-`tests/test_devices_data.py` fails if one is missing.
+`tests/tools/tg/test_devices_data.py` fails if one is missing.
 
 ---
 
@@ -257,11 +257,11 @@ stale.
 ## Tests
 
 ```sh
-pytest tests/test_devices_data.py      # the shipped data, against its sources
-pytest tests/test_device_catalogs.py   # this tool's own logic
+pytest tests/tools/tg/test_devices_data.py      # the shipped data, against its sources
+pytest tests/devtools/device_catalogs/test_device_catalogs.py   # this tool's own logic
 ```
 
-`tests/test_devices_data.py` is the one to read before changing a format. It
+`tests/tools/tg/test_devices_data.py` is the one to read before changing a format. It
 asserts the string shapes per OS, the `os` tagging, that no device lists an
 unknown version or a version of an OS it does not report, that pinning an OS
 only draws that OS, that the realised OS mix matches `OS_SHARES`, and that

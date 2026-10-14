@@ -376,7 +376,7 @@ class DesktopDevice(SystemInfo):
 
     Every string follows Telegram Desktop, which is the reference client here:
     its `lib_base` rules decide what a machine may report, and
-    `tests/test_devices_data.py` checks each stored model against a port of
+    `tests/tools/tg/test_devices_data.py` checks each stored model against a port of
     them. Unigram is not modelled -- it reports the raw product name and a bare
     "Windows 11" -- and macOS is left out because its two official clients send
     different version strings, the native one's bare "26.1" matching no

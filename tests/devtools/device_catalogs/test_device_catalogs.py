@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pytest
 
-TOOLS = Path(__file__).resolve().parent.parent / "tools"
+TOOLS = Path(__file__).resolve().parents[3] / "tools"
 CATALOGS = TOOLS / "device_catalogs"
 
 pytestmark = pytest.mark.skipif(

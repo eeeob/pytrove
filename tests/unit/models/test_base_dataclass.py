@@ -109,3 +109,13 @@ def test_without_none_values_and_enums_to_values():
     assert inst.to_dict(without_none_values=True, enums_to_values=True) == {
         "status": "ok"
     }
+
+
+def test_base_dataclass_survives_an_unresolvable_annotation():
+    @dataclass
+    class Model(BaseDataClass):
+        value: "NameThatIsNotImportableHere | None" = None
+
+    Model._ensure_field_meta()
+
+    assert Model.__enums_types__ == frozenset()

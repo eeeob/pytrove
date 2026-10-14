@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pytest
 
-TOOLS = Path(__file__).resolve().parent.parent / "tools"
+TOOLS = Path(__file__).resolve().parents[3] / "tools"
 PREFLIGHT = TOOLS / "_preflight"
 
 pytestmark = pytest.mark.skipif(
@@ -48,7 +48,7 @@ from tools._preflight.fingerprint import FingerprintValue           # noqa: E402
 from tools._preflight.janitor import Janitor                        # noqa: E402
 from tools._preflight.layout import Layout                          # noqa: E402
 from tools._preflight.lock import Lock                              # noqa: E402
-from tools._preflight.models import (Action, Contract, Derived,      # noqa: E402
+from tools._preflight.models import (Contract, Derived,      # noqa: E402
                                      Fingerprint, Registry, Report,
                                      Source, Verdict)
 from tools._preflight.probe import Prober                           # noqa: E402

@@ -5,7 +5,6 @@ which types."""
 import array
 import contextlib
 import logging
-import sys
 import types
 
 from collections.abc import Mapping
@@ -21,6 +20,7 @@ from pytrove import (clean_none_kw, clean_none_values, enum_to_value,
 from pytrove.classes import (DefaultWeakKeyDict, DefaultWeakValueDict,
                              KeyDefaultDict, KeyDefaultWeakKeyDict,
                              KeyDefaultWeakValueDict)
+from pytrove.data_tools import get_nested_dict_key
 
 
 @contextlib.contextmanager
@@ -505,3 +505,31 @@ def test_the_original_is_never_mutated():
     value_to_enum(source, Color)
 
     assert source == before
+
+
+def test_get_nested_dict_key_rejects_an_invalid_leaf():
+    with pytest.raises(TypeError):
+        get_nested_dict_key({"a": {"b": 2}})
+
+
+def test_get_nested_dict_key_accepts_true_and_one():
+    assert get_nested_dict_key({"a": {"b": True}}) == "a.b"
+    assert get_nested_dict_key({"a": {"b": 1}}) == "a.b"
+
+
+def test_clean_none_values_nested():
+    assert clean_none_values({"a": 1, "b": None, "c": {"d": None, "e": 2}}) == {
+        "a": 1, "c": {"e": 2}
+    }
+
+
+def test_enum_to_value_and_value_to_enum():
+    class Color(Enum):
+        RED = "red"
+        BLUE = "blue"
+
+    assert enum_to_value(Color.RED) == "red"
+    assert enum_to_value({"k": Color.RED}) == {"k": "red"}
+
+    assert value_to_enum("red", Color) is Color.RED
+    assert value_to_enum({"k": "red"}, Color) == {"k": Color.RED}

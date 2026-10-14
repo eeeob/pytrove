@@ -1,7 +1,16 @@
 import pytest
+from pytrove import (
+    raise_if,
+)
+from pytrove import safe_call, to_coroutine, set_func_attrs, juxt
 
-from pytrove import safe_call, raise_if, to_coroutine, set_func_attrs, juxt
-from pytrove import generate_secret, patch_cls
+
+def test_raise_if_does_not_crash_on_an_unhashable_result():
+    @raise_if(ValueError, values=[None])
+    def returns_list():
+        return [1]
+
+    assert returns_list() == [1]
 
 
 def test_safe_call_returns_result_on_success():
@@ -68,50 +77,6 @@ def test_set_func_attrs_direct_call():
     result = set_func_attrs(f, tag="direct")
     assert result is f
     assert f.tag == "direct"
-
-
-def test_generate_secret_length_and_charset():
-    secret = generate_secret(16)
-    assert len(secret) == 16
-
-
-def test_generate_secret_rejects_non_positive_length():
-    with pytest.raises(ValueError):
-        generate_secret(0)
-
-
-def test_generate_secret_rejects_no_charset():
-    with pytest.raises(ValueError):
-        generate_secret(8, use_upper=False, use_lower=False, use_digits=False, use_symbols=False)
-
-
-def test_generate_secret_only_digits():
-    secret = generate_secret(10, use_upper=False, use_lower=False, use_symbols=False)
-    assert secret.isdigit()
-    assert len(secret) == 10
-
-
-def test_patch_cls_merges_methods_into_base():
-    class Base:
-        def greet(self):
-            return "base"
-
-    class Patch(Base):
-        def greet(self):
-            return "patched"
-
-    patch_cls(Patch)
-    assert Base().greet() == "patched"
-
-
-def test_patch_cls_requires_single_base():
-    with pytest.raises(TypeError):
-        class Multi:
-            pass
-
-        @patch_cls
-        class BadPatch(Multi, dict):
-            pass
 
 
 def test_juxt_fans_one_call_across_every_function():

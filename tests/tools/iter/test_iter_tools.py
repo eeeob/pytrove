@@ -160,3 +160,28 @@ def test_flat_map_excludes_none_by_default():
 
 def test_flat_map_keeps_none_when_asked():
     assert flat_map({"a": None, "b": 1}, exclude_none=False) == ["a", None, "b", 1]
+
+
+def test_flat_cont_flattens_nested_containers():
+    # This is the exact call shape (`flat_cont(container.values())`) that runs
+    # at *module import time* in tg_tools.py — a regression here breaks
+    # `import pytrove` entirely, which is exactly what happened pre-fix on
+    # Python versions where isinstance() rejects a bare typing.Union.
+    assert flat_cont([1, [2, [3, None]], (4,)]) == [1, 2, 3, 4]
+    assert flat_cont(None) == []
+    assert set(flat_cont({1, 2}, [3, 4])) == {1, 2, 3, 4}
+
+
+def test_to_collection_helpers():
+    assert to_list(None) == []
+    assert to_list(5) == [5]
+    assert to_list([1, 2]) == [1, 2]
+
+    assert to_set(None) == set()
+    assert to_set([1, 1, 2]) == {1, 2}
+
+    assert to_tuple(None) == ()
+    assert to_tuple(5) == (5,)
+
+    assert to_frozenset(None) == frozenset()
+    assert to_frozenset([1, 1, 2]) == frozenset({1, 2})

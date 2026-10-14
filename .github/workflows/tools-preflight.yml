@@ -10,7 +10,7 @@ name: Tools preflight
 #
 # Each cron below is declared again -- as the declaration of record -- in
 # tools/<tool>/schedule/schedule.toml, because a trigger cannot be computed
-# here. tests/test_preflight.py fails if the two drift apart.
+# here. tests/devtools/preflight/test_preflight.py fails if the two drift apart.
 
 on:
   schedule:
