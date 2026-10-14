@@ -44,6 +44,7 @@ from .typings.archive import ArchiveLimits
 from .files_tools import remove_path, remove_file, remove_folder, remove_paths, remove_files, ensure_dir, ensure_path
 from ._internal._fs import _is_dir, _is_link, _COPY_BUF
 from ._internal._stability import _default_stability_check
+from ._internal._types import _RawEntry, _Rule
 from .iter_tools import dedupe
 from .callable_tools import safe_call
 
@@ -92,8 +93,6 @@ _SUFFIXES: Final[tuple[tuple[str, ArchiveFormat], ...]] = (
 # --- type aliases ----------------------------------------------------
 
 _WalkEntry: TypeAlias = tuple[str, str, bool]
-_RawEntry: TypeAlias = os.DirEntry | zipfile.ZipInfo | tarfile.TarInfo | None
-_Rule: TypeAlias = str | Callable[[str, _RawEntry], bool]
 
 
 # --- helpers ---------------------------------------------------------

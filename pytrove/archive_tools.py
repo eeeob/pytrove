@@ -12,16 +12,8 @@ from .errors import ValidationError
 from .iter_tools import iter_flat_cont
 from .files_tools import atomic_write, resolve_path, remove_folder, remove_file
 from ._internal._stability import _default_stability_check
-from ._archive_tools import (
-    _Compressor,
-    _Extractor,
-    _Filter,
-    _Rule,
-    _format_from_suffix,
-    _is_hidden,
-    _require_zstd,
-    _temp_file_rule,
-)
+from ._archive_tools import _Compressor, _Extractor, _Filter, _format_from_suffix, _is_hidden, _require_zstd, _temp_file_rule
+from ._internal._types import _Rule
 
 
 def compress_folder(

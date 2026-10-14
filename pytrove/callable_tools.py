@@ -17,17 +17,8 @@ from .async_tools import run_awaitable_in_coro, call_sync_or_await
 
 from ._internal._asyncio import _get_running_loop
 from ._internal._exceptions import _HARD_PROPAGATE
-from ._callable_tools import (
-    _WaitOnErrorDecorator,
-    _AwaitOnErrorDecorator,
-    _WaitAfterDecorator,
-    _AwaitAfterDecorator,
-    _LazyCallAll,
-    _Coro,
-    _ExcFilter,
-    _ExcLogger,
-    _AT, _ET
-)
+from ._callable_tools import _WaitOnErrorDecorator, _AwaitOnErrorDecorator, _WaitAfterDecorator, _AwaitAfterDecorator, _LazyCallAll, _Coro, _ExcLogger, _AT, _ET
+from ._internal._types import _ExcFilter
 
 import asyncio
 import functools

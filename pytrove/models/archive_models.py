@@ -11,7 +11,7 @@ import time
 from ..typings import PathLike, NestedContainer
 from ..enums import ArchiveFormat, TimeUnit
 from ..files_tools import resolve_path
-from .._archive_tools import _Rule
+from .._internal._types import _Rule
 from .._internal._stability import _default_stability_check
 
 

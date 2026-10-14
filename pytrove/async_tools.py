@@ -13,11 +13,8 @@ from .validate_tools import is_exception, iscoroutinefunction_wrapped, is_contai
 from .iter_tools import iter_flat_cont
 from ._internal._exceptions import _HARD_PROPAGATE
 
-from ._async_tools import (
-    _gather_cancel_on_error, 
-    _ExcFilter, 
-    _ExcLogger, 
-)
+from ._async_tools import _gather_cancel_on_error, _ExcLogger
+from ._internal._types import _ExcFilter
 
 import asyncio
 import functools

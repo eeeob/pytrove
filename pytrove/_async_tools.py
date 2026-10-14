@@ -202,6 +202,5 @@ def _gather_cancel_on_error(*awaitables, return_exceptions = False):
     return outer
 
 
-_ExcFilter: TypeAlias = type[BaseException] | tuple[type[BaseException], ...] | None
 _ExcLogger: TypeAlias = bool | MaybeAwaitableCallable[[BaseException], Any]
 

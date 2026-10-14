@@ -56,6 +56,5 @@ class _LazyCallAll(Protocol[_T]):
     def __call__(self, *funcs: Callable[[], _VT], lazy: _True) -> _LazyCallAll[_T | _VT]: ...
 
 
-_ExcFilter: TypeAlias = type[BaseException] | tuple[type[BaseException], ...] | None
 _ExcLogger: TypeAlias = bool | Callable[[BaseException], Any]
 
