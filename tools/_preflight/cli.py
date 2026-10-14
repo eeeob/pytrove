@@ -29,6 +29,7 @@ from .janitor import Action, Janitor
 from .lock import Lock, RunState
 from .model import Registry
 from .registry import Layout, RegistryError, load
+from .schedule import find as find_schedule
 from .report import JsonReport, TextReport
 
 # ============================== exit codes ==============================
@@ -43,9 +44,12 @@ class Exit:
     OK: ClassVar[int] = 0
     #: Sources are healthy but something moved; a rebuild is worthwhile.
     CHANGED: ClassVar[int] = 2
-    #: A source is gone or reshaped. Needs a human to remove it from the tool.
+    #: A source is gone, reshaped, or has failed every run for long enough
+    #: to be believed. Needs a human, not a retry.
     DEAD: ClassVar[int] = 1
-    #: Could not be reached. Not an accusation; retry or --allow-flaky.
+    #: Could not be reached this once. Not an accusation; retry or
+    #: --allow-flaky, which is what a scheduled run passes: weather is not a
+    #: failure, and three weeks of it reports as DEAD anyway.
     UNREACHABLE: ClassVar[int] = 3
     #: The registry itself is malformed.
     REGISTRY: ClassVar[int] = 4
@@ -71,6 +75,7 @@ class Preflight:
         self.tool = tool
         self.dry_run = dry_run
         self.registry: Registry = load(tool)
+        self.schedule = find_schedule(tool)
         self.lock = Lock(Layout.lock_path(tool))
         self.state = RunState(Layout.state_path(tool))
 
@@ -98,10 +103,19 @@ class Preflight:
         return wrote
 
     @staticmethod
-    def code(report: Report) -> int:
-        if report.fatal:
+    def code(report: Report, *, allow_flaky: bool = False) -> int:
+        """The one thing a scheduler reads.
+
+        An escalated source is DEAD and `--allow-flaky` does not waive it.
+        That is the whole point of counting consecutive runs: the waiver
+        covers a dropped connection, not three weeks of one, and until
+        something acted on the count the rule was a sentence in a report that
+        changed no outcome.
+        """
+
+        if report.fatal or report.escalated:
             return Exit.DEAD
-        if report.transient:
+        if report.transient and not allow_flaky:
             return Exit.UNREACHABLE
         if report.changed:
             return Exit.CHANGED
@@ -161,15 +175,17 @@ class Cli:
 
         if not args.quiet:
             if args.json:
-                print(JsonReport.render(report, flight.registry, actions))
+                print(JsonReport.render(report, flight.registry, actions,
+                                        schedule=flight.schedule))
             else:
                 print(TextReport.render(report, flight.registry, actions,
-                                       dry_run=flight.dry_run))
+                                       dry_run=flight.dry_run,
+                                       schedule=flight.schedule))
                 if wrote:
                     print(f"  lock updated: "
                           f"{Layout.lock_path(tool).relative_to(Layout.TOOLS_DIR.parent)}")
 
-        return flight.code(report)
+        return flight.code(report, allow_flaky=args.allow_flaky)
 
     # --- entry point ------------------------------------------------------
 
@@ -291,10 +307,11 @@ class Dispatcher:
         actions = flight.clean(report)
         flight.record(report, actions, time.monotonic() - started)
 
-        print(TextReport.render(report, flight.registry, actions))
+        print(TextReport.render(report, flight.registry, actions,
+                               schedule=flight.schedule))
 
         if not report.may_proceed(allow_flaky=allow_flaky):
-            return flight.code(report)
+            return flight.code(report, allow_flaky=allow_flaky)
         return None
 
     # --- step 3 -----------------------------------------------------------

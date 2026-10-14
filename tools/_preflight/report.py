@@ -1,9 +1,12 @@
 """Rendering a check, for a terminal and for a workflow.
 
 Two audiences, one set of facts. The text form is read by whoever just typed
-the command; the JSON form is read by the scheduled workflow that keeps the
-dashboard issue up to date, so it carries the same content with none of the
-formatting.
+the command, and by whoever opens the scheduled run that failed; the JSON
+form carries the same content with none of the formatting, for anything that
+wants to post-process a run. The workflow itself needs neither -- the exit
+code already says what happened -- which is deliberate: a scheduler that had
+to parse a report to learn the outcome would be one parser away from calling
+a dead source healthy.
 
 The failure report is the part that earns its length. A dead source cannot be
 retried or worked around: every source has bespoke handling in the tool that
@@ -19,7 +22,7 @@ from typing import Any, ClassVar
 
 from .check import Report
 from .janitor import Action
-from .model import Registry, State, Verdict
+from .model import Registry, Schedule, State, Verdict
 
 # ============================== text output ==============================
 
@@ -134,7 +137,8 @@ class TextReport:
     @classmethod
     def render(cls, report: Report, registry: Registry,
                actions: list[Action] | None = None,
-               *, dry_run: bool = False) -> str:
+               *, dry_run: bool = False,
+               schedule: Schedule | None = None) -> str:
         lines: list[str] = []
 
         if report.first_run:
@@ -172,8 +176,15 @@ class TextReport:
 
         if report.escalated:
             named = ", ".join(v.source_id for v in report.escalated)
-            lines += [f"  failing every run for "
-                      f"{report.ESCALATE_AFTER}+ runs: {named}", ""]
+            # The rule counts runs because a run is the only thing it can
+            # count, but nobody thinks in runs: at a weekly cadence three of
+            # them is three weeks, and that is the sentence a reader can act
+            # on. Without a declared schedule the count stands on its own.
+            runs = f"{report.ESCALATE_AFTER}+ runs"
+            if schedule is not None:
+                runs += (f", about {report.ESCALATE_AFTER * schedule.every_days}"
+                         f" days at this tool's cadence")
+            lines += [f"  failing every run for {runs}: {named}", ""]
 
         if report.fatal:
             lines += cls.failure(report, registry)
@@ -186,18 +197,21 @@ class TextReport:
 # ============================== json output ==============================
 
 class JsonReport:
-    """The machine form, for the scheduled workflow.
+    """The machine form.
 
-    Flat and explicit: the workflow renders a dashboard from it and decides
-    whether a state transition happened, so it needs the counters and the
-    declared prose, not a pretty table.
+    Flat and explicit: it carries the counters and the declared prose rather
+    than a table, so anything keeping a history of runs has the facts without
+    having to read formatting. Nothing in this repository consumes it -- the
+    scheduled workflow decides on the exit code alone -- so it is an output,
+    not an interface, and may grow a key without a migration.
     """
 
     SCHEMA: ClassVar[int] = 1
 
     @classmethod
     def build(cls, report: Report, registry: Registry,
-              actions: list[Action] | None = None) -> dict[str, Any]:
+              actions: list[Action] | None = None,
+              *, schedule: Schedule | None = None) -> dict[str, Any]:
         return {
             "report_schema": cls.SCHEMA,
             "tool": report.tool,
@@ -205,6 +219,9 @@ class JsonReport:
             "network": report.network,
             "may_proceed": report.may_proceed(),
             "escalate_after": report.ESCALATE_AFTER,
+            #: What that count is worth in days, so a reader of the JSON can
+            #: interpret it without knowing the workflow's cron.
+            "cadence_days": schedule.every_days if schedule else None,
             "escalated": [v.source_id for v in report.escalated],
             "counts": {
                 state: sum(1 for v in report.verdicts if v.state == state)
@@ -250,5 +267,7 @@ class JsonReport:
 
     @classmethod
     def render(cls, report: Report, registry: Registry,
-               actions: list[Action] | None = None) -> str:
-        return json.dumps(cls.build(report, registry, actions), indent=1)
+               actions: list[Action] | None = None,
+               *, schedule: Schedule | None = None) -> str:
+        return json.dumps(cls.build(report, registry, actions,
+                                    schedule=schedule), indent=1)

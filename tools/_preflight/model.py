@@ -1,4 +1,4 @@
-"""The types a tool's `sources/sources.toml` is parsed into.
+"""The types a tool's declarations are parsed into.
 
 Imports nothing from this package, so it can be read first. Every field here
 is something a tool declares about itself; nothing is inferred and nothing is
@@ -253,6 +253,57 @@ class Registry:
         return frozenset(
             {s.cache for s in self.sources if s.cache}
             | {d.cache for d in self.derived if d.cache})
+
+
+@dataclass(frozen=True, slots=True)
+class Schedule:
+    """One tool's cadence: how often its sources are checked unattended.
+
+    The cadence exists twice and there is no way around it -- GitHub Actions
+    cannot compute a trigger, so the workflow has to carry the cron literally
+    -- so this is the declaration of record and a test holds the two
+    together. Nothing is derived from the workflow: a YAML parser is not a
+    dependency this package takes on for one string.
+    """
+
+    tool: str
+    cron: str
+    notes: str = ""
+
+    #: A cron line has five fields, and only these three shapes are a cadence
+    #: that can be stated in days. `*/3` in the day field is a perfectly good
+    #: cron and not one of them, so it is refused at parse time rather than
+    #: rounded to something plausible.
+    FIELDS: ClassVar[int] = 5
+    DAILY: ClassVar[int] = 1
+    WEEKLY: ClassVar[int] = 7
+    MONTHLY: ClassVar[int] = 30
+    ANY: ClassVar[str] = "*"
+
+    @property
+    def every_days(self) -> int:
+        """Days between two runs, or 0 when the cron does not say.
+
+        Derived rather than declared. A second number in the file would be
+        one more thing to drift, and this one has a real reader: the
+        escalation rule counts runs, because a run is the only thing it can
+        count, and three runs is a different promise at a weekly cadence than
+        at a daily one. The report turns one into the other with this.
+        """
+
+        parts = self.cron.split()
+        if len(parts) != self.FIELDS:
+            return 0
+        _, _, day, month, weekday = parts
+        if month != self.ANY:
+            return 0
+        if day == self.ANY and weekday == self.ANY:
+            return self.DAILY
+        if day == self.ANY and weekday.isdigit():
+            return self.WEEKLY
+        if weekday == self.ANY and day.isdigit():
+            return self.MONTHLY
+        return 0
 
 
 # ============================== the results ==============================

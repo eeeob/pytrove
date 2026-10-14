@@ -14,6 +14,7 @@ report says the sources are fine. That one makes the omission a failure.
 from __future__ import annotations
 
 import json
+import re
 import socket
 import sys
 import urllib.error
@@ -32,6 +33,7 @@ if TOOLS.parent.as_posix() not in [p.replace("\\", "/") for p in sys.path]:
 
 from tools._preflight import model as _model                      # noqa: E402
 from tools._preflight import registry as _registry                # noqa: E402
+from tools._preflight import schedule as _schedule              # noqa: E402
 from tools._preflight import cli as _cli                           # noqa: E402
 from tools._preflight.check import Checker, Report                # noqa: E402
 from tools._preflight.contract import ContractCheck               # noqa: E402
@@ -39,6 +41,7 @@ from tools._preflight.fingerprint import FingerprintValue         # noqa: E402
 from tools._preflight.janitor import Action, Janitor              # noqa: E402
 from tools._preflight.lock import Lock                            # noqa: E402
 from tools._preflight.probe import Health, Prober                 # noqa: E402
+from tools._preflight.report import TextReport                   # noqa: E402
 
 Contract = _model.Contract
 Fingerprint = _model.Fingerprint
@@ -916,3 +919,185 @@ def test_an_unreachable_source_records_no_verdict_at_all(tmp_path):
     assert rebuilt["sources"]["s"]["contract"] == "ok"
     assert rebuilt["sources"]["s"]["fingerprint"] == 3
     assert rebuilt["sources"]["s"][Lock.FAILING]["state"] == State.FLAKY
+
+
+# ============================== the cadence ==============================
+#
+# A checker nobody runs reports nothing, so the schedule is what makes the
+# rest of this worth anything. It also carries the one duplication this
+# design could not avoid: GitHub Actions cannot compute a trigger, so the
+# cron sits in the workflow as well as in the tool's own declaration, and
+# these tests are what keep the two from drifting apart.
+
+WORKFLOW = TOOLS.parent / ".github" / "workflows" / "tools-preflight.yml"
+
+
+def _workflow() -> str:
+    return WORKFLOW.read_text(encoding="utf-8")
+
+
+def _triggers() -> list[str]:
+    """The crons the workflow really fires on.
+
+    Read with a regex rather than a YAML parser: one string is not a reason
+    for this suite to take on a dependency the package itself does not have.
+    """
+
+    return re.findall(r'^\s*-\s*cron:\s*"([^"]+)"', _workflow(), re.M)
+
+
+def test_every_tool_declares_how_often_it_is_checked():
+    # A tool with sources and no schedule is checked only when somebody
+    # remembers to, which is the state this whole package exists to replace.
+    for tool in Layout.tools():
+        assert _schedule.load(tool).every_days > 0
+
+
+def test_every_declared_cadence_is_a_trigger_the_workflow_really_has():
+    triggers = _triggers()
+
+    assert triggers, "the workflow declares no schedule at all"
+    for tool in Layout.tools():
+        assert _schedule.load(tool).cron in triggers
+
+
+def test_the_workflow_fires_on_nothing_a_tool_did_not_ask_for():
+    # The other direction, and the one that rots quietly: a cron left behind
+    # after a tool's cadence changed would keep waking the job on a schedule
+    # nothing in the repository claims.
+    declared = {_schedule.load(tool).cron for tool in Layout.tools()}
+
+    assert set(_triggers()) <= declared
+
+
+def test_the_scheduled_run_checks_sources_and_never_builds():
+    # Rebuilding a catalog rewrites a file that ships in the wheel. That is a
+    # decision with a human behind it, so the unattended job reports and
+    # records, and runs no generator.
+    text = _workflow()
+
+    assert "-m tools._preflight" in text
+    assert not re.search(r"-m tools\.(?!_preflight)", text)
+    assert "-m tools " not in text
+
+
+def test_the_scheduled_run_keeps_the_counter_it_depends_on():
+    # The consecutive-failure counter lives in the tracked lock precisely
+    # because a runner is new every week. If the workflow does not push the
+    # lock back, no counter ever reaches ESCALATE_AFTER and no source is ever
+    # called dead -- the rule would be arithmetic nothing performs.
+    text = _workflow()
+
+    assert "contents: write" in text
+    assert Layout.LOCK_FILE in text
+    assert "git commit" in text and "git push" in text
+    # And it has to happen even on the run that failed, which is the run
+    # whose counter matters most.
+    assert "if: always()" in text
+
+
+# --- reading a cadence -----------------------------------------------------
+
+@pytest.mark.parametrize("cron, days", [
+    ("19 4 * * 1", _model.Schedule.WEEKLY),
+    ("0 5 * * 0", _model.Schedule.WEEKLY),
+    ("0 5 * * *", _model.Schedule.DAILY),
+    ("0 5 1 * *", _model.Schedule.MONTHLY),
+])
+def test_a_cadence_is_read_out_of_the_cron_not_declared_beside_it(cron, days):
+    # Derived, so there is no second number to drift. The reader is the
+    # escalation line: three runs is three weeks here and three days at a
+    # daily cadence, and only one of those is worth waiting for.
+    assert _model.Schedule(tool="t", cron=cron).every_days == days
+
+
+@pytest.mark.parametrize("cron", [
+    "0 5 * * */3",                                # every third weekday
+    "0 5 * * 1,4",                                # twice a week
+    "0 5 1 1 *",                                  # once a year
+    "0 5 * *",                                    # four fields
+    "nonsense",
+])
+def test_a_cron_that_is_not_a_cadence_is_refused_rather_than_rounded(cron):
+    assert _model.Schedule(tool="t", cron=cron).every_days == 0
+
+
+def test_a_schedule_that_cannot_be_stated_in_days_is_malformed(
+        tmp_path, monkeypatch):
+    folder = tmp_path / "fake_tool" / Layout.SCHEDULE
+    folder.mkdir(parents=True)
+    (folder / Layout.SCHEDULE_FILE).write_text(
+        '[schedule]\ncron = "0 5 * * 1,4"\n', encoding="utf-8")
+    monkeypatch.setattr(Layout, "TOOLS_DIR", tmp_path)
+
+    with pytest.raises(_registry.RegistryError, match="stated in days"):
+        _schedule.load("fake_tool")
+
+
+def test_a_schedule_rejects_an_unknown_key(tmp_path, monkeypatch):
+    # Same rule as the registry, for the same reason: a typo that dropped the
+    # cron would leave a tool looking scheduled and never checked.
+    folder = tmp_path / "fake_tool" / Layout.SCHEDULE
+    folder.mkdir(parents=True)
+    (folder / Layout.SCHEDULE_FILE).write_text(
+        '[schedule]\ncron = "19 4 * * 1"\nevery_days = 7\n', encoding="utf-8")
+    monkeypatch.setattr(Layout, "TOOLS_DIR", tmp_path)
+
+    with pytest.raises(_registry.RegistryError, match="unknown key"):
+        _schedule.load("fake_tool")
+
+
+def test_a_tool_with_no_schedule_is_still_checkable_by_hand(
+        tmp_path, monkeypatch):
+    # Finding a cadence is soft; needing one is the workflow's business.
+    monkeypatch.setattr(Layout, "TOOLS_DIR", tmp_path)
+
+    assert _schedule.find("nobody") is None
+
+
+# --- what a scheduled run reports -----------------------------------------
+
+def _failing(consecutive: int, state: str = State.FLAKY) -> Report:
+    return Report(tool="t", network=Health.OK, first_run=False, verdicts=(
+        Verdict(source_id="s", state=state, consecutive=consecutive),))
+
+
+def test_an_escalated_source_is_dead_however_flaky_a_run_may_be():
+    # The waiver covers a dropped connection, not three weeks of one. Until
+    # this, --allow-flaky hid an escalation completely: the exit code said the
+    # sources were fine while the report said one had failed every run for a
+    # month, and the scheduled job would have passed every week for ever.
+    report = _failing(Report.ESCALATE_AFTER)
+
+    assert _cli.Preflight.code(report, allow_flaky=True) == _cli.Exit.DEAD
+    assert _cli.Preflight.code(report) == _cli.Exit.DEAD
+
+
+def test_one_unreachable_run_is_passable_when_the_caller_says_so():
+    report = _failing(1)
+
+    assert _cli.Preflight.code(report) == _cli.Exit.UNREACHABLE
+    assert _cli.Preflight.code(report, allow_flaky=True) == _cli.Exit.OK
+
+
+def test_waiving_flakiness_does_not_hide_a_change():
+    report = Report(tool="t", network=Health.OK, first_run=False, verdicts=(
+        Verdict(source_id="a", state=State.FLAKY, consecutive=1),
+        Verdict(source_id="b", state=State.CHANGED, was=1, now=2)))
+
+    assert _cli.Preflight.code(report, allow_flaky=True) == _cli.Exit.CHANGED
+
+
+def test_the_escalation_line_says_how_long_that_actually_is(tmp_path):
+    # Nobody thinks in runs. The count is what the rule can measure; the
+    # cadence is what turns it into a sentence somebody can act on.
+    registry = _registry_for(tmp_path)
+    report = _failing(Report.ESCALATE_AFTER)
+    weekly = _model.Schedule(tool="t", cron="19 4 * * 1")
+
+    plain = TextReport.render(report, registry)
+    dated = TextReport.render(report, registry, schedule=weekly)
+
+    assert f"{Report.ESCALATE_AFTER}+ runs" in plain
+    assert "days" not in plain
+    assert f"about {Report.ESCALATE_AFTER * weekly.every_days} days" in dated

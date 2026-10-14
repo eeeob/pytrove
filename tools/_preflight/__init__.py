@@ -11,6 +11,10 @@ without anything being special-cased by name.
     python -m tools._preflight --all
     python -m tools._preflight --list
 
+and once a week, over everything, from .github/workflows/tools-preflight.yml.
+That workflow is the reason any of this pays: a source that dies is otherwise
+found by a build failing months later, for what looks like its own fault.
+
 Naming a tool is required. Running over everything is a decision, not a
 default: one of these caches is 20 MB and 5,700 requests to rebuild, and it
 should not be touched because somebody typed the command bare.
@@ -26,9 +30,9 @@ A tool's root holds named sections and a single `__main__.py` door. Any other
       __main__.py       the door. imports from src/ and nothing else
       src/              the logic
       sources/          sources.toml, sources.lock.json   (this package)
+      schedule/         schedule.toml                     (this package)
       config/           config.toml                       (later phase)
       ported/           citations.toml, values.py         (later phase)
-      schedule/         schedule.toml                     (later phase)
       docs/             DEVELOPING.md
       .cache/           downloads + preflight.state.json  (gitignored)
 
@@ -72,6 +76,7 @@ One module per responsibility
 
     model.py        the types a registry parses into, and the state names
     registry.py     reading sources.toml; the folder contract as code
+    schedule.py     reading schedule.toml: how often this runs unattended
     probe.py        the network, and classifying what an answer means
     contract.py     is this body still valid                 (pure)
     fingerprint.py  what is this body now                    (pure)

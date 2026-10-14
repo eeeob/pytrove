@@ -52,11 +52,13 @@ class Layout:
     SRC: ClassVar[str] = "src"
     DOOR: ClassVar[str] = "__main__.py"
 
+    SCHEDULE: ClassVar[str] = "schedule"
+    SCHEDULE_FILE: ClassVar[str] = "schedule.toml"
+
     #: Sections that land in later phases. Named here so the contract is
     #: readable in one place even before they exist.
     CONFIG: ClassVar[str] = "config"
     PORTED: ClassVar[str] = "ported"
-    SCHEDULE: ClassVar[str] = "schedule"
     DOCS: ClassVar[str] = "docs"
 
     @classmethod
@@ -66,6 +68,10 @@ class Layout:
     @classmethod
     def lock_path(cls, tool: str) -> Path:
         return cls.TOOLS_DIR / tool / cls.SOURCES / cls.LOCK_FILE
+
+    @classmethod
+    def schedule_path(cls, tool: str) -> Path:
+        return cls.TOOLS_DIR / tool / cls.SCHEDULE / cls.SCHEDULE_FILE
 
     @classmethod
     def cache_dir(cls, tool: str) -> Path:
