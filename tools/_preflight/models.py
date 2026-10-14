@@ -1,8 +1,14 @@
-"""The types a tool's declarations are parsed into.
+"""The types: what a tool declares, and what a check concluded.
 
-Imports nothing from this package, so it can be read first. Every field here
-is something a tool declares about itself; nothing is inferred and nothing is
-tool-specific, which is what lets one checker serve every tool under tools/.
+Two groups, in that order. **The declarations** are parsed out of a tool's
+TOML files and are nothing but what the tool says about itself -- no
+inference, no tool-specific knowledge, which is what lets one checker serve
+every tool under `tools/`. **The results** are what a run produced.
+
+Data and the arithmetic over that data, and no behaviour beyond it: nothing
+here reaches the network, the disk or a parser. The properties are the ones
+that would otherwise be rewritten at three call sites -- "is this fatal",
+"may this run proceed", "which URL does the checker actually request".
 """
 
 from __future__ import annotations
@@ -12,69 +18,10 @@ from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any, ClassVar
 
-# ============================== the states ==============================
+from .enums import (ContractKind, Exit, FingerprintKind, Health, Policy,
+                    State, Verb)
 
-class State:
-    """What a single check concluded about one source.
-
-    Written as plain strings rather than an enum because `tools/` has to run
-    on Python 3.10, where `StrEnum` does not exist, and these values are
-    serialised into the lock file and the JSON report as they are.
-
-    The distinction that matters is between a source that **died** and one
-    that merely could not be **reached**. A 404 means someone removed the
-    resource and a developer has to delete it from the tool's source, since
-    every source has bespoke handling there. A timeout means the network
-    blinked. Treating the second as the first would hand you a report asking
-    for surgery because the Wi-Fi dropped.
-    """
-
-    NEW: ClassVar[str] = "new"
-    OK: ClassVar[str] = "ok"
-    CHANGED: ClassVar[str] = "changed"
-    FLAKY: ClassVar[str] = "flaky"
-    CONTRACT_BROKEN: ClassVar[str] = "contract_broken"
-    GONE: ClassVar[str] = "gone"
-
-    #: States that mean the source is dead and needs a human to remove it.
-    FATAL: ClassVar[frozenset[str]] = frozenset({CONTRACT_BROKEN, GONE})
-    #: States that stop the run but accuse nobody; `--allow-flaky` passes them.
-    TRANSIENT: ClassVar[frozenset[str]] = frozenset({FLAKY})
-    #: States the run may proceed through.
-    CLEAR: ClassVar[frozenset[str]] = frozenset({NEW, OK, CHANGED})
-
-    #: Worst-first, for sorting a report so the thing needing action is on top.
-    ORDER: ClassVar[tuple[str, ...]] = (
-        CONTRACT_BROKEN, GONE, FLAKY, CHANGED, NEW, OK)
-
-    @classmethod
-    def rank(cls, state: str) -> int:
-        return cls.ORDER.index(state) if state in cls.ORDER else len(cls.ORDER)
-
-
-class Policy:
-    """What the janitor does to a cache entry whose source changed.
-
-    The janitor only ever deletes a file or renames it aside. It never reads
-    or rewrites one, so it needs no knowledge of any format -- which is the
-    whole reason a single generic janitor can serve every tool. A cache that
-    must accumulate rather than be refetched is renamed to `<name>.prev<ext>`
-    and merged by the tool that wrote it, because that code already knows the
-    record identity and the tie-break.
-    """
-
-    DELETE: ClassVar[str] = "delete"
-    MERGE: ClassVar[str] = "merge"
-    KEEP: ClassVar[str] = "keep"
-    WARN: ClassVar[str] = "warn"
-
-    ALL: ClassVar[frozenset[str]] = frozenset({DELETE, MERGE, KEEP, WARN})
-
-    #: Suffix inserted before the extension when a `merge` entry is set aside.
-    PREV: ClassVar[str] = ".prev"
-
-
-# ============================ the declarations ============================
+# ============================== how a body is judged ==============================
 
 @dataclass(frozen=True, slots=True)
 class Contract:
@@ -85,27 +32,22 @@ class Contract:
     and turn into silently wrong data.
     """
 
-    kind: str
+    kind: ContractKind
     encoding: str = "utf-8"
 
-    #: kind = "csv"
+    #: kind = csv
     must_have_columns: tuple[str, ...] = ()
     min_rows: int = 0
 
-    #: kind = "json_list" / "json_object"
+    #: kind = json_list / json_object
     min_items: int = 0
     item_keys: tuple[str, ...] = ()
     object_keys: tuple[str, ...] = ()
 
-    #: kind = "text" -- and usable alongside any other kind.
+    #: kind = text -- and usable alongside any other kind.
     must_contain: tuple[str, ...] = ()
     must_match: str = ""
     min_matches: int = 0
-
-    KINDS: ClassVar[frozenset[str]] = frozenset(
-        {"csv", "json_list", "json_object", "text", "git_refs"})
-
-
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,13 +62,11 @@ class Fingerprint:
     no natural scalar.
     """
 
-    kind: str
+    kind: FingerprintKind
     pattern: str = ""
 
-    KINDS: ClassVar[frozenset[str]] = frozenset(
-        {"bytes_len", "csv_rows", "json_len", "regex_count", "regex_max_int",
-         "git_head"})
 
+# ============================== the declarations ==============================
 
 @dataclass(frozen=True, slots=True)
 class Source:
@@ -148,7 +88,7 @@ class Source:
     url: str = ""
     probe_url: str = ""
     cache: str = ""
-    on_change: str = Policy.DELETE
+    on_change: Policy = Policy.DELETE
 
     contract: Contract | None = None
     fingerprint: Fingerprint | None = None
@@ -166,6 +106,10 @@ class Source:
         """The URL the checker actually requests."""
 
         return self.url or self.probe_url
+
+    @property
+    def is_cached(self) -> bool:
+        return bool(self.url and self.cache)
 
     @property
     def digest(self) -> str:
@@ -188,10 +132,6 @@ class Source:
         )
         return hashlib.sha256(parts.encode()).hexdigest()[:12] if parts else ""
 
-    @property
-    def is_cached(self) -> bool:
-        return bool(self.url and self.cache)
-
 
 @dataclass(frozen=True, slots=True)
 class Derived:
@@ -208,7 +148,7 @@ class Derived:
     id: str
     cache: str
     derives_from: tuple[str, ...] = ()
-    on_change: str = Policy.DELETE
+    on_change: Policy = Policy.DELETE
 
     #: Rebuild once the file itself is older than this, whatever upstream did.
     max_age_days: int = 0
@@ -224,7 +164,7 @@ class Derived:
 class Citation:
     """A rule this tool ported out of somebody else's source file.
 
-    Some of what the generator emits is not data it collected but a rule it
+    Some of what a generator emits is not data it collected but a rule it
     reimplemented: lib_base decides what a desktop model string looks like,
     Chromium freezes its own platform tokens, Telegram Android concatenates
     two Build fields with no separator. Those files are read once by a human
@@ -266,7 +206,7 @@ class Citation:
         return Source(
             id=self.id,
             probe_url=self.url,
-            contract=Contract(kind="text", must_contain=self.anchors),
+            contract=Contract(kind=ContractKind.TEXT, must_contain=self.anchors),
             consumed_by=self.ported_to,
             on_removal=self.on_drift,
             notes=self.notes,
@@ -287,9 +227,9 @@ class Watch:
     So a watch records the decision together with the one number upstream can
     still be asked for: `value` is what the tool believes, `fingerprint` is
     how to read the current answer, and a difference is reported every run
-    until somebody revisits it. The baseline lives here, in a tracked file a
-    human edits, rather than in the lock -- which is why a moved value keeps
-    being mentioned instead of being silently re-recorded.
+    until somebody revisits it. The baseline lives in the declaration, a
+    tracked file a human edits, rather than in the lock -- which is why a
+    moved value keeps being mentioned instead of being re-recorded.
 
     A watch never gates a build. The generator does not read these URLs at
     all, so a page that moved is news, not an obstacle.
@@ -319,76 +259,14 @@ class Watch:
 
 
 @dataclass(frozen=True, slots=True)
-class Registry:
-    """One tool's whole declaration, as parsed."""
-
-    tool: str
-    tool_dir: Path
-    cache_dir: Path
-    #: Directories inside the cache that must never survive a run (a half
-    #: finished clone, an extraction). The janitor removes them unasked.
-    scratch: tuple[str, ...] = ()
-    sources: tuple[Source, ...] = ()
-    derived: tuple[Derived, ...] = ()
-    #: Ported rules, from ported/citations.toml. Checked alongside the
-    #: sources because the question is the same -- does this still hold --
-    #: even though a failure calls for re-reading C++ rather than for
-    #: deleting a cache.
-    citations: tuple[Citation, ...] = ()
-    #: Hand-kept values, from config/config.toml. Compared against their own
-    #: declaration rather than against the lock, and never a reason to stop.
-    watches: tuple[Watch, ...] = ()
-
-    def source(self, source_id: str) -> Source | None:
-        return next((s for s in self.sources if s.id == source_id), None)
-
-    def citation(self, source_id: str) -> Citation | None:
-        return next((c for c in self.citations if c.id == source_id), None)
-
-    def watch(self, source_id: str) -> Watch | None:
-        return next((w for w in self.watches if w.id == source_id), None)
-
-    @property
-    def probes(self) -> tuple[Source, ...]:
-        """Everything compared against the lock, in one list.
-
-        Citations come last so the report's table reads sources first, and
-        they arrive already shaped as sources: every rule downstream --
-        network health, the failure counter, the exit code -- then applies to
-        a moved rule exactly as it does to a moved feed, which is what it
-        deserves.
-
-        Watches are not here. Their baseline is their own declaration, not
-        the lock, so they are checked against a different thing entirely.
-        """
-
-        return self.sources + tuple(c.as_source() for c in self.citations)
-
-    @property
-    def declared_cache_files(self) -> frozenset[str]:
-        """Every cache name the registry accounts for.
-
-        The janitor compares this against what is on disk: a file in `.cache`
-        that nothing declares is either a leftover from a renamed key or a
-        source somebody added to the code and forgot to register, and both are
-        worth saying out loud. Citations contribute nothing: they are never
-        fetched into the cache.
-        """
-
-        return frozenset(
-            {s.cache for s in self.sources if s.cache}
-            | {d.cache for d in self.derived if d.cache})
-
-
-@dataclass(frozen=True, slots=True)
 class Schedule:
     """One tool's cadence: how often its sources are checked unattended.
 
     The cadence exists twice and there is no way around it -- GitHub Actions
     cannot compute a trigger, so the workflow has to carry the cron literally
-    -- so this is the declaration of record and a test holds the two
-    together. Nothing is derived from the workflow: a YAML parser is not a
-    dependency this package takes on for one string.
+    -- so the declaration is the record and a test holds the two together.
+    Nothing is read back from the workflow: a YAML parser is not a dependency
+    this package takes on for one string.
     """
 
     tool: str
@@ -431,14 +309,84 @@ class Schedule:
         return 0
 
 
+@dataclass(frozen=True, slots=True)
+class Registry:
+    """One tool's whole declaration, as parsed.
+
+    Three kinds of promise, and breaking one costs three different things:
+
+    `sources`     fetched, cached and parsed on every build. A dead or
+                  reshaped one stops everything.
+    `citations`   read once by a human and reimplemented. A moved rule stops
+                  everything too, because the port would otherwise keep
+                  emitting strings the client no longer produces.
+    `watches`     decided by hand. Never gates anything: the generator does
+                  not read those URLs at all.
+    """
+
+    tool: str
+    tool_dir: Path
+    cache_dir: Path
+    #: Directories inside the cache that must never survive a run (a half
+    #: finished clone, an extraction). The janitor removes them unasked.
+    scratch: tuple[str, ...] = ()
+    sources: tuple[Source, ...] = ()
+    derived: tuple[Derived, ...] = ()
+    citations: tuple[Citation, ...] = ()
+    watches: tuple[Watch, ...] = ()
+
+    # --- lookups ----------------------------------------------------------
+
+    def source(self, source_id: str) -> Source | None:
+        return next((s for s in self.sources if s.id == source_id), None)
+
+    def citation(self, source_id: str) -> Citation | None:
+        return next((c for c in self.citations if c.id == source_id), None)
+
+    def watch(self, source_id: str) -> Watch | None:
+        return next((w for w in self.watches if w.id == source_id), None)
+
+    # --- derived views ----------------------------------------------------
+
+    @property
+    def probes(self) -> tuple[Source, ...]:
+        """Everything compared against the lock, in one list.
+
+        Citations come last so a report's table reads sources first, and they
+        arrive already shaped as sources: every rule downstream -- network
+        health, the failure counter, the exit code -- then applies to a moved
+        rule exactly as it does to a moved feed, which is what it deserves.
+
+        Watches are not here. Their baseline is their own declaration rather
+        than the lock, so they are compared against a different thing.
+        """
+
+        return self.sources + tuple(c.as_source() for c in self.citations)
+
+    @property
+    def declared_cache_files(self) -> frozenset[str]:
+        """Every cache name the registry accounts for.
+
+        The janitor compares this against what is on disk: a file there that
+        nothing declares is either a leftover from a renamed key or -- the one
+        that matters -- a source somebody added to the tool and forgot to
+        register, which would then never be checked at all. Citations and
+        watches contribute nothing; they are never fetched into the cache.
+        """
+
+        return frozenset(
+            {s.cache for s in self.sources if s.cache}
+            | {d.cache for d in self.derived if d.cache})
+
+
 # ============================== the results ==============================
 
 @dataclass(frozen=True, slots=True)
 class Verdict:
-    """What one source's check concluded, and everything the report needs."""
+    """What one source's check concluded, and everything a report needs."""
 
     source_id: str
-    state: str
+    state: State
     #: Fingerprint values, previous and current, for "156 -> 157" in a report.
     was: Any = None
     now: Any = None
@@ -461,12 +409,120 @@ class Verdict:
 
     @property
     def is_fatal(self) -> bool:
-        return self.state in State.FATAL
+        return self.state.is_fatal
 
     @property
     def is_transient(self) -> bool:
-        return self.state in State.TRANSIENT
+        return self.state.is_transient
 
     @property
     def is_clear(self) -> bool:
-        return self.state in State.CLEAR
+        return self.state.is_clear
+
+
+@dataclass(frozen=True, slots=True)
+class Report:
+    """Everything one check run concluded."""
+
+    tool: str
+    verdicts: tuple[Verdict, ...]
+    network: Health
+    first_run: bool
+    #: Ids that are watched values rather than things the tool reads. A watch
+    #: never gates a build -- the generator never requests these URLs -- so a
+    #: page that moved is news and not an obstacle. It is still reported, and
+    #: it still escalates if it stays broken.
+    watched: frozenset[str] = frozenset()
+
+    #: Consecutive failing runs before a source is called dead rather than
+    #: unlucky. Weekly scheduling makes this three weeks, long enough that no
+    #: ordinary outage reaches it and short enough to still matter.
+    ESCALATE_AFTER: ClassVar[int] = 3
+
+    # --- what happened ----------------------------------------------------
+
+    @property
+    def gating(self) -> tuple[Verdict, ...]:
+        """The verdicts that can stop a build: everything but the watches."""
+
+        return tuple(v for v in self.verdicts
+                     if v.source_id not in self.watched)
+
+    @property
+    def fatal(self) -> tuple[Verdict, ...]:
+        """Sources that died. These need a developer, not a retry."""
+
+        return tuple(v for v in self.gating if v.is_fatal)
+
+    @property
+    def transient(self) -> tuple[Verdict, ...]:
+        return tuple(v for v in self.gating if v.is_transient)
+
+    @property
+    def changed(self) -> tuple[Verdict, ...]:
+        return tuple(v for v in self.verdicts if v.state is State.CHANGED)
+
+    @property
+    def escalated(self) -> tuple[Verdict, ...]:
+        """Sources that have failed every run for long enough to be believed.
+
+        A single failure is weather. The counter lives in the tracked lock so
+        it survives a fresh CI runner, and this is the one place it is read.
+        """
+
+        return tuple(v for v in self.verdicts
+                     if v.consecutive >= self.ESCALATE_AFTER)
+
+    def sorted_verdicts(self) -> list[Verdict]:
+        """Worst first, so what needs action is at the top of the report."""
+
+        return sorted(self.verdicts,
+                      key=lambda v: (v.state.rank, v.source_id))
+
+    # --- the gate ---------------------------------------------------------
+
+    def may_proceed(self, *, allow_flaky: bool = False) -> bool:
+        """Whether the run's next step may start.
+
+        A dead source always stops it. An unreachable one stops it too, by
+        default -- building past a source you could not reach risks a
+        half-complete catalog -- but `--allow-flaky` passes it, because the
+        cache usually covers the gap entirely and a dropped connection is not
+        a reason to be unable to build.
+        """
+
+        if self.fatal:
+            return False
+        return allow_flaky or not self.transient
+
+    def exit_code(self, *, allow_flaky: bool = False) -> Exit:
+        """The one thing a scheduler reads.
+
+        An escalated source is DEAD and `--allow-flaky` does not waive it.
+        That is the whole point of counting consecutive runs: the waiver
+        covers a dropped connection, not three weeks of one, and until
+        something acted on the count the rule was a sentence in a report that
+        changed no outcome.
+        """
+
+        if self.fatal or self.escalated:
+            return Exit.DEAD
+        if self.transient and not allow_flaky:
+            return Exit.UNREACHABLE
+        if self.changed:
+            return Exit.CHANGED
+        return Exit.OK
+
+
+@dataclass(frozen=True, slots=True)
+class Action:
+    """One thing the janitor did, or would do."""
+
+    verb: Verb
+    cache: str
+    reason: str
+    target: str = ""
+
+    def __str__(self) -> str:
+        arrow = f" -> {self.target}" if self.target else ""
+        return f"{self.verb:<8} {self.cache}{arrow}  ({self.reason})"

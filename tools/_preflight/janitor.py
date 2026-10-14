@@ -24,35 +24,12 @@ import os
 import shutil
 import stat
 import time
-from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar
 
-from .check import Report
-from .model import Policy, Registry, State
-
-# ============================== the result ==============================
-
-@dataclass(frozen=True, slots=True)
-class Action:
-    """One thing the janitor did, or would do."""
-
-    DELETED: ClassVar[str] = "deleted"
-    RENAMED: ClassVar[str] = "renamed"
-    KEPT: ClassVar[str] = "kept"
-    WARNED: ClassVar[str] = "warned"
-    ORPHAN: ClassVar[str] = "orphan"
-    SCRATCH: ClassVar[str] = "scratch"
-
-    kind: str
-    cache: str
-    reason: str
-    target: str = ""
-
-    def __str__(self) -> str:
-        arrow = f" -> {self.target}" if self.target else ""
-        return f"{self.kind:<8} {self.cache}{arrow}  ({self.reason})"
-
+from .enums import Policy, State, Verb
+from .layout import Layout
+from .models import Action, Registry, Report
 
 # ============================== the janitor ==============================
 
@@ -79,12 +56,12 @@ class Janitor:
     def _rename_aside(self, path: Path) -> Path:
         """`firmware_records.json` -> `firmware_records.prev.json`.
 
-        The suffix goes before the extension rather than after, so the set
-        aside file keeps its type and the tool can read it with the same
-        loader it uses for the real one.
+        Where it goes is `Layout`'s business, not this module's: the name is
+        the entire interface between a tool and this package, so it is
+        defined once, beside every other path in the folder contract.
         """
 
-        aside = path.with_name(f"{path.stem}{Policy.PREV}{path.suffix}")
+        aside = Layout.aside(path)
         if not self.dry_run:
             self._delete(aside)                   # a stale .prev from a crash
             path.rename(aside)
@@ -112,21 +89,21 @@ class Janitor:
 
     # --- policies ---------------------------------------------------------
 
-    def _apply(self, cache: str, policy: str, reason: str) -> Action:
+    def _apply(self, cache: str, policy: Policy, reason: str) -> Action:
         path = self.registry.cache_dir / cache
         if not path.exists():
-            return Action(Action.KEPT, cache, "not cached yet")
+            return Action(Verb.KEPT, cache, "not cached yet")
 
-        if policy == Policy.KEEP:
-            return Action(Action.KEPT, cache, f"policy keep; {reason}")
-        if policy == Policy.WARN:
-            return Action(Action.WARNED, cache, reason)
-        if policy == Policy.MERGE:
+        if policy is Policy.KEEP:
+            return Action(Verb.KEPT, cache, f"policy keep; {reason}")
+        if policy is Policy.WARN:
+            return Action(Verb.WARNED, cache, reason)
+        if policy is Policy.MERGE:
             aside = self._rename_aside(path)
-            return Action(Action.RENAMED, cache, reason, aside.name)
+            return Action(Verb.RENAMED, cache, reason, aside.name)
 
         self._delete(path)
-        return Action(Action.DELETED, cache, reason)
+        return Action(Verb.DELETED, cache, reason)
 
     # --- the passes -------------------------------------------------------
 
@@ -138,7 +115,7 @@ class Janitor:
             source = self.registry.source(verdict.source_id)
             if source is None or not source.is_cached:
                 continue
-            if verdict.state != State.CHANGED:
+            if verdict.state is not State.CHANGED:
                 continue
             was, now = verdict.was, verdict.now
             moved = f"{was} -> {now}" if now is not None else "content changed"
@@ -153,7 +130,8 @@ class Janitor:
         built from changed" and "it is simply old".
         """
 
-        changed = {v.source_id for v in report.verdicts if v.state == State.CHANGED}
+        changed = {v.source_id for v in report.verdicts
+                   if v.state is State.CHANGED}
         actions: list[Action] = []
 
         for entry in self.registry.derived:
@@ -186,7 +164,7 @@ class Janitor:
             path = self.registry.cache_dir / name
             if path.exists():
                 self._delete(path)
-                actions.append(Action(Action.SCRATCH, name, "left over from a run"))
+                actions.append(Action(Verb.SCRATCH, name, "left over from a run"))
         return actions
 
     def _orphans(self) -> list[Action]:
@@ -205,17 +183,17 @@ class Janitor:
             return []
 
         declared = self.registry.declared_cache_files
-        reserved = {"preflight.state.json", *self.registry.scratch}
+        reserved = {Layout.STATE_FILE, *self.registry.scratch}
         actions: list[Action] = []
 
         for path in sorted(self.registry.cache_dir.iterdir()):
             name = path.name
             if name in declared or name in reserved:
                 continue
-            if Policy.PREV in path.suffixes or f"{Policy.PREV}." in name:
+            if Layout.is_aside(path):
                 continue                          # a pending merge, not an orphan
             actions.append(Action(
-                Action.ORPHAN, name,
+                Verb.ORPHAN, name,
                 "not declared in sources.toml -- a registered source, or stale?"))
         return actions
 
@@ -235,5 +213,4 @@ class Janitor:
     def removed(actions: list[Action]) -> list[str]:
         """What actually left the cache, for the run state file."""
 
-        return [a.cache for a in actions
-                if a.kind in (Action.DELETED, Action.RENAMED, Action.SCRATCH)]
+        return [a.cache for a in actions if a.verb.removes]

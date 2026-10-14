@@ -9,101 +9,34 @@ to run *before* the lock is rewritten. Overwriting the lock first would erase
 the comparison the cleaning is based on, and every later run would see
 "unchanged" and leave the cache stale forever -- the exact defect this whole
 thing exists to remove.
+
+Two things are compared, against two different baselines. A source or a
+citation is compared against the lock, which is what the last run saw. A
+watch is compared against its own declaration, which is what a human decided
+-- so a moved decision keeps being reported until somebody revisits it,
+instead of going quiet the moment it is recorded.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import replace
 from typing import Any, ClassVar
 
 from .contract import ContractCheck
+from .enums import Health, State
 from .fingerprint import FingerprintValue
 from .lock import Lock
-from .model import Registry, Source, State, Verdict, Watch
-from .probe import Health, Prober
-
-# ============================== the result ==============================
-
-@dataclass(frozen=True, slots=True)
-class Report:
-    """Everything one check run concluded."""
-
-    tool: str
-    verdicts: tuple[Verdict, ...]
-    network: str
-    first_run: bool
-    #: Ids that are watched values rather than things the tool reads. A
-    #: watch never gates a build -- the generator never requests these URLs
-    #: -- so a page that moved is news and not an obstacle. It is still
-    #: reported, and it still escalates if it stays broken.
-    watched: frozenset[str] = frozenset()
-
-    #: Consecutive failing runs before a source is called dead rather than
-    #: unlucky. Weekly scheduling makes this three weeks, long enough that no
-    #: ordinary outage reaches it and short enough to still matter.
-    ESCALATE_AFTER: ClassVar[int] = 3
-
-    # --- the gate ---------------------------------------------------------
-
-    @property
-    def gating(self) -> tuple[Verdict, ...]:
-        """The verdicts that can stop a build: everything but the watches."""
-
-        return tuple(v for v in self.verdicts
-                     if v.source_id not in self.watched)
-
-    @property
-    def fatal(self) -> tuple[Verdict, ...]:
-        """Sources that died. These need a developer, not a retry."""
-
-        return tuple(v for v in self.gating if v.is_fatal)
-
-    @property
-    def transient(self) -> tuple[Verdict, ...]:
-        return tuple(v for v in self.gating if v.is_transient)
-
-    @property
-    def changed(self) -> tuple[Verdict, ...]:
-        return tuple(v for v in self.verdicts if v.state == State.CHANGED)
-
-    def may_proceed(self, *, allow_flaky: bool = False) -> bool:
-        """Whether the run's next step may start.
-
-        A dead source always stops it. An unreachable one stops it too, by
-        default -- building past a source you could not reach risks a
-        half-complete catalog -- but `--allow-flaky` passes it, because the
-        cache usually covers the gap entirely and a dropped connection is not
-        a reason to be unable to build.
-        """
-
-        if self.fatal:
-            return False
-        return allow_flaky or not self.transient
-
-    @property
-    def escalated(self) -> tuple[Verdict, ...]:
-        """Sources that have failed every run for long enough to be believed.
-
-        A single failure is weather. The counter lives in the tracked lock so
-        it survives a fresh CI runner, and this is the one place it is read:
-        the report says so out loud, and the scheduler reads the same number
-        out of the JSON to decide whether a dashboard needs a new comment.
-        """
-
-        return tuple(v for v in self.verdicts
-                     if v.consecutive >= self.ESCALATE_AFTER)
-
-    def sorted_verdicts(self) -> list[Verdict]:
-        """Worst first, so what needs action is at the top of the report."""
-
-        return sorted(self.verdicts,
-                      key=lambda v: (State.rank(v.state), v.source_id))
-
+from .models import Registry, Report, Source, Verdict, Watch
+from .probe import Prober
 
 # ============================== the checker ==============================
 
 class Checker:
-    """Probes every source in a registry and compares it to the lock."""
+    """Probes every source in a registry and compares it to its baseline."""
+
+    #: Above this share of unreachable sources, blame the network rather than
+    #: the sources, and escalate nothing.
+    DEGRADED_ABOVE: ClassVar[float] = 0.5
 
     def __init__(self, registry: Registry, lock: Lock,
                  *, prober: Prober | None = None) -> None:
@@ -191,10 +124,9 @@ class Checker:
 
     @staticmethod
     def _replace(verdict: Verdict, **changes: Any) -> Verdict:
-        from dataclasses import replace
         return replace(verdict, **changes)
 
-    # --- the whole registry -----------------------------------------------
+    # --- a hand-kept value ------------------------------------------------
 
     def check_watch(self, watch: Watch) -> Verdict:
         """A hand-kept value against what upstream says today.
@@ -217,15 +149,31 @@ class Checker:
         state = State.OK if now == watch.value else State.CHANGED
         return self._replace(verdict, state=state, was=watch.value, now=now)
 
+    # --- the whole declaration --------------------------------------------
+
+    @classmethod
+    def network(cls, verdicts: list[Verdict]) -> Health:
+        """Whether this run's failures are the runner's fault.
+
+        Eighteen sources do not die in the same minute, so past a point the
+        honest answer is that the network went, and nothing is accused.
+        """
+
+        if not verdicts:
+            return Health.OK
+        flaky = sum(1 for v in verdicts if v.is_transient)
+        return (Health.DEGRADED if flaky / len(verdicts) > cls.DEGRADED_ABOVE
+                else Health.OK)
+
     def run(self) -> Report:
         verdicts = [self.check_one(probe) for probe in self.registry.probes]
         verdicts += [self.check_watch(w) for w in self.registry.watches]
-        network = Health.assess(verdicts)
+        network = self.network(verdicts)
 
         # When the network is the problem, nothing is accused: every flaky
         # verdict keeps its state for the report but its counter is reset, so
         # one bad morning cannot push a healthy source towards "dead".
-        if network == Health.DEGRADED:
+        if network is Health.DEGRADED:
             verdicts = [
                 self._replace(v, consecutive=0) if v.is_transient else v
                 for v in verdicts

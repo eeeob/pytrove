@@ -31,7 +31,8 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, ClassVar
 
-from .model import Registry, State, Verdict
+from .enums import State
+from .models import Registry, Verdict
 
 # ============================== the lock file ==============================
 
@@ -196,7 +197,7 @@ class Lock:
                 entry = carried
 
             entry["first_seen"] = was.get("first_seen", today)
-            if verdict.state == State.CHANGED:
+            if verdict.state is State.CHANGED:
                 entry["last_changed"] = today
             elif was.get("last_changed"):
                 entry["last_changed"] = was["last_changed"]

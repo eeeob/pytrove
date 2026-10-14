@@ -98,19 +98,30 @@ without something cleaning from the outside a changed source is never noticed.
 One module per responsibility
 -----------------------------
 
-    model.py        the types a registry parses into, and the state names
-    registry.py     reading the three declaration files; the contract
-    schedule.py     reading schedule.toml: how often this runs unattended
+Read down the list: each one depends only on those above it.
+
+    enums.py        the vocabulary: every closed set of values
+    layout.py       the tool folder contract: where anything lives
+    models.py       the types -- declarations in, results out
+    registry.py     parsing a tool's four .toml declarations
     probe.py        the network, and classifying what an answer means
     contract.py     is this body still valid                 (pure)
     fingerprint.py  what is this body now                    (pure)
     lock.py         the tracked lock and the ephemeral run state
-    check.py        comparing a probe against the lock
+    check.py        comparing an answer against its baseline
     janitor.py      applying each cache entry's policy
     report.py       rendering, for a terminal and for a workflow
-    cli.py          the command line, the gated order, the dispatcher
+    flight.py       steps 1 and 2, in the order that matters
+    cli.py          python -m tools._preflight
+    door.py         python -m tools <tool>: and then step 3
+
+`enums.py`, `layout.py` and `models.py` import nothing from the package, so
+any of them can be read first and alone.
 """
 
-from .cli import Dispatcher, Exit, Preflight, main
+from .cli import Cli, main
+from .door import Dispatcher
+from .enums import Exit
+from .flight import Preflight
 
-__all__ = ("Dispatcher", "Exit", "Preflight", "main")
+__all__ = ("Cli", "Dispatcher", "Exit", "Preflight", "main")

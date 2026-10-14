@@ -27,7 +27,8 @@ import urllib.error
 import urllib.request
 from typing import ClassVar
 
-from .model import Source, State, Verdict
+from .enums import ContractKind, State
+from .models import Source, Verdict
 
 # ============================== the prober ==============================
 
@@ -97,7 +98,7 @@ class Prober:
     # --- classification ---------------------------------------------------
 
     @classmethod
-    def classify(cls, exc: BaseException) -> tuple[str, int | None, str]:
+    def classify(cls, exc: BaseException) -> tuple[State, int | None, str]:
         """(state, status, message) for a failed request.
 
         Re-raises an interrupt rather than classifying it. Catching
@@ -149,7 +150,7 @@ class Prober:
         `changed` needs the lock, and that is the checker's job."""
 
         url = source.target
-        if source.contract and source.contract.kind == "git_refs":
+        if source.contract and source.contract.kind is ContractKind.GIT_REFS:
             url = url.removesuffix("/") + self.GIT_REFS
 
         state, status, error = State.OK, None, ""
@@ -166,10 +167,10 @@ class Prober:
                 break
             except BaseException as exc:                  # noqa: BLE001
                 state, status, error = self.classify(exc)
-                if state == State.OK:                     # a 304 raised as HTTPError
+                if state is State.OK:                     # a 304 raised as HTTPError
                     body, found = None, {}
                     break
-                if state not in State.TRANSIENT or attempt == self.ATTEMPTS:
+                if not state.is_transient or attempt == self.ATTEMPTS:
                     break
                 time.sleep(self.BACKOFF * attempt)
 
@@ -188,28 +189,3 @@ class Prober:
             etag=found.get("etag", ""),
             last_modified=found.get("last_modified", ""),
         )
-
-
-# ============================= network health =============================
-
-class Health:
-    """Whether a run's failures say more about us than about the sources.
-
-    Eighteen sources do not die in the same minute. When most of a run fails
-    to connect, the honest report names the runner's network and escalates
-    nothing -- otherwise one bad morning marks every source as suspect and
-    the dashboard stops being read.
-    """
-
-    #: Above this share of unreachable sources, blame the network.
-    THRESHOLD: ClassVar[float] = 0.5
-
-    OK: ClassVar[str] = "ok"
-    DEGRADED: ClassVar[str] = "degraded"
-
-    @classmethod
-    def assess(cls, verdicts: list[Verdict]) -> str:
-        if not verdicts:
-            return cls.OK
-        flaky = sum(1 for v in verdicts if v.state == State.FLAKY)
-        return cls.DEGRADED if flaky / len(verdicts) > cls.THRESHOLD else cls.OK

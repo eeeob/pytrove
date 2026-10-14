@@ -33,8 +33,9 @@ pytestmark = pytest.mark.skipif(
 if TOOLS.parent.as_posix() not in [p.replace("\\", "/") for p in sys.path]:
     sys.path.insert(0, str(TOOLS.parent))
 
-from tools._preflight import model as _model                       # noqa: E402
 from tools._preflight import registry as _registry                 # noqa: E402
+from tools._preflight.enums import Policy                          # noqa: E402
+from tools._preflight.layout import Layout                         # noqa: E402
 from tools.device_catalogs.src.cache import Cache                  # noqa: E402
 from tools.device_catalogs.src.firmware import FirmwareHarvest     # noqa: E402
 from tools.device_catalogs.src.shared import TODAY                 # noqa: E402
@@ -71,7 +72,7 @@ def test_the_set_aside_name_is_the_one_the_janitor_produces():
     # harvest would simply never accumulate, and no run would say so.
     stem, _, ext = FirmwareHarvest.RECORDS_FILE.rpartition(".")
 
-    assert FirmwareHarvest.PREV_FILE == f"{stem}{_model.Policy.PREV}.{ext}"
+    assert FirmwareHarvest.PREV_FILE == f"{stem}{Layout.PREV}.{ext}"
 
 
 def test_the_record_window_matches_what_the_registry_declares():
@@ -82,7 +83,7 @@ def test_the_record_window_matches_what_the_registry_declares():
     entry = next(d for d in registry.derived
                  if d.cache == FirmwareHarvest.RECORDS_FILE)
 
-    assert entry.on_change == _model.Policy.MERGE
+    assert entry.on_change is Policy.MERGE
     assert entry.record_max_age_days == WINDOW
 
 

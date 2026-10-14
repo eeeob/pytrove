@@ -20,9 +20,8 @@ from __future__ import annotations
 import json
 from typing import Any, ClassVar
 
-from .check import Report
-from .janitor import Action
-from .model import Registry, Schedule, State, Verdict
+from .enums import STATE_ORDER, Health, State
+from .models import Action, Registry, Report, Schedule, Verdict
 
 # ============================== text output ==============================
 
@@ -59,13 +58,13 @@ class TextReport:
 
     @classmethod
     def detail(cls, verdict: Verdict) -> str:
-        if verdict.state == State.CHANGED:
+        if verdict.state is State.CHANGED:
             if verdict.now is not None:
                 return f"{verdict.was} -> {verdict.now}"
             return "content changed"
-        if verdict.state == State.NEW:
+        if verdict.state is State.NEW:
             return "baseline recorded" if verdict.now is None else f"{verdict.now}"
-        if verdict.state == State.CONTRACT_BROKEN:
+        if verdict.state is State.CONTRACT_BROKEN:
             return "; ".join(verdict.contract_errors) or verdict.error
         if verdict.state in (State.GONE, State.FLAKY):
             runs = (f", {verdict.consecutive} consecutive run(s)"
@@ -204,7 +203,7 @@ class TextReport:
                 lines += cls.field("decision", watch.decision)
                 lines.append("")
 
-        if report.network != "ok":
+        if report.network is not Health.OK:
             lines += [
                 f"  network: {report.network} -- more than half the sources could",
                 "  not be reached, so this says more about the runner than about",
@@ -273,8 +272,8 @@ class JsonReport:
             "escalated": [v.source_id for v in report.escalated],
             "counts": {
                 state: sum(1 for v in report.verdicts if v.state == state)
-                for state in State.ORDER
-                if any(v.state == state for v in report.verdicts)
+                for state in STATE_ORDER
+                if any(v.state is state for v in report.verdicts)
             },
             "sources": [
                 {
@@ -293,7 +292,7 @@ class JsonReport:
                 for v in report.sorted_verdicts()
             ],
             "cache": [
-                {"kind": a.kind, "cache": a.cache, "reason": a.reason,
+                {"verb": a.verb, "cache": a.cache, "reason": a.reason,
                  "target": a.target}
                 for a in (actions or [])
             ],

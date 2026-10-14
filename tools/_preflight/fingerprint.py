@@ -25,7 +25,8 @@ import json
 import re
 from typing import Any, Callable, ClassVar
 
-from .model import Fingerprint
+from .enums import FingerprintKind
+from .models import Fingerprint
 
 # ============================== extraction ==============================
 
@@ -41,22 +42,20 @@ class FingerprintValue:
     #: so the encoding has to come from the declaration, not be assumed.
     DEFAULT_ENCODING: ClassVar[str] = "utf-8"
 
+    #: One extractor per declared kind. Defined after the methods it names,
+    #: at the bottom of the class, since a dict of unbound functions cannot
+    #: be written above them.
+    KINDS: ClassVar[dict[FingerprintKind, Callable[..., Any]]]
+
     @classmethod
     def of(cls, fingerprint: Fingerprint | None, body: bytes,
            *, encoding: str = DEFAULT_ENCODING) -> Any:
         if fingerprint is None or body is None:
             return None
 
-        kinds: dict[str, Callable[..., Any]] = {
-            "bytes_len": cls._bytes_len,
-            "csv_rows": cls._csv_rows,
-            "json_len": cls._json_len,
-            "regex_count": cls._regex_count,
-            "regex_max_int": cls._regex_max_int,
-            "git_head": cls._git_head,
-        }
         try:
-            return kinds[fingerprint.kind](body, fingerprint.pattern, encoding)
+            return cls.KINDS[fingerprint.kind](
+                body, fingerprint.pattern, encoding)
         except Exception:                                 # noqa: BLE001
             return None
 
@@ -102,3 +101,13 @@ class FingerprintValue:
             return head.group(1)
         first = re.search(r"([0-9a-f]{40})", text)
         return first.group(1) if first else None
+
+
+FingerprintValue.KINDS = {
+    FingerprintKind.BYTES_LEN: FingerprintValue._bytes_len,
+    FingerprintKind.CSV_ROWS: FingerprintValue._csv_rows,
+    FingerprintKind.JSON_LEN: FingerprintValue._json_len,
+    FingerprintKind.REGEX_COUNT: FingerprintValue._regex_count,
+    FingerprintKind.REGEX_MAX_INT: FingerprintValue._regex_max_int,
+    FingerprintKind.GIT_HEAD: FingerprintValue._git_head,
+}

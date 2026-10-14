@@ -18,7 +18,8 @@ import json
 import re
 from typing import Any, Callable, ClassVar
 
-from .model import Contract
+from .enums import ContractKind
+from .models import Contract
 
 # ============================== the checker ==============================
 
@@ -33,10 +34,15 @@ class ContractCheck:
     #: A decoded body is kept under this length for error messages.
     SNIPPET: ClassVar[int] = 120
 
-    #: Every kind, so an unknown one is a failure rather than a `KeyError`.
-    KINDS: ClassVar[dict[str, str]] = {
-        "csv": "_csv", "json_list": "_json_list", "json_object": "_json_object",
-        "text": "_text", "git_refs": "_git_refs",
+    #: One method per declared kind, so an unknown one is a stated failure
+    #: rather than a `KeyError`. A test holds this against `ContractKind`:
+    #: a kind that can be declared but not run cannot exist.
+    KINDS: ClassVar[dict[ContractKind, str]] = {
+        ContractKind.CSV: "_csv",
+        ContractKind.JSON_LIST: "_json_list",
+        ContractKind.JSON_OBJECT: "_json_object",
+        ContractKind.TEXT: "_text",
+        ContractKind.GIT_REFS: "_git_refs",
     }
 
     @classmethod
@@ -55,14 +61,14 @@ class ContractCheck:
 
         check = cls.KINDS.get(contract.kind)
         if check is None:
-            return (f"unknown contract kind {contract.kind!r}; "
+            return (f"unknown contract kind {contract.kind}; "
                     f"known: {sorted(cls.KINDS)}",)
 
         errors = cls._guard(getattr(cls, check), contract, body)
 
         # `must_contain` and `must_match` apply to every kind, not just text:
         # a JSON feed can be required to still mention a key by name.
-        if contract.kind != "text":
+        if contract.kind is not ContractKind.TEXT:
             errors += cls._guard(cls._literals, contract, body)
 
         return tuple(errors)

@@ -32,27 +32,24 @@ pytestmark = pytest.mark.skipif(
 if TOOLS.parent.as_posix() not in [p.replace("\\", "/") for p in sys.path]:
     sys.path.insert(0, str(TOOLS.parent))
 
-from tools._preflight import model as _model                      # noqa: E402
-from tools._preflight import registry as _registry                # noqa: E402
-from tools._preflight import schedule as _schedule              # noqa: E402
-from tools._preflight import cli as _cli                           # noqa: E402
-from tools._preflight.check import Checker, Report                # noqa: E402
-from tools._preflight.contract import ContractCheck               # noqa: E402
-from tools._preflight.fingerprint import FingerprintValue         # noqa: E402
-from tools._preflight.janitor import Action, Janitor              # noqa: E402
-from tools._preflight.lock import Lock                            # noqa: E402
-from tools._preflight.probe import Health, Prober                 # noqa: E402
-from tools._preflight.report import TextReport                   # noqa: E402
-
-Contract = _model.Contract
-Fingerprint = _model.Fingerprint
-Policy = _model.Policy
-Registry = _model.Registry
-Source = _model.Source
-Derived = _model.Derived
-State = _model.State
-Verdict = _model.Verdict
-Layout = _registry.Layout
+from tools._preflight import enums as _enums                        # noqa: E402
+from tools._preflight import models as _models                      # noqa: E402
+from tools._preflight import registry as _registry                  # noqa: E402
+from tools._preflight.check import Checker                          # noqa: E402
+from tools._preflight.contract import ContractCheck                 # noqa: E402
+from tools._preflight.door import Dispatcher                        # noqa: E402
+from tools._preflight.enums import (ContractKind, Exit,              # noqa: E402
+                                    FingerprintKind, Health, Policy,
+                                    State, Verb)
+from tools._preflight.fingerprint import FingerprintValue           # noqa: E402
+from tools._preflight.janitor import Janitor                        # noqa: E402
+from tools._preflight.layout import Layout                          # noqa: E402
+from tools._preflight.lock import Lock                              # noqa: E402
+from tools._preflight.models import (Action, Contract, Derived,      # noqa: E402
+                                     Fingerprint, Registry, Report,
+                                     Source, Verdict)
+from tools._preflight.probe import Prober                           # noqa: E402
+from tools._preflight.report import TextReport                      # noqa: E402
 
 
 # =============================== fixtures ===============================
@@ -149,7 +146,7 @@ def test_every_source_is_reachable_in_exactly_one_way(loaded):
 
 def test_every_policy_is_one_the_janitor_implements(loaded):
     for entry in (*loaded.sources, *loaded.derived):
-        assert entry.on_change in Policy.ALL, entry.id
+        assert entry.on_change in set(Policy), entry.id
 
 
 def test_a_merging_cache_declares_a_record_age_limit(loaded):
@@ -188,10 +185,10 @@ def test_every_cache_file_is_declared(loaded):
     if not loaded.cache_dir.is_dir():
         pytest.skip("nothing downloaded yet")
 
-    reserved = {"preflight.state.json", *loaded.scratch}
+    reserved = {Layout.STATE_FILE, *loaded.scratch}
     on_disk = {
         p.name for p in loaded.cache_dir.iterdir()
-        if p.name not in reserved and Policy.PREV not in p.name
+        if p.name not in reserved and not Layout.is_aside(p)
     }
 
     assert on_disk <= loaded.declared_cache_files, sorted(
@@ -213,6 +210,92 @@ def test_a_registry_rejects_an_unknown_key(tmp_path, monkeypatch):
         _registry.load("fake_tool")
 
 
+
+# ============================ the layering ============================
+#
+# The package map in `_preflight/__init__.py` promises an order: "read down
+# the list: each one depends only on those above it". These tests make that
+# promise executable, so the map cannot quietly stop describing the code --
+# which is the only way a reader can trust it enough to read down it.
+
+LAYER_LINE = re.compile(r"^    (\w+)\.py {2,}\S", re.M)
+
+
+def _declared_layers() -> list[str]:
+    """The module order the package map documents."""
+
+    doc = (PREFLIGHT / "__init__.py").read_text(encoding="utf-8")
+    return LAYER_LINE.findall(doc)
+
+
+def _local_imports(module: str) -> set[str]:
+    """Sibling modules this one imports, however it imports them."""
+
+    tree = ast.parse((PREFLIGHT / f"{module}.py").read_text(encoding="utf-8"))
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        # `from .x import y` is level 1 with module "x"; `from . import x`
+        # is level 1 with no module and the names on the right.
+        if isinstance(node, ast.ImportFrom) and node.level == 1:
+            found |= ({node.module} if node.module
+                      else {a.name for a in node.names})
+    return found
+
+
+def test_the_package_map_lists_every_module():
+    declared = set(_declared_layers())
+    on_disk = {p.stem for p in PREFLIGHT.glob("*.py")
+               if p.stem not in {"__init__", "__main__"}}
+
+    assert declared == on_disk, sorted(declared ^ on_disk)
+
+
+def test_each_module_imports_only_the_ones_above_it():
+    # A dependency graph that reads top to bottom is the difference between
+    # a package you can review in order and one you have to hold in your
+    # head all at once. It also makes a cycle impossible by construction.
+    order = {name: index for index, name in enumerate(_declared_layers())}
+
+    for module, position in order.items():
+        for imported in _local_imports(module):
+            assert imported in order, f"{module} imports unknown {imported}"
+            assert order[imported] < position, (
+                f"{module}.py imports {imported}.py, which the package map "
+                f"puts below it")
+
+
+@pytest.mark.parametrize("module", ["enums", "layout"])
+def test_the_foundation_imports_nothing_from_the_package(module):
+    # Either can be read first and alone, which is what makes them the right
+    # place to look up a value or a path.
+    assert _local_imports(module) == set()
+
+
+def test_the_types_know_the_vocabulary_and_nothing_else():
+    assert _local_imports("models") == {"enums"}
+
+
+def test_every_closed_set_of_values_is_declared_in_one_module():
+    # The point of the vocabulary module: a state, a policy or an exit code
+    # defined in two places is how one module starts handling a value no
+    # other module has heard of.
+    tree = ast.parse((PREFLIGHT / "enums.py").read_text(encoding="utf-8"))
+    declared = {node.name for node in tree.body if isinstance(node, ast.ClassDef)}
+
+    elsewhere: set[str] = set()
+    for path in PREFLIGHT.glob("*.py"):
+        if path.stem == "enums":
+            continue
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            bases = {b.id for b in node.bases if isinstance(b, ast.Name)}
+            if bases & {"StrEnum", "IntEnum", "Enum"}:
+                elsewhere.add(f"{path.stem}.{node.name}")
+
+    assert not elsewhere, sorted(elsewhere)
+    assert {"State", "Policy", "Verb", "Health", "Exit"} <= declared
+
 # ============================ the declaration ============================
 
 def test_the_declaration_digest_changes_with_the_declaration():
@@ -220,12 +303,12 @@ def test_the_declaration_digest_changes_with_the_declaration():
     # body, so a stored verdict is only reusable while the declaration that
     # produced it is unchanged.
     loose = Source(id="a", url="u", cache="c", consumed_by="x", on_removal="x",
-                   contract=Contract(kind="text", must_contain=("one",)))
+                   contract=Contract(kind=ContractKind.TEXT, must_contain=("one",)))
     tight = Source(id="a", url="u", cache="c", consumed_by="x", on_removal="x",
-                   contract=Contract(kind="text", must_contain=("one", "two")))
+                   contract=Contract(kind=ContractKind.TEXT, must_contain=("one", "two")))
     repattern = Source(id="a", url="u", cache="c", consumed_by="x", on_removal="x",
-                       contract=Contract(kind="text", must_contain=("one",)),
-                       fingerprint=Fingerprint(kind="regex_count", pattern="x"))
+                       contract=Contract(kind=ContractKind.TEXT, must_contain=("one",)),
+                       fingerprint=Fingerprint(kind=FingerprintKind.REGEX_COUNT, pattern="x"))
 
     assert loose.digest and loose.digest != tight.digest
     assert loose.digest != repattern.digest
@@ -236,7 +319,7 @@ def test_the_declaration_digest_changes_with_the_declaration():
 # ============================== contracts ==============================
 
 def test_a_reshaped_json_feed_fails_its_contract():
-    contract = Contract(kind="json_list", min_items=2,
+    contract = Contract(kind=ContractKind.JSON_LIST, min_items=2,
                         item_keys=("cycle", "releaseDate"))
 
     assert not ContractCheck.run(
@@ -248,9 +331,9 @@ def test_a_reshaped_json_feed_fails_its_contract():
 
 def test_a_csv_contract_reads_the_declared_encoding():
     body = '"Model","Retail Branding"\n"X","Y"\n'.encode("utf-16")
-    holds = Contract(kind="csv", encoding="utf-16",
+    holds = Contract(kind=ContractKind.CSV, encoding="utf-16",
                      must_have_columns=("Model", "Retail Branding"), min_rows=1)
-    wrong = Contract(kind="csv", encoding="utf-8",
+    wrong = Contract(kind=ContractKind.CSV, encoding="utf-8",
                      must_have_columns=("Model",), min_rows=1)
 
     assert not ContractCheck.run(holds, body)
@@ -260,7 +343,7 @@ def test_a_csv_contract_reads_the_declared_encoding():
 def test_a_renamed_method_breaks_the_text_contract():
     # The real case: Telegram-iOS refactoring platformString, which the tool
     # locates by string index and would otherwise crash on mid-build.
-    contract = Contract(kind="text",
+    contract = Contract(kind=ContractKind.TEXT,
                         must_contain=("- (NSString *)platformString",),
                         must_match='return @"iPhone', min_matches=2)
     good = b'- (NSString *)platformString\nreturn @"iPhone 17";\nreturn @"iPhone Air";'
@@ -271,7 +354,7 @@ def test_a_renamed_method_breaks_the_text_contract():
 
 
 def test_a_git_advertisement_must_carry_refs():
-    contract = Contract(kind="git_refs")
+    contract = Contract(kind=ContractKind.GIT_REFS)
 
     assert not ContractCheck.run(
         contract, b"001e# service=git-upload-pack\n" + b"a" * 40 + b" HEAD\n")
@@ -295,13 +378,13 @@ def test_a_fingerprint_reduces_a_body_to_its_watched_value(kind, pattern, body, 
 def test_csv_rows_counts_data_rows_not_the_header():
     body = "a,b\n1,2\n3,4\n".encode("utf-16")
     assert FingerprintValue.of(
-        Fingerprint(kind="csv_rows"), body, encoding="utf-16") == 2
+        Fingerprint(kind=FingerprintKind.CSV_ROWS), body, encoding="utf-16") == 2
 
 
 def test_an_unusable_body_yields_no_fingerprint_rather_than_an_error():
     # A fingerprint is a comparison aid. A malformed body has already failed
     # its contract, which is the loud signal; this must not add a second.
-    assert FingerprintValue.of(Fingerprint(kind="json_len"), b"not json") is None
+    assert FingerprintValue.of(Fingerprint(kind=FingerprintKind.JSON_LEN), b"not json") is None
     assert FingerprintValue.of(None, b"anything") is None
 
 
@@ -340,9 +423,9 @@ def test_a_mostly_unreachable_run_blames_the_network_not_the_sources():
     flaky = [Verdict(source_id=f"s{i}", state=State.FLAKY) for i in range(6)]
     fine = [Verdict(source_id=f"o{i}", state=State.OK) for i in range(2)]
 
-    assert Health.assess(flaky + fine) == Health.DEGRADED
-    assert Health.assess(fine + flaky[:1]) == Health.OK
-    assert Health.assess([]) == Health.OK
+    assert Checker.network(flaky + fine) == Health.DEGRADED
+    assert Checker.network(fine + flaky[:1]) == Health.OK
+    assert Checker.network([]) == Health.OK
 
 
 # =============================== the gate ===============================
@@ -403,7 +486,7 @@ def test_the_lock_is_written_only_when_its_content_differs(tmp_path):
     path = tmp_path / "sources.lock.json"
     lock = Lock(path)
     source = Source(id="s", url="u", cache="c", consumed_by="x", on_removal="x",
-                    fingerprint=Fingerprint(kind="bytes_len"))
+                    fingerprint=Fingerprint(kind=FingerprintKind.BYTES_LEN))
     registry = _registry_for(tmp_path, source)
     verdict = Verdict(source_id="s", state=State.NEW, now=10, body=b"0123456789",
                       sha256="abc", bytes_len=10)
@@ -419,7 +502,7 @@ def test_an_ok_run_carries_the_entry_forward_untouched(tmp_path):
     path = tmp_path / "sources.lock.json"
     lock = Lock(path)
     source = Source(id="s", url="u", cache="c", consumed_by="x", on_removal="x",
-                    fingerprint=Fingerprint(kind="bytes_len"))
+                    fingerprint=Fingerprint(kind=FingerprintKind.BYTES_LEN))
     registry = _registry_for(tmp_path, source)
 
     lock.save(lock.rebuild(registry, [Verdict(
@@ -461,7 +544,7 @@ def test_an_unreachable_source_keeps_the_fingerprint_it_had(tmp_path):
     path = tmp_path / "sources.lock.json"
     lock = Lock(path)
     source = Source(id="s", url="u", cache="c", consumed_by="x", on_removal="x",
-                    fingerprint=Fingerprint(kind="bytes_len"))
+                    fingerprint=Fingerprint(kind=FingerprintKind.BYTES_LEN))
     registry = _registry_for(tmp_path, source)
 
     lock.save(lock.rebuild(registry, [Verdict(
@@ -489,7 +572,7 @@ def test_a_changed_source_loses_its_cached_body(tmp_path):
     actions = Janitor(_registry_for(tmp_path, source)).run(
         _report_with(_changed("s")))
 
-    assert any(a.kind == Action.DELETED for a in actions)
+    assert any(a.verb is Verb.DELETED for a in actions)
     assert not (cache / "body.json").exists()
 
 
@@ -507,8 +590,8 @@ def test_a_merging_cache_is_renamed_aside_not_deleted(tmp_path):
     actions = Janitor(_registry_for(tmp_path, source, derived=(derived,))).run(
         _report_with(_changed("s")))
 
-    assert any(a.kind == Action.RENAMED for a in actions)
-    assert (cache / f"records{Policy.PREV}.json").exists()
+    assert any(a.verb is Verb.RENAMED for a in actions)
+    assert (cache / f"records{Layout.PREV}.json").exists()
     assert not (cache / "records.json").exists()
 
 
@@ -523,7 +606,7 @@ def test_an_expensive_cache_survives_an_upstream_change(tmp_path):
     actions = Janitor(_registry_for(tmp_path, source, derived=(derived,))).run(
         _report_with(_changed("s")))
 
-    assert any(a.kind == Action.KEPT for a in actions)
+    assert any(a.verb is Verb.KEPT for a in actions)
     assert (cache / "dmi.json").exists()
 
 
@@ -536,7 +619,7 @@ def test_a_derived_cache_goes_stale_by_dependency(tmp_path):
                       on_change=Policy.DELETE)
     registry = _registry_for(tmp_path, source, derived=(derived,))
 
-    assert not any(a.kind == Action.DELETED for a in
+    assert not any(a.verb is Verb.DELETED for a in
                    Janitor(registry).run(_report_with(
                        Verdict(source_id="upstream", state=State.OK))))
     assert (cache / "built.json").exists()
@@ -554,7 +637,7 @@ def test_scratch_never_survives_a_run(tmp_path):
     actions = Janitor(registry).run(_report_with(
         Verdict(source_id="s", state=State.OK)))
 
-    assert any(a.kind == Action.SCRATCH for a in actions)
+    assert any(a.verb is Verb.SCRATCH for a in actions)
     assert not (cache / "dmi-repo").exists()
 
 
@@ -568,7 +651,7 @@ def test_an_undeclared_cache_file_is_reported_and_never_deleted(tmp_path):
     actions = Janitor(_registry_for(tmp_path, source)).run(_report_with(
         Verdict(source_id="s", state=State.OK)))
 
-    assert any(a.kind == Action.ORPHAN for a in actions)
+    assert any(a.verb is Verb.ORPHAN for a in actions)
     assert (cache / "mystery.json").exists()
 
 
@@ -624,7 +707,7 @@ def test_a_conditional_request_needs_a_trustworthy_previous_verdict(
     """
 
     source = Source(id="s", url="u", cache="c", consumed_by="x", on_removal="x",
-                    contract=Contract(kind="text", must_contain=("x",)))
+                    contract=Contract(kind=ContractKind.TEXT, must_contain=("x",)))
     path = tmp_path / "sources.lock.json"
     path.write_text(json.dumps({
         "lock_schema": 1,
@@ -700,7 +783,7 @@ def test_last_modified_is_still_recorded_as_a_fact(tmp_path):
     # the oversized body is built in the test rather than passed here: a
     # 200 KB parametrize id overflows the environment variable pytest
     # reports the current test through.
-    (Contract(kind="csv", min_rows=1), "oversized_csv_field", "could not be read"),
+    (Contract(kind=ContractKind.CSV, min_rows=1), "oversized_csv_field", "could not be read"),
     # a kind the parser would have rejected, reaching the checker anyway.
     (Contract(kind="xml"), b"<a/>", "unknown contract kind"),
 ])
@@ -714,13 +797,13 @@ def test_a_body_that_cannot_be_judged_is_a_stated_failure(contract, body, expect
 def test_every_contract_kind_the_model_declares_is_implemented():
     """One list, two places. They must not drift.
 
-    `Contract.KINDS` is what the registry validates against and
+    `ContractKind` is what the registry validates against and
     `ContractCheck.KINDS` is what it dispatches on, so a kind added to one
     and not the other would either be rejected on sight or arrive at the
     dispatcher as an unknown.
     """
 
-    assert set(ContractCheck.KINDS) == set(Contract.KINDS)
+    assert set(ContractCheck.KINDS) == set(ContractKind)
 
 
 @pytest.mark.parametrize("block", [
@@ -782,40 +865,38 @@ def test_a_real_failure_is_still_classified_and_retried():
 # ======================== what the caller learns ========================
 
 @pytest.mark.parametrize("codes, worst", [
-    ([_cli.Exit.UNREACHABLE, _cli.Exit.DEAD], _cli.Exit.DEAD),
-    ([_cli.Exit.CHANGED, _cli.Exit.DEAD], _cli.Exit.DEAD),
-    ([_cli.Exit.DEAD, _cli.Exit.CHANGED], _cli.Exit.DEAD),
-    ([_cli.Exit.CHANGED, _cli.Exit.UNREACHABLE], _cli.Exit.UNREACHABLE),
-    ([_cli.Exit.DEAD, _cli.Exit.REGISTRY], _cli.Exit.REGISTRY),
-    ([_cli.Exit.OK, _cli.Exit.CHANGED, _cli.Exit.OK], _cli.Exit.CHANGED),
-    ([_cli.Exit.OK, _cli.Exit.OK], _cli.Exit.OK),
+    ([Exit.UNREACHABLE, Exit.DEAD], Exit.DEAD),
+    ([Exit.CHANGED, Exit.DEAD], Exit.DEAD),
+    ([Exit.DEAD, Exit.CHANGED], Exit.DEAD),
+    ([Exit.CHANGED, Exit.UNREACHABLE], Exit.UNREACHABLE),
+    ([Exit.DEAD, Exit.REGISTRY], Exit.REGISTRY),
+    ([Exit.OK, Exit.CHANGED, Exit.OK], Exit.CHANGED),
+    ([Exit.OK, Exit.OK], Exit.OK),
 ])
 def test_all_reports_the_worst_outcome_not_the_first(codes, worst):
     """Taking the first non-zero code answered "unreachable" for a run in
     which another tool's source was dead, so the caller would retry instead
     of fetching a developer."""
 
-    folded = _cli.Exit.OK
+    folded = Exit.OK
     for code in codes:
-        folded = _cli.Exit.worse(folded, code)
+        folded = Exit.worse(folded, code)
     assert folded == worst
 
 
 def test_every_exit_code_is_ranked():
-    assert set(_cli.Exit.WORST) == {
-        _cli.Exit.OK, _cli.Exit.CHANGED, _cli.Exit.DEAD,
-        _cli.Exit.UNREACHABLE, _cli.Exit.REGISTRY}
+    assert set(_enums.EXIT_ORDER) == set(Exit)
 
 
 @pytest.mark.parametrize("code, expect", [
-    (None, _cli.Exit.OK), (0, 0), (3, 3), (True, 1), (False, 0),
+    (None, Exit.OK), (0, 0), (3, 3), (True, 1), (False, 0),
     # a tool is entitled to `raise SystemExit("the cache is missing")`, and
     # python prints that and exits 1. int() raised a ValueError instead, so
     # the tool's own explanation became a traceback from the launcher.
-    ("the cache is missing", _cli.Exit.DEAD),
+    ("the cache is missing", Exit.DEAD),
 ])
 def test_a_tool_may_exit_with_a_message(capsys, code, expect):
-    assert _cli.Dispatcher._exit_code(code) == expect
+    assert Dispatcher._exit_code(code) == expect
 
 
 # ===================== a source believed to be dead =====================
@@ -857,8 +938,8 @@ def test_a_failure_does_not_erase_the_fingerprint_it_failed_to_produce(tmp_path)
 
     source = Source(id="s", url="u", cache="c.json",
                     consumed_by="x", on_removal="x",
-                    contract=Contract(kind="json_list", item_keys=("name",)),
-                    fingerprint=Fingerprint(kind="json_len"))
+                    contract=Contract(kind=ContractKind.JSON_LIST, item_keys=("name",)),
+                    fingerprint=Fingerprint(kind=FingerprintKind.JSON_LEN))
     lock, registry = _lifecycle_lock(tmp_path, source)
 
     lock.save(lock.rebuild(registry, [_verdict(source, State.NEW, now=3)]))
@@ -883,8 +964,8 @@ def test_a_recovered_source_stops_being_called_reshaped(tmp_path):
 
     source = Source(id="s", url="u", cache="c.json",
                     consumed_by="x", on_removal="x",
-                    contract=Contract(kind="json_list", item_keys=("name",)),
-                    fingerprint=Fingerprint(kind="json_len"))
+                    contract=Contract(kind=ContractKind.JSON_LIST, item_keys=("name",)),
+                    fingerprint=Fingerprint(kind=FingerprintKind.JSON_LEN))
     lock, registry = _lifecycle_lock(tmp_path, source)
 
     lock.save(lock.rebuild(registry, [_verdict(source, State.NEW, now=3)]))
@@ -908,8 +989,8 @@ def test_an_unreachable_source_records_no_verdict_at_all(tmp_path):
 
     source = Source(id="s", url="u", cache="c.json",
                     consumed_by="x", on_removal="x",
-                    contract=Contract(kind="json_list"),
-                    fingerprint=Fingerprint(kind="json_len"))
+                    contract=Contract(kind=ContractKind.JSON_LIST),
+                    fingerprint=Fingerprint(kind=FingerprintKind.JSON_LEN))
     lock, registry = _lifecycle_lock(tmp_path, source)
 
     lock.save(lock.rebuild(registry, [_verdict(source, State.NEW, now=3)]))
@@ -951,7 +1032,7 @@ def test_every_tool_declares_how_often_it_is_checked():
     # A tool with sources and no schedule is checked only when somebody
     # remembers to, which is the state this whole package exists to replace.
     for tool in Layout.tools():
-        assert _schedule.load(tool).every_days > 0
+        assert _registry.load_schedule(tool).every_days > 0
 
 
 def test_every_declared_cadence_is_a_trigger_the_workflow_really_has():
@@ -959,14 +1040,14 @@ def test_every_declared_cadence_is_a_trigger_the_workflow_really_has():
 
     assert triggers, "the workflow declares no schedule at all"
     for tool in Layout.tools():
-        assert _schedule.load(tool).cron in triggers
+        assert _registry.load_schedule(tool).cron in triggers
 
 
 def test_the_workflow_fires_on_nothing_a_tool_did_not_ask_for():
     # The other direction, and the one that rots quietly: a cron left behind
     # after a tool's cadence changed would keep waking the job on a schedule
     # nothing in the repository claims.
-    declared = {_schedule.load(tool).cron for tool in Layout.tools()}
+    declared = {_registry.load_schedule(tool).cron for tool in Layout.tools()}
 
     assert set(_triggers()) <= declared
 
@@ -1000,16 +1081,16 @@ def test_the_scheduled_run_keeps_the_counter_it_depends_on():
 # --- reading a cadence -----------------------------------------------------
 
 @pytest.mark.parametrize("cron, days", [
-    ("19 4 * * 1", _model.Schedule.WEEKLY),
-    ("0 5 * * 0", _model.Schedule.WEEKLY),
-    ("0 5 * * *", _model.Schedule.DAILY),
-    ("0 5 1 * *", _model.Schedule.MONTHLY),
+    ("19 4 * * 1", _models.Schedule.WEEKLY),
+    ("0 5 * * 0", _models.Schedule.WEEKLY),
+    ("0 5 * * *", _models.Schedule.DAILY),
+    ("0 5 1 * *", _models.Schedule.MONTHLY),
 ])
 def test_a_cadence_is_read_out_of_the_cron_not_declared_beside_it(cron, days):
     # Derived, so there is no second number to drift. The reader is the
     # escalation line: three runs is three weeks here and three days at a
     # daily cadence, and only one of those is worth waiting for.
-    assert _model.Schedule(tool="t", cron=cron).every_days == days
+    assert _models.Schedule(tool="t", cron=cron).every_days == days
 
 
 @pytest.mark.parametrize("cron", [
@@ -1020,7 +1101,7 @@ def test_a_cadence_is_read_out_of_the_cron_not_declared_beside_it(cron, days):
     "nonsense",
 ])
 def test_a_cron_that_is_not_a_cadence_is_refused_rather_than_rounded(cron):
-    assert _model.Schedule(tool="t", cron=cron).every_days == 0
+    assert _models.Schedule(tool="t", cron=cron).every_days == 0
 
 
 def test_a_schedule_that_cannot_be_stated_in_days_is_malformed(
@@ -1032,7 +1113,7 @@ def test_a_schedule_that_cannot_be_stated_in_days_is_malformed(
     monkeypatch.setattr(Layout, "TOOLS_DIR", tmp_path)
 
     with pytest.raises(_registry.RegistryError, match="stated in days"):
-        _schedule.load("fake_tool")
+        _registry.load_schedule("fake_tool")
 
 
 def test_a_schedule_rejects_an_unknown_key(tmp_path, monkeypatch):
@@ -1045,7 +1126,7 @@ def test_a_schedule_rejects_an_unknown_key(tmp_path, monkeypatch):
     monkeypatch.setattr(Layout, "TOOLS_DIR", tmp_path)
 
     with pytest.raises(_registry.RegistryError, match="unknown key"):
-        _schedule.load("fake_tool")
+        _registry.load_schedule("fake_tool")
 
 
 def test_a_tool_with_no_schedule_is_still_checkable_by_hand(
@@ -1053,7 +1134,7 @@ def test_a_tool_with_no_schedule_is_still_checkable_by_hand(
     # Finding a cadence is soft; needing one is the workflow's business.
     monkeypatch.setattr(Layout, "TOOLS_DIR", tmp_path)
 
-    assert _schedule.find("nobody") is None
+    assert _registry.find_schedule("nobody") is None
 
 
 # --- what a scheduled run reports -----------------------------------------
@@ -1070,15 +1151,15 @@ def test_an_escalated_source_is_dead_however_flaky_a_run_may_be():
     # month, and the scheduled job would have passed every week for ever.
     report = _failing(Report.ESCALATE_AFTER)
 
-    assert _cli.Preflight.code(report, allow_flaky=True) == _cli.Exit.DEAD
-    assert _cli.Preflight.code(report) == _cli.Exit.DEAD
+    assert report.exit_code(allow_flaky=True) == Exit.DEAD
+    assert report.exit_code() == Exit.DEAD
 
 
 def test_one_unreachable_run_is_passable_when_the_caller_says_so():
     report = _failing(1)
 
-    assert _cli.Preflight.code(report) == _cli.Exit.UNREACHABLE
-    assert _cli.Preflight.code(report, allow_flaky=True) == _cli.Exit.OK
+    assert report.exit_code() == Exit.UNREACHABLE
+    assert report.exit_code(allow_flaky=True) == Exit.OK
 
 
 def test_waiving_flakiness_does_not_hide_a_change():
@@ -1086,7 +1167,7 @@ def test_waiving_flakiness_does_not_hide_a_change():
         Verdict(source_id="a", state=State.FLAKY, consecutive=1),
         Verdict(source_id="b", state=State.CHANGED, was=1, now=2)))
 
-    assert _cli.Preflight.code(report, allow_flaky=True) == _cli.Exit.CHANGED
+    assert report.exit_code(allow_flaky=True) == Exit.CHANGED
 
 
 def test_the_escalation_line_says_how_long_that_actually_is(tmp_path):
@@ -1094,7 +1175,7 @@ def test_the_escalation_line_says_how_long_that_actually_is(tmp_path):
     # cadence is what turns it into a sentence somebody can act on.
     registry = _registry_for(tmp_path)
     report = _failing(Report.ESCALATE_AFTER)
-    weekly = _model.Schedule(tool="t", cron="19 4 * * 1")
+    weekly = _models.Schedule(tool="t", cron="19 4 * * 1")
 
     plain = TextReport.render(report, registry)
     dated = TextReport.render(report, registry, schedule=weekly)
@@ -1258,7 +1339,7 @@ def test_a_ported_rule_is_probed_as_a_text_contract():
     # whose contract is the lines it quotes, so the machinery that turns "a
     # required string is missing" into a fatal, stated failure already
     # applies, and the janitor leaves it alone because it caches nothing.
-    citation = _model.Citation(
+    citation = _models.Citation(
         id="c", url="https://example.com/a.cpp", anchors=("one", "two"),
         ported_to="src/x.py :: X.y", on_drift="everything")
     source = citation.as_source()
@@ -1280,7 +1361,7 @@ def test_a_rule_that_moved_stops_the_build(tmp_path):
 
     assert not broken.may_proceed()
     assert not broken.may_proceed(allow_flaky=True)
-    assert _cli.Preflight.code(broken) == _cli.Exit.DEAD
+    assert broken.exit_code() == Exit.DEAD
 
 
 def test_a_ported_rule_is_locked_apart_from_a_source(tmp_path):
@@ -1288,7 +1369,7 @@ def test_a_ported_rule_is_locked_apart_from_a_source(tmp_path):
     # line under `citations` means a rule did and a port needs re-reading.
     source = Source(id="feed", url="https://example.com/a",
                     cache="a.json", consumed_by="x", on_removal="x")
-    citation = _model.Citation(
+    citation = _models.Citation(
         id="rule", url="https://example.com/a.cpp", anchors=("one",),
         ported_to="src/x.py :: X.y", on_drift="everything")
     registry = Registry(tool="t", tool_dir=tmp_path,
@@ -1306,7 +1387,7 @@ def test_a_ported_rule_is_locked_apart_from_a_source(tmp_path):
 
 
 def test_a_ported_rule_declares_no_cache_to_clean(tmp_path):
-    citation = _model.Citation(
+    citation = _models.Citation(
         id="rule", url="https://example.com/a.cpp", anchors=("one",),
         ported_to="src/x.py :: X.y", on_drift="everything")
     registry = Registry(tool="t", tool_dir=tmp_path,
@@ -1317,7 +1398,7 @@ def test_a_ported_rule_declares_no_cache_to_clean(tmp_path):
 
 
 def test_the_report_keeps_ported_rules_in_their_own_section(tmp_path):
-    citation = _model.Citation(
+    citation = _models.Citation(
         id="rule", url="https://example.com/a.cpp", anchors=("one",),
         ported_to="src/x.py :: X.y", on_drift="the whole desktop catalog")
     source = Source(id="feed", url="https://example.com/a", cache="a.json",
@@ -1359,12 +1440,12 @@ def _watching_tools() -> list[str]:
     return [t for t in Layout.tools() if _registry.load(t).watches]
 
 
-def _watch(**kw) -> _model.Watch:
+def _watch(**kw) -> _models.Watch:
     base = dict(id="w", url="https://example.com/page",
-                value=7, fingerprint=Fingerprint(kind="regex_max_int",
+                value=7, fingerprint=Fingerprint(kind=FingerprintKind.REGEX_MAX_INT,
                                                  pattern=r"v(\d+)"),
                 used_by="src/x.py :: X.y", decision="hand kept")
-    return _model.Watch(**{**base, **kw})
+    return _models.Watch(**{**base, **kw})
 
 
 def test_every_watched_decision_points_at_code_that_still_exists():
@@ -1422,7 +1503,7 @@ def test_a_moved_decision_never_stops_a_build():
     assert report.fatal == ()
     assert report.transient == ()
     assert report.may_proceed()
-    assert _cli.Preflight.code(report) == _cli.Exit.OK
+    assert report.exit_code() == Exit.OK
 
 
 def test_a_watch_that_stays_unreadable_for_three_weeks_is_still_escalated():
@@ -1434,7 +1515,7 @@ def test_a_watch_that_stays_unreadable_for_three_weeks_is_still_escalated():
                           consecutive=Report.ESCALATE_AFTER),))
 
     assert len(report.escalated) == 1
-    assert _cli.Preflight.code(report, allow_flaky=True) == _cli.Exit.DEAD
+    assert report.exit_code(allow_flaky=True) == Exit.DEAD
 
 
 def test_a_moved_decision_is_reported_and_not_quietly_re_recorded(tmp_path):
