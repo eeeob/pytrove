@@ -19,7 +19,10 @@ def validate_type(value: Any, annotation: Any) -> None:
     """Check `value` against a type annotation, every item of a collection included.
 
     Besides typeguard's own rules, an enum accepts any member's value and a
-    package `Container[X]` checks each item against `X`.
+    package `Container[X]` checks each item against `X`. Before Python 3.12
+    the aliases are plain unions typeguard expands itself, so a `str` passes as
+    a `Sequence` there, and `NestedContainer` is checked one level deep only:
+    its recursive reference is a string typeguard cannot resolve, and it warns.
 
     Args:
         value: The value to check.

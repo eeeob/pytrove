@@ -14,6 +14,7 @@ from pytrove.validate_tools._internal import (
     _checker_lookup,
     _flatten_class_info,
     _is_container,
+    _ALIAS_TYPES,
     _CONTAINER,
     _NOT_CONTAINER,
     HAS_TYPEGUARD,
@@ -84,3 +85,24 @@ def test_nested_container_validation_recurses() -> None:
 def test_validate_type_accepts_any_for_an_unparametrised_container() -> None:
     value: Any = [object(), "x"]
     validate_type(value, Container)
+
+
+def test_validate_type_checks_every_item_of_a_package_container() -> None:
+    validate_type((1, 2, 3), Container[int])
+
+    with pytest.raises(ValidationError):
+        validate_type((1, "x"), Container[int])
+
+
+@pytest.mark.skipif(not _ALIAS_TYPES, reason="before 3.12 typeguard expands the aliases as plain unions")
+def test_validate_type_applies_the_package_container_rules_to_aliases() -> None:
+    with pytest.raises(ValidationError):
+        validate_type("abc", Container[str])
+
+    with pytest.raises(ValidationError):
+        validate_type([1, ["x"]], NestedContainer[int])
+
+
+@pytest.mark.skipif(not _ALIAS_TYPES, reason="PEP 695 aliases exist from 3.12")
+def test_checker_lookup_answers_for_a_pep_695_alias() -> None:
+    assert _checker_lookup(Container) is not None

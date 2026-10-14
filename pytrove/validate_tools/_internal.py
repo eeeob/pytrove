@@ -2,6 +2,7 @@
 
 from __future__ import annotations as _annotations
 
+import sys
 from collections.abc import Callable
 from enum import Enum, EnumMeta as EnumType  # `EnumType` became the name of `EnumMeta` only in 3.11.
 from types import UnionType
@@ -15,7 +16,7 @@ else:
     HAS_TYPEGUARD = True
 
 from .._internal._optional import _optional_import
-from ..typings import Container, NotContainer
+from ..typings import Container, ContainerWithoutMapping, NotContainer
 
 _CONTAINER: Final[tuple[type, ...]] = tuple(
     get_origin(arg) or arg for arg in get_args(getattr(Container, "__value__", Container))
@@ -26,6 +27,21 @@ _NOT_CONTAINER: Final[tuple[type, ...]] = tuple(
     get_origin(arg) or arg for arg in get_args(getattr(NotContainer, "__value__", NotContainer))
 )
 """The iterable classes treated as single values, ready for `isinstance`."""
+
+if sys.version_info >= (3, 12):
+    from typing import TypeAliasType
+
+    _ALIAS_TYPES: Final[tuple[type, ...]] = (TypeAliasType,)
+else:
+    _ALIAS_TYPES: Final[tuple[type, ...]] = ()
+"""The classes of PEP 695 aliases, which typeguard cannot see through on its own."""
+
+_CONTAINER_ALIASES: Final[tuple[Any, ...]] = (Container, ContainerWithoutMapping)
+"""The package's container aliases, checked by `is_container` rather than as plain unions.
+
+Expanding them would let typeguard treat a `str` as a `Sequence` and walk
+into its own characters forever.
+"""
 
 # The nested tuple is typed `Any` rather than recursively: a quoted self-reference is allowed only in the
 # pre-3.12 branch of a version split (rule 4.2), and a split here would cost a module for one private alias.
@@ -78,17 +94,31 @@ def _is_container(obj: Any) -> bool:
 def _checker_lookup(origin_type: Any, *_: Any) -> Callable[..., None] | None:
     """Teach typeguard the package's two extra checks; registered by `typecheck`.
 
-    A value checked against an `Enum` passes if it is any member's value, and
-    a value checked against `Container[X]` is walked and each item checked
-    against `X`. Returning `None` leaves every other type to typeguard.
+    A value checked against an `Enum` passes if it is any member's value, a
+    value checked against `Container[X]` is walked and each item checked
+    against `X`, and a PEP 695 alias (3.12+) is checked as the type it stands
+    for. Returning `None` leaves every other type to typeguard.
 
     Args:
         origin_type: The type typeguard is checking against.
         *_: The rest of typeguard's lookup arguments, unused.
 
     Returns:
-        A checker for an enum or a package container type, otherwise `None`.
+        A checker for an enum, a package container type or a PEP 695 alias, otherwise `None`.
     """
+
+    def validate_alias(value: Any, origin_type: Any, args: tuple[Any, ...], memo: TypeCheckMemo, *_: Any) -> None:
+        """Check `value` against the type a PEP 695 alias stands for.
+
+        Args:
+            value: The value being checked.
+            origin_type: The alias.
+            args: The alias's type arguments, substituted into its value.
+            memo: typeguard's check state.
+            *_: The rest of typeguard's checker arguments, unused.
+        """
+        target = origin_type.__value__
+        check_type_internal(value, target[args] if args else target, memo)
 
     def validate_enum(value: Any, origin_type: EnumType, *_: Any) -> None:
         """Accept any value of the enum, not only its members.
@@ -135,6 +165,12 @@ def _checker_lookup(origin_type: Any, *_: Any) -> Callable[..., None] | None:
                 exc.append_path_element(f"item {i}")
                 raise
 
+    if origin_type in _CONTAINER_ALIASES:
+        return validate_container
+
+    if isinstance(origin_type, _ALIAS_TYPES):
+        return validate_alias
+
     if isinstance(origin_type, type) and issubclass(origin_type, Enum):
         return validate_enum
 
@@ -150,6 +186,8 @@ __all__ = (
     "_flatten_class_info",
     "_is_container",
     "_CONTAINER",
+    "_ALIAS_TYPES",
+    "_CONTAINER_ALIASES",
     "_NOT_CONTAINER",
     "HAS_TYPEGUARD",
 )
