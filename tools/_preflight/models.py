@@ -406,6 +406,10 @@ class Verdict:
     #: The digest of the declaration -- contract and fingerprint -- this
     #: verdict was produced under, so the lock can notice one that changed.
     declaration: str = ""
+    #: The day the lock already records this source as having moved, if any.
+    #: Carried so the janitor can tell a cached body that predates a change
+    #: somebody else recorded -- see `Janitor._overtaken`.
+    recorded_change: str = ""
 
     @property
     def is_fatal(self) -> bool:

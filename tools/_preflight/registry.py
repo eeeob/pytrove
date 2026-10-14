@@ -32,7 +32,7 @@ from .models import (Citation, Contract, Derived, Fingerprint, Registry,
                      Schedule, Source, Watch)
 
 try:                                              # 3.11+
-    import tomllib
+    import tomllib                                # type: ignore[no-redef]
 except ModuleNotFoundError:                       # 3.10, via tools/requirements.txt
     try:
         import tomli as tomllib                   # type: ignore[no-redef]

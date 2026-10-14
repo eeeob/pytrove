@@ -33,6 +33,9 @@ else:                                             # pragma: no cover
         disagree about what a state is called depending on the interpreter.
         """
 
+        def _generate_next_value_(name, *args):
+            return name.lower()
+        
         __str__ = str.__str__
         __format__ = str.__format__
 

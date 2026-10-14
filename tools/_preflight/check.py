@@ -69,7 +69,8 @@ class Checker:
 
         verdict = self._replace(
             self.prober.probe(source, etag=etag, last_modified=last_modified),
-            declaration=digest)
+            declaration=digest,
+            recorded_change=was.get("last_changed", ""))
 
         if not verdict.is_clear:
             return self._failed(source, verdict)

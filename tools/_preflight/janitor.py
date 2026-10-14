@@ -24,6 +24,7 @@ import os
 import shutil
 import stat
 import time
+from datetime import date
 from pathlib import Path
 from typing import ClassVar
 
@@ -122,6 +123,46 @@ class Janitor:
             actions.append(self._apply(source.cache, source.on_change, moved))
         return actions
 
+    def _overtaken(self, report: Report) -> list[Action]:
+        """Cached bodies older than a change the lock already records.
+
+        The scheduled workflow commits the lock, which is what lets the
+        failure counter survive a fresh runner -- but a runner has no cache
+        of its own to clean. So once it has recorded a move, every later run
+        here compares against the new value, concludes `ok`, and leaves a
+        body fetched *before* that move sitting in the cache. The report then
+        says the sources are current while the build reads one that is not,
+        which is the silent staleness this package exists to remove, arriving
+        by a different door.
+
+        The rule needs nothing new to be declared: a cache file must be at
+        least as new as the newest change anybody has recorded for its
+        source. Whole days, matching the lock's own granularity, so a body
+        refetched on the day of the change is kept.
+        """
+
+        actions: list[Action] = []
+        for verdict in report.verdicts:
+            source = self.registry.source(verdict.source_id)
+            if source is None or not source.is_cached:
+                continue
+            # A change this run found is the pass below; a failure must not
+            # cost anybody a cache; a source that never moved has no date.
+            if (verdict.state is State.CHANGED or not verdict.is_clear
+                    or not verdict.recorded_change):
+                continue
+
+            path = self.registry.cache_dir / source.cache
+            if not path.exists():
+                continue
+            fetched = date.fromtimestamp(path.stat().st_mtime).isoformat()
+            if fetched < verdict.recorded_change:
+                actions.append(self._apply(
+                    source.cache, source.on_change,
+                    f"cached {fetched}, but a run on "
+                    f"{verdict.recorded_change} already recorded a change"))
+        return actions
+
     def _derived(self, report: Report) -> list[Action]:
         """Produced caches, stale by dependency or by age.
 
@@ -205,6 +246,7 @@ class Janitor:
         return [
             *self._scratch(),
             *self._sources(report),
+            *self._overtaken(report),
             *self._derived(report),
             *self._orphans(),
         ]

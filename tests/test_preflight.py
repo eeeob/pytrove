@@ -15,10 +15,13 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import re
 import socket
 import sys
+import time
 import urllib.error
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
@@ -78,6 +81,19 @@ def test_preflight_is_machinery_and_not_a_tool():
     # checker would start checking itself.
     assert "_preflight" not in Layout.tools()
     assert not (PREFLIGHT / Layout.SOURCES).exists()
+
+
+def test_a_tool_has_exactly_one_way_in(tool):
+    # `src/__main__.py` made `python -m tools.<tool>.src` a second door, and
+    # it bypassed the real one -- which is where the staleness nudge lives,
+    # so the way in that skipped it was the way that told you nothing. One
+    # door per tool, and the contract test above says where it is.
+    inner = sorted(
+        str(p.relative_to(TOOLS / tool))
+        for p in (TOOLS / tool).rglob(Layout.DOOR)
+        if p.parent != TOOLS / tool)
+
+    assert not inner, inner
 
 
 def test_the_tool_root_holds_sections_and_exactly_one_door(tool):
@@ -671,6 +687,102 @@ def test_a_dry_run_changes_nothing(tmp_path):
 def _report_with(*verdicts: Verdict) -> Report:
     return Report(tool="t", verdicts=tuple(verdicts), network=Health.OK,
                   first_run=False)
+
+
+# --------------------- a cache somebody else overtook ---------------------
+#
+# The scheduled workflow commits the lock, which is what lets the failure
+# counter survive a fresh runner -- but a runner has no cache of its own to
+# clean. So a change it records is a change no local janitor ever acted on,
+# and every later run here compares against the new value, concludes `ok`,
+# and builds from a body fetched before the move. These cover the one rule
+# that closes it: a cache file must be at least as new as the newest change
+# anybody has recorded for its source.
+
+def _aged(path: Path, days: int) -> Path:
+    when = time.time() - days * 86400
+    os.utime(path, (when, when))
+    return path
+
+
+def _days_back(days: int) -> str:
+    return (date.today() - timedelta(days=days)).isoformat()
+
+
+def _cached(tmp_path: Path, name: str = "c", *, fetched_days_ago: int = 7):
+    cache = tmp_path / ".cache"
+    cache.mkdir(exist_ok=True)
+    path = cache / name
+    path.write_bytes(b"old")
+    _aged(path, fetched_days_ago)
+    source = Source(id="s", url="u", cache=name, consumed_by="x", on_removal="x")
+    return source, path
+
+
+def test_a_cache_older_than_a_change_someone_else_recorded_is_dropped(tmp_path):
+    source, path = _cached(tmp_path, fetched_days_ago=7)
+    # `ok`, because this run compares against the value CI already wrote.
+    verdict = Verdict(source_id="s", state=State.OK,
+                      recorded_change=_days_back(3))
+
+    actions = Janitor(_registry_for(tmp_path, source)).run(_report_with(verdict))
+
+    assert any(a.verb is Verb.DELETED for a in actions), [str(a) for a in actions]
+    assert not path.exists()
+
+
+def test_a_cache_fetched_on_the_day_of_the_change_is_kept(tmp_path):
+    # Whole days, matching the lock's own granularity: the run that found the
+    # change is also the run that refetched, so same-day is current.
+    source, path = _cached(tmp_path, fetched_days_ago=0)
+    verdict = Verdict(source_id="s", state=State.OK,
+                      recorded_change=date.today().isoformat())
+
+    actions = Janitor(_registry_for(tmp_path, source)).run(_report_with(verdict))
+
+    assert not any(a.verb is Verb.DELETED for a in actions)
+    assert path.exists()
+
+
+def test_a_source_that_never_moved_keeps_its_cache_for_ever(tmp_path):
+    # No recorded change, no reason to refetch. This is the common case and
+    # the one that would be ruinous to get wrong: the DMI harvest is 5,700
+    # requests, and the whole point of a cache is not making them again.
+    source, path = _cached(tmp_path, fetched_days_ago=400)
+    verdict = Verdict(source_id="s", state=State.OK)
+
+    actions = Janitor(_registry_for(tmp_path, source)).run(_report_with(verdict))
+
+    assert actions == []
+    assert path.exists()
+
+
+def test_a_change_this_run_found_is_not_handled_twice(tmp_path):
+    # The `changed` pass owns it, and it reports the move itself -- two
+    # actions for one file would read as two different reasons to distrust
+    # the same cache.
+    source, _ = _cached(tmp_path, fetched_days_ago=7)
+    verdict = Verdict(source_id="s", state=State.CHANGED, was=1, now=2,
+                      recorded_change=_days_back(3))
+
+    actions = Janitor(_registry_for(tmp_path, source)).run(_report_with(verdict))
+
+    assert len(actions) == 1
+    assert "1 -> 2" in actions[0].reason
+
+
+def test_a_source_that_could_not_be_reached_never_costs_its_cache(tmp_path):
+    # The cache is exactly what makes an unreachable source survivable. A
+    # timeout deleting the body it was covering for would turn one dropped
+    # connection into a build that cannot run at all.
+    source, path = _cached(tmp_path, fetched_days_ago=7)
+    verdict = Verdict(source_id="s", state=State.FLAKY, error="timeout",
+                      recorded_change=_days_back(3))
+
+    actions = Janitor(_registry_for(tmp_path, source)).run(_report_with(verdict))
+
+    assert actions == []
+    assert path.exists()
 
 
 # ======================== conditional request trust ========================
