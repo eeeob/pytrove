@@ -1,7 +1,7 @@
 {
  "schema": 1,
  "platform": "android",
- "updated": "2026-10-13",
+ "updated": "2026-10-14",
  "model_format": "Build.MANUFACTURER + Build.MODEL (no separator), as Telegram Android sends it",
  "version_format": "SDK followed by Build.VERSION.SDK_INT",
  "sources": [
@@ -768,6 +768,18 @@
     "SDK 33"
    ],
    "source": "miui-updates-tracker + play catalog"
+  },
+  {
+   "model": "realmeRMX3081",
+   "manufacturer": "realme",
+   "code": "RMX3081",
+   "name": "realme 8Pro",
+   "brand": "realme",
+   "released": "2022-08-15",
+   "versions": [
+    "SDK 33"
+   ],
+   "source": "dumps.tadiphone.dev firmware + play catalog"
   },
   {
    "model": "realmeRMX3085",
