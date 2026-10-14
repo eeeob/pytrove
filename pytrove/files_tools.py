@@ -8,7 +8,7 @@ else:
     from typing_extensions import Unpack
 
 from typing import (
-    Any, Literal, cast, overload,
+    Any, Literal, overload,
 )
 
 from pathlib import Path
@@ -227,10 +227,10 @@ def remove_files(
 remove_file = remove_files
 
 
-def _on_exc_remove_folders(func, path, exc_info, *, base_path: str):
-    if isinstance(exc_info[1], FileNotFoundError) and str(path) != base_path:
+def _on_exc_remove_folders(func, path, exc, *, base_path: str):
+    if isinstance(exc, FileNotFoundError) and str(path) != base_path:
         return
-    
+
     if func == os.path.islink and _is_link(path):
         try:
             os.unlink(path)
@@ -238,7 +238,16 @@ def _on_exc_remove_folders(func, path, exc_info, *, base_path: str):
             pass
         return
 
-    raise exc_info[1].with_traceback(exc_info[2])
+    raise exc
+
+
+def _rmtree(folder: Path) -> None:
+    handler = partial(_on_exc_remove_folders, base_path=str(folder))
+
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(folder, onexc=handler)
+    else:
+        shutil.rmtree(folder, onerror=lambda func, path, exc_info: handler(func, path, exc_info[1]))
 
 
 @overload
@@ -303,7 +312,7 @@ def remove_folders(
 
     for folder in dedupe(ensure_path(folder) for folder in iter_flat_cont(folders)):
         try:
-            shutil.rmtree(folder, onerror=partial(_on_exc_remove_folders, base_path=str(folder)))
+            _rmtree(folder)
         except FileNotFoundError:
             continue
         except OSError as exc:
@@ -460,8 +469,8 @@ def write_file(
     `fsync=True` (the default) additionally forces the data to the physical
     disk, and the rename into the directory entry along with it, before
     returning. That is what makes the write survive a power loss rather
-    than only a crashed process -- and it is roughly two thirds of the cost
-    of the call. Pass fsync=False for data you could afford to regenerate
+    than only a crashed process, and it is the bulk of the call's cost.
+    Pass fsync=False for data you could afford to regenerate
     (caches, scratch files, logs): the write stays atomic either way.
     """
 
@@ -725,7 +734,7 @@ def read_file(
 
 def read_json(
     path: PathLike,
-    default: _T = cast(dict, _NOT_SET),
+    default: _T | object = _NOT_SET,
     lock: LockProtocol | None = None,
     **kw,
     ) -> JsonValue | _T:
@@ -756,15 +765,14 @@ def write_json(
     """Serialise `data` as JSON and write it to `path`, atomically.
 
     No `indent` is applied unless asked for: indenting is by far the most
-    expensive thing this call does -- roughly six times the cost of the
-    same dump without it, for a file three times the size. Pass `indent=2`
-    (or 4) for a file a person will open and read.
+    expensive thing this call does, and it also makes the file larger. Pass
+    `indent=2` (or 4) for a file a person will open and read.
 
     With the `fastjson` extra installed, orjson serialises instead of json
     whenever the given kwargs are expressible in it -- `ensure_ascii` false
     (its only behaviour), `indent` of None or 2, `sort_keys`, and `default`.
-    That is another ~10x, so `indent=2` is worth preferring over 4 when the
-    file still has to stay readable: 4 falls back to json.
+    `indent=2` is worth preferring over 4 when the file still has to stay
+    readable: 4 falls back to json.
 
     `default` behaves the same on either path: orjson would otherwise
     serialise datetimes and dataclasses itself, so those are handed to
@@ -811,7 +819,7 @@ save_json = write_json
 
 def read_pickle(
     path: PathLike,
-    default: _T = cast(dict, _NOT_SET),
+    default: _T | object = _NOT_SET,
     lock: LockProtocol | None = None,
     *,
     allow_classes: NestedContainer[type] | None = None,
@@ -919,9 +927,8 @@ def write_pickle(
     Python file object, and every write is a point where another thread can
     run and mutate the structure still being walked. dumps() stays inside
     the C pickler for the whole traversal, which makes the snapshot
-    effectively atomic against other threads. It costs ~17% on a large
-    object and holds the blob in memory -- paid to keep the default
-    correct. Use `atomic_write` with `pickle.dump` directly if you own the
+    effectively atomic against other threads. The cost is holding the whole
+    blob in memory, paid to keep the default correct. Use `atomic_write` with `pickle.dump` directly if you own the
     data outright and want the streaming behaviour back.
     """
 
@@ -937,7 +944,7 @@ def write_pickle(
 @_optional_import(("jsonref", "jsonref"))
 def load_ref_json(
     path: PathLike, 
-    default: _T = cast(dict, _NOT_SET), 
+    default: _T | object = _NOT_SET, 
     lock: LockProtocol | None = None, **kw
     ) -> JsonValue | _T:
 

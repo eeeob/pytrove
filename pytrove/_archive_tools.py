@@ -1830,15 +1830,12 @@ class _Extractor:
                                 "stands at %r", entry.name, self.src.name, str(target))
                     continue
 
-                # One entry, removed by the one that removes one entry.
-                # Not remove_path: it sends a directory to rmtree, and a
-                # plain directory never reaches here -- it was either
-                # descended into or refused above -- so nothing recursive
-                # is wanted. remove_file takes a file, a symlink or a
-                # junction, treats a path that is already gone as done, and
-                # a path it cannot clear is reported by name there rather
-                # than reaching os.replace as a bare Access denied.
-                remove_file(target)
+                # A regular file is replaced in one step by os.replace, so the
+                # old one is never removed first. A link or junction is the
+                # exception: os.replace cannot take a path from a directory
+                # reparse point, so it is removed to make way.
+                if _is_link(target):
+                    remove_file(target)
 
                 os.replace(entry.path, target)
 
@@ -2331,12 +2328,12 @@ class _Extractor:
 
         try:
             with open(target, "wb") as out:
+                if self._built is not None:
+                    self._built.append(target)
+
                 while chunk := data.read(_COPY_BUF):
                     out.write(chunk)
                     grown += len(chunk)
-
-                    if grown > 0 and self._built is not None:
-                        self._built.append(target)
 
                     self._limiter.grew(m.name, grown)
         except EOFError:
