@@ -106,6 +106,24 @@ def test_the_tool_root_holds_sections_and_exactly_one_door(tool):
     assert (root / Layout.SRC).is_dir()
 
 
+def test_every_tool_carries_its_own_guide(tool):
+    # `docs/` is the one section this package never reads, which is exactly
+    # why it needs a guard: nothing else would notice a tool shipping with
+    # no explanation of what its data has to be or where its rules came
+    # from, and that is the knowledge a generator loses first.
+    guide = Layout.docs_path(tool)
+
+    assert guide.is_file(), f"{guide.relative_to(TOOLS.parent)} is missing"
+    assert guide.read_text(encoding="utf-8").strip(), "the guide is empty"
+
+
+def test_the_tools_tree_explains_itself():
+    readme = TOOLS / "README.md"
+
+    assert readme.is_file(), "tools/README.md is missing"
+    assert readme.read_text(encoding="utf-8").strip()
+
+
 def test_the_door_only_reaches_into_src(tool):
     """The door must not import the preflight package.
 

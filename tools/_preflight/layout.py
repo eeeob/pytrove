@@ -55,8 +55,10 @@ class Layout:
     CONFIG_FILE: ClassVar[str] = "config.toml"
 
     #: The only section this package does not read: it is for whoever
-    #: maintains the tool.
+    #: maintains the tool. Named here anyway, so the contract is stated in
+    #: one place and a tool cannot ship without its guide unnoticed.
     DOCS: ClassVar[str] = "docs"
+    DOCS_FILE: ClassVar[str] = "DEVELOPING.md"
 
     CACHE: ClassVar[str] = ".cache"
     STATE_FILE: ClassVar[str] = "preflight.state.json"
@@ -97,6 +99,10 @@ class Layout:
     @classmethod
     def config_path(cls, tool: str) -> Path:
         return cls.tool_dir(tool) / cls.CONFIG / cls.CONFIG_FILE
+
+    @classmethod
+    def docs_path(cls, tool: str) -> Path:
+        return cls.tool_dir(tool) / cls.DOCS / cls.DOCS_FILE
 
     @classmethod
     def cache_dir(cls, tool: str) -> Path:
