@@ -12,8 +12,9 @@ else:
     class StrEnum(str, Enum):
         def _generate_next_value_(name, *args):
             return name.lower()
-        def __str__(self):
-            return str(self.value)
+        
+        __str__ = str.__str__
+        __format__ = str.__format__
         
 from enum import Enum, IntEnum, auto
 
@@ -190,6 +191,7 @@ class PlatformDevice(StrEnum):
     ANDROID = auto()
     IOS = auto()
     DESKTOP = auto()
+    WEB = auto()
 
 class TimeUnit(IntEnum):
     MINUTE = 60

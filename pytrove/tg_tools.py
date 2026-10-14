@@ -17,12 +17,13 @@ from .errors import ValidationError
 from .enums import TgMessageLength, PlatformDevice
 
 from ._devices import (
-    AndroidDevice, 
-    iOSDeivce, 
-    WindowsDevice, 
-    LinuxDevice, 
-    macOSDevice, 
-    DeviceInfo
+    AndroidDevice,
+    iOSDevice,
+    DesktopDevice,
+    DeviceInfo,
+    SystemInfo,
+    WebDevice,
+    random_family,
 )
 
 from .validate_tools import is_tg_user_id
@@ -30,23 +31,24 @@ from .num_tools import to_int
 from .text_tools import to_str, clean_spaces
 from .date_tools import date_to_stamp, time_utc
 from .files_tools import load_json
-from .iter_tools import flat_cont
 from .email_tools import fetch_emails_from, detect_email_provider
 
 from ._optional import _optional_import
 
 
-import random
 import re
 
-_POINTS: tuple[tuple[int, float]] | None = None
+_POINTS: tuple[tuple[int, float], ...] | None = None
 
-_DEVICES: Final[dict[PlatformDevice, AndroidDevice | tuple[AndroidDevice, ...]]] = {
-    PlatformDevice.ANDROID: AndroidDevice, 
-    PlatformDevice.IOS: iOSDeivce, 
-    PlatformDevice.DESKTOP: (WindowsDevice, LinuxDevice, macOSDevice)
+# One catalog per PlatformDevice member: Telegram's clients report every
+# desktop OS as "desktop", so DesktopDevice holds them and picks the OS itself.
+_DEVICES: Final[dict[PlatformDevice, type[SystemInfo]]] = {
+    PlatformDevice.ANDROID: AndroidDevice,
+    PlatformDevice.IOS: iOSDevice,
+    PlatformDevice.DESKTOP: DesktopDevice,
+    PlatformDevice.WEB: WebDevice,
 }
-_FLATTED_DEVICES: Final[list[AndroidDevice]] = flat_cont(_DEVICES.values())
+_FAMILIES: Final[tuple[type[SystemInfo], ...]] = tuple(_DEVICES.values())
 
 
 try:
@@ -293,19 +295,43 @@ def split_tg_message(
 
 
 @overload
-def rand_tg_device(platform_device: PlatformDevice | None = ..., to_tuple: _False = False) -> DeviceInfo: ...
+def rand_tg_device(
+    platform_device: PlatformDevice | None = ...,
+    to_tuple: _False = False,
+    unique_id: str | None = ...,
+) -> DeviceInfo: ...
 @overload
-def rand_tg_device(platform_device: PlatformDevice | None = ..., *, to_tuple: _True) -> tuple[str, str]: ...
-def rand_tg_device(platform_device: PlatformDevice | None = None, to_tuple: bool = False):
-    device = (
-        _DEVICES[platform_device] 
-        if platform_device is not None 
-        else random.choice(_FLATTED_DEVICES)
-        ).RandomDevice()
+def rand_tg_device(
+    platform_device: PlatformDevice | None = ...,
+    *,
+    to_tuple: _True,
+    unique_id: str | None = ...,
+) -> tuple[str, str]: ...
+def rand_tg_device(
+    platform_device: PlatformDevice | None = None,
+    to_tuple: bool = False,
+    unique_id: str | None = None,
+    ):
+
+    """A device a real Telegram client could report: the model string and an OS
+    version that model can actually run.
+
+    The platform is drawn by share of real clients (mobile-heavy) unless
+    `platform_device` pins it, then the device and its OS version are drawn
+    from the catalogs in data/devices, weighted towards current hardware and
+    recent releases.
+
+    `unique_id` makes the whole draw deterministic, so one account or session
+    keeps reporting the same device instead of a new one per call.
+    """
+
+    family = (random_family(_FAMILIES, unique_id) if platform_device is None
+              else _DEVICES[platform_device])
+    device = family.random_device(unique_id)
 
     if to_tuple:
         device = device.model, device.version
-    
+
     return device
     
 
