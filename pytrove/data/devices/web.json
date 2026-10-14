@@ -1,7 +1,7 @@
 {
  "schema": 1,
  "platform": "web",
- "updated": "2026-10-13",
+ "updated": "2026-10-14",
  "model_format": "navigator.userAgent verbatim, which is what both Telegram web clients send",
  "version_format": "navigator.platform -- Win32, MacIntel, or uname sysname + machine on Linux",
  "sources": [
@@ -324,6 +324,18 @@
    "source": "Edge release feed + the browser's own UA template"
   },
   {
+   "model": "Mozilla/5.0 (X11; Linux x86_64; rv:158.0) Gecko/20100101 Firefox/158.0",
+   "browser": "Firefox",
+   "major": 158,
+   "system": "Linux",
+   "brand": "Firefox on Linux",
+   "released": "2026-10-13",
+   "versions": [
+    "Linux x86_64"
+   ],
+   "source": "Firefox release feed + the browser's own UA template"
+  },
+  {
    "model": "Mozilla/5.0 (X11; Linux x86_64; rv:157.0) Gecko/20100101 Firefox/157.0",
    "browser": "Firefox",
    "major": 157,
@@ -360,14 +372,14 @@
    "source": "Firefox release feed + the browser's own UA template"
   },
   {
-   "model": "Mozilla/5.0 (X11; Linux x86_64; rv:154.0) Gecko/20100101 Firefox/154.0",
+   "model": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
    "browser": "Firefox",
-   "major": 154,
-   "system": "Linux",
-   "brand": "Firefox on Linux",
-   "released": "2026-08-18",
+   "major": 158,
+   "system": "Windows",
+   "brand": "Firefox on Windows",
+   "released": "2026-10-13",
    "versions": [
-    "Linux x86_64"
+    "Win32"
    ],
    "source": "Firefox release feed + the browser's own UA template"
   },
@@ -408,14 +420,14 @@
    "source": "Firefox release feed + the browser's own UA template"
   },
   {
-   "model": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:154.0) Gecko/20100101 Firefox/154.0",
+   "model": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:158.0) Gecko/20100101 Firefox/158.0",
    "browser": "Firefox",
-   "major": 154,
-   "system": "Windows",
-   "brand": "Firefox on Windows",
-   "released": "2026-08-18",
+   "major": 158,
+   "system": "macOS",
+   "brand": "Firefox on macOS",
+   "released": "2026-10-13",
    "versions": [
-    "Win32"
+    "MacIntel"
    ],
    "source": "Firefox release feed + the browser's own UA template"
   },
@@ -450,18 +462,6 @@
    "system": "macOS",
    "brand": "Firefox on macOS",
    "released": "2026-09-01",
-   "versions": [
-    "MacIntel"
-   ],
-   "source": "Firefox release feed + the browser's own UA template"
-  },
-  {
-   "model": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:154.0) Gecko/20100101 Firefox/154.0",
-   "browser": "Firefox",
-   "major": 154,
-   "system": "macOS",
-   "brand": "Firefox on macOS",
-   "released": "2026-08-18",
    "versions": [
     "MacIntel"
    ],

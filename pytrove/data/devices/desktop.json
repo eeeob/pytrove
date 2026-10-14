@@ -1,7 +1,7 @@
 {
  "schema": 1,
  "platform": "desktop",
- "updated": "2026-10-13",
+ "updated": "2026-10-14",
  "os": {
   "windows": {
    "model_format": "DeviceModelPretty of real DMI records: SystemProductName, else SystemFamily + BaseBoardProduct; 15 chars, HP names up to 32",
