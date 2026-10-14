@@ -1,3 +1,4 @@
+import sys
 from typing import Generic, Iterable, Iterator, TypeVar
 
 from pytrove import (to_list, to_tuple, to_set, to_frozenset, flat_cont,
@@ -112,7 +113,10 @@ def test_flat_cont_by_accepts_a_type_guard_predicate():
     # TypeGuard/TypeIs return types are subtypes of bool, so a narrowing
     # predicate is accepted wherever a plain bool one is -- and neither
     # changes what the element type is inferred to be.
-    from pytrove.validate_tools import TypeIs
+    if sys.version_info >= (3, 13):
+        from typing import TypeIs
+    else:
+        from typing import TypeGuard as TypeIs
 
     def is_box(x) -> "TypeIs[_Box]":
         return isinstance(x, _Box)

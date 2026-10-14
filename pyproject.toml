@@ -87,6 +87,8 @@ packages = ["pytrove"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# Test files mirror the library per section, so basenames repeat across directories.
+addopts = "--import-mode=importlib"
 
 # Each selected rule enforces a CONTRIBUTING.md rule, noted beside it.
 [tool.ruff]
