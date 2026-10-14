@@ -15,10 +15,34 @@ from dataclasses import dataclass, fields, asdict, is_dataclass
 
 from ..data_tools import clean_none_values, enum_to_value, value_to_enum
 from ..iter_tools import to_frozenset, iter_flat_cont
-    
 
+
+import inspect
 import json
 
+
+def _resolved_hints(cls: type) -> list[Any]:
+    """Every annotation on `cls` and its bases, each resolved on its own.
+
+    get_type_hints(cls) resolves all of them together, so one annotation
+    naming a type that is not importable here (an optional extra's class,
+    or one only imported under TYPE_CHECKING) fails the whole class. Those
+    are skipped instead: such a field has no enum type this can find, which
+    is the same as not having one, and the rest of the class still works.
+    """
+
+    hints = []
+
+    for klass in reversed(cls.__mro__):
+        for name, annotation in inspect.get_annotations(klass).items():
+            holder = type("_AnnotationHolder", (), {"__annotations__": {name: annotation}, "__module__": klass.__module__})
+
+            try:
+                hints.append(get_type_hints(holder)[name])
+            except NameError:
+                continue
+
+    return hints
 
 
 @dataclass
@@ -79,11 +103,8 @@ class BaseDataClass:
                     yield from _deep_extract(a)
 
         cls.__enums_types__ = to_frozenset(
-            iter_flat_cont(
-                _deep_extract(t)
-                for t in get_type_hints(cls).values()
-                )
-            )
+            iter_flat_cont(_deep_extract(t) for t in _resolved_hints(cls))
+        )
 
         for f in fields(cls):
             name = f.name
@@ -208,6 +229,7 @@ class BaseDataClass:
         return cls(**data)
     
     def copy(self) -> Self:
+        """Deep copy, rebuilt through to_raw_dict(): a field that cannot be deep-copied (a lock, say) raises TypeError."""
         return self.__class__.from_raw_dict(self.to_raw_dict())
     
     def __str__(self):
