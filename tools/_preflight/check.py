@@ -19,7 +19,7 @@ from typing import Any, ClassVar
 from .contract import ContractCheck
 from .fingerprint import FingerprintValue
 from .lock import Lock
-from .model import Registry, Source, State, Verdict
+from .model import Registry, Source, State, Verdict, Watch
 from .probe import Health, Prober
 
 # ============================== the result ==============================
@@ -32,7 +32,11 @@ class Report:
     verdicts: tuple[Verdict, ...]
     network: str
     first_run: bool
-    deferred: dict[str, int] = field(default_factory=dict)
+    #: Ids that are watched values rather than things the tool reads. A
+    #: watch never gates a build -- the generator never requests these URLs
+    #: -- so a page that moved is news and not an obstacle. It is still
+    #: reported, and it still escalates if it stays broken.
+    watched: frozenset[str] = frozenset()
 
     #: Consecutive failing runs before a source is called dead rather than
     #: unlucky. Weekly scheduling makes this three weeks, long enough that no
@@ -42,14 +46,21 @@ class Report:
     # --- the gate ---------------------------------------------------------
 
     @property
+    def gating(self) -> tuple[Verdict, ...]:
+        """The verdicts that can stop a build: everything but the watches."""
+
+        return tuple(v for v in self.verdicts
+                     if v.source_id not in self.watched)
+
+    @property
     def fatal(self) -> tuple[Verdict, ...]:
         """Sources that died. These need a developer, not a retry."""
 
-        return tuple(v for v in self.verdicts if v.is_fatal)
+        return tuple(v for v in self.gating if v.is_fatal)
 
     @property
     def transient(self) -> tuple[Verdict, ...]:
-        return tuple(v for v in self.verdicts if v.is_transient)
+        return tuple(v for v in self.gating if v.is_transient)
 
     @property
     def changed(self) -> tuple[Verdict, ...]:
@@ -185,8 +196,30 @@ class Checker:
 
     # --- the whole registry -----------------------------------------------
 
+    def check_watch(self, watch: Watch) -> Verdict:
+        """A hand-kept value against what upstream says today.
+
+        No conditional request and no lock entry: the baseline is the value
+        declared in config.toml, which is the file a human edits when they
+        revisit the decision. So a moved value is reported again every run
+        until somebody does, rather than being quietly re-recorded -- which is
+        the whole difference between watching a decision and tracking a feed.
+        """
+
+        probe = watch.as_source()
+        verdict = self.prober.probe(probe)
+
+        if not verdict.is_clear or verdict.body is None:
+            return self._failed(probe, verdict) if not verdict.is_clear else (
+                self._replace(verdict, state=State.OK))
+
+        now = FingerprintValue.of(watch.fingerprint, verdict.body)
+        state = State.OK if now == watch.value else State.CHANGED
+        return self._replace(verdict, state=state, was=watch.value, now=now)
+
     def run(self) -> Report:
         verdicts = [self.check_one(probe) for probe in self.registry.probes]
+        verdicts += [self.check_watch(w) for w in self.registry.watches]
         network = Health.assess(verdicts)
 
         # When the network is the problem, nothing is accused: every flaky
@@ -203,5 +236,5 @@ class Checker:
             verdicts=tuple(verdicts),
             network=network,
             first_run=self.lock.is_new,
-            deferred=dict(self.registry.deferred),
+            watched=frozenset(w.id for w in self.registry.watches),
         )

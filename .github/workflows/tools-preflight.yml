@@ -105,7 +105,7 @@ jobs:
         run: |
           case "$CODE" in
             0)
-              echo "every source is healthy and unchanged" ;;
+              echo "no source moved and nothing needs a developer" ;;
             2)
               echo "::notice::a source moved -- see the report; a rebuild is worthwhile" ;;
             1)

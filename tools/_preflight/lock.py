@@ -47,9 +47,11 @@ class Lock:
     #: lands with a later phase and is only carried through.
     SOURCES: ClassVar[str] = "sources"
     CITATIONS: ClassVar[str] = "citations"
-    WRITTEN: ClassVar[tuple[str, ...]] = (SOURCES, CITATIONS)
+    #: A watch keeps no facts here at all -- its baseline is the value
+    #: declared in config/config.toml, where a human can edit it -- so this
+    #: section holds only the failure counter, and only while it is failing.
     WATCHES: ClassVar[str] = "watches"
-    CARRIED: ClassVar[tuple[str, ...]] = (WATCHES,)
+    WRITTEN: ClassVar[tuple[str, ...]] = (SOURCES, CITATIONS, WATCHES)
 
     #: Present on an entry only while it is failing, so an all-clear run
     #: leaves no trace and produces no diff.
@@ -148,6 +150,12 @@ class Lock:
         written: dict[str, dict[str, Any]] = {s: {} for s in self.WRITTEN}
 
         for verdict in verdicts:
+            if registry.watch(verdict.source_id) is not None:
+                if verdict.consecutive:
+                    written[self.WATCHES][verdict.source_id] = {
+                        self.FAILING: self._failing(verdict, today)}
+                continue
+
             was = previous.get(verdict.source_id, {})
             carried = {k: v for k, v in was.items() if k != self.FAILING}
 
@@ -194,12 +202,7 @@ class Lock:
                 entry["last_changed"] = was["last_changed"]
 
             if verdict.consecutive:
-                entry[self.FAILING] = {
-                    "state": verdict.state,
-                    "consecutive": verdict.consecutive,
-                    "since": self.failing_since(verdict.source_id) or today,
-                    "last_error": verdict.error or f"HTTP {verdict.http_status}",
-                }
+                entry[self.FAILING] = self._failing(verdict, today)
 
             section = (self.CITATIONS
                        if registry.citation(verdict.source_id) is not None
@@ -211,12 +214,21 @@ class Lock:
             "tool": registry.tool,
             self.SOURCES: dict(sorted(written[self.SOURCES].items())),
         }
-        if written[self.CITATIONS]:
-            rebuilt[self.CITATIONS] = dict(sorted(written[self.CITATIONS].items()))
-        for section in self.CARRIED:
-            if self.data.get(section):
-                rebuilt[section] = self.data[section]
+        for section in (self.CITATIONS, self.WATCHES):
+            if written[section]:
+                rebuilt[section] = dict(sorted(written[section].items()))
         return rebuilt
+
+    def _failing(self, verdict: Verdict, today: str) -> dict[str, Any]:
+        """The block that appears on an entry only while it is failing, so an
+        all-clear run leaves no trace and produces no diff."""
+
+        return {
+            "state": verdict.state,
+            "consecutive": verdict.consecutive,
+            "since": self.failing_since(verdict.source_id) or today,
+            "last_error": verdict.error or f"HTTP {verdict.http_status}",
+        }
 
     @staticmethod
     def _judgement(verdict: Verdict) -> dict[str, Any]:

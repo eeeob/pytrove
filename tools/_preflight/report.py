@@ -90,7 +90,10 @@ class TextReport:
             return []
         pad = " " * (cls.FIELD + cls.LABEL)
         return [f"{'':>{cls.FIELD}}{label:<{cls.LABEL}}{body[0]}",
-                *(f"{pad}{line}" for line in body[1:] if line)]
+                # A blank line is kept as a blank line: these values are
+                # written as paragraphs and running two of them together is
+                # how a careful explanation reads like a wall.
+                *(f"{pad}{line}" if line else "" for line in body[1:])]
 
     @classmethod
     def failure(cls, report: Report, registry: Registry) -> list[str]:
@@ -174,7 +177,8 @@ class TextReport:
         ported = {c.id for c in registry.citations}
         lines += [f"sources -- {report.tool}", ""]
         lines += cls.table(report, only={v.source_id for v in report.verdicts
-                                         if v.source_id not in ported})
+                                         if v.source_id not in ported
+                                         and v.source_id not in report.watched})
         lines.append("")
 
         if ported:
@@ -184,6 +188,21 @@ class TextReport:
             lines += ["ported rules", ""]
             lines += cls.table(report, only=ported)
             lines.append("")
+
+        if report.watched:
+            # Apart again, and for the opposite reason: nothing here can
+            # break. A line in this table is a decision somebody made by hand
+            # that upstream no longer agrees with.
+            lines += ["watched values", ""]
+            lines += cls.table(report, only=set(report.watched))
+            lines.append("")
+            for verdict in report.changed:
+                watch = registry.watch(verdict.source_id)
+                if watch is None:
+                    continue
+                lines += cls.field("used by", watch.used_by)
+                lines += cls.field("decision", watch.decision)
+                lines.append("")
 
         if report.network != "ok":
             lines += [
@@ -201,11 +220,6 @@ class TextReport:
                       else "cache", ""]
             lines += [f"  {action}" for action in actions]
             lines.append("")
-
-        if report.deferred:
-            carried = ", ".join(f"{k} x{n}" for k, n in sorted(report.deferred.items()))
-            lines += [f"  (registry also declares {carried}, "
-                      f"not checked by this phase)", ""]
 
         if report.escalated:
             named = ", ".join(v.source_id for v in report.escalated)
@@ -283,7 +297,7 @@ class JsonReport:
                  "target": a.target}
                 for a in (actions or [])
             ],
-            "deferred": report.deferred,
+            "watched": sorted(report.watched),
         }
 
     @staticmethod

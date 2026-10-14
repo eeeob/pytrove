@@ -1249,7 +1249,7 @@ def test_one_body_cannot_be_both_a_source_and_a_citation(tmp_path, monkeypatch):
         encoding="utf-8")
     monkeypatch.setattr(Layout, "TOOLS_DIR", tmp_path)
 
-    with pytest.raises(_registry.RegistryError, match="both a source and a citation"):
+    with pytest.raises(_registry.RegistryError, match="one kind of promise"):
         _registry.load("fake_tool")
 
 
@@ -1343,3 +1343,161 @@ def test_the_report_keeps_ported_rules_in_their_own_section(tmp_path):
     assert "has to be removed by hand" not in text
     assert citation.ported_to in text
     assert citation.on_drift in text
+
+
+# =========================== watched decisions ===========================
+#
+# A watch is the third kind of promise here and the only one that cannot
+# fail: a value the tool decided by hand, next to the number upstream can
+# still be asked for. It goes stale in the quietest way there is -- the build
+# keeps working and the numbers stop describing the world -- so what these
+# tests protect is that a moved decision keeps being mentioned, and that
+# mentioning it never stops anybody from building.
+
+
+def _watching_tools() -> list[str]:
+    return [t for t in Layout.tools() if _registry.load(t).watches]
+
+
+def _watch(**kw) -> _model.Watch:
+    base = dict(id="w", url="https://example.com/page",
+                value=7, fingerprint=Fingerprint(kind="regex_max_int",
+                                                 pattern=r"v(\d+)"),
+                used_by="src/x.py :: X.y", decision="hand kept")
+    return _model.Watch(**{**base, **kw})
+
+
+def test_every_watched_decision_points_at_code_that_still_exists():
+    # The same guard the citations get, for the same reason: a renamed table
+    # leaves the watch describing a decision nothing implements, and the
+    # weekly check would go on comparing a number against nothing.
+    assert _watching_tools()
+    for tool in _watching_tools():
+        classes = _tool_classes(tool)
+        src = Layout.TOOLS_DIR / tool / Layout.SRC
+        for watch in _registry.load(tool).watches:
+            assert re.findall(r"src/(\w+)\.py", watch.used_by), watch.id
+            for module in re.findall(r"src/(\w+)\.py", watch.used_by):
+                assert (src / f"{module}.py").is_file(), watch.id
+            for owner, attr in _references(watch.used_by):
+                if owner not in classes:
+                    continue
+                assert attr in classes[owner], f"{watch.id}: {owner}.{attr} is gone"
+
+
+def test_a_watch_without_a_way_to_read_the_answer_is_refused(tmp_path, monkeypatch):
+    # A declared value and no fingerprint is a number nothing compares: the
+    # decision would look watched and never be checked again.
+    folder = tmp_path / "fake_tool"
+    (folder / Layout.SOURCES).mkdir(parents=True)
+    (folder / Layout.SOURCES / Layout.REGISTRY_FILE).write_text(
+        '[tool]\nname = "fake_tool"\n', encoding="utf-8")
+    (folder / Layout.CONFIG).mkdir()
+    (folder / Layout.CONFIG / Layout.CONFIG_FILE).write_text(
+        '[[watch]]\nid = "w"\nurl = "https://example.com/p"\nvalue = 7\n'
+        'used_by = "src/x.py :: X"\ndecision = "hand kept"\n', encoding="utf-8")
+    monkeypatch.setattr(Layout, "TOOLS_DIR", tmp_path)
+
+    with pytest.raises(_registry.RegistryError, match="watch.fingerprint"):
+        _registry.load("fake_tool")
+
+
+def test_a_watch_is_not_something_the_checker_compares_to_the_lock(tmp_path):
+    registry = Registry(tool="t", tool_dir=tmp_path,
+                        cache_dir=tmp_path / ".cache", watches=(_watch(),))
+
+    assert registry.probes == ()
+    assert registry.declared_cache_files == frozenset()
+
+
+def test_a_moved_decision_never_stops_a_build():
+    # The generator does not request these URLs, so nothing it builds depends
+    # on them. A page that moved is news; blocking a rebuild over it would
+    # teach everyone to pass --no-preflight, which costs the real checks too.
+    report = Report(
+        tool="t", network=Health.OK, first_run=False, watched=frozenset({"w"}),
+        verdicts=(Verdict(source_id="w", state=State.GONE, error="HTTP 404"),
+                  Verdict(source_id="feed", state=State.OK)))
+
+    assert report.fatal == ()
+    assert report.transient == ()
+    assert report.may_proceed()
+    assert _cli.Preflight.code(report) == _cli.Exit.OK
+
+
+def test_a_watch_that_stays_unreadable_for_three_weeks_is_still_escalated():
+    # Never gated is not the same as never mentioned. The page behind a
+    # hand-kept table disappearing is worth somebody's afternoon.
+    report = Report(
+        tool="t", network=Health.OK, first_run=False, watched=frozenset({"w"}),
+        verdicts=(Verdict(source_id="w", state=State.GONE, error="HTTP 404",
+                          consecutive=Report.ESCALATE_AFTER),))
+
+    assert len(report.escalated) == 1
+    assert _cli.Preflight.code(report, allow_flaky=True) == _cli.Exit.DEAD
+
+
+def test_a_moved_decision_is_reported_and_not_quietly_re_recorded(tmp_path):
+    # The point of keeping the baseline in config.toml: a feed gets a new
+    # fingerprint written and goes quiet, while a decision keeps saying so
+    # until a human edits the file. Recording it here would turn the one
+    # mechanism that nags into one more thing that does not.
+    registry = Registry(tool="t", tool_dir=tmp_path,
+                        cache_dir=tmp_path / ".cache", watches=(_watch(),))
+    lock = Lock(tmp_path / "sources.lock.json")
+
+    rebuilt = lock.rebuild(registry, [
+        Verdict(source_id="w", state=State.CHANGED, was=7, now=8)])
+
+    assert rebuilt["sources"] == {}
+    assert Lock.WATCHES not in rebuilt
+
+
+def test_a_watch_keeps_its_failure_counter_and_nothing_else(tmp_path):
+    # The counter has to survive a fresh runner for the three-run rule to
+    # mean anything, and it is the only thing about a watch worth keeping.
+    registry = Registry(tool="t", tool_dir=tmp_path,
+                        cache_dir=tmp_path / ".cache", watches=(_watch(),))
+    lock = Lock(tmp_path / "sources.lock.json")
+
+    rebuilt = lock.rebuild(registry, [
+        Verdict(source_id="w", state=State.FLAKY, error="timeout",
+                consecutive=2)])
+    entry = rebuilt[Lock.WATCHES]["w"]
+
+    assert set(entry) == {Lock.FAILING}
+    assert entry[Lock.FAILING]["consecutive"] == 2
+
+
+def test_the_janitor_has_nothing_to_do_about_a_moved_decision(tmp_path):
+    # A watch caches nothing, so there is nothing to delete -- and the id must
+    # not be mistaken for a source's, which would make the janitor act on a
+    # cache file that belongs to something else entirely.
+    registry = Registry(tool="t", tool_dir=tmp_path,
+                        cache_dir=tmp_path / ".cache", watches=(_watch(),))
+    report = Report(tool="t", network=Health.OK, first_run=False,
+                    watched=frozenset({"w"}),
+                    verdicts=(Verdict(source_id="w", state=State.CHANGED,
+                                      was=7, now=8),))
+
+    assert Janitor(registry, dry_run=True).run(report) == []
+
+
+def test_the_report_keeps_watched_values_in_their_own_section(tmp_path):
+    watch = _watch(used_by="src/desktop.py :: DesktopBuilder.LIBC",
+                   decision="no feed publishes this")
+    registry = Registry(tool="t", tool_dir=tmp_path,
+                        cache_dir=tmp_path / ".cache", watches=(watch,))
+    report = Report(tool="t", network=Health.OK, first_run=False,
+                    watched=frozenset({"w"}),
+                    verdicts=(Verdict(source_id="w", state=State.CHANGED,
+                                      was=7, now=8),))
+
+    text = TextReport.render(report, registry)
+
+    assert "watched values" in text
+    assert "7 -> 8" in text
+    # And it says where to go and what the decision was, because a number on
+    # its own is not actionable.
+    assert watch.used_by in text
+    assert watch.decision in text

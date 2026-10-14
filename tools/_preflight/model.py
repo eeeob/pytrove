@@ -274,6 +274,51 @@ class Citation:
 
 
 @dataclass(frozen=True, slots=True)
+class Watch:
+    """A value this tool decided by hand, and the upstream that informs it.
+
+    Not everything a generator needs can be fetched. Nothing publishes the
+    share of machines running Windows 11, so the weights are a judgement; the
+    Android API level table is typed out from a documentation page; the glibc
+    versions in the Linux pool were read off a package index. Each of those is
+    a decision, and a decision goes stale quietly -- the build keeps working,
+    the numbers just stop describing the world.
+
+    So a watch records the decision together with the one number upstream can
+    still be asked for: `value` is what the tool believes, `fingerprint` is
+    how to read the current answer, and a difference is reported every run
+    until somebody revisits it. The baseline lives here, in a tracked file a
+    human edits, rather than in the lock -- which is why a moved value keeps
+    being mentioned instead of being silently re-recorded.
+
+    A watch never gates a build. The generator does not read these URLs at
+    all, so a page that moved is news, not an obstacle.
+    """
+
+    id: str
+    url: str
+    #: What the decision in the code currently reflects.
+    value: Any
+    #: How to read the comparable number out of the body.
+    fingerprint: Fingerprint
+    #: Where the decision lives, named precisely enough to go and change it.
+    used_by: str
+    #: Why this is hand-kept rather than fetched, and what to do when it moves.
+    decision: str = ""
+    notes: str = ""
+
+    def as_source(self) -> Source:
+        """The watch as something `Prober` already knows how to request.
+
+        A probe URL and a fingerprint, with no contract and no cache: the body
+        is read for one number and then dropped.
+        """
+
+        return Source(id=self.id, probe_url=self.url,
+                      fingerprint=self.fingerprint)
+
+
+@dataclass(frozen=True, slots=True)
 class Registry:
     """One tool's whole declaration, as parsed."""
 
@@ -290,10 +335,9 @@ class Registry:
     #: even though a failure calls for re-reading C++ rather than for
     #: deleting a cache.
     citations: tuple[Citation, ...] = ()
-    #: Sections this checker does not implement yet, kept so a registry written
-    #: for a later phase still loads: `watch` lands with config/, `citation`
-    #: with ported/.
-    deferred: dict[str, int] = field(default_factory=dict)
+    #: Hand-kept values, from config/config.toml. Compared against their own
+    #: declaration rather than against the lock, and never a reason to stop.
+    watches: tuple[Watch, ...] = ()
 
     def source(self, source_id: str) -> Source | None:
         return next((s for s in self.sources if s.id == source_id), None)
@@ -301,15 +345,21 @@ class Registry:
     def citation(self, source_id: str) -> Citation | None:
         return next((c for c in self.citations if c.id == source_id), None)
 
+    def watch(self, source_id: str) -> Watch | None:
+        return next((w for w in self.watches if w.id == source_id), None)
+
     @property
     def probes(self) -> tuple[Source, ...]:
-        """Everything the checker asks upstream about, in one list.
+        """Everything compared against the lock, in one list.
 
         Citations come last so the report's table reads sources first, and
         they arrive already shaped as sources: every rule downstream --
         network health, the failure counter, the exit code -- then applies to
         a moved rule exactly as it does to a moved feed, which is what it
         deserves.
+
+        Watches are not here. Their baseline is their own declaration, not
+        the lock, so they are checked against a different thing entirely.
         """
 
         return self.sources + tuple(c.as_source() for c in self.citations)

@@ -1,5 +1,5 @@
-"""Reading a tool's declarations -- sources/sources.toml and
-ported/citations.toml -- into the model.
+"""Reading a tool's declarations -- sources/sources.toml,
+ported/citations.toml and config/config.toml -- into the model.
 
 This is the only module that knows the file format, and it knows nothing
 about any particular tool: discovery is a glob, so a new tool is registered
@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from .model import (Citation, Contract, Derived, Fingerprint, Policy,
-                    Registry, Source)
+                    Registry, Source, Watch)
 
 try:                                              # 3.11+
     import tomllib
@@ -60,9 +60,11 @@ class Layout:
     PORTED: ClassVar[str] = "ported"
     CITATIONS_FILE: ClassVar[str] = "citations.toml"
 
-    #: Sections that land in later phases. Named here so the contract is
-    #: readable in one place even before they exist.
     CONFIG: ClassVar[str] = "config"
+    CONFIG_FILE: ClassVar[str] = "config.toml"
+
+    #: The last section, and the only one this package does not read: it is
+    #: for whoever maintains the tool, not for the checker.
     DOCS: ClassVar[str] = "docs"
 
     @classmethod
@@ -80,6 +82,10 @@ class Layout:
     @classmethod
     def citations_path(cls, tool: str) -> Path:
         return cls.TOOLS_DIR / tool / cls.PORTED / cls.CITATIONS_FILE
+
+    @classmethod
+    def config_path(cls, tool: str) -> Path:
+        return cls.TOOLS_DIR / tool / cls.CONFIG / cls.CONFIG_FILE
 
     @classmethod
     def cache_dir(cls, tool: str) -> Path:
@@ -315,6 +321,61 @@ def _citations(tool: str) -> tuple[Citation, ...]:
     return found
 
 
+# ------------------------------ [[watch]] ------------------------------
+
+WATCH_KEYS = frozenset(
+    {"id", "url", "value", "fingerprint", "used_by", "decision", "notes"})
+
+
+def _watch(table: dict[str, Any], index: int) -> Watch:
+    where = f"[[watch]] #{index} ({table.get('id', '?')})"
+    _reject_unknown(table, WATCH_KEYS, where)
+
+    for key in ("id", "url", "value", "used_by", "decision"):
+        _require(table, key, where)
+
+    block = table.get("fingerprint")
+    if not isinstance(block, dict):
+        raise RegistryError(
+            f"{where}: needs a [watch.fingerprint] block -- without one there "
+            f"is no number to compare the declared value against")
+
+    return Watch(
+        id=str(table["id"]),
+        url=str(table["url"]),
+        value=table["value"],
+        fingerprint=_fingerprint(block, where),
+        used_by=str(table["used_by"]),
+        decision=str(table["decision"]).strip(),
+        notes=str(table.get("notes", "")).strip(),
+    )
+
+
+def _watches(tool: str) -> tuple[Watch, ...]:
+    """Every hand-kept value the tool declares, or none."""
+
+    path = Layout.config_path(tool)
+    if not path.is_file():
+        return ()
+
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError as exc:
+        raise RegistryError(f"{path}: {exc}") from None
+
+    unknown = sorted(set(data) - {"watch"})
+    if unknown:
+        raise RegistryError(f"{path}: unknown top-level table(s) {unknown}")
+
+    found = tuple(_watch(table, index)
+                  for index, table in enumerate(data.get("watch", []), 1))
+    ids = [w.id for w in found]
+    duplicate = sorted({i for i in ids if ids.count(i) > 1})
+    if duplicate:
+        raise RegistryError(f"{path}: duplicate watch id(s) {duplicate}")
+    return found
+
+
 def load(tool: str) -> Registry:
     """Parse one tool's declarations. Raises `RegistryError` on anything odd."""
 
@@ -346,11 +407,13 @@ def load(tool: str) -> Registry:
         _derived(t, i, set(ids)) for i, t in enumerate(data.get("derived", []), 1))
 
     citations = _citations(tool)
-    clash = sorted(set(ids) & {c.id for c in citations})
+    watches = _watches(tool)
+    declared = [*ids, *(c.id for c in citations), *(w.id for w in watches)]
+    clash = sorted({i for i in declared if declared.count(i) > 1})
     if clash:
         raise RegistryError(
-            f"{path}: {clash} is declared as both a source and a citation; "
-            f"one body cannot be two kinds of promise")
+            f"{path}: {clash} is declared more than once across sources, "
+            f"citations and watches; each id is one kind of promise")
 
     caches = [s.cache for s in sources if s.cache] + [d.cache for d in derived]
     clashing = sorted({c for c in caches if caches.count(c) > 1})
@@ -365,6 +428,5 @@ def load(tool: str) -> Registry:
         sources=sources,
         derived=derived,
         citations=citations,
-        deferred={k: len(v) for k, v in data.items()
-                  if k in ("watch",) and isinstance(v, list)},
+        watches=watches,
     )

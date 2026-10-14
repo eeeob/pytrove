@@ -32,8 +32,8 @@ A tool's root holds named sections and a single `__main__.py` door. Any other
       sources/          sources.toml, sources.lock.json   (this package)
       schedule/         schedule.toml                     (this package)
       ported/           citations.toml                    (this package)
-      config/           config.toml                       (later phase)
-      docs/             DEVELOPING.md
+      config/           config.toml                       (this package)
+      docs/             DEVELOPING.md                     (for people)
       .cache/           downloads + preflight.state.json  (gitignored)
 
 A new tool implements that and gets everything here for free. Nothing in this
@@ -52,10 +52,31 @@ breaks.
 
 **This package never imports a tool.** It reads declarations, all of them
 TOML, so a malformed tool cannot break the checker and the checker cannot be
-blamed for a tool's imports. A tool's ported *values* stay on the classes
-that use them, where every other constant in this project lives; what the
-registry holds is the citation -- the file they came from and the lines they
-rest on -- which is the part no code can state about itself.
+blamed for a tool's imports. Values stay on the classes that use them, where
+every other constant in this project lives; what a declaration holds is the
+part no code can state about itself -- the file a rule was ported from and
+the lines it rests on, or the page a hand-kept number was read off.
+
+
+Three kinds of promise, and what breaking one costs
+---------------------------------------------------
+
+    [[source]]    sources/sources.toml    fetched, cached, parsed on every
+                  build. A dead or reshaped one stops everything: the tool
+                  has bespoke handling for each, so it needs a code change.
+
+    [[citation]]  ported/citations.toml   read once by a human and
+                  reimplemented. Checked for the exact lines the port rests
+                  on; a moved rule stops the build too, because the port
+                  would otherwise keep emitting strings the client itself no
+                  longer produces.
+
+    [[watch]]     config/config.toml      decided by hand, next to the one
+                  number upstream can still be asked for. Never gates
+                  anything -- the generator does not read these URLs -- and a
+                  difference is reported every run until somebody revisits
+                  the decision, since the baseline is the declaration itself
+                  rather than the lock.
 
 
 The order, and why it cannot be rearranged
@@ -78,7 +99,7 @@ One module per responsibility
 -----------------------------
 
     model.py        the types a registry parses into, and the state names
-    registry.py     reading sources.toml and citations.toml; the contract
+    registry.py     reading the three declaration files; the contract
     schedule.py     reading schedule.toml: how often this runs unattended
     probe.py        the network, and classifying what an answer means
     contract.py     is this body still valid                 (pure)
