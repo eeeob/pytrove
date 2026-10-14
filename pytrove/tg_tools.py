@@ -349,7 +349,7 @@ def _interpolate_time(
 
     return min(ts, time_utc())
 
-def tg_account_created_at(user_id: int):
+def tg_account_created_at(user_id: int) -> float:
     _build_points()
     
     points = _POINTS
@@ -375,7 +375,7 @@ async def fetch_tg_email_code(
     code_length: int
     ):
 
-    code_pattern = re.compile(fr"\b\d{code_length}\b")
+    code_pattern = re.compile(rf"\b\d{{{code_length}}}\b")
 
     async for message in fetch_emails_from(email, password, detect_email_provider(email)):
         match = code_pattern.search(message)
