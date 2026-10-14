@@ -31,8 +31,8 @@ A tool's root holds named sections and a single `__main__.py` door. Any other
       src/              the logic
       sources/          sources.toml, sources.lock.json   (this package)
       schedule/         schedule.toml                     (this package)
+      ported/           citations.toml                    (this package)
       config/           config.toml                       (later phase)
-      ported/           citations.toml, values.py         (later phase)
       docs/             DEVELOPING.md
       .cache/           downloads + preflight.state.json  (gitignored)
 
@@ -50,9 +50,12 @@ filename convention: a cache set aside for merging appears as
 `<name>.prev<ext>`, and if it never appears, nothing accumulates and nothing
 breaks.
 
-**This package never imports a tool.** It reads declarations -- TOML, and in
-a later phase one Python file of constants -- so a malformed tool cannot
-break the checker and the checker cannot be blamed for a tool's imports.
+**This package never imports a tool.** It reads declarations, all of them
+TOML, so a malformed tool cannot break the checker and the checker cannot be
+blamed for a tool's imports. A tool's ported *values* stay on the classes
+that use them, where every other constant in this project lives; what the
+registry holds is the citation -- the file they came from and the lines they
+rest on -- which is the part no code can state about itself.
 
 
 The order, and why it cannot be rearranged
@@ -75,7 +78,7 @@ One module per responsibility
 -----------------------------
 
     model.py        the types a registry parses into, and the state names
-    registry.py     reading sources.toml; the folder contract as code
+    registry.py     reading sources.toml and citations.toml; the contract
     schedule.py     reading schedule.toml: how often this runs unattended
     probe.py        the network, and classifying what an answer means
     contract.py     is this body still valid                 (pure)

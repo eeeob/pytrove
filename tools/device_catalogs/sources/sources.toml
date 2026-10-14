@@ -28,21 +28,29 @@
 #    warn     say so, touch nothing
 #
 #  ---------------------------------------------------------------------------
-#  Deliberately NOT here: URLs that src/ cites but never fetches. They are
-#  documentation, and registering them would have the checker report changes
-#  nobody acts on. Each lands in a later section instead:
+#  Deliberately NOT here: URLs that src/ reads once and reimplements rather
+#  than fetches. Fingerprinting a live source file would report a change every
+#  week that nobody can act on, so each one is declared in
+#  ported/citations.toml instead, which asks only whether the lines the port
+#  rests on are still there:
+#
+#    DrKLO/Telegram ConnectionsManager.java        -> ported/citations.toml
+#    Telegram-iOS AppDelegate.swift                -> ported/citations.toml
+#    desktop-app/lib_base base_platform_info.cpp   -> ported/citations.toml
+#    desktop-app/lib_base base_info_win.cpp        -> ported/citations.toml
+#    desktop-app/lib_base base_info_linux.cpp      -> ported/citations.toml
+#    desktop-app/lib_base base/algorithm.cpp       -> ported/citations.toml
+#    chromium user_agent_utils.cc                  -> ported/citations.toml
+#    mozilla-central nsHttpHandler.cpp             -> ported/citations.toml
+#    WebKit NavigatorBase.cpp                      -> ported/citations.toml
+#    AOSP init/property_service.cpp                -> ported/citations.toml
+#
+#  And values src/ cites but neither fetches nor ports, which land in a later
+#  section:
 #
 #    source.android.com/.../build-numbers          -> [[watch]]  (config/)
 #    endoflife.date/api/windows.json               -> [[watch]]  (config/)
 #    repology.org/api/v1/project/glibc             -> [[watch]]  (config/)
-#    DrKLO/Telegram ConnectionsManager.java        -> [[citation]] (ported/)
-#    Telegram-iOS AppDelegate.swift                -> [[citation]] (ported/)
-#    desktop-app/lib_base base_platform_info.cpp   -> [[citation]] (ported/)
-#    desktop-app/lib_base base_info_win.cpp        -> [[citation]] (ported/)
-#    desktop-app/lib_base base_info_linux.cpp      -> [[citation]] (ported/)
-#    chromium user_agent_utils.cc                  -> [[citation]] (ported/)
-#    mozilla-central nsHttpHandler.cpp             -> [[citation]] (ported/)
-#    WebKit NavigatorBase.cpp                      -> [[citation]] (ported/)
 #    dumps.tadiphone.dev/dumps (the web UI)        -> never; the API is below
 #  ---------------------------------------------------------------------------
 

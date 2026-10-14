@@ -44,14 +44,18 @@ class TextReport:
     # --- the table --------------------------------------------------------
 
     @classmethod
-    def table(cls, report: Report) -> list[str]:
-        lines = []
-        for verdict in report.sorted_verdicts():
-            lines.append(
-                f"  {cls.MARK.get(verdict.state, '  ')}"
-                f"{verdict.source_id:<{cls.WIDTH}} "
-                f"{verdict.state:<16} {cls.detail(verdict)}".rstrip())
-        return lines
+    def table(cls, report: Report, only: set[str] | None = None) -> list[str]:
+        shown = [v for v in report.sorted_verdicts()
+                 if only is None or v.source_id in only]
+        # Widened to the longest id present rather than fixed: a ported rule's
+        # id is longer than a feed's, and a column that only usually lines up
+        # is worse than one that always does.
+        width = max([cls.WIDTH, *(len(v.source_id) for v in shown)])
+        return [
+            f"  {cls.MARK.get(v.state, '  ')}{v.source_id:<{width}} "
+            f"{v.state:<16} {cls.detail(v)}".rstrip()
+            for v in shown
+        ]
 
     @classmethod
     def detail(cls, verdict: Verdict) -> str:
@@ -95,9 +99,20 @@ class TextReport:
         lines = [f"PREFLIGHT FAILED -- {report.tool}", ""]
 
         for verdict in report.fatal:
-            source = registry.source(verdict.source_id)
+            citation = registry.citation(verdict.source_id)
+            source = citation.as_source() if citation else registry.source(
+                verdict.source_id)
             lines.append(f"  {verdict.state}  {verdict.source_id}")
             lines += cls.field("detail", cls.detail(verdict))
+            if citation:
+                # A moved rule is not a dead source and the two call for
+                # opposite things: nothing has to be removed, something has
+                # to be re-read and the port brought back into step.
+                lines += cls.field("url", citation.url)
+                lines += cls.field("ported to", citation.ported_to)
+                lines += cls.field("on drift", citation.on_drift)
+                lines.append("")
+                continue
             if source:
                 lines += cls.field("url", source.target)
                 if source.cache:
@@ -110,7 +125,15 @@ class TextReport:
                     lines += cls.field("derived", ", ".join(dependents))
             lines.append("")
 
-        if report.fatal:
+        if any(registry.citation(v.source_id) for v in report.fatal):
+            lines += [
+                "  a rule that moved is read, not retried: open the file, find what",
+                "  replaced the quoted lines, and bring the port and the anchors",
+                "  back into step. until then the generator would keep emitting",
+                "  strings the client itself no longer produces.",
+                "",
+            ]
+        if any(not registry.citation(v.source_id) for v in report.fatal):
             lines += [
                 "  a dead source is a code change, not a retry: every source has",
                 "  its own handling in the tool, so it has to be removed by hand.",
@@ -148,9 +171,19 @@ class TextReport:
                 "",
             ]
 
+        ported = {c.id for c in registry.citations}
         lines += [f"sources -- {report.tool}", ""]
-        lines += cls.table(report)
+        lines += cls.table(report, only={v.source_id for v in report.verdicts
+                                         if v.source_id not in ported})
         lines.append("")
+
+        if ported:
+            # Kept apart from the sources because a failure here means
+            # something different: no cache is stale and no feed is gone, a
+            # rule the tool reimplemented has moved under it.
+            lines += ["ported rules", ""]
+            lines += cls.table(report, only=ported)
+            lines.append("")
 
         if report.network != "ok":
             lines += [
@@ -219,6 +252,7 @@ class JsonReport:
             "network": report.network,
             "may_proceed": report.may_proceed(),
             "escalate_after": report.ESCALATE_AFTER,
+            "ported": [c.id for c in registry.citations],
             #: What that count is worth in days, so a reader of the JSON can
             #: interpret it without knowing the workflow's cron.
             "cadence_days": schedule.every_days if schedule else None,

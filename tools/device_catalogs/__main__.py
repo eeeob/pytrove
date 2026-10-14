@@ -1,7 +1,7 @@
 """The tool's door: `python -m tools.device_catalogs`.
 
 The only file in this directory. Everything else is a named section --
-`src/` for the logic, `sources/`, `config/`, `ported/`, `schedule/` and
+`src/` for the logic, `sources/`, `schedule/`, `ported/`, `config/` and
 `docs/` for the declarations, `.cache/` for the downloads -- so a stray
 module at this level is a structural mistake visible at a glance.
 

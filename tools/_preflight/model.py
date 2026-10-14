@@ -221,6 +221,59 @@ class Derived:
 
 
 @dataclass(frozen=True, slots=True)
+class Citation:
+    """A rule this tool ported out of somebody else's source file.
+
+    Some of what the generator emits is not data it collected but a rule it
+    reimplemented: lib_base decides what a desktop model string looks like,
+    Chromium freezes its own platform tokens, Telegram Android concatenates
+    two Build fields with no separator. Those files are read once by a human
+    and then quoted in a comment, and a comment cannot notice that the rule
+    moved -- so the port goes on producing strings the client would no longer
+    produce, and nothing in a build fails.
+
+    So a citation declares the exact lines the port rests on, and the checker
+    asks upstream whether they are still there. `anchors` are substrings, not
+    line numbers, because line numbers drift on their own: the Android model
+    line was cited at 224 and is now at 228, having not changed at all.
+
+    It is not a `[[source]]`. Nothing is fetched into the cache, nothing is
+    generated from the body, and a fingerprint of a live source file would
+    report a change every week that nobody can act on. The one question worth
+    asking is whether the quoted lines survive, and the answer is yes or no.
+    """
+
+    id: str
+    url: str
+    #: Exact substrings the port depends on. All must be present.
+    anchors: tuple[str, ...] = ()
+    #: Where the rule was reimplemented, named precisely enough that whoever
+    #: reads the failure knows which code to re-verify against the file.
+    ported_to: str = ""
+    #: What the port would get wrong if the rule moved and nobody noticed.
+    on_drift: str = ""
+    notes: str = ""
+
+    def as_source(self) -> Source:
+        """The citation as something the checker already knows how to probe.
+
+        A citation is structurally a probe-only source with a text contract
+        and no fingerprint, so it needs no second code path: the contract
+        machinery already turns "a required string is missing" into a stated,
+        fatal failure, and that is exactly the verdict a moved rule deserves.
+        """
+
+        return Source(
+            id=self.id,
+            probe_url=self.url,
+            contract=Contract(kind="text", must_contain=self.anchors),
+            consumed_by=self.ported_to,
+            on_removal=self.on_drift,
+            notes=self.notes,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class Registry:
     """One tool's whole declaration, as parsed."""
 
@@ -232,6 +285,11 @@ class Registry:
     scratch: tuple[str, ...] = ()
     sources: tuple[Source, ...] = ()
     derived: tuple[Derived, ...] = ()
+    #: Ported rules, from ported/citations.toml. Checked alongside the
+    #: sources because the question is the same -- does this still hold --
+    #: even though a failure calls for re-reading C++ rather than for
+    #: deleting a cache.
+    citations: tuple[Citation, ...] = ()
     #: Sections this checker does not implement yet, kept so a registry written
     #: for a later phase still loads: `watch` lands with config/, `citation`
     #: with ported/.
@@ -240,6 +298,22 @@ class Registry:
     def source(self, source_id: str) -> Source | None:
         return next((s for s in self.sources if s.id == source_id), None)
 
+    def citation(self, source_id: str) -> Citation | None:
+        return next((c for c in self.citations if c.id == source_id), None)
+
+    @property
+    def probes(self) -> tuple[Source, ...]:
+        """Everything the checker asks upstream about, in one list.
+
+        Citations come last so the report's table reads sources first, and
+        they arrive already shaped as sources: every rule downstream --
+        network health, the failure counter, the exit code -- then applies to
+        a moved rule exactly as it does to a moved feed, which is what it
+        deserves.
+        """
+
+        return self.sources + tuple(c.as_source() for c in self.citations)
+
     @property
     def declared_cache_files(self) -> frozenset[str]:
         """Every cache name the registry accounts for.
@@ -247,7 +321,8 @@ class Registry:
         The janitor compares this against what is on disk: a file in `.cache`
         that nothing declares is either a leftover from a renamed key or a
         source somebody added to the code and forgot to register, and both are
-        worth saying out loud.
+        worth saying out loud. Citations contribute nothing: they are never
+        fetched into the cache.
         """
 
         return frozenset(

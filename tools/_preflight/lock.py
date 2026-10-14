@@ -40,12 +40,16 @@ class Lock:
 
     SCHEMA: ClassVar[int] = 1
 
-    #: Top-level sections. `watches` and `citations` land with later phases;
-    #: they are named here so a lock written by one is readable by this.
+    #: Top-level sections. A verdict is routed to one of the two written
+    #: ones by what the registry says it is, so a diff stays readable: a line
+    #: under `sources` means data moved, a line under `citations` means a rule
+    #: somebody ported has moved and the port needs re-reading. `watches`
+    #: lands with a later phase and is only carried through.
     SOURCES: ClassVar[str] = "sources"
-    WATCHES: ClassVar[str] = "watches"
     CITATIONS: ClassVar[str] = "citations"
-    CARRIED: ClassVar[tuple[str, ...]] = (WATCHES, CITATIONS)
+    WRITTEN: ClassVar[tuple[str, ...]] = (SOURCES, CITATIONS)
+    WATCHES: ClassVar[str] = "watches"
+    CARRIED: ClassVar[tuple[str, ...]] = (WATCHES,)
 
     #: Present on an entry only while it is failing, so an all-clear run
     #: leaves no trace and produces no diff.
@@ -91,7 +95,17 @@ class Lock:
         return not self.path.is_file()
 
     def entry(self, source_id: str) -> dict[str, Any]:
-        return self.data[self.SOURCES].get(source_id, {})
+        """What was recorded for this id, whichever section it sits in.
+
+        The caller never has to know which kind it asked about: an id belongs
+        to exactly one of them, enforced where the registry is parsed.
+        """
+
+        for section in self.WRITTEN:
+            found = self.data.get(section, {}).get(source_id)
+            if found is not None:
+                return found
+        return {}
 
     def validators(self, source_id: str) -> tuple[str, str]:
         """(etag, last_modified) worth sending -- or nothing.
@@ -129,8 +143,9 @@ class Lock:
         """
 
         today = today or date.today().isoformat()
-        previous = self.data[self.SOURCES]
-        sources: dict[str, Any] = {}
+        previous = {**self.data.get(self.CITATIONS, {}),
+                    **self.data.get(self.SOURCES, {})}
+        written: dict[str, dict[str, Any]] = {s: {} for s in self.WRITTEN}
 
         for verdict in verdicts:
             was = previous.get(verdict.source_id, {})
@@ -186,13 +201,18 @@ class Lock:
                     "last_error": verdict.error or f"HTTP {verdict.http_status}",
                 }
 
-            sources[verdict.source_id] = entry
+            section = (self.CITATIONS
+                       if registry.citation(verdict.source_id) is not None
+                       else self.SOURCES)
+            written[section][verdict.source_id] = entry
 
         rebuilt: dict[str, Any] = {
             "lock_schema": self.SCHEMA,
             "tool": registry.tool,
-            self.SOURCES: dict(sorted(sources.items())),
+            self.SOURCES: dict(sorted(written[self.SOURCES].items())),
         }
+        if written[self.CITATIONS]:
+            rebuilt[self.CITATIONS] = dict(sorted(written[self.CITATIONS].items()))
         for section in self.CARRIED:
             if self.data.get(section):
                 rebuilt[section] = self.data[section]

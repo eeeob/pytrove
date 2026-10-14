@@ -13,6 +13,7 @@ report says the sources are fine. That one makes the omission a failure.
 
 from __future__ import annotations
 
+import ast
 import json
 import re
 import socket
@@ -1101,3 +1102,244 @@ def test_the_escalation_line_says_how_long_that_actually_is(tmp_path):
     assert f"{Report.ESCALATE_AFTER}+ runs" in plain
     assert "days" not in plain
     assert f"about {Report.ESCALATE_AFTER * weekly.every_days} days" in dated
+
+
+# ============================= ported rules =============================
+#
+# A citation is the one kind of upstream this tool reads once and then
+# reimplements. Nothing in a build fails when such a rule moves -- the port
+# keeps producing strings the client no longer produces -- so these tests
+# cover both halves of the promise: that the quoted lines are still upstream
+# (the check does that weekly), and that the code the citation points at is
+# still there (that cannot be checked from upstream at all).
+
+
+def _tool_classes(tool: str) -> dict[str, set[str]]:
+    """Every class under the tool's src/, with its attributes and methods.
+
+    Parsed, never imported: `tools/` ships in no wheel and a src module
+    imports its siblings, so reading the text is both lighter and the only
+    thing guaranteed to work from a bare checkout.
+    """
+
+    found: dict[str, set[str]] = {}
+    for path in sorted((Layout.TOOLS_DIR / tool / Layout.SRC).glob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            names: set[str] = set()
+            for item in node.body:
+                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    names.add(item.name)
+                elif isinstance(item, ast.AnnAssign) and isinstance(
+                        item.target, ast.Name):
+                    names.add(item.target.id)
+                elif isinstance(item, ast.Assign):
+                    names.update(t.id for t in item.targets
+                                 if isinstance(t, ast.Name))
+            found.setdefault(node.name, set()).update(names)
+    return found
+
+
+def _ported_tools() -> list[str]:
+    return [t for t in Layout.tools() if _registry.load(t).citations]
+
+
+def test_at_least_one_rule_is_declared_as_ported():
+    # Not a tautology: this tool reimplements lib_base, Chromium and Gecko,
+    # and if that ever stopped being declared the rest of these tests would
+    # pass by having nothing to check.
+    assert _ported_tools()
+
+
+def test_every_ported_rule_points_at_a_module_that_exists():
+    for tool in _ported_tools():
+        src = Layout.TOOLS_DIR / tool / Layout.SRC
+        for citation in _registry.load(tool).citations:
+            named = re.findall(r"src/(\w+)\.py", citation.ported_to)
+            assert named, f"{citation.id}: ported_to names no src module"
+            for module in named:
+                assert (src / f"{module}.py").is_file(), \
+                    f"{citation.id}: src/{module}.py does not exist"
+
+
+#: What `ported_to` is written in: `Owner.first, SECOND, third()`, one clause
+#: per `;`. A bare name counts as a reference only when it is unmistakably
+#: one -- SHOUTED or called -- so the prose around it is not read as a symbol.
+QUALIFIED = re.compile(r"\b([A-Z]\w+)\.(\w+)")
+REFERENCE = re.compile(r"\b[A-Z]\w+\.\w+|\b\w+\(\)|\b[A-Z][A-Z0-9_]{2,}\b")
+
+
+def _references(ported_to: str) -> list[tuple[str, str]]:
+    """Every (owner, attribute) a ported_to names."""
+
+    found: list[tuple[str, str]] = []
+    # Clauses are separated by `;` and nothing else. The prose is wrapped for
+    # width inside a TOML multi-line string, so a newline carries no meaning,
+    # and resetting the owner on one dropped half of every list.
+    for clause in ported_to.split(";"):
+        owner = ""
+        for token in REFERENCE.finditer(clause):
+            text = token.group(0)
+            if QUALIFIED.fullmatch(text):
+                owner, attr = text.split(".", 1)
+                found.append((owner, attr))
+            elif owner:
+                found.append((owner, text.rstrip("()")))
+    return found
+
+
+def test_every_ported_rule_points_at_code_that_still_exists():
+    # The half no upstream check can cover. A constant renamed on this side
+    # leaves the citation quoting a rule nothing implements any more, and the
+    # weekly check would go on reporting it healthy for ever.
+    #
+    # It earned its place immediately: it caught WebBuilder.GECKO_TEMPLATE
+    # and Platform.navigator, two names written into the citations from
+    # memory that the code had never had.
+    checked = 0
+    for tool in _ported_tools():
+        classes = _tool_classes(tool)
+        for citation in _registry.load(tool).citations:
+            named = _references(citation.ported_to)
+            assert named, f"{citation.id}: ported_to names no symbol at all"
+            for owner, attr in named:
+                if owner not in classes:          # prose, not a reference
+                    continue
+                checked += 1
+                assert attr in classes[owner], \
+                    f"{citation.id}: {owner}.{attr} is gone"
+
+    # A guard that resolved nothing would pass just as quietly.
+    assert checked >= 20, checked
+
+
+def test_a_citation_declares_every_part_of_its_promise(tmp_path, monkeypatch):
+    # A citation with nothing to look for would pass every week while the
+    # rule it quotes was rewritten underneath it.
+    folder = tmp_path / "fake_tool"
+    (folder / Layout.SOURCES).mkdir(parents=True)
+    (folder / Layout.SOURCES / Layout.REGISTRY_FILE).write_text(
+        '[tool]\nname = "fake_tool"\n', encoding="utf-8")
+    (folder / Layout.PORTED).mkdir()
+    (folder / Layout.PORTED / Layout.CITATIONS_FILE).write_text(
+        '[[citation]]\nid = "x"\nurl = "https://example.com/a.cpp"\n'
+        'ported_to = "src/x.py :: X"\non_drift = "everything"\n',
+        encoding="utf-8")
+    monkeypatch.setattr(Layout, "TOOLS_DIR", tmp_path)
+
+    with pytest.raises(_registry.RegistryError, match="anchors is required"):
+        _registry.load("fake_tool")
+
+
+def test_one_body_cannot_be_both_a_source_and_a_citation(tmp_path, monkeypatch):
+    # They are opposite promises about the same bytes: a source is parsed on
+    # every build and may change, a citation is quoted once and must not.
+    folder = tmp_path / "fake_tool"
+    (folder / Layout.SOURCES).mkdir(parents=True)
+    (folder / Layout.SOURCES / Layout.REGISTRY_FILE).write_text(
+        '[tool]\nname = "fake_tool"\n\n'
+        '[[source]]\nid = "both"\nurl = "https://example.com/a"\n'
+        'cache = "a"\nconsumed_by = "x"\non_removal = "x"\n', encoding="utf-8")
+    (folder / Layout.PORTED).mkdir()
+    (folder / Layout.PORTED / Layout.CITATIONS_FILE).write_text(
+        '[[citation]]\nid = "both"\nurl = "https://example.com/a"\n'
+        'anchors = ["x"]\nported_to = "src/x.py :: X"\non_drift = "y"\n',
+        encoding="utf-8")
+    monkeypatch.setattr(Layout, "TOOLS_DIR", tmp_path)
+
+    with pytest.raises(_registry.RegistryError, match="both a source and a citation"):
+        _registry.load("fake_tool")
+
+
+def test_a_ported_rule_is_probed_as_a_text_contract():
+    # No second code path: a citation is structurally a probe-only source
+    # whose contract is the lines it quotes, so the machinery that turns "a
+    # required string is missing" into a fatal, stated failure already
+    # applies, and the janitor leaves it alone because it caches nothing.
+    citation = _model.Citation(
+        id="c", url="https://example.com/a.cpp", anchors=("one", "two"),
+        ported_to="src/x.py :: X.y", on_drift="everything")
+    source = citation.as_source()
+
+    assert source.target == citation.url
+    assert source.contract.kind == "text"
+    assert source.contract.must_contain == citation.anchors
+    assert source.fingerprint is None
+    assert not source.cache and not source.is_cached
+
+
+def test_a_rule_that_moved_stops_the_build(tmp_path):
+    # The gate, not just the exit code. A port whose premise is gone would
+    # otherwise regenerate the catalog from rules the client has replaced,
+    # and every string it wrote would look perfectly plausible.
+    broken = Report(tool="t", network=Health.OK, first_run=False, verdicts=(
+        Verdict(source_id="libbase_model_rules", state=State.CONTRACT_BROKEN,
+                contract_errors=("does not contain 'x'",)),))
+
+    assert not broken.may_proceed()
+    assert not broken.may_proceed(allow_flaky=True)
+    assert _cli.Preflight.code(broken) == _cli.Exit.DEAD
+
+
+def test_a_ported_rule_is_locked_apart_from_a_source(tmp_path):
+    # So the diff stays readable: a line under `sources` means data moved, a
+    # line under `citations` means a rule did and a port needs re-reading.
+    source = Source(id="feed", url="https://example.com/a",
+                    cache="a.json", consumed_by="x", on_removal="x")
+    citation = _model.Citation(
+        id="rule", url="https://example.com/a.cpp", anchors=("one",),
+        ported_to="src/x.py :: X.y", on_drift="everything")
+    registry = Registry(tool="t", tool_dir=tmp_path,
+                        cache_dir=tmp_path / ".cache",
+                        sources=(source,), citations=(citation,))
+    lock = Lock(tmp_path / "sources.lock.json")
+
+    rebuilt = lock.rebuild(registry, [
+        _verdict(source, State.NEW, now=1),
+        _verdict(citation.as_source(), State.NEW),
+    ])
+
+    assert set(rebuilt["sources"]) == {"feed"}
+    assert set(rebuilt[Lock.CITATIONS]) == {"rule"}
+
+
+def test_a_ported_rule_declares_no_cache_to_clean(tmp_path):
+    citation = _model.Citation(
+        id="rule", url="https://example.com/a.cpp", anchors=("one",),
+        ported_to="src/x.py :: X.y", on_drift="everything")
+    registry = Registry(tool="t", tool_dir=tmp_path,
+                        cache_dir=tmp_path / ".cache", citations=(citation,))
+
+    assert registry.declared_cache_files == frozenset()
+    assert len(registry.probes) == 1
+
+
+def test_the_report_keeps_ported_rules_in_their_own_section(tmp_path):
+    citation = _model.Citation(
+        id="rule", url="https://example.com/a.cpp", anchors=("one",),
+        ported_to="src/x.py :: X.y", on_drift="the whole desktop catalog")
+    source = Source(id="feed", url="https://example.com/a", cache="a.json",
+                    consumed_by="x", on_removal="x")
+    registry = Registry(tool="t", tool_dir=tmp_path,
+                        cache_dir=tmp_path / ".cache",
+                        sources=(source,), citations=(citation,))
+    report = Report(tool="t", network=Health.OK, first_run=False, verdicts=(
+        Verdict(source_id="feed", state=State.OK),
+        Verdict(source_id="rule", state=State.CONTRACT_BROKEN,
+                contract_errors=("does not contain 'one'",))))
+
+    text = TextReport.render(report, registry)
+    sources_at = text.index("sources -- t")
+    ported_at = text.index("ported rules")
+
+    assert sources_at < ported_at
+    assert text.index("  feed") < ported_at
+    assert text.index("rule") > ported_at
+    # And the failure says what to do with it, which is the opposite of what
+    # a dead source needs.
+    assert "a rule that moved is read, not retried" in text
+    assert "has to be removed by hand" not in text
+    assert citation.ported_to in text
+    assert citation.on_drift in text

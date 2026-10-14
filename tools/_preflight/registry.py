@@ -1,4 +1,5 @@
-"""Reading `tools/<tool>/sources/sources.toml` into the model.
+"""Reading a tool's declarations -- sources/sources.toml and
+ported/citations.toml -- into the model.
 
 This is the only module that knows the file format, and it knows nothing
 about any particular tool: discovery is a glob, so a new tool is registered
@@ -15,7 +16,8 @@ import re
 from pathlib import Path
 from typing import Any, ClassVar
 
-from .model import Contract, Derived, Fingerprint, Policy, Registry, Source
+from .model import (Citation, Contract, Derived, Fingerprint, Policy,
+                    Registry, Source)
 
 try:                                              # 3.11+
     import tomllib
@@ -55,10 +57,12 @@ class Layout:
     SCHEDULE: ClassVar[str] = "schedule"
     SCHEDULE_FILE: ClassVar[str] = "schedule.toml"
 
+    PORTED: ClassVar[str] = "ported"
+    CITATIONS_FILE: ClassVar[str] = "citations.toml"
+
     #: Sections that land in later phases. Named here so the contract is
     #: readable in one place even before they exist.
     CONFIG: ClassVar[str] = "config"
-    PORTED: ClassVar[str] = "ported"
     DOCS: ClassVar[str] = "docs"
 
     @classmethod
@@ -72,6 +76,10 @@ class Layout:
     @classmethod
     def schedule_path(cls, tool: str) -> Path:
         return cls.TOOLS_DIR / tool / cls.SCHEDULE / cls.SCHEDULE_FILE
+
+    @classmethod
+    def citations_path(cls, tool: str) -> Path:
+        return cls.TOOLS_DIR / tool / cls.PORTED / cls.CITATIONS_FILE
 
     @classmethod
     def cache_dir(cls, tool: str) -> Path:
@@ -249,8 +257,66 @@ def _derived(table: dict[str, Any], index: int, source_ids: set[str]) -> Derived
     return derived
 
 
+# ---------------------------- [[citation]] ----------------------------
+
+CITATION_KEYS = frozenset(
+    {"id", "url", "anchors", "ported_to", "on_drift", "notes"})
+
+
+def _citation(table: dict[str, Any], index: int) -> Citation:
+    where = f"[[citation]] #{index} ({table.get('id', '?')})"
+    _reject_unknown(table, CITATION_KEYS, where)
+
+    for key in ("id", "url", "ported_to", "on_drift"):
+        _require(table, key, where)
+
+    anchors = _tuple(table.get("anchors"))
+    if not anchors:
+        raise RegistryError(
+            f"{where}: anchors is required -- a citation with nothing to look "
+            f"for would pass while the rule it quotes was rewritten")
+
+    return Citation(
+        id=str(table["id"]),
+        url=str(table["url"]),
+        anchors=anchors,
+        ported_to=str(table["ported_to"]),
+        on_drift=str(table["on_drift"]).strip(),
+        notes=str(table.get("notes", "")).strip(),
+    )
+
+
+def _citations(tool: str) -> tuple[Citation, ...]:
+    """Every ported rule the tool declares, or none.
+
+    Optional on purpose: a tool that reimplements nothing has nothing to
+    quote, and a missing file is that answer rather than an error.
+    """
+
+    path = Layout.citations_path(tool)
+    if not path.is_file():
+        return ()
+
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError as exc:
+        raise RegistryError(f"{path}: {exc}") from None
+
+    unknown = sorted(set(data) - {"citation"})
+    if unknown:
+        raise RegistryError(f"{path}: unknown top-level table(s) {unknown}")
+
+    found = tuple(_citation(table, index)
+                  for index, table in enumerate(data.get("citation", []), 1))
+    ids = [c.id for c in found]
+    duplicate = sorted({i for i in ids if ids.count(i) > 1})
+    if duplicate:
+        raise RegistryError(f"{path}: duplicate citation id(s) {duplicate}")
+    return found
+
+
 def load(tool: str) -> Registry:
-    """Parse one tool's registry. Raises `RegistryError` on anything odd."""
+    """Parse one tool's declarations. Raises `RegistryError` on anything odd."""
 
     path = Layout.registry_path(tool)
     if not path.is_file():
@@ -279,6 +345,13 @@ def load(tool: str) -> Registry:
     derived = tuple(
         _derived(t, i, set(ids)) for i, t in enumerate(data.get("derived", []), 1))
 
+    citations = _citations(tool)
+    clash = sorted(set(ids) & {c.id for c in citations})
+    if clash:
+        raise RegistryError(
+            f"{path}: {clash} is declared as both a source and a citation; "
+            f"one body cannot be two kinds of promise")
+
     caches = [s.cache for s in sources if s.cache] + [d.cache for d in derived]
     clashing = sorted({c for c in caches if caches.count(c) > 1})
     if clashing:
@@ -291,6 +364,7 @@ def load(tool: str) -> Registry:
         scratch=_tuple(meta.get("scratch")),
         sources=sources,
         derived=derived,
+        citations=citations,
         deferred={k: len(v) for k, v in data.items()
-                  if k in ("watch", "citation") and isinstance(v, list)},
+                  if k in ("watch",) and isinstance(v, list)},
     )

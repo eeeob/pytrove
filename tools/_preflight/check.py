@@ -186,7 +186,7 @@ class Checker:
     # --- the whole registry -----------------------------------------------
 
     def run(self) -> Report:
-        verdicts = [self.check_one(source) for source in self.registry.sources]
+        verdicts = [self.check_one(probe) for probe in self.registry.probes]
         network = Health.assess(verdicts)
 
         # When the network is the problem, nothing is accused: every flaky

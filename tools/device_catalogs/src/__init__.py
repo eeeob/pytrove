@@ -12,7 +12,7 @@ and cleans the stale cache first (tools/_preflight), then runs this. The form
 above skips both and builds from whatever the cache holds.
 
 This directory is the tool's `src/`. Beside it sit the sections that are not
-logic -- `sources/`, `config/`, `ported/`, `schedule/`, `docs/` -- and
+logic -- `sources/`, `schedule/`, `ported/`, `config/`, `docs/` -- and
 `.cache/`, which holds the downloads and is gitignored. Only the four JSON
 files under pytrove/data/devices are written, so the library code never
 changes with the data.
