@@ -6,10 +6,11 @@ import json
 import re
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, ClassVar
 
 from .cache import Cache
+from .shared import TODAY
 
 # ------------------- firmware harvest (Chinese OEM phones) -------------------
 
@@ -34,6 +35,8 @@ class FirmwareHarvest:
         directory is listed and every `build.*.prop` in it is read; the regional
         files are what give a phone its several model codes.
 
+    The harvest is cumulative, which no other cache here is: see `merge`.
+
     Honor and Huawei are deliberately absent. Huawei has no Android 13+ dump at
     all because it moved to HarmonyOS, and the Honor dumps are GSI or enterprise
     images that report `manufacturer=unknown` with `model=magic`, so neither
@@ -43,6 +46,16 @@ class FirmwareHarvest:
     BASE: ClassVar[str] = "https://dumps.tadiphone.dev/api/v4"
     WEB: ClassVar[str] = "https://dumps.tadiphone.dev/dumps"
     RECORDS_FILE: ClassVar[str] = "firmware_records.json"
+    #: What `tools/_preflight`'s janitor renames RECORDS_FILE to when a source
+    #: it derives from moves -- `on_change = "merge"` on the firmware_records
+    #: entry in sources/sources.toml. This filename is the entire interface
+    #: between the two: nothing here imports the checker, and the janitor
+    #: knows only how to rename a file, never what is inside one. When no
+    #: `.prev` file exists the harvest behaves exactly as it did before.
+    PREV_FILE: ClassVar[str] = "firmware_records.prev.json"
+    #: How long a device survives without a dump proving it again. Must stay
+    #: in step with `record_max_age_days` on that same registry entry.
+    RECORD_MAX_AGE_DAYS: ClassVar[int] = 730
 
     #: Brand subgroup under /dumps -> the Play "Retail Branding" it maps to.
     #: Only brands whose dumps were checked to carry retail props are here.
@@ -231,19 +244,27 @@ class FirmwareHarvest:
     def read_dump(self, item: tuple[str, int, str, int, str]) -> list[dict[str, Any]]:
         brand, project, ref, release, day = item
         return [{"brand": brand, "manufacturer": manufacturer, "code": code,
-                 "android": release, "date": day, "project": project}
+                 "android": release, "date": day, "project": project,
+                 "last_seen": TODAY}
                 for manufacturer, code in self.resolve(project, ref)
                 if self.MODEL_SHAPE.fullmatch(code)
                 and not self.MODEL_REJECT.search(code)]
 
     def records(self) -> list[dict[str, Any]]:
-        """One record per (brand, model code) a retail dump proves exists."""
+        """One record per (brand, model code) a retail dump has ever proved."""
 
         if self.cache.has(self.RECORDS_FILE):
             return self.cache.read_json(self.RECORDS_FILE)
         if self.cache.offline:
-            self.cache.missing(
-                f"no {self.RECORDS_FILE} in the cache; run once with network access")
+            # The janitor sets the file aside rather than deleting it, so an
+            # offline rebuild right after a clean still has every device the
+            # last harvest proved. It gains no new ones, which is the honest
+            # outcome of having no network.
+            if not self.cache.has(self.PREV_FILE):
+                self.cache.missing(
+                    f"no {self.RECORDS_FILE} in the cache; run once with "
+                    f"network access")
+            return self.store(self.merge([]))
 
         wanted: list[tuple[str, int, str, int, str]] = []
         for brand in self.BRANDS:
@@ -264,7 +285,63 @@ class FirmwareHarvest:
             if current is None or record["android"] > current["android"]:
                 best[key] = record
 
-        out = sorted(best.values(), key=lambda r: (r["brand"], r["code"]))
-        print(f"  resolved {len(out)} retail model codes")
+        print(f"  resolved {len(best)} retail model codes")
+        return self.store(self.merge(list(best.values())))
+
+    # --- step 4: accumulate ----------------------------------------------
+
+    def carried(self) -> list[dict[str, Any]]:
+        """Whatever the previous harvest wrote, set aside under PREV_FILE."""
+
+        if not self.cache.has(self.PREV_FILE):
+            return []
+        old = self.cache.read_json(self.PREV_FILE)
+        # A file written before the harvest accumulated carries no sighting
+        # date, and the only honest one available is when it was written.
+        written = date.fromtimestamp(
+            self.cache.path(self.PREV_FILE).stat().st_mtime).isoformat()
+        print(f"  carrying {len(old)} records from the previous harvest")
+        return [{**record, "last_seen": record.get("last_seen") or written}
+                for record in old]
+
+    def merge(self, fresh: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """`fresh`, plus every device an earlier harvest proved and this run
+        did not see again.
+
+        The dumps group is listed newest first and only MAX_PAGES pages deep,
+        so a phone scrolls out of the window as dumps pile up behind it -- we
+        watched OPPOCPH2579 leave one run and come back in the next. Without
+        this a device would silently leave the catalog the week its brand had
+        a busy release season, which is the opposite of what the window means.
+        A sighting therefore expires on its own schedule, after
+        RECORD_MAX_AGE_DAYS, rather than at the end of the run that missed it.
+        """
+
+        kept = {(r["brand"], r["code"]): r for r in self.carried()}
+        for record in fresh:
+            key = (record["brand"], record["code"])
+            was = kept.get(key)
+            # `android` is a ceiling -- the newest release a dump ever proved
+            # this phone runs -- so it never moves back down because this run
+            # happened to see only an older regional dump of the same device.
+            if was is not None and was["android"] > record["android"]:
+                record = {**was, "last_seen": record["last_seen"]}
+            kept[key] = record
+
+        floor = (date.today()
+                 - timedelta(days=self.RECORD_MAX_AGE_DAYS)).isoformat()
+        current = [r for r in kept.values() if r["last_seen"] >= floor]
+        if len(current) != len(kept):
+            print(f"  dropping {len(kept) - len(current)} unseen since {floor}")
+        if len(current) > len(fresh):
+            print(f"  carried {len(current) - len(fresh)} "
+                  f"no dump in this harvest reached")
+        return current
+
+    def store(self, records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Write the accumulation, and retire the file it was merged from."""
+
+        out = sorted(records, key=lambda r: (r["brand"], r["code"]))
         self.cache.write_json(self.RECORDS_FILE, out)
+        self.cache.path(self.PREV_FILE).unlink(missing_ok=True)
         return out
