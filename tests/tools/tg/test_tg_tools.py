@@ -44,9 +44,9 @@ async def test_fetch_tg_email_code_matches_a_six_digit_code(monkeypatch):
     async def fake_fetch(*args, **kwargs):
         yield "Hello Ali Hassan, your code is 123456"
 
-    monkeypatch.setattr("pytrove.tg_tools.fetch_emails_from", fake_fetch)
+    monkeypatch.setattr("pytrove.tg_tools.accounts.fetch_emails_from", fake_fetch)
     monkeypatch.setattr(
-        "pytrove.tg_tools.detect_email_provider",
+        "pytrove.tg_tools.accounts.detect_email_provider",
         lambda email: None,
     )
 

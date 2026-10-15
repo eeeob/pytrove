@@ -4,19 +4,15 @@ import re
 
 import pytest
 
-from pytrove._devices import (
+from pytrove.models import DeviceInfo
+from pytrove.tg_tools._internal.catalog import _load, _DATA_DIR, _SCHEMA, GROUP_SHARES, OS_SHARES
+from pytrove.tg_tools._internal.families import (
     AndroidDevice,
     DesktopDevice,
-    DeviceInfo,
     SystemInfo,
-    iOSDevice,
     WebDevice,
+    iOSDevice,
     random_family,
-    GROUP_SHARES,
-    OS_SHARES,
-    _DATA_DIR,
-    _SCHEMA,
-    _load,
 )
 
 #: Only present after a build; the tests that need it skip when it is absent.

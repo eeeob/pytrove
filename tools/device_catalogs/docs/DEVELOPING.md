@@ -11,7 +11,7 @@ pytrove/data/devices/web.json
 
 Those four files are the **only** thing it writes, which is the point: the data
 goes stale constantly — new phones, new OS releases, new browsers — and none of
-the library code has to change when it does. `pytrove/_devices.py` reads them
+the library code has to change when it does. `pytrove/tg_tools/_internal/catalog.py` reads them
 and samples from them; see [the sampling split](#sampling-is-code-facts-are-data).
 
 > Read `src/__init__.py` first. It lists every module and every source, and it
@@ -92,7 +92,7 @@ several — desktop, where the same PC reports Windows or Linux — fills an `os
 block instead, with those keys per OS, because the formats and caveats are
 genuinely different and flattening them would lose that.
 
-`shared.SCHEMA` is 1 and must equal `pytrove/_devices.py::_SCHEMA`. Bump both
+`shared.SCHEMA` is 1 and must equal `pytrove/tg_tools/_internal/catalog.py::_SCHEMA`. Bump both
 together, and only when the JSON layout itself changes.
 
 ---
@@ -215,7 +215,7 @@ the pool. Delete `dmi_records.json` by hand when you want it rebuilt.
 
 ## Sampling is code, facts are data
 
-The catalogs state what exists; `pytrove/_devices.py` decides how often each
+The catalogs state what exists; `pytrove/tg_tools/_internal/catalog.py` decides how often each
 thing is drawn. Keep that line:
 
 - `_HALF_LIFE_DAYS` weights devices and versions by recency.
