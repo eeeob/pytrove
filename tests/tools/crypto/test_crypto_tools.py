@@ -51,3 +51,12 @@ def test_data_resolver_applied_on_decrypt():
     enc = encrypt("42", "password123")
     result = decrypt(enc, "password123", data_resolver=lambda b: int(b))
     assert result == 42
+
+
+def test_d_decrypt_wrong_password_raises():
+    with pytest.raises(ValidationError, match="Decryption failed"):
+        d_decrypt(d_encrypt("secret", "right"), "wrong")
+
+
+def test_d_decrypt_applies_the_resolver():
+    assert d_decrypt(d_encrypt(b"x", "pw"), "pw", data_resolver=bytes.decode) == "x"
