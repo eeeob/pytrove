@@ -238,7 +238,7 @@ raise RuntimeError(msg)
 
 Complete and correct type hints must be provided for all functions and methods, including internal ones, for their parameters and return values. Add hints to attributes and variables when their type is not clear or when doing so helps static checking. Use the appropriate precise types instead of resorting to `Any` to bypass a type-checking problem.
 
-Hints must be compatible with supported Python versions and pass the project's adopted type checks without unhandled warnings or errors.
+Hints must be compatible with supported Python versions and pass the project's adopted type checker, `ty` (pinned in the `dev` extra and configured under `[tool.ty]` in `pyproject.toml`), without unhandled warnings or errors.
 
 ### 4.7. Comments on Hints and Type Warnings
 

@@ -39,6 +39,9 @@ dev = [
     "twine<=6.2.0",
     "pytest>=8",
     "pytest-asyncio>=0.24",
+    # Pinned exactly: ty is pre-1.0 and each release can add or change
+    # diagnostics, which would fail CI with no change in the code.
+    "ty==0.0.88",
 ]
 
 
@@ -124,3 +127,8 @@ convention = "google"
 "**/__init__.py" = ["F401", "F403"]
 # Tests assert by design, and 5.3 covers library functions, not test cases.
 "tests/**" = ["S101", "D"]
+
+[tool.ty.src]
+# PEP 695 syntax, imported only on 3.12+ (see `typings/core.py`); checked on
+# its own with `ty check --python-version 3.12 pytrove/typings/_core_py312.py`.
+exclude = ["pytrove/typings/_core_py312.py"]
