@@ -15,7 +15,7 @@ import pytrove.errors
 import pytrove.models
 import pytrove.typings
 
-DEPRECATED = ["pytrove.classes", "pytrove.classes.misc_classes", "pytrove.classes.archiver", "pytrove.misc_tools"]
+DEPRECATED = ["pytrove.classes", "pytrove.classes.misc_classes", "pytrove.classes.archiver", "pytrove.misc_tools", "pytrove.models.misc_models"]
 DEPRECATED_MODULES = {"classes", "misc_tools"}
 ENTRY_POINTS = ["pytrove", "pytrove.typings", "pytrove.errors", "pytrove.models", "pytrove.enums"]
 
@@ -49,7 +49,7 @@ def test_a_deprecated_path_still_resolves_every_name_with_a_warning(module: str)
 
     for name in shim.__all__:
         with pytest.warns(DeprecationWarning, match=name):
-            assert getattr(shim, name) is getattr(pytrove, name)
+            assert getattr(shim, name) is getattr(importlib.import_module(shim._MOVED[name]), name)
 
     with pytest.raises(AttributeError):
         getattr(shim, "never_existed")

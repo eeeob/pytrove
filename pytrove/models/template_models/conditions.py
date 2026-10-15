@@ -1,0 +1,79 @@
+"""The fallback values and render conditions every compiled template part shares."""
+
+from __future__ import annotations as _annotations
+
+from collections import ChainMap
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Any
+
+from ...iter_tools import to_frozenset
+from ...typings import JsonValue
+from ..base import BaseDataClass
+
+
+@dataclass(slots=True)
+class CompiledDefaults(BaseDataClass):
+    """Base for every compiled part that can carry its own fallback values.
+
+    Attributes:
+        default_keys: Values for keys the caller did not pass to `format()`.
+    """
+
+    default_keys: dict[str, JsonValue] | None = None
+
+    def with_defaults(self, kw: Mapping[str, Any]) -> Mapping[str, Any]:
+        """Layer `default_keys` beneath `kw`, so a value the caller passed always wins.
+
+        Args:
+            kw: The `format()` keyword arguments.
+
+        Returns:
+            `kw` with the defaults beneath it, or `kw` itself if there are none.
+        """
+        return ChainMap(kw, defaults) if (defaults := self.default_keys) else kw
+
+
+@dataclass(slots=True)
+class CompiledConditional(CompiledDefaults):
+    """Base for every compiled part that can opt out of being rendered.
+
+    A part renders only when every `all_of` key and at least one `any_of`
+    key is present in the `format()` keyword arguments; a part setting
+    neither always renders. `default_keys` is applied first, so a key it
+    fills counts as present, exactly as if the caller had passed it.
+
+    Attributes:
+        any_of: Keys of which at least one must be present.
+        all_of: Keys that must all be present.
+    """
+
+    any_of: frozenset[str] | None = None
+    all_of: frozenset[str] | None = None
+
+    def __post_init__(self) -> None:
+        """Normalise `any_of`/`all_of` to frozensets, or `None` when empty."""
+        self.any_of = to_frozenset(self.any_of) or None
+        self.all_of = to_frozenset(self.all_of) or None
+
+        super(CompiledConditional, self).__post_init__()
+
+    def can_format(self, kw: Mapping[str, Any]) -> bool:
+        """Return whether `kw` satisfies `all_of` and `any_of`.
+
+        Args:
+            kw: The `format()` keyword arguments, defaults already applied.
+
+        Returns:
+            `True` if the part should render.
+        """
+        return not (
+            (self.all_of and not all(k in kw for k in self.all_of))
+            or (self.any_of and not any(k in kw for k in self.any_of))
+        )
+
+
+__all__ = (
+    "CompiledDefaults",
+    "CompiledConditional",
+)

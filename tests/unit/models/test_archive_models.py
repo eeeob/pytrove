@@ -1,0 +1,29 @@
+from __future__ import annotations as _annotations
+
+import time
+from pathlib import Path
+
+from pytrove.enums import ArchiveFormat
+from pytrove.models import ArchiveJob
+
+
+async def _noop(job: ArchiveJob, path: Path) -> None:
+    """Accept the archive and do nothing."""
+
+
+def test_archive_job_resolves_root_and_format(tmp_path: Path) -> None:
+    before = time.monotonic()
+    job = ArchiveJob("j", str(tmp_path), lambda: "name", _noop, archive_format="tar.gz")
+
+    assert job.root == tmp_path.resolve()
+    assert job.archive_format is ArchiveFormat.TAR_GZ
+    assert before <= job.last_run <= time.monotonic()
+    assert "last_run" not in repr(job)
+
+
+def test_archive_path_asks_dest_name_every_time(tmp_path: Path) -> None:
+    names = iter(["a", "b"])
+    job = ArchiveJob("j", tmp_path, lambda: next(names), _noop)
+
+    assert job.archive_path() == tmp_path.resolve() / "a.zip"
+    assert job.archive_path() == tmp_path.resolve() / "b.zip"

@@ -31,7 +31,7 @@ def _moved_attribute(module: str, moved: Mapping[str, str], name: str) -> Any:
         raise AttributeError(msg)
 
     warnings.warn(
-        f"{module}.{name} is deprecated: import it from {target} or from pytrove instead. "
+        f"{module}.{name} is deprecated: import it from {target} instead. "
         f"{module} will be removed in a future release.",
         DeprecationWarning,
         stacklevel=3,
