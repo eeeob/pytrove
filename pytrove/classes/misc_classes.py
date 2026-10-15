@@ -41,7 +41,8 @@ from .._internal._optional import _unavailable_class
 
 from ..typings import _KT, _VT, _T, _P, Number, MaybeContainer
 from ..async_tools import to_thread
-from ..callable_tools import run_awaitable_in_coro, safe_call, ignore_arguments
+from ..async_tools import run_awaitable_in_coro
+from ..callable_tools import ignore_arguments, safe_call
 from ..iter_tools import to_frozenset
 
 import weakref
