@@ -134,28 +134,8 @@ convention = "google"
 exclude = ["pytrove/typings/_core_py312.py"]
 
 [tool.ty.rules]
-# This ignore list is a ceiling, not a target: it is exactly the set of rules the tree
-# fails today, so the check can only regress on rules not listed here, and the list is
-# meant to shrink one rule at a time, the same pattern `[tool.ruff.lint].select` uses.
-call-non-callable = "ignore"
-deprecated = "ignore"
-invalid-argument-type = "ignore"
-invalid-assignment = "ignore"
-invalid-attribute-override = "ignore"
-invalid-await = "ignore"
-invalid-method-override = "ignore"
-invalid-overload = "ignore"
+# `safe_call`, `to_thread` and `maybe_awaitable` take their own keyword-only options
+# between `*args: _P.args` and `**kwargs: _P.kwargs`, which PEP 612 does not allow.
+# The design is kept on purpose; each call site that cascades from it carries a
+# `ty: ignore[...]` naming this. Every other rule is enforced.
 invalid-paramspec = "ignore"
-invalid-protocol = "ignore"
-invalid-raise = "ignore"
-invalid-return-type = "ignore"
-invalid-type-arguments = "ignore"
-invalid-type-form = "ignore"
-missing-argument = "ignore"
-no-matching-overload = "ignore"
-not-iterable = "ignore"
-redundant-condition = "ignore"
-too-many-positional-arguments = "ignore"
-unknown-argument = "ignore"
-unresolved-attribute = "ignore"
-unsupported-operator = "ignore"

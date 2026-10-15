@@ -4,6 +4,7 @@ from __future__ import annotations as _annotations
 
 import logging
 import ntpath
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -90,7 +91,7 @@ class _PlaceMixin:
         if (safe := self._cleared.get(parent, _MISS)) is _MISS:
             if parent:
                 resolved = safe_call(
-                    (self._root / parent).resolve, strict=False, include_exc=(ValueError, OSError), log_exc=True,
+                    partial((self._root / parent).resolve, strict=False), include_exc=(ValueError, OSError), log_exc=True,
                 )
                 computed = resolved if resolved is not None and resolved.is_relative_to(self._root) else None
             else:

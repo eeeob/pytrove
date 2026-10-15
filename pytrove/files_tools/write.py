@@ -6,6 +6,7 @@ import os
 import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
+from functools import partial
 from pathlib import Path
 from typing import IO, Any, overload
 
@@ -76,7 +77,7 @@ def atomic_write(
                 try:
                     os.fsync(dir_fd)
                 finally:
-                    safe_call(os.close, dir_fd)
+                    safe_call(partial(os.close, dir_fd))
             except OSError:
                 pass
     finally:

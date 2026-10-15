@@ -204,7 +204,7 @@ def _remove(
         except FileNotFoundError:
             continue
         except OSError as exc:
-            safe_call(setattr, exc, "filename", str(path), include_exc=AttributeError)
+            safe_call(partial(setattr, exc, "filename", str(path)), include_exc=AttributeError)
 
             if not return_exc:
                 raise

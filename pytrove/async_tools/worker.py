@@ -8,7 +8,7 @@ import sys
 import threading
 import time
 from collections.abc import Awaitable, Callable, Generator
-from functools import cached_property
+from functools import cached_property, partial
 from typing import Any
 
 if sys.version_info >= (3, 11):
@@ -295,7 +295,7 @@ class AioThreadWorker:
         if not thread.is_alive():
             return
 
-        await to_thread(thread.join, timeout)
+        await to_thread(partial(thread.join, timeout))
 
         if timeout is not None and thread.is_alive():
             msg = f"worker did not stop within {timeout!r} seconds"

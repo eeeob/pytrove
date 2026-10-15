@@ -7,6 +7,7 @@ import sys
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Any, Generic
 
 if sys.version_info >= (3, 11):
@@ -119,7 +120,7 @@ class DelayedCallback(Generic[_T]):
 
         finally:
             if self.on_finished is not None:
-                await maybe_awaitable(self.on_finished, self)
+                await maybe_awaitable(partial(self.on_finished, self))
 
         return None
 

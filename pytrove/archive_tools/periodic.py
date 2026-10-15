@@ -5,6 +5,7 @@ from __future__ import annotations as _annotations
 import asyncio
 import logging
 import time
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -82,7 +83,7 @@ class PeriodicArchiver:
         Returns:
             The archive's path.
         """
-        return await to_thread(
+        return await to_thread(partial(
             compress_folder, job.root, job.archive_path(),
             format=job.archive_format,
             include=job.include,
@@ -95,7 +96,7 @@ class PeriodicArchiver:
             fsync=job.fsync,
             stability_check=job.stability_check,
             delete_source=job.delete_source,
-        )
+        ))
 
     async def run_job(self, job: ArchiveJob) -> None:
         """Create, hand off and delete one archive, under the job's own lock.
@@ -119,7 +120,7 @@ class PeriodicArchiver:
                     log.error("Archive job %r failed", job.name, exc_info=e)
             finally:
                 if path is not None:
-                    await to_thread(remove_file, path)
+                    await to_thread(partial(remove_file, path))
 
                 object.__setattr__(job, "last_run", time.monotonic())
 
