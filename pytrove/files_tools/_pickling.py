@@ -3,7 +3,7 @@
 from __future__ import annotations as _annotations
 
 import pickle
-from pickle import _compat_pickle  # type: ignore[attr-defined]  # A private stdlib module typeshed does not stub.
+from pickle import _compat_pickle  # type: ignore[attr-defined, ty:unresolved-import]  # A private stdlib module typeshed does not stub.
 from typing import IO, Any, Final
 
 from ..enums import PickleSafety

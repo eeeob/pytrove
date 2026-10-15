@@ -6,11 +6,12 @@ so there is a single name to check or replace for each backend.
 
 from __future__ import annotations as _annotations
 
+import importlib
 from types import ModuleType
 from typing import Any
 
 try:
-    from compression import zstd as std_zstd  # type: ignore[import-not-found]  # Standard library only from 3.14.
+    from compression import zstd as std_zstd  # type: ignore[import-not-found, ty:unresolved-import]  # Standard library only from 3.14.
 except ImportError:
     std_zstd: ModuleType | None = None
 
@@ -20,7 +21,9 @@ except ImportError:
     zstandard: ModuleType | None = None
 
 try:
-    from fastzip.write import WZip
+    # Imported by name: fastzip is never installed on Windows, so a static import
+    # would be unresolvable there and need a suppression that goes unused elsewhere.
+    WZip: Any = importlib.import_module("fastzip.write").WZip
 except (TypeError, ImportError):  # fastzip's import fails with `TypeError` on Windows, where it finds no libz.
     WZip: Any = None
 

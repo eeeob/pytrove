@@ -132,3 +132,30 @@ convention = "google"
 # PEP 695 syntax, imported only on 3.12+ (see `typings/core.py`); checked on
 # its own with `ty check --python-version 3.12 pytrove/typings/_core_py312.py`.
 exclude = ["pytrove/typings/_core_py312.py"]
+
+[tool.ty.rules]
+# This ignore list is a ceiling, not a target: it is exactly the set of rules the tree
+# fails today, so the check can only regress on rules not listed here, and the list is
+# meant to shrink one rule at a time, the same pattern `[tool.ruff.lint].select` uses.
+call-non-callable = "ignore"
+deprecated = "ignore"
+invalid-argument-type = "ignore"
+invalid-assignment = "ignore"
+invalid-attribute-override = "ignore"
+invalid-await = "ignore"
+invalid-method-override = "ignore"
+invalid-overload = "ignore"
+invalid-paramspec = "ignore"
+invalid-protocol = "ignore"
+invalid-raise = "ignore"
+invalid-return-type = "ignore"
+invalid-type-arguments = "ignore"
+invalid-type-form = "ignore"
+missing-argument = "ignore"
+no-matching-overload = "ignore"
+not-iterable = "ignore"
+redundant-condition = "ignore"
+too-many-positional-arguments = "ignore"
+unknown-argument = "ignore"
+unresolved-attribute = "ignore"
+unsupported-operator = "ignore"
