@@ -8,6 +8,7 @@ from collections.abc import Awaitable, Callable
 from concurrent.futures import Executor
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import cast
 
 from .._internal._stability import _default_stability_check
 from .._internal._types import _Rule
@@ -92,7 +93,8 @@ class ArchiveJob:
         Returns:
             `root / "<dest_name()>.<archive_format>"`.
         """
-        return self.root / f"{self.dest_name()}.{self.archive_format.value}"
+        # `__post_init__` resolves `root` to a `Path`; the field keeps the type its callers pass.
+        return cast(Path, self.root) / f"{self.dest_name()}.{self.archive_format.value}"
 
 
 __all__ = ("ArchiveJob",)

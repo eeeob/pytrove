@@ -4,9 +4,9 @@ from __future__ import annotations as _annotations
 
 import json
 import sys
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from dataclasses import asdict, dataclass, fields, is_dataclass
-from enum import EnumMeta as EnumType  # `EnumType` is only an alias for `EnumMeta`, added in 3.11
+from enum import Enum
 from typing import Any, ClassVar, get_args, get_origin
 
 if sys.version_info >= (3, 11):
@@ -15,7 +15,6 @@ else:
     from typing_extensions import Self
 
 from ..data_tools import clean_none_values, enum_to_value, value_to_enum
-from ..iter_tools import iter_flat_cont, to_frozenset
 from ._internal import _resolved_hints
 
 
@@ -38,7 +37,7 @@ class BaseDataClass:
     __public_field_names__: ClassVar[list[str]]
     __private_field_names__: ClassVar[list[str]]
     __raw_private_fields__: ClassVar[frozenset[str]]
-    __enums_types__: ClassVar[frozenset[EnumType]]
+    __enums_types__: ClassVar[frozenset[type[Enum]]]
 
     @classmethod
     def _ensure_field_meta(cls) -> None:
@@ -61,15 +60,17 @@ class BaseDataClass:
         public = []
         private = []
 
-        def _deep_extract(value: Any) -> Iterator[EnumType]:
+        def _deep_extract(value: Any) -> Iterator[type[Enum]]:
             """Yield every enum class inside a type hint, walking `get_origin()`/`get_args()`."""
-            if isinstance(value, EnumType):
+            if isinstance(value, type) and issubclass(value, Enum):
                 yield value
             elif (origin := get_origin(value)) is not None:
                 for arg in (*(get_args(value) or ()), origin):
                     yield from _deep_extract(arg)
 
-        cls.__enums_types__ = to_frozenset(iter_flat_cont(_deep_extract(t) for t in _resolved_hints(cls)))
+        names = {f.name for f in fields(cls)}
+        hints = _resolved_hints(cls)
+        cls.__enums_types__ = frozenset(enum for name in names if name in hints for enum in _deep_extract(hints[name]))
 
         for f in fields(cls):
             name = f.name
@@ -147,7 +148,7 @@ class BaseDataClass:
     @classmethod
     def from_raw_dict(
         cls,
-        data: dict[str, Any],
+        data: Mapping[str, Any],
         without_none_values: bool = False,
         values_to_enums: bool = False,
     ) -> Self:
@@ -165,20 +166,20 @@ class BaseDataClass:
 
         private = cls.__raw_private_fields__
         public = cls.__public_field_names__
-        data = {k: v for k, v in data.items() if k in private or k in public}
+        kept: Mapping[str, Any] = {k: v for k, v in data.items() if k in private or k in public}
 
         if without_none_values:
-            data = clean_none_values(data)
+            kept = clean_none_values(kept)
 
         if values_to_enums and cls.__enums_types__:
-            data = value_to_enum(data, cls.__enums_types__, "v")
+            kept = value_to_enum(kept, cls.__enums_types__, "v")
 
-        return cls(**data)
+        return cls(**kept)
 
     @classmethod
     def from_dict(
         cls,
-        data: dict[str, Any],
+        data: Mapping[str, Any],
         without_none_values: bool = False,
         values_to_enums: bool = False,
     ) -> Self:
@@ -196,19 +197,21 @@ class BaseDataClass:
 
         private = cls.__private_field_names__
         public = cls.__public_field_names__
-        data = {k: v for k, v in data.items() if k in private or k in public}
+        renamed = {k: v for k, v in data.items() if k in private or k in public}
 
         for name in private:
-            if name in data:
-                data[f"_{name}"] = data.pop(name)
+            if name in renamed:
+                renamed[f"_{name}"] = renamed.pop(name)
+
+        kept: Mapping[str, Any] = renamed
 
         if without_none_values:
-            data = clean_none_values(data)
+            kept = clean_none_values(kept)
 
         if values_to_enums and cls.__enums_types__:
-            data = value_to_enum(data, cls.__enums_types__, "v")
+            kept = value_to_enum(kept, cls.__enums_types__, "v")
 
-        return cls(**data)
+        return cls(**kept)
 
     def copy(self) -> Self:
         """Return a deep copy, rebuilt through `to_raw_dict()`.

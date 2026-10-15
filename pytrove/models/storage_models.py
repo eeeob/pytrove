@@ -3,11 +3,11 @@
 from __future__ import annotations as _annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Generic
+from typing import Any, Generic, cast
 
 from ..async_tools import to_thread
 from ..files_tools import read_json, write_json
-from ..typings import LockProtocol, PathLike, _KT, _T, _VT
+from ..typings import JsonValue, LockProtocol, PathLike, _KT, _T, _VT
 from .base import BaseDataClass
 
 
@@ -18,30 +18,57 @@ class JsonContainer(Generic[_KT, _VT], BaseDataClass):
     Attributes:
         path: The JSON file.
         lock: A lock held while the file is read or written.
-        data: The loaded object, or the `object` class itself while nothing is loaded.
+        data: The loaded object, or `None` while nothing is loaded.
     """
 
     path: PathLike
     lock: LockProtocol | None = None
 
-    data: dict[_KT, _VT] | type[object] = field(default=object, init=False)
+    data: dict[_KT, _VT] | None = field(default=None, init=False)
 
     def is_loaded(self) -> bool:
         """Return whether the file has been read."""
-        return self.data is not object
+        return self.data is not None
 
     def unload(self) -> None:
         """Drop the loaded data, so the next access reads the file again."""
-        self.data = object
+        self.data = None
 
     def load(self, **kw: Any) -> None:
         """Read the file, unless it is already loaded.
 
         Args:
             **kw: Passed to `read_json()`.
+
+        Raises:
+            TypeError: If the file does not hold a JSON object.
         """
-        if not self.is_loaded():
-            self.data = read_json(self.path, lock=self.lock, **kw)
+        if self.data is not None:
+            return
+
+        data = read_json(self.path, lock=self.lock, **kw)
+
+        if not isinstance(data, dict):
+            msg = f"JsonContainer needs a JSON object in {self.path}, not {type(data).__name__}"
+            raise TypeError(msg)
+
+        # JSON is untyped: the caller states the shape through `_KT`/`_VT`.
+        self.data = cast(dict[_KT, _VT], data)
+
+    def _loaded_data(self) -> dict[_KT, _VT]:
+        """Return the loaded object.
+
+        Returns:
+            The loaded object.
+
+        Raises:
+            RuntimeError: If nothing is loaded.
+        """
+        if self.data is None:
+            msg = "JsonContainer has no data loaded"
+            raise RuntimeError(msg)
+
+        return self.data
 
     def save(self, **kw: Any) -> None:
         """Write the loaded data to the file.
@@ -52,11 +79,8 @@ class JsonContainer(Generic[_KT, _VT], BaseDataClass):
         Raises:
             RuntimeError: If nothing is loaded.
         """
-        if not self.is_loaded():
-            msg = "JsonContainer has no data loaded to save"
-            raise RuntimeError(msg)
-
-        write_json(self.path, self.data, self.lock, **kw)
+        # The data came from JSON, so it is JSON again whatever `_KT`/`_VT` say.
+        write_json(self.path, cast(JsonValue, self._loaded_data()), self.lock, **kw)
 
     def get(self, key: _KT, default: _T | None = None) -> _VT | _T | None:
         """Return the value under `key`, loading the file first if needed.
@@ -69,7 +93,7 @@ class JsonContainer(Generic[_KT, _VT], BaseDataClass):
             The value, or `default`.
         """
         self.load()
-        return self.data.get(key, default)
+        return self._loaded_data().get(key, default)
 
     def set(self, key: _KT, value: _VT, save_now: bool = False) -> None:
         """Store `value` under `key`, loading the file first if needed.
@@ -81,7 +105,7 @@ class JsonContainer(Generic[_KT, _VT], BaseDataClass):
         """
         self.load()
 
-        self.data[key] = value
+        self._loaded_data()[key] = value
 
         if save_now:
             self.save()
@@ -94,9 +118,10 @@ class JsonContainer(Generic[_KT, _VT], BaseDataClass):
             save_now: Write the file afterwards, if the key was removed.
         """
         self.load()
+        data = self._loaded_data()
 
-        if key in self.data:
-            del self.data[key]
+        if key in data:
+            del data[key]
 
             if save_now:
                 self.save()
@@ -110,7 +135,7 @@ class JsonContainer(Generic[_KT, _VT], BaseDataClass):
         """
         self.load()
 
-        self.data.update(update)
+        self._loaded_data().update(update)
 
         if save_now:
             self.save()
@@ -143,7 +168,7 @@ class JsonContainer(Generic[_KT, _VT], BaseDataClass):
         """
         if not self.is_loaded():
             await self.async_load()
-        return self.data.get(key, default)
+        return self._loaded_data().get(key, default)
 
     async def async_set(self, key: _KT, value: _VT, save_now: bool = False) -> None:
         """Async `set()`: the file is read and written in a thread.
@@ -156,7 +181,7 @@ class JsonContainer(Generic[_KT, _VT], BaseDataClass):
         if not self.is_loaded():
             await self.async_load()
 
-        self.data[key] = value
+        self._loaded_data()[key] = value
 
         if save_now:
             await self.async_save()
@@ -170,9 +195,10 @@ class JsonContainer(Generic[_KT, _VT], BaseDataClass):
         """
         if not self.is_loaded():
             await self.async_load()
+        data = self._loaded_data()
 
-        if key in self.data:
-            del self.data[key]
+        if key in data:
+            del data[key]
 
             if save_now:
                 await self.async_save()
@@ -187,7 +213,7 @@ class JsonContainer(Generic[_KT, _VT], BaseDataClass):
         if not self.is_loaded():
             await self.async_load()
 
-        self.data.update(update)
+        self._loaded_data().update(update)
 
         if save_now:
             await self.async_save()

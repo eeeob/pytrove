@@ -10,7 +10,7 @@ import re
 import sys
 from collections.abc import AsyncIterator, Callable
 from importlib.metadata import PackageNotFoundError, distribution, version
-from typing import Any, Final, TypeAlias
+from typing import Any, Final, TypeAlias, cast
 
 if sys.version_info >= (3, 11):
     from typing import Never
@@ -190,7 +190,8 @@ def _optional_import(*packages: _PackageGroup) -> Callable[[Callable[_P, _T]], C
                 async for item in func(*args, **kwargs):
                     yield item
 
-            return agen_wrapper
+            # Same parameters and result as `func`, which is what `Callable[_P, _T]` states.
+            return cast(Callable[_P, _T], agen_wrapper)
 
         if inspect.iscoroutinefunction(func):
 
@@ -201,7 +202,8 @@ def _optional_import(*packages: _PackageGroup) -> Callable[[Callable[_P, _T]], C
                     raise ImportError(error_msg)
                 return await func(*args, **kwargs)
 
-            return coro_wrapper
+            # Same parameters and result as `func`, which is what `Callable[_P, _T]` states.
+            return cast(Callable[_P, _T], coro_wrapper)
 
         @functools.wraps(func)
         def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:

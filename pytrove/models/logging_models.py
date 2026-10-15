@@ -23,12 +23,12 @@ class LogHandlerOptions(_LoggerModel):
     handler: Handler | io.IOBase | Path | str
     formatter: Formatter | None = None
 
-    def resolve_handler(self) -> FileHandler | StreamHandler:
+    def resolve_handler(self) -> Handler:
         """Replace a path or stream in `handler` with the `Handler` it implies, and return it.
 
         Returns:
             The resolved handler: a UTF-8 `FileHandler` for a path, a
-            `StreamHandler` for a stream.
+            `StreamHandler` for a stream, or `handler` itself.
 
         Raises:
             ValidationError: If `handler` is none of the accepted kinds.
@@ -36,14 +36,15 @@ class LogHandlerOptions(_LoggerModel):
         hdlr = self.handler
 
         if isinstance(hdlr, (Path, str)):
-            self.handler = FileHandler(hdlr, encoding="utf-8")
+            hdlr = FileHandler(hdlr, encoding="utf-8")
         elif isinstance(hdlr, io.IOBase):
-            self.handler = StreamHandler(hdlr)
+            hdlr = StreamHandler(hdlr)
         elif not isinstance(hdlr, Handler):
             msg = f"Invalid Logger Handler {hdlr}"
             raise ValidationError(msg)
 
-        return self.handler
+        self.handler = hdlr
+        return hdlr
 
 
 @dataclass(slots=True, kw_only=True)

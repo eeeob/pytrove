@@ -18,7 +18,7 @@ from __future__ import annotations as _annotations
 import json
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import pytest
 
@@ -150,6 +150,17 @@ def test_base_dataclass_survives_an_unresolvable_annotation() -> None:
     @dataclass
     class Model(BaseDataClass):
         value: NameThatIsNotImportableHere | None = None
+
+    Model._ensure_field_meta()
+
+    assert Model.__enums_types__ == frozenset()
+
+
+def test_only_fields_contribute_enum_types() -> None:
+    @dataclass
+    class Model(BaseDataClass):
+        DEFAULT: ClassVar[Status] = Status.OK
+        note: str = ""
 
     Model._ensure_field_meta()
 

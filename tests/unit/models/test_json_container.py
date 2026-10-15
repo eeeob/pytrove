@@ -23,7 +23,7 @@ def test_json_container_loads_on_first_access_and_unloads(tmp_path: Path) -> Non
     path.write_text('{"a": 1}', encoding="utf-8")
     container = JsonContainer(path)
 
-    assert not container.is_loaded() and container.data is object
+    assert not container.is_loaded() and container.data is None
     assert container.get("a") == 1
     assert container.get("missing", 0) == 0
     assert container.is_loaded()
@@ -69,3 +69,11 @@ async def test_json_container_async_methods(tmp_path: Path) -> None:
     await container.async_delete("b")
     await container.async_update({"d": 4})
     assert container.data == {"c": 3, "d": 4}
+
+
+def test_json_container_refuses_a_file_without_an_object(tmp_path: Path) -> None:
+    path = tmp_path / "store.json"
+    path.write_text("[1, 2]", encoding="utf-8")
+
+    with pytest.raises(TypeError, match="JSON object"):
+        JsonContainer(path).load()

@@ -41,15 +41,16 @@ class _LoggerModel:
         logger = self.logger
 
         if logger is None or isinstance(logger, str):
-            self.logger = getLogger(logger)
+            logger = getLogger(logger)
         elif not isinstance(logger, Logger):
             msg = f"Invalid Logger {logger}"
             raise ValidationError(msg)
 
-        return self.logger
+        self.logger = logger
+        return logger
 
 
-def _resolved_hints(cls: type) -> list[Any]:
+def _resolved_hints(cls: type) -> dict[str, Any]:
     """Return every annotation on `cls` and its bases, each resolved on its own.
 
     `get_type_hints(cls)` resolves all of them together, so one annotation
@@ -62,16 +63,16 @@ def _resolved_hints(cls: type) -> list[Any]:
         cls: The class to read.
 
     Returns:
-        The resolved annotations, base classes first.
+        Each resolvable annotation by name; a subclass's annotation replaces its base's.
     """
-    hints = []
+    hints: dict[str, Any] = {}
 
     for klass in reversed(cls.__mro__):
         for name, annotation in inspect.get_annotations(klass).items():
             holder = type("_AnnotationHolder", (), {"__annotations__": {name: annotation}, "__module__": klass.__module__})
 
             try:
-                hints.append(get_type_hints(holder)[name])
+                hints[name] = get_type_hints(holder)[name]
             except NameError:
                 continue
 

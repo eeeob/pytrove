@@ -28,7 +28,7 @@ class _Child(_Base):
 
 
 def test_resolved_hints_skips_unresolvable_annotations() -> None:
-    assert _resolved_hints(_Child) == [TimeUnit, int]
+    assert _resolved_hints(_Child) == {"unit": TimeUnit, "count": int}
 
 
 def test_inv_phi_is_the_golden_ratio_step() -> None:
