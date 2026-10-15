@@ -1,40 +1,49 @@
+"""Timestamps, dates in UTC and UTC+3, and Arabic time display."""
+
 from __future__ import annotations as _annotations
 
-from typing import overload
-from datetime import datetime, timezone, timedelta
-
-from .typings import _False, _True, Number
-from .enums import TimeUnit
-
 import time
+from datetime import datetime, timedelta, timezone
+from typing import Final, overload
 
+from .enums import TimeUnit
+from .typings import Number, _False, _True
 
-# A fixed offset from UTC (not the machine's local zone): datetime.now(tz)
-# converts the current UTC instant, so the result is the same on any host.
-UTC_PLUS_3 = timezone(timedelta(seconds=TimeUnit.HOUR * 3))
+UTC_PLUS_3: Final[timezone] = timezone(timedelta(seconds=TimeUnit.HOUR * 3))
+"""A fixed UTC+3 offset, independent of the machine's local zone."""
 
 
 @overload
 def stamp_to_date(
-    stamp_time: Number, #utc
+    stamp_time: Number,
     tz: timezone | None = ...,
     as_str: _False = ...,
-    with_tzinfo: bool = ...
+    with_tzinfo: bool = ...,
 ) -> datetime: ...
 @overload
 def stamp_to_date(
     stamp_time: Number,
     tz: timezone | None = ...,
     as_str: _True = ...,
-    with_tzinfo: bool = ...
+    with_tzinfo: bool = ...,
 ) -> str: ...
 def stamp_to_date(
     stamp_time: Number,
     tz: timezone | None = timezone.utc,
     as_str: bool = False,
-    with_tzinfo: bool = False
-    ):
+    with_tzinfo: bool = False,
+) -> datetime | str:
+    """Turn a Unix timestamp into a date in a time zone.
 
+    Args:
+        stamp_time: Seconds since the epoch.
+        tz: The zone to express it in; `None` for the machine's local zone.
+        as_str: Whether to return `str(date)` instead of the `datetime`.
+        with_tzinfo: Whether to keep the zone and microseconds; otherwise both are dropped.
+
+    Returns:
+        The date, or its string form.
+    """
     date = datetime.fromtimestamp(stamp_time, tz)
 
     if not with_tzinfo:
@@ -44,26 +53,29 @@ def stamp_to_date(
 
 
 @overload
-def date_to_stamp(
-    date: str,
-    tz: timezone | None = ...,
-    format: str = ...,
-    as_int: _True = ...
-) -> int: ...
+def date_to_stamp(date: str, tz: timezone | None = ..., format: str = ..., as_int: _True = ...) -> int: ...
 @overload
-def date_to_stamp(
-    date: str,
-    tz: timezone | None = ...,
-    format: str = ...,
-    as_int: _False = ...
-) -> float: ...
+def date_to_stamp(date: str, tz: timezone | None = ..., format: str = ..., as_int: _False = ...) -> float: ...
 def date_to_stamp(
     date: str,
     tz: timezone | None = timezone.utc,
     format: str = "%d %b %Y, %H:%M",
-    as_int: bool = True
-    ):
-    
+    as_int: bool = True,
+) -> int | float:
+    """Turn a date string into a Unix timestamp.
+
+    Args:
+        date: The date text.
+        tz: The zone a date without one is read in; `None` for local time.
+        format: The `strptime` format of `date`.
+        as_int: Whether to drop the fractional seconds.
+
+    Returns:
+        Seconds since the epoch.
+
+    Raises:
+        ValueError: If `date` does not match `format`.
+    """
     dt = datetime.strptime(date, format)
 
     if dt.tzinfo is None and tz is not None:
@@ -73,20 +85,19 @@ def date_to_stamp(
 
 
 @overload
-def date_utc_3(
-    as_str: _False = ...,
-    with_tzinfo: bool = ...
-) -> datetime: ...
+def date_utc_3(as_str: _False = ..., with_tzinfo: bool = ...) -> datetime: ...
 @overload
-def date_utc_3(
-    as_str: _True = ...,
-    with_tzinfo: bool = ...
-) -> str: ...
-def date_utc_3(
-    as_str: bool = False,
-    with_tzinfo: bool = False
-    ):
+def date_utc_3(as_str: _True = ..., with_tzinfo: bool = ...) -> str: ...
+def date_utc_3(as_str: bool = False, with_tzinfo: bool = False) -> datetime | str:
+    """Return the current date and time in UTC+3.
 
+    Args:
+        as_str: Whether to return `str(date)` instead of the `datetime`.
+        with_tzinfo: Whether to keep the zone and microseconds.
+
+    Returns:
+        The current date in UTC+3, or its string form.
+    """
     date = datetime.now(UTC_PLUS_3)
 
     if not with_tzinfo:
@@ -96,20 +107,19 @@ def date_utc_3(
 
 
 @overload
-def date_utc(
-    as_str: _False = ...,
-    with_tzinfo: bool = ...
-) -> datetime: ...
+def date_utc(as_str: _False = ..., with_tzinfo: bool = ...) -> datetime: ...
 @overload
-def date_utc(
-    as_str: _True = ...,
-    with_tzinfo: bool = ...
-) -> str: ...
-def date_utc(
-    as_str: bool = False,
-    with_tzinfo: bool = False
-    ):
+def date_utc(as_str: _True = ..., with_tzinfo: bool = ...) -> str: ...
+def date_utc(as_str: bool = False, with_tzinfo: bool = False) -> datetime | str:
+    """Return the current date and time in UTC.
 
+    Args:
+        as_str: Whether to return `str(date)` instead of the `datetime`.
+        with_tzinfo: Whether to keep the zone and microseconds.
+
+    Returns:
+        The current date in UTC, or its string form.
+    """
     date = datetime.now(timezone.utc)
 
     if not with_tzinfo:
@@ -122,14 +132,18 @@ def date_utc(
 def time_utc_3() -> float: ...
 @overload
 def time_utc_3(as_int: _True) -> int: ...
-def time_utc_3(as_int: bool = False):
-    """Unix timestamp shifted forward by 3 hours.
+def time_utc_3(as_int: bool = False) -> int | float:
+    """Return the Unix timestamp shifted forward by three hours.
 
-    A Unix timestamp is already zone-independent, so this value is NOT the
-    real time in UTC+3 -- it is 3 hours ahead of time_utc(). Kept for
-    backward compatibility; use time_utc() for the actual timestamp.
+    A timestamp has no zone, so this is not the time in UTC+3: it is
+    `time_utc()` plus three hours, kept for backward compatibility.
+
+    Args:
+        as_int: Whether to drop the fractional seconds.
+
+    Returns:
+        The shifted timestamp.
     """
-
     stamp_time = time.time() + TimeUnit.HOUR * 3
     return int(stamp_time) if as_int else stamp_time
 
@@ -138,36 +152,44 @@ def time_utc_3(as_int: bool = False):
 def time_utc(as_int: _False = ...) -> float: ...
 @overload
 def time_utc(as_int: _True) -> int: ...
-def time_utc(as_int: bool = False):
+def time_utc(as_int: bool = False) -> int | float:
+    """Return the current Unix timestamp.
+
+    Args:
+        as_int: Whether to drop the fractional seconds.
+
+    Returns:
+        Seconds since the epoch.
+    """
     stamp_time = time.time()
     return int(stamp_time) if as_int else stamp_time
 
 
-
 def arabic_time(date: datetime | None = None) -> str:
+    """Say a time of day in Arabic, on a 12-hour clock.
+
+    Minutes and seconds are mentioned only when not zero.
+
+    Args:
+        date: The time to say; the current UTC+3 time by default.
+
+    Returns:
+        The time, such as `"الساعة 3 و 5 دقيقة مساءً"`.
+    """
     if date is None:
         date = date_utc_3()
 
-    hours = date.hour
-    minutes = date.minute
-    seconds = date.second
-
-    period = "صباحًا" if hours < 12 else "مساءً"
-    hours = hours % 12
-    hours = 12 if hours == 0 else hours
-
+    period = "صباحًا" if date.hour < 12 else "مساءً"
+    hours = date.hour % 12 or 12
     result = f"الساعة {hours} "
 
-    if minutes > 0:
-        result += f"و {minutes} دقيقة "
+    if date.minute > 0:
+        result += f"و {date.minute} دقيقة "
 
-    if seconds > 0:
-        result += f"و {seconds} ثانية "
+    if date.second > 0:
+        result += f"و {date.second} ثانية "
 
-    result += f"{period}"
-
-    return result
-
+    return result + period
 
 
 __all__ = (
@@ -178,4 +200,5 @@ __all__ = (
     "time_utc_3",
     "time_utc",
     "arabic_time",
+    "UTC_PLUS_3",
 )
