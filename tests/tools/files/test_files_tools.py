@@ -12,7 +12,7 @@ from pathlib import Path
 from pytrove import (atomic_write, ensure_dir, load_json, remove_file,
                      remove_folder, remove_path, save_json, truncate_file,
                      write_file)
-from pytrove._files_tools import _MkdirOptions
+from pytrove.files_tools._internal import _MkdirOptions
 from pytrove.enums import TruncateSide
 from pytrove.errors import ValidationError
 
