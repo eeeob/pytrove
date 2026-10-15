@@ -3,7 +3,9 @@
 from __future__ import annotations as _annotations
 
 import logging
+import time
 from collections.abc import Iterator
+from datetime import datetime, timedelta, timezone
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, overload
@@ -11,6 +13,21 @@ from typing import Any, overload
 from .iter_tools import iter_flat_cont
 from .models import LoggerOptions, LogHandlerOptions
 from .typings import Container, NestedContainer, _False, _True
+
+
+class UTC3LogFormatter(logging.Formatter):
+    """A formatter that writes record times in UTC+3, whatever the machine's zone."""
+
+    def converter(self, stamp: float) -> time.struct_time:
+        """Convert a record's timestamp to UTC+3.
+
+        Args:
+            stamp: The record's Unix timestamp.
+
+        Returns:
+            The time tuple in UTC+3.
+        """
+        return datetime.fromtimestamp(stamp, tz=timezone(timedelta(hours=3))).timetuple()
 
 
 def flush_logger_handler(handler: logging.Handler | None = None) -> None:
@@ -132,4 +149,5 @@ __all__ = (
     "attach_logger_handlers",
     "set_loggers",
     "get_rotating_log_files",
+    "UTC3LogFormatter",
 )

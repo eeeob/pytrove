@@ -17,7 +17,7 @@ import pytest
 from pytrove import (clean_none_kw, clean_none_values, enum_to_value,
                      get_nested_dict_value, map_deep, map_deep_kv, snapshot,
                      value_to_enum)
-from pytrove.classes import (DefaultWeakKeyDict, DefaultWeakValueDict,
+from pytrove.data_tools import (DefaultWeakKeyDict, DefaultWeakValueDict,
                              KeyDefaultDict, KeyDefaultWeakKeyDict,
                              KeyDefaultWeakValueDict)
 from pytrove.data_tools import get_nested_dict_key

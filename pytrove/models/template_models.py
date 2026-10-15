@@ -59,7 +59,7 @@ from ..date_tools import arabic_time
 from ..validate_tools import is_mapping, is_container
 from ..iter_tools import to_frozenset
 from ..files_tools import load_ref_json, read_json
-from ..classes import classproperty
+from ..object_tools import classproperty
 from .base import BaseDataClass
 
 

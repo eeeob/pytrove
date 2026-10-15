@@ -1,5 +1,5 @@
 import pytest
-from pytrove.misc_tools import walk_subclasses
+from pytrove.object_tools import walk_subclasses
 from pytrove import generate_secret, patch_cls
 
 

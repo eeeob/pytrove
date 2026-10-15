@@ -11,7 +11,6 @@ from . import (
     archive_tools,
     async_tools,
     callable_tools,
-    classes,
     country_tools,
     crypto_tools,
     data_tools,
@@ -20,7 +19,8 @@ from . import (
     files_tools,
     iter_tools,
     logging_tools,
-    misc_tools,
+    mongo_tools,
+    object_tools,
     num_tools,
     phone_tools,
     text_tools,
@@ -36,7 +36,8 @@ from .archive_tools import *
 from .iter_tools import *
 from .text_tools import *
 from .async_tools import *
-from .misc_tools import *
+from .mongo_tools import *
+from .object_tools import *
 from .tg_tools import *
 from .phone_tools import *
 from .country_tools import *
@@ -45,7 +46,6 @@ from .data_tools import *
 from .callable_tools import *
 from .logging_tools import *
 from .email_tools import *
-from .classes import *
 
 __all__ = (
     *validate_tools.__all__,
@@ -56,7 +56,8 @@ __all__ = (
     *iter_tools.__all__,
     *text_tools.__all__,
     *async_tools.__all__,
-    *misc_tools.__all__,
+    *mongo_tools.__all__,
+    *object_tools.__all__,
     *tg_tools.__all__,
     *phone_tools.__all__,
     *country_tools.__all__,
@@ -65,5 +66,4 @@ __all__ = (
     *callable_tools.__all__,
     *logging_tools.__all__,
     *email_tools.__all__,
-    *classes.__all__,
 )

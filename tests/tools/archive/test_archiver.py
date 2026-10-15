@@ -4,7 +4,7 @@ import zipfile
 
 import pytest
 
-from pytrove.classes import PeriodicArchiver
+from pytrove.archive_tools import PeriodicArchiver
 from pytrove.models import ArchiveJob
 from pytrove.enums import ArchiveFormat
 
@@ -102,7 +102,7 @@ async def test_create_forwards_every_remaining_compress_folder_option(tree, monk
         dest.write_text("x")
         return dest
 
-    import pytrove.classes.archiver as archiver_module
+    import pytrove.archive_tools.periodic as archiver_module
     monkeypatch.setattr(archiver_module, "compress_folder", fake_compress_folder)
 
     job = make_job(
@@ -148,7 +148,7 @@ async def test_run_job_updates_the_jobs_own_last_run(tree, monkeypatch):
     archiver = PeriodicArchiver([job])
     stamp_before = job.last_run
 
-    import pytrove.classes.archiver as archiver_module
+    import pytrove.archive_tools.periodic as archiver_module
     monkeypatch.setattr(archiver_module.time, "monotonic", lambda: stamp_before + 1000)
 
     await archiver.run_job(job)
@@ -182,7 +182,7 @@ async def test_run_job_with_no_on_error_swallows_and_logs(tree, caplog):
     archiver = PeriodicArchiver([job])
 
     import logging
-    with caplog.at_level(logging.ERROR, logger="pytrove.classes.archiver"):
+    with caplog.at_level(logging.ERROR, logger="pytrove.archive_tools.periodic"):
         await archiver.run_job(job)  # must not raise
 
     assert "out" in caplog.text
@@ -281,7 +281,7 @@ async def test_two_jobs_sharing_a_name_do_not_block_each_other(tree, tmp_path):
 # --- locks ------------------------------------------------------------
 
 async def test_locks_are_created_lazily_and_held_only_weakly(tree):
-    from pytrove.classes.misc_classes import DefaultWeakValueDict
+    from pytrove.data_tools import DefaultWeakValueDict
 
     job = make_job(tree)
     archiver = PeriodicArchiver([job])

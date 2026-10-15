@@ -5,7 +5,8 @@ from typing import Any
 
 import pytest
 
-from pytrove.misc_tools import generate_secret, patch_cls, patch_into, unwrap, unwrap_cls
+from pytrove.crypto_tools import generate_secret
+from pytrove.object_tools import patch_cls, patch_into, unwrap, unwrap_cls
 
 
 def _decorate(func: Any) -> Any:
