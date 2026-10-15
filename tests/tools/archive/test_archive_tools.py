@@ -22,15 +22,16 @@ from pathlib import Path
 import pytest
 
 import pytrove
-import pytrove._archive_tools as internals
+from pytrove.archive_tools._internal import backends, compressor, extractor, limiter, rules, stable
 from pytrove._internal._stability import _STABILITY_MIN_SIZE
 import pytrove.enums
 from pytrove import backup_folder, compress_folder, extract_archive
 from pytrove.enums import ArchiveFormat
 from pytrove.errors import (ArchiveLimitError, ArchivePolicyError,
                             ValidationError)
-from pytrove._archive_tools import ArchiveLimits
-from pytrove._archive_tools import _Extractor, _Filter
+from pytrove.typings import ArchiveLimits
+from pytrove.archive_tools._internal.extractor import _Extractor
+from pytrove.archive_tools._internal.rules import _Filter
 
 # The optional backends are the modules themselves, or None. There is no
 # parallel set of flags any more, so a test forcing one path puts None
@@ -54,13 +55,13 @@ def _safe_target(dest, name, cache=None):
 
     e = _Extractor(dest, dest, _Filter.from_rules((), ()))
     e._root = dest
-    e._limiter = internals._Limiter(ArchiveLimits(), dest)
+    e._limiter = limiter._Limiter(ArchiveLimits(), dest)
 
     if cache is not None:
         e._cleared = cache
 
-    return e._place(internals._Member(name, None, 0, 0, "dir"))
-HAS_ZSTD = internals.std_zstd is not None or internals.zstandard is not None
+    return e._place(limiter._Member(name, None, 0, 0, "dir"))
+HAS_ZSTD = backends.std_zstd is not None or backends.zstandard is not None
 
 
 # tar.zst needs the `archive` extra; the other two are stdlib-only.
@@ -167,7 +168,7 @@ def test_include_narrows_to_a_subtree(tree, tmp_path):
     }
 
 
-@pytest.mark.skipif(internals.PathSpec is None, reason="fnmatch has no segment boundary")
+@pytest.mark.skipif(backends.PathSpec is None, reason="fnmatch has no segment boundary")
 def test_a_single_star_stops_at_the_separator(tree, tmp_path):
     # gitignore's rule, and the reason "**" exists at all: "sub/*" is the
     # direct children of sub. Under the fnmatch fallback "*" spans "/" and
@@ -408,7 +409,7 @@ def test_traversal_attempts_are_logged(tmp_path, caplog):
         zf.writestr("ok.txt", "fine")
         zf.writestr("../VICTIM.txt", "PWNED")
 
-    with caplog.at_level("WARNING", logger="pytrove._archive_tools"):
+    with caplog.at_level("WARNING", logger="pytrove.archive_tools"):
         extract_archive(evil, dest)
 
     assert "refused unsafe member name" in caplog.text
@@ -424,7 +425,7 @@ def test_non_regular_members_are_logged(tmp_path, caplog):
         link.linkname = str(tmp_path)
         tf.addfile(link)
 
-    with caplog.at_level("INFO", logger="pytrove._archive_tools"):
+    with caplog.at_level("INFO", logger="pytrove.archive_tools"):
         extract_archive(evil, tmp_path / "d", limits=ArchiveLimits(symlinks="skip"))
 
     assert "skipped symlink member" in caplog.text
@@ -444,7 +445,7 @@ def test_an_unreadable_file_is_logged_rather_than_dropped_in_silence(tree, tmp_p
 
     monkeypatch.setattr(zf_mod.ZipFile, "write", failing)
 
-    with caplog.at_level("WARNING", logger="pytrove._archive_tools"):
+    with caplog.at_level("WARNING", logger="pytrove.archive_tools"):
         archive = compress_folder(tree, tmp_path / "u.zip", fsync=False)
 
     assert "b.txt" not in _names(archive)
@@ -452,7 +453,7 @@ def test_an_unreadable_file_is_logged_rather_than_dropped_in_silence(tree, tmp_p
 
 
 def test_a_clean_run_logs_nothing(tree, tmp_path, caplog):
-    with caplog.at_level("WARNING", logger="pytrove._archive_tools"):
+    with caplog.at_level("WARNING", logger="pytrove.archive_tools"):
         archive = backup_folder(tree, tmp_path / "c.zip", fsync=False)
         extract_archive(archive, tmp_path / "cx")
 
@@ -464,9 +465,9 @@ def test_a_clean_run_logs_nothing(tree, tmp_path, caplog):
 # skipped when it is not.
 ZSTD_BACKENDS = [
     pytest.param("stdlib", marks=pytest.mark.skipif(
-        internals.std_zstd is None, reason="no compression.zstd (needs 3.14+)")),
+        backends.std_zstd is None, reason="no compression.zstd (needs 3.14+)")),
     pytest.param("zstandard", marks=pytest.mark.skipif(
-        internals.zstandard is None, reason="zstandard not installed")),
+        backends.zstandard is None, reason="zstandard not installed")),
 ]
 
 
@@ -475,7 +476,7 @@ def backend(request, monkeypatch):
     """Force one zstd backend for the duration of a test."""
 
     if request.param == "zstandard":
-        monkeypatch.setattr(internals, "std_zstd", None)
+        monkeypatch.setattr(backends, "std_zstd", None)
 
     return request.param
 
@@ -508,22 +509,22 @@ def test_each_zstd_backend_accepts_workers(tree, tmp_path, backend):
 
 
 @pytest.mark.skipif(
-    internals.std_zstd is None or internals.zstandard is None,
+    backends.std_zstd is None or backends.zstandard is None,
     reason="needs both backends to compare them",
 )
 def test_the_two_zstd_backends_read_each_other(tree, tmp_path, monkeypatch):
     made = {}
-    real = internals.std_zstd
+    real = backends.std_zstd
 
     for name in ("stdlib", "zstandard"):
-        monkeypatch.setattr(internals, "std_zstd", real if name == "stdlib" else None)
+        monkeypatch.setattr(backends, "std_zstd", real if name == "stdlib" else None)
         made[name] = compress_folder(
             tree, tmp_path / f"{name}.tar.zst", format="tar.zst", fsync=False,
         )
 
     for written, archive in made.items():
         for reader in ("stdlib", "zstandard"):
-            monkeypatch.setattr(internals, "std_zstd",
+            monkeypatch.setattr(backends, "std_zstd",
                                 real if reader == "stdlib" else None)
             out = tmp_path / f"o_{written}_{reader}"
             extract_archive(archive, out)
@@ -535,10 +536,10 @@ def test_missing_both_backends_names_the_right_cure(tree, tmp_path, monkeypatch)
     # _require_zstd reads the two backend handles from where they are
     # imported, which is _archive_tools -- archive_tools calls it, it does
     # not hold them.
-    import pytrove._archive_tools as internals
+    from pytrove.archive_tools._internal import backends
 
-    monkeypatch.setattr(internals, "std_zstd", None)
-    monkeypatch.setattr(internals, "zstandard", None)
+    monkeypatch.setattr(backends, "std_zstd", None)
+    monkeypatch.setattr(backends, "zstandard", None)
 
     with pytest.raises(ImportError) as caught:
         compress_folder(tree, tmp_path / "n.tar.zst", format="tar.zst")
@@ -655,7 +656,7 @@ def test_the_default_compresses_on_the_calling_thread(tree, tmp_path, kw, monkey
     assert used == {threading.get_ident()}
 
 
-@pytest.mark.skipif(internals.WZip is None, reason="fastzip not importable here")
+@pytest.mark.skipif(backends.WZip is None, reason="fastzip not importable here")
 def test_workers_goes_through_fastzip(tree, tmp_path, monkeypatch):
     # With fastzip present, asking for workers must not fall back to the
     # serial zipfile path -- ZipFile.write should never be reached.
@@ -666,11 +667,11 @@ def test_workers_goes_through_fastzip(tree, tmp_path, monkeypatch):
     assert used == set()
 
 
-@pytest.mark.skipif(internals.WZip is not None, reason="needs fastzip to be absent")
+@pytest.mark.skipif(backends.WZip is not None, reason="needs fastzip to be absent")
 def test_workers_without_fastzip_warns_and_still_works(tree, tmp_path, caplog):
     # Degrading in silence is the thing this library refuses to do: the
     # archive is still correct, only slower, and the log says why.
-    with caplog.at_level("WARNING", logger="pytrove._archive_tools"):
+    with caplog.at_level("WARNING", logger="pytrove.archive_tools"):
         archive = compress_folder(tree, tmp_path / "nf.zip", workers=4, fsync=False)
 
     assert "fastzip" in caplog.text
@@ -1120,7 +1121,7 @@ def test_workers_on_a_tar_is_ignored_and_said_so(tree, tmp_path, caplog, label, 
         workers = ThreadPoolExecutor(2)
 
     try:
-        with caplog.at_level("WARNING", logger="pytrove._archive_tools"):
+        with caplog.at_level("WARNING", logger="pytrove.archive_tools"):
             extract_archive(archive, dest, workers=workers)
     finally:
         if isinstance(workers, ThreadPoolExecutor):
@@ -1133,7 +1134,7 @@ def test_workers_on_a_tar_is_ignored_and_said_so(tree, tmp_path, caplog, label, 
 def test_workers_on_a_tar_says_nothing_when_it_was_not_passed(tree, tmp_path, caplog):
     archive = compress_folder(tree, tmp_path / "q.tar.gz", format="tar.gz", fsync=False)
 
-    with caplog.at_level("WARNING", logger="pytrove._archive_tools"):
+    with caplog.at_level("WARNING", logger="pytrove.archive_tools"):
         extract_archive(archive, tmp_path / "qx")
 
     assert "workers" not in caplog.text
@@ -1222,7 +1223,7 @@ def test_a_password_extracts_a_zipcrypto_archive(tmp_path):
 def test_a_password_on_a_tar_is_reported_rather_than_ignored(tree, tmp_path, caplog):
     archive = compress_folder(tree, tmp_path / "p.tar.gz", format="tar.gz", fsync=False)
 
-    with caplog.at_level("WARNING", logger="pytrove._archive_tools"):
+    with caplog.at_level("WARNING", logger="pytrove.archive_tools"):
         extract_archive(archive, tmp_path / "px", password="unused")
 
     assert "no encryption of its own" in caplog.text
@@ -1400,8 +1401,8 @@ def test_a_name_is_resolved_after_the_members_ahead_of_it_are_written(tmp_path):
     # deciding all the paths first and writing afterwards is exactly the
     # window a Zip Slip through a planted link needs.
     order = []
-    real_place = internals._Extractor._place
-    real_link = internals._Extractor._link
+    real_place = extractor._Extractor._place
+    real_link = extractor._Extractor._link
 
     def spy_place(self, m):
         order.append(("resolve", m.name))
@@ -1424,12 +1425,12 @@ def test_a_name_is_resolved_after_the_members_ahead_of_it_are_written(tmp_path):
     dest = tmp_path / "sx"
 
     try:
-        internals._Extractor._place = spy_place
-        internals._Extractor._link = spy_link
+        extractor._Extractor._place = spy_place
+        extractor._Extractor._link = spy_link
         extract_archive(arc, dest, limits=ArchiveLimits.permissive())
     finally:
-        internals._Extractor._place = real_place
-        internals._Extractor._link = real_link
+        extractor._Extractor._place = real_place
+        extractor._Extractor._link = real_link
 
     assert order == [("resolve", "sub"), ("link", "sub"),
                      ("resolve", "sub/evil.txt")]
@@ -1909,7 +1910,7 @@ def test_a_raw_symlinks_string_picks_the_same_branch_as_its_enum(tmp_path, caplo
         dest = tmp_path / f"sym_{policy}_{tag}"
         caplog.clear()
 
-        with caplog.at_level("WARNING", logger="pytrove._archive_tools"):
+        with caplog.at_level("WARNING", logger="pytrove.archive_tools"):
             try:
                 extract_archive(arc, dest, limits=limits)
                 landed = sorted(p.name for p in dest.rglob("*"))
@@ -2029,17 +2030,17 @@ def test_a_directory_is_only_put_to_enter_once(tmp_path):
             zf.writestr(n, b"x")
 
     asked = []
-    real_enter = internals._Filter.enter
+    real_enter = rules._Filter.enter
 
     def spy(self, rel, entry=None):
         asked.append(rel)
         return real_enter(self, rel, entry)
 
     try:
-        internals._Filter.enter = spy
+        rules._Filter.enter = spy
         extract_archive(arc, tmp_path / "out", exclude="matches-nothing")
     finally:
-        internals._Filter.enter = real_enter
+        rules._Filter.enter = real_enter
 
     assert asked, "the filter was never consulted at all"
     assert len(asked) == len(set(asked)), (
@@ -2350,7 +2351,7 @@ def test_the_merge_walks_with_a_stack_and_not_with_frames(tmp_path):
     # _is_dir is the probe because _graft is the only thing that
     # calls it, once per entry it looks at.
     depths = []
-    real = internals._is_dir
+    real = extractor._is_dir
 
     def watching(path):
         n, frame = 0, sys._getframe()
@@ -2383,12 +2384,12 @@ def test_the_merge_walks_with_a_stack_and_not_with_frames(tmp_path):
     bottom = dest.joinpath(*(["a"] * levels))
     (bottom / "keep.txt").write_text("keep")
 
-    internals._is_dir = watching
+    extractor._is_dir = watching
 
     try:
         extract_archive(archive, dest, atomic=True)
     finally:
-        internals._is_dir = real
+        extractor._is_dir = real
 
     assert (bottom / "leaf.txt").read_text() == "leaf"
     assert (bottom / "keep.txt").read_text() == "keep"
@@ -2618,7 +2619,7 @@ def test_a_member_the_policy_refuses_is_never_counted():
     # by what they refuse. `overwrite` is asked first, so a member it turns
     # away leaves every tally exactly where it was.
     dest = Path("dest")
-    lim = internals._Limiter(
+    lim = limiter._Limiter(
         ArchiveLimits(overwrite="skip", max_dir_entries=10), Path("a.zip"))
 
     assert lim.allows_target("sub/a.txt", dest / "sub" / "a.txt") is True
@@ -2642,10 +2643,10 @@ class _FakeStat:
 def test_same_stat_compares_size_mtime_and_ctime():
     base = _FakeStat(1, 1, 1)
 
-    assert internals._same_stat(base, _FakeStat(1, 1, 1)) is True
-    assert internals._same_stat(base, _FakeStat(2, 1, 1)) is False
-    assert internals._same_stat(base, _FakeStat(1, 2, 1)) is False
-    assert internals._same_stat(base, _FakeStat(1, 1, 2)) is False
+    assert stable._same_stat(base, _FakeStat(1, 1, 1)) is True
+    assert stable._same_stat(base, _FakeStat(2, 1, 1)) is False
+    assert stable._same_stat(base, _FakeStat(1, 2, 1)) is False
+    assert stable._same_stat(base, _FakeStat(1, 1, 2)) is False
 
 
 def test_read_stable_settles_on_the_first_attempt_when_nothing_changes(tmp_path):
@@ -2653,7 +2654,7 @@ def test_read_stable_settles_on_the_first_attempt_when_nothing_changes(tmp_path)
     content = b"hello world" * 100
     target.write_bytes(content)
 
-    tmp, st, settled = internals._read_stable(str(target), retries=3)
+    tmp, st, settled = stable._read_stable(str(target), retries=3)
     try:
         assert settled is True
         assert st.st_size == len(content)
@@ -2671,7 +2672,7 @@ def test_read_stable_retries_until_two_stats_agree(tmp_path, monkeypatch):
     # samefile check calls os.stat too, which would otherwise consume from
     # this same faked sequence for a reason unrelated to what this test is
     # about.
-    monkeypatch.setattr(internals.shutil, "copyfile", lambda src, dst: None)
+    monkeypatch.setattr(stable.shutil, "copyfile", lambda src, dst: None)
 
     # Attempt 1: before=(0) after=(1) -- disagree, retried.
     # Attempt 2: before=(2) after=(2) -- agree, settled.
@@ -2679,9 +2680,9 @@ def test_read_stable_retries_until_two_stats_agree(tmp_path, monkeypatch):
         _FakeStat(0, 0), _FakeStat(1, 0),
         _FakeStat(2, 0), _FakeStat(2, 0),
     ])
-    monkeypatch.setattr(internals.os, "stat", lambda path: next(stats))
+    monkeypatch.setattr(stable.os, "stat", lambda path: next(stats))
 
-    tmp, st, settled = internals._read_stable(str(target), retries=3)
+    tmp, st, settled = stable._read_stable(str(target), retries=3)
     try:
         assert settled is True
     finally:
@@ -2692,12 +2693,12 @@ def test_read_stable_gives_up_after_its_retry_budget(monkeypatch, tmp_path):
     target = tmp_path / "f.bin"
     target.write_bytes(b"x")
 
-    monkeypatch.setattr(internals.shutil, "copyfile", lambda src, dst: None)
+    monkeypatch.setattr(stable.shutil, "copyfile", lambda src, dst: None)
 
     sizes = iter(range(20))
-    monkeypatch.setattr(internals.os, "stat", lambda path: _FakeStat(next(sizes), 0))
+    monkeypatch.setattr(stable.os, "stat", lambda path: _FakeStat(next(sizes), 0))
 
-    tmp, st, settled = internals._read_stable(str(target), retries=2)
+    tmp, st, settled = stable._read_stable(str(target), retries=2)
     try:
         assert settled is False
     finally:
@@ -2710,7 +2711,7 @@ def test_read_stable_sets_the_temp_file_mtime_and_mode_from_the_verified_stat(tm
     os.chmod(target, 0o600)
     st = target.stat()
 
-    tmp, _, settled = internals._read_stable(str(target), retries=0)
+    tmp, _, settled = stable._read_stable(str(target), retries=0)
     try:
         assert settled is True
         tmp_st = os.stat(tmp)
@@ -2728,10 +2729,10 @@ def test_warn_if_changed_logs_when_the_stat_differs_after_the_write(tmp_path, mo
     before = target.stat()
 
     # Simulate the file having changed by the time the "after" stat runs.
-    monkeypatch.setattr(internals.os, "stat", lambda path: _FakeStat(999, 0))
+    monkeypatch.setattr(stable.os, "stat", lambda path: _FakeStat(999, 0))
 
     with caplog.at_level("WARNING"):
-        internals._warn_if_changed(str(target), before)
+        stable._warn_if_changed(str(target), before)
 
     assert "changed while being archived" in caplog.text
 
@@ -2742,7 +2743,7 @@ def test_warn_if_changed_is_silent_when_nothing_changed(tmp_path, caplog):
     before = target.stat()
 
     with caplog.at_level("WARNING"):
-        internals._warn_if_changed(str(target), before)
+        stable._warn_if_changed(str(target), before)
 
     assert caplog.text == ""
 
@@ -2752,7 +2753,7 @@ def test_warn_if_changed_does_nothing_without_a_before_stat(tmp_path, caplog):
     target.write_bytes(b"x")
 
     with caplog.at_level("WARNING"):
-        internals._warn_if_changed(str(target), None)
+        stable._warn_if_changed(str(target), None)
 
     assert caplog.text == ""
 
@@ -2764,7 +2765,7 @@ def test_warn_if_changed_is_silent_if_the_file_is_gone_by_the_second_stat(tmp_pa
     target.unlink()
 
     with caplog.at_level("WARNING"):
-        internals._warn_if_changed(str(target), before)
+        stable._warn_if_changed(str(target), before)
 
     assert caplog.text == ""
 
@@ -2780,7 +2781,7 @@ def test_the_direct_write_still_runs_warn_if_changed_when_stability_retries_is_z
     (src / "f.bin").write_bytes(b"hello")
 
     calls = []
-    monkeypatch.setattr(internals, "_warn_if_changed", lambda path, before: calls.append(path))
+    monkeypatch.setattr(stable, "_warn_if_changed", lambda path, before: calls.append(path))
 
     compress_folder(src, tmp_path / "w", format=fmt, fsync=False)
 
@@ -2799,7 +2800,7 @@ def test_a_small_file_still_runs_warn_if_changed_even_with_stability_retries_set
     (src / "small.txt").write_bytes(b"tiny")
 
     calls = []
-    monkeypatch.setattr(internals, "_warn_if_changed", lambda path, before: calls.append(path))
+    monkeypatch.setattr(stable, "_warn_if_changed", lambda path, before: calls.append(path))
 
     compress_folder(src, tmp_path / "w", format=fmt, stability_retries=5, fsync=False)
 
@@ -2859,7 +2860,7 @@ def test_stability_check_returning_false_leaves_a_large_file_unguarded(tmp_path,
     def boom(*a, **kw):
         raise AssertionError("_read_stable must not run when stability_check says no")
 
-    monkeypatch.setattr(internals, "_read_stable", boom)
+    monkeypatch.setattr(stable, "_read_stable", boom)
 
     compress_folder(
         src, tmp_path / "w", format=fmt,
@@ -2892,7 +2893,7 @@ def test_default_stability_retries_never_touches_a_large_file_specially(tmp_path
     def boom(*a, **kw):
         raise AssertionError("_read_stable must not run when stability_retries=0")
 
-    monkeypatch.setattr(internals, "_read_stable", boom)
+    monkeypatch.setattr(stable, "_read_stable", boom)
 
     compress_folder(src, tmp_path / "w.zip", fsync=False)  # stability_retries defaults to 0
 
@@ -2905,7 +2906,7 @@ def test_a_small_file_bypasses_stability_retries_entirely(tmp_path, monkeypatch)
     def boom(*a, **kw):
         raise AssertionError("_read_stable must not run for a file under _STABILITY_MIN_SIZE")
 
-    monkeypatch.setattr(internals, "_read_stable", boom)
+    monkeypatch.setattr(stable, "_read_stable", boom)
 
     compress_folder(src, tmp_path / "w.zip", stability_retries=5, fsync=False)
 
@@ -2970,7 +2971,7 @@ def test_a_large_file_changing_during_compression_warns_after_exhausting_retries
     assert "kept changing across" in caplog.text
 
 
-@pytest.mark.skipif(internals.WZip is None, reason="fastzip not importable here")
+@pytest.mark.skipif(backends.WZip is None, reason="fastzip not importable here")
 def test_stability_retries_still_works_with_workers(tmp_path):
     # fastzip's write() only enqueues the read and returns -- the temp file
     # _read_stable made is not removed until the whole archive is done, so
@@ -3018,7 +3019,7 @@ def test_delete_source_never_runs_if_writing_the_archive_fails(tmp_path, monkeyp
     def boom(*a, **kw):
         raise OSError("disk is on fire")
 
-    monkeypatch.setattr(internals._Compressor, "write", boom)
+    monkeypatch.setattr(compressor._Compressor, "write", boom)
 
     with pytest.raises(OSError):
         compress_folder(src, tmp_path / "w.zip", delete_source=True, fsync=False)
@@ -3061,7 +3062,7 @@ def test_delete_archive_never_runs_if_extraction_fails(tmp_path, monkeypatch):
     def boom(*a, **kw):
         raise OSError("disk is on fire")
 
-    monkeypatch.setattr(internals._Extractor, "run", boom)
+    monkeypatch.setattr(extractor._Extractor, "run", boom)
 
     with pytest.raises(OSError):
         extract_archive(archive, tmp_path / "x", delete_archive=True)
