@@ -1,0 +1,245 @@
+"""Awaiting and calling with exception handling built in."""
+
+from __future__ import annotations as _annotations
+
+import inspect
+import logging
+import traceback
+from collections.abc import Awaitable
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, overload
+
+from .._internal._exceptions import _HARD_PROPAGATE
+from .._internal._types import _ExcFilter
+from ..iter_tools import iter_flat_cont
+from ..typings import Container, MaybeAwaitable, NestedContainer, _ExcT, _False, _P, _T, _True
+from ..validate_tools import is_container, is_exception, iscoroutinefunction_wrapped
+from ._internal import _log_exc, _ExcLogger
+from .run import call_sync_or_await, to_thread
+
+log = logging.getLogger(__name__)
+
+
+@overload
+async def safe_await(awaitables: Awaitable[_T], *, log_exc: bool = True) -> _T | Exception: ...
+@overload
+async def safe_await(awaitables: Awaitable[_T], *, return_exc: _False, log_exc: bool = True) -> _T: ...
+@overload
+async def safe_await(
+    awaitables: Container[NestedContainer[Awaitable[_T] | None]], *, log_exc: bool = True,
+) -> list[_T | Exception]: ...
+@overload
+async def safe_await(
+    awaitables: Container[NestedContainer[Awaitable[_T] | None]], *, return_exc: _False, log_exc: bool = True,
+) -> list[_T]: ...
+@overload
+async def safe_await(*awaitables: NestedContainer[Awaitable[_T] | None], log_exc: bool = True) -> list[_T | Exception]: ...
+@overload
+async def safe_await(
+    *awaitables: NestedContainer[Awaitable[_T] | None], return_exc: _False, log_exc: bool = True,
+) -> list[_T]: ...
+async def safe_await(*awaitables: Any, return_exc: bool = True, log_exc: bool = True) -> Any:
+    """Await awaitables one after another, returning failures instead of raising.
+
+    A single bare awaitable gives its result unwrapped; a container, or
+    several arguments, give a list.
+
+    Args:
+        *awaitables: Awaitables, or containers of them, at any depth.
+        return_exc: Whether failures are returned in place; otherwise the first one is raised.
+        log_exc: Whether to log each failure with the caller's stack.
+
+    Returns:
+        The result, or the list of results, in order.
+
+    Raises:
+        Exception: The first failure, when `return_exc` is false.
+    """
+    is_not_cont_first = not is_container(awaitables[0]) if awaitables else True
+    caller_stack = traceback.extract_stack()[:-1] if log_exc else None
+    results = []
+    is_multi = False
+
+    for i, awaitable in enumerate(iter_flat_cont(awaitables)):
+        is_multi = is_multi or i > 0
+
+        try:
+            result = await awaitable
+        except Exception as e:
+            result = e
+
+        if is_exception(result):
+            if log_exc:
+                _log_exc("error in safe_await", caller_stack, result, index=i if is_multi else None)
+
+            if not return_exc:
+                raise result
+
+        results.append(result)
+
+    return results[0] if len(results) == 1 and is_not_cont_first else results
+
+
+@overload
+async def asafe_call(
+    awaitable: Awaitable[_T], *, include_exc: _ExcFilter = None, exclude_exc: _ExcFilter = None,
+    log_exc: _ExcLogger = False,
+) -> _T | None: ...
+@overload
+async def asafe_call(
+    awaitable: Awaitable[_T], *, return_exc: _False, include_exc: _ExcFilter = None,
+    exclude_exc: _ExcFilter = None, log_exc: _ExcLogger = False,
+) -> _T | None: ...
+@overload
+async def asafe_call(
+    awaitable: Awaitable[_T], *, return_exc: _True, include_exc: type[_ExcT],
+    exclude_exc: _ExcFilter = None, log_exc: _ExcLogger = False,
+) -> _T | _ExcT: ...
+@overload
+async def asafe_call(
+    awaitable: Awaitable[_T], *, return_exc: _True, include_exc: tuple[type[_ExcT], ...],
+    exclude_exc: _ExcFilter = None, log_exc: _ExcLogger = False,
+) -> _T | _ExcT: ...
+@overload
+async def asafe_call(
+    awaitable: Awaitable[_T], *, return_exc: _True, include_exc: _ExcFilter = None,
+    exclude_exc: _ExcFilter = None, log_exc: _ExcLogger = False,
+) -> _T | BaseException: ...
+@overload
+async def asafe_call(
+    awaitable: Awaitable[_T], *, raise_exc: _True, include_exc: _ExcFilter = None,
+    exclude_exc: _ExcFilter = None, log_exc: _ExcLogger = False,
+) -> _T: ...
+async def asafe_call(
+    awaitable: Awaitable[Any],
+    *,
+    return_exc: bool = False,
+    raise_exc: bool = False,
+    include_exc: _ExcFilter = None,
+    exclude_exc: _ExcFilter = None,
+    log_exc: _ExcLogger = False,
+) -> Any:
+    """Await one awaitable, swallowing what it raises: the async `safe_call`.
+
+    `exclude_exc` always propagates and wins over `include_exc`; without
+    `include_exc` everything else is swallowed. `SystemExit` and
+    `KeyboardInterrupt` always propagate. An error raised by `log_exc` itself
+    propagates, with the original attached as its context.
+
+    Args:
+        awaitable: The awaitable.
+        return_exc: Whether to return a swallowed exception instead of `None`.
+        raise_exc: Whether to re-raise after `log_exc` ran, for the logging alone.
+        include_exc: The exceptions to swallow; `None` for all.
+        exclude_exc: The exceptions that always propagate.
+        log_exc: `True` to log a swallowed exception, or a sync or async callback receiving it.
+
+    Returns:
+        The result, or `None` / the exception after a swallowed failure.
+
+    Raises:
+        TypeError: If `return_exc` and `raise_exc` are both set, or `exclude_exc`
+            names an exception that always propagates anyway.
+        BaseException: Whatever is not swallowed, or anything when `raise_exc` is set.
+    """
+    if return_exc and raise_exc:
+        msg = "asafe_call: return_exc and raise_exc cannot both be True -- raise_exc means the exception is never returned, only re-raised"
+        raise TypeError(msg)
+
+    if exclude_exc is not None:
+        for exc_type in exclude_exc if isinstance(exclude_exc, tuple) else (exclude_exc,):
+            if issubclass(exc_type, _HARD_PROPAGATE):
+                msg = f"exclude_exc: {exc_type.__name__} always propagates already -- no need to list it"
+                raise TypeError(msg)
+
+    try:
+        return await awaitable
+    except _HARD_PROPAGATE:
+        raise
+    except BaseException as e:
+        if exclude_exc is not None and isinstance(e, exclude_exc):
+            raise
+
+        if include_exc is not None and not isinstance(e, include_exc):
+            raise
+
+        if log_exc:
+            if callable(log_exc):
+                await call_sync_or_await(log_exc, e)
+            else:
+                log.error("error in asafe_call(%r)", awaitable, exc_info=e)
+
+        if raise_exc:
+            raise
+
+        if return_exc:
+            return e
+
+    return None
+
+
+@overload
+async def maybe_awaitable(
+    awaitable_or_callable: MaybeAwaitable[_P, _T],
+    *args: _P.args,
+    executor: ThreadPoolExecutor | None = None,
+    log_exc: bool = True,
+    **kwargs: _P.kwargs,
+) -> _T: ...
+@overload
+async def maybe_awaitable(
+    awaitable_or_callable: MaybeAwaitable[_P, _T],
+    *args: _P.args,
+    executor: ThreadPoolExecutor | None = None,
+    return_exc: _True,
+    log_exc: bool = True,
+    **kwargs: _P.kwargs,
+) -> _T | Exception: ...
+async def maybe_awaitable(
+    awaitable_or_callable: Any,
+    *args: Any,
+    executor: ThreadPoolExecutor | None = None,
+    return_exc: bool = False,
+    log_exc: bool = True,
+    **kwargs: Any,
+) -> Any:
+    """Await an awaitable, call a coroutine function, or run a sync function in a thread.
+
+    Args:
+        awaitable_or_callable: An awaitable, a coroutine function, or a sync callable.
+        *args: Positional arguments for a callable.
+        executor: The executor for a sync callable.
+        return_exc: Whether to return a failure instead of raising it.
+        log_exc: Whether to log a failure with the caller's stack.
+        **kwargs: Keyword arguments for a callable.
+
+    Returns:
+        The result, or the exception when `return_exc` is set.
+
+    Raises:
+        TypeError: If arguments are given with an awaitable, or the value is neither awaitable nor callable.
+    """
+    if inspect.isawaitable(awaitable_or_callable):
+        if args or kwargs:
+            msg = "Cannot pass args/kwargs to an already-created awaitable"
+            raise TypeError(msg)
+
+        return await safe_await(awaitable_or_callable, return_exc=return_exc, log_exc=log_exc)
+
+    if iscoroutinefunction_wrapped(awaitable_or_callable):
+        return await safe_await(awaitable_or_callable(*args, **kwargs), return_exc=return_exc, log_exc=log_exc)
+
+    if callable(awaitable_or_callable):
+        return await to_thread(
+            awaitable_or_callable, *args, executor=executor, return_exc=return_exc, log_exc=log_exc, **kwargs,
+        )
+
+    msg = f"Expected an Awaitable or Callable, got {type(awaitable_or_callable).__name__!r}"
+    raise TypeError(msg)
+
+
+__all__ = (
+    "safe_await",
+    "asafe_call",
+    "maybe_awaitable",
+)

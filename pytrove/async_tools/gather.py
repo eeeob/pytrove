@@ -1,0 +1,77 @@
+"""Running many awaitables concurrently."""
+
+from __future__ import annotations as _annotations
+
+import asyncio
+import traceback
+from collections.abc import Awaitable
+from typing import Any, overload
+
+from ..iter_tools import iter_flat_cont
+from ..typings import NestedContainer, _T, _True
+from ..validate_tools import is_exception
+from ._internal import _gather_cancel_on_error, _log_exc
+
+
+@overload
+async def gather_helper(*awaitables: NestedContainer[Awaitable[_T] | None], log_exc: bool = True) -> list[_T]: ...
+@overload
+async def gather_helper(
+    *awaitables: NestedContainer[Awaitable[_T] | None], return_exc: _True, log_exc: bool = True,
+) -> list[_T | Exception]: ...
+async def gather_helper(*awaitables: Any, return_exc: bool = False, log_exc: bool = True) -> list[Any]:
+    """Run awaitables concurrently like `asyncio.gather`, flattening nested containers.
+
+    `None` entries are skipped.
+
+    Args:
+        *awaitables: Awaitables, or containers of them, at any depth.
+        return_exc: Whether failures are returned in place; otherwise the first one is raised.
+        log_exc: Whether to log each returned failure with the caller's stack.
+
+    Returns:
+        The results in order.
+    """
+    caller_stack = traceback.extract_stack()[:-1] if log_exc else None
+    results = await asyncio.gather(*iter_flat_cont(awaitables), return_exceptions=return_exc)
+
+    if log_exc and return_exc:
+        for i, r in enumerate(results):
+            if is_exception(r):
+                _log_exc("error in gather_helper", caller_stack, r, index=i)
+
+    return results
+
+
+@overload
+async def gather_abort(*awaitables: NestedContainer[Awaitable[_T] | None], log_exc: bool = True) -> list[_T]: ...
+@overload
+async def gather_abort(
+    *awaitables: NestedContainer[Awaitable[_T] | None], return_exc: _True, log_exc: bool = True,
+) -> list[_T | Exception]: ...
+async def gather_abort(*awaitables: Any, return_exc: bool = False, log_exc: bool = True) -> list[Any]:
+    """Run awaitables concurrently, cancelling the rest as soon as one fails.
+
+    Args:
+        *awaitables: Awaitables, or containers of them, at any depth.
+        return_exc: Whether failures are returned in place, without cancelling.
+        log_exc: Whether to log each returned failure with the caller's stack.
+
+    Returns:
+        The results in order.
+    """
+    caller_stack = traceback.extract_stack()[:-1] if log_exc else None
+    results = await _gather_cancel_on_error(*iter_flat_cont(awaitables), return_exceptions=return_exc)
+
+    if log_exc and return_exc:
+        for i, r in enumerate(results):
+            if is_exception(r):
+                _log_exc("error in gather_abort", caller_stack, r, index=i)
+
+    return results
+
+
+__all__ = (
+    "gather_helper",
+    "gather_abort",
+)
