@@ -6,7 +6,7 @@ import os
 import pickle
 import threading
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 
@@ -42,6 +42,21 @@ def test_ensure_path_returns_a_path_as_is() -> None:
 def test_ensure_path_decodes_bytes_paths() -> None:
     assert ensure_path(b"x") == Path("x")
     assert ensure_path(os.fsencode(Path("a") / "b")) == Path("a") / "b"
+
+
+class _BytesFsPath:
+    """An `os.PathLike[bytes]` that is not a `Path`."""
+
+    def __fspath__(self) -> bytes:
+        return b"x"
+
+
+def test_ensure_path_decodes_a_bytes_pathlike() -> None:
+    assert ensure_path(_BytesFsPath()) == Path("x")
+
+
+def test_ensure_path_converts_a_non_path_str_pathlike() -> None:
+    assert ensure_path(PurePosixPath("a/b")) == Path("a/b")
 
 
 def test_resolve_path_is_absolute_and_strict_on_request(tmp_path: Path) -> None:

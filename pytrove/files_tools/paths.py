@@ -31,7 +31,7 @@ def resolve_path(path: PathLike, strict: bool = False) -> Path:
     """Turn a path-like into an absolute path with symlinks resolved.
 
     Args:
-        path: A string or `os.PathLike`.
+        path: A string, bytes or `os.PathLike`.
         strict: Whether a missing path raises.
 
     Returns:
