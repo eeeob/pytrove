@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from functools import cache
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, cast
 
 from ...files_tools import load_json
 
@@ -168,7 +168,9 @@ def _load(platform: str) -> dict[str, Any]:
         msg = f"no device catalog for {platform!r}: {path} is missing"
         raise FileNotFoundError(msg)
 
-    data = load_json(path)
+    # `load_json` returns any `JsonValue`; every bundled catalog is a JSON object (checked by
+    # `test_devices_data`), and its schema is verified just below.
+    data = cast(dict[str, Any], load_json(path))
 
     if data.get("schema") != _SCHEMA:
         msg = f"{platform}.json: unsupported schema {data.get('schema')!r}, expected {_SCHEMA}"
@@ -222,7 +224,10 @@ def _catalog(platform: str) -> _Catalog:
     devices, weights = [], []
 
     for raw in data["devices"]:
-        device_oses = tuple(sorted(raw.get("os") or ()))
+        # Declared apart: `ty` solves `sorted(<Any> or ())` from the `()` arm alone and
+        # would type `device_oses` as the always-empty `tuple[()]`.
+        raw_oses: list[str] = raw.get("os") or []
+        device_oses = tuple(sorted(raw_oses))
         names = (
             tuple(raw["versions"]) if raw.get("versions")
             else tuple(n for n in all_versions if os_of.get(n) in device_oses) if device_oses

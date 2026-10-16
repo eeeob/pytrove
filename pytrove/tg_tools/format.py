@@ -6,7 +6,6 @@ import re
 from typing import Any, Final, overload
 
 try:
-    from pyrogram import Client as PyroClient
     from pyrogram.enums import ParseMode
     from pyrogram.types import CallbackQuery as Query, Chat, Message, User
     from pyrogram.types.user_and_chats.user import Link
@@ -17,26 +16,20 @@ except ImportError:
 from .._internal._optional import _optional_import
 from ..errors import ValidationError
 from ..num_tools import to_int
-from ..text_tools import clean_spaces, to_str
+from ..text_tools import clean_spaces
 from ..typings import StrInt, _T
 from ..validate_tools import is_tg_user_id
 from ._internal.links import _HIDDEN_PADDING, _SHORT_LINK_TEXT
 
-try:
-    CHAT_LINK_PATTERN: Final[re.Pattern[str]] = PyroClient.CHAT_LINK_PATTERN
-except (NameError, AttributeError):
-    CHAT_LINK_PATTERN: Final[re.Pattern[str]] = re.compile(
-        r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:c/)?)([\w]+)(?:.+)?$"
-    )
-"""A `t.me` chat or message link; group 1 is the username or numeric id. Pyrogram's own when installed."""
+CHAT_LINK_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:c/)?)([\w]+)(?:.+)?$"
+)
+"""A `t.me` chat or message link; group 1 is the username or numeric id."""
 
-try:
-    INVITE_LINK_PATTERN: Final[re.Pattern[str]] = PyroClient.INVITE_LINK_PATTERN
-except (NameError, AttributeError):
-    INVITE_LINK_PATTERN: Final[re.Pattern[str]] = re.compile(
-        r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:joinchat/|\+))([\w-]+)$"
-    )
-"""A `t.me/+hash` or `joinchat` invite link; group 1 is the hash. Pyrogram's own when installed."""
+INVITE_LINK_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:joinchat/|\+))([\w-]+)$"
+)
+"""A `t.me/+hash` or `joinchat` invite link; group 1 is the hash (the same as Pyrogram's `Client.INVITE_LINK_RE`)."""
 
 
 @_optional_import(("kurigram", "tg"))
@@ -83,18 +76,17 @@ def format_tg_username(
     Returns:
         The username, the invite link, or `default`.
     """
-    if isinstance(target, (User, Chat)):
-        target = target.username
+    text = target.username if isinstance(target, (User, Chat)) else target
 
-    if not target:
+    if not text:
         return default
 
-    match = CHAT_LINK_PATTERN.match(target.lower())
+    match = CHAT_LINK_PATTERN.match(text.lower())
 
-    if not match and INVITE_LINK_PATTERN.match(target.lower()):
-        return target if with_invite_link else default
+    if not match and INVITE_LINK_PATTERN.match(text.lower()):
+        return text if with_invite_link else default
 
-    name = (match.group(1) if match else target.replace("@", "")).strip()
+    name = (match.group(1) if match else text.replace("@", "")).strip()
     return "@" + name if with_at else name
 
 
@@ -120,12 +112,14 @@ def format_tg_link(target: StrInt | Message | Chat | User, default: Any = None) 
         return target.link
 
     if isinstance(target, (User, Chat)):
-        target = target.username or getattr(target, "invite_link", None) or target.id
+        key: StrInt | None = target.username or getattr(target, "invite_link", None) or target.id
+    else:
+        key = target
 
-    if not target:
+    if not key:
         return default
 
-    text = to_str(target)
+    text = str(key)
     match = CHAT_LINK_PATTERN.match(text.lower())
 
     if not match and INVITE_LINK_PATTERN.match(text):

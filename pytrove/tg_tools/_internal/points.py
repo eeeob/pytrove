@@ -4,7 +4,7 @@ from __future__ import annotations as _annotations
 
 from functools import cache
 from pathlib import Path
-from typing import Final
+from typing import Final, cast
 
 from ...date_tools import date_to_stamp, time_utc
 from ...files_tools import load_json
@@ -20,7 +20,10 @@ def _points() -> tuple[tuple[int, float], ...]:
     Returns:
         `(user id, creation timestamp)` pairs, ascending.
     """
-    return tuple((uid, date_to_stamp(day, format="%Y-%m-%d")) for uid, day in load_json(_POINTS_FILE))
+    # `load_json` returns any `JsonValue`; the bundled file is a list of `[id, "YYYY-MM-DD"]`
+    # pairs (checked by its tests), so the cast states that fixed shape for unpacking.
+    rows = cast(list[tuple[int, str]], load_json(_POINTS_FILE))
+    return tuple((uid, date_to_stamp(day, format="%Y-%m-%d")) for uid, day in rows)
 
 
 def _interpolate_time(uid: int, id1: int, t1: float, id2: int, t2: float) -> float:

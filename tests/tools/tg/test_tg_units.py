@@ -1,5 +1,6 @@
 from __future__ import annotations as _annotations
 
+import json
 import subprocess
 import sys
 import time
@@ -67,6 +68,8 @@ def test_format_tg_link() -> None:
     assert format_tg_link(-1001234567890) == "tg://openmessage?chat_id=1234567890"
     assert format_tg_link("https://t.me/+abc") == "https://t.me/+abc"
     assert format_tg_link(Chat(id=5, username="grp")) == "https://t.me/grp"
+    assert format_tg_link(Chat(id=5, invite_link="https://t.me/+abc")) == "https://t.me/+abc"
+    assert format_tg_link(User(id=123456789)) == "tg://openmessage?user_id=123456789"
     assert format_tg_link("", default="none") == "none"
 
 
@@ -100,6 +103,15 @@ def test_account_age_is_interpolated_and_capped() -> None:
     assert tg_account_created_at(10**12) <= time.time()
     mid = (points._points()[1][0] + points._points()[2][0]) // 2
     assert points._points()[1][1] <= tg_account_created_at(mid) <= points._points()[2][1]
+
+
+def test_points_file_holds_id_and_date_pairs_in_date_order() -> None:
+    rows = json.loads(points._POINTS_FILE.read_text(encoding="utf-8"))
+    assert rows and all(
+        isinstance(uid, int) and time.strptime(day, "%Y-%m-%d") for uid, day in rows
+    )
+    assert [day for _, day in rows] == sorted(day for _, day in rows)
+    assert all(isinstance(uid, int) and isinstance(stamp, int) for uid, stamp in points._points())
 
 
 def test_interpolate_time() -> None:

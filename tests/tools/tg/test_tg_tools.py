@@ -54,6 +54,6 @@ async def test_fetch_tg_email_code_matches_a_six_digit_code(monkeypatch):
     assert await fetch_tg_email_code("a@gmail.com", "pw", "Ali Hassan", 6) == "123456"
 
 
-async def test_fetch_tg_email_code_refuses_an_unknown_email_domain():
+async def test_fetch_tg_email_code_refuses_an_unknown_email_domain() -> None:
     with pytest.raises(ValidationError, match="unknown.example"):
         await fetch_tg_email_code("a@unknown.example", "pw", "Ali Hassan", 6)
