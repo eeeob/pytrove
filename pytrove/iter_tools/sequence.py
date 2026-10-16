@@ -4,7 +4,7 @@ from __future__ import annotations as _annotations
 
 import random
 from collections.abc import Iterable, MutableSequence
-from typing import Any, overload
+from typing import Any, cast, overload
 
 from ..typings import _T, _VT
 from ._internal import _MS
@@ -45,12 +45,16 @@ def pad_list(values: list[_VT], length: int, exact: bool = False, default: _T | 
     Returns:
         `values` itself.
     """
-    if len(values) < length:
-        values.extend([default] * (length - len(values)))
-    elif exact and len(values) > length:
-        del values[length:]
+    # Padded in place, so the caller's list gains `default`s of another type:
+    # the return type states the widened content the input type cannot.
+    padded = cast(list[_VT | _T | None], values)
 
-    return values
+    if len(padded) < length:
+        padded.extend([default] * (length - len(padded)))
+    elif exact and len(padded) > length:
+        del padded[length:]
+
+    return padded
 
 
 @overload

@@ -3,7 +3,7 @@
 from __future__ import annotations as _annotations
 
 from ..typings import MaybeContainer, _T
-from ..validate_tools import is_container
+from ._internal import _items
 
 
 def to_list(value: MaybeContainer[_T] | None) -> list[_T]:
@@ -15,9 +15,7 @@ def to_list(value: MaybeContainer[_T] | None) -> list[_T]:
     Returns:
         The container's items, `[value]` for a single value, or `[]` for `None`.
     """
-    if is_container(value):
-        return list(value)
-    return [value] if value is not None else []
+    return list(_items(value))
 
 
 def to_tuple(value: MaybeContainer[_T] | None) -> tuple[_T, ...]:
@@ -29,9 +27,7 @@ def to_tuple(value: MaybeContainer[_T] | None) -> tuple[_T, ...]:
     Returns:
         The container's items, `(value,)` for a single value, or `()` for `None`.
     """
-    if is_container(value):
-        return tuple(value)
-    return (value,) if value is not None else ()
+    return tuple(_items(value))
 
 
 def to_set(value: MaybeContainer[_T] | None) -> set[_T]:
@@ -43,9 +39,7 @@ def to_set(value: MaybeContainer[_T] | None) -> set[_T]:
     Returns:
         The container's items, `{value}` for a single value, or an empty set for `None`.
     """
-    if is_container(value):
-        return set(value)
-    return {value} if value is not None else set()
+    return set(_items(value))
 
 
 def to_frozenset(value: MaybeContainer[_T] | None) -> frozenset[_T]:
@@ -57,9 +51,7 @@ def to_frozenset(value: MaybeContainer[_T] | None) -> frozenset[_T]:
     Returns:
         The container's items, a one-item frozenset for a single value, or an empty one for `None`.
     """
-    if is_container(value):
-        return frozenset(value)
-    return frozenset((value,)) if value is not None else frozenset()
+    return frozenset(_items(value))
 
 
 __all__ = (

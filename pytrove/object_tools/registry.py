@@ -34,7 +34,9 @@ class WeakRegistry(Generic[_WeakRegistryKT], ABC):
     __allow_duplicate_keys__: ClassVar[bool] = True
 
     if TYPE_CHECKING:
-        __instances__: ClassVar[weakref.WeakValueDictionary[_WeakRegistryKT, Self]]
+        # Not a `ClassVar`: one cannot name `_WeakRegistryKT` (PEP 526), and each
+        # subclass's table is keyed by its own parameter. An `id` key is an `int`.
+        __instances__: weakref.WeakValueDictionary[_WeakRegistryKT | int, Self]
     else:
 
         @classproperty(cached=True)
@@ -63,14 +65,17 @@ class WeakRegistry(Generic[_WeakRegistryKT], ABC):
         Raises:
             ValueError: If the key is live and duplicates are not allowed.
         """
-        key = id(self) if key is None else key
-        instances = self.__class__.__instances__
+        registered: _WeakRegistryKT | int = id(self) if key is None else key
+        instances = self.__instances__
 
-        if not self.__allow_duplicate_keys__ and instances.get(key, self) is not self:
-            msg = f"{self.__class__.__name__}: key {key!r} is already registered and this class does not allow duplicate keys"
+        if not self.__allow_duplicate_keys__ and instances.get(registered, self) is not self:
+            msg = (
+                f"{self.__class__.__name__}: key {registered!r} is already registered "
+                "and this class does not allow duplicate keys"
+            )
             raise ValueError(msg)
 
-        instances[key] = self
+        instances[registered] = self
 
 
 __all__ = ("WeakRegistry",)

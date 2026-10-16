@@ -12,6 +12,7 @@ except ImportError:
     pass
 
 from .._internal._optional import _optional_import
+from .._internal._sentinel import _is_given
 from ..enums import PickleSafety
 from ..iter_tools import iter_flat_cont, to_frozenset
 from ..typings import JsonValue, LockProtocol, NestedContainer, PathLike, _T
@@ -37,7 +38,7 @@ def read_json(path: PathLike, default: _T | type[object] = object, lock: LockPro
     try:
         content = read_file(path, binary=True, lock=lock)
     except FileNotFoundError:
-        return {} if default is object else default
+        return default if _is_given(default) else {}
 
     return _json_loads(content, kw)
 
@@ -97,7 +98,7 @@ def read_pickle(
     try:
         content = read_file(path, binary=True, lock=lock)
     except FileNotFoundError:
-        return {} if default is object else default
+        return default if _is_given(default) else {}
 
     if isinstance(safe, bool):  # `bool` is an `int`, so `True` would otherwise mean `BLOCKLIST`.
         safe = PickleSafety.STRICT if safe else PickleSafety.NONE
@@ -152,7 +153,7 @@ def load_ref_json(
     try:
         return jsonref.loads(read_file(path, encoding="utf-8", lock=lock), **kw)
     except FileNotFoundError:
-        return {} if default is object else default
+        return default if _is_given(default) else {}
 
 
 load_json = read_json

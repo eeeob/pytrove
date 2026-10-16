@@ -5,6 +5,7 @@ from __future__ import annotations as _annotations
 import re
 from typing import Any
 
+from .._internal._sentinel import _is_given
 from ..typings import _T
 from ..validate_tools import is_container
 from ._internal import _SNAKE1_PATTERN, _SNAKE2_PATTERN
@@ -19,8 +20,11 @@ def to_str(value: _T) -> str | _T:
     Returns:
         `str(value)`, or `value` itself when it is `None`, a bool, a string or a container.
     """
+    # Returned as `unchanged`: narrowing `value` through `is_container` would lose that it is a `_T`.
+    unchanged: _T = value
+
     if value is None or isinstance(value, (bool, str)) or is_container(value):
-        return value
+        return unchanged
     return str(value)
 
 
@@ -62,7 +66,7 @@ def split_part(
     try:
         selected = value.split(sep)[part]
     except IndexError:
-        return value if default is object else default
+        return default if _is_given(default) else value
 
     if strip:
         selected = selected.strip()

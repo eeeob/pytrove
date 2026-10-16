@@ -8,7 +8,7 @@ from typing import Any, TypeVar
 import pytest
 
 from pytrove.iter_tools import dedupe, pad_list, shuffle, to_frozenset, to_list, to_set, to_tuple
-from pytrove.iter_tools._internal import _MS
+from pytrove.iter_tools._internal import _MS, _items
 
 
 @pytest.mark.parametrize(("convert", "single", "empty"), [
@@ -72,3 +72,17 @@ def test_shuffle_keeps_a_deque_a_deque() -> None:
 def test_ms_is_bound_to_mutable_sequences() -> None:
     assert isinstance(_MS, TypeVar)
     assert _MS.__bound__ == MutableSequence[Any]
+
+
+def test_items_of_none_is_empty() -> None:
+    assert tuple(_items(None)) == ()
+
+
+def test_items_of_a_container_is_the_container_itself() -> None:
+    values = [1, 2, 3]
+    assert _items(values) is values
+
+
+def test_items_wraps_a_single_value() -> None:
+    assert _items(5) == (5,)
+    assert _items("abc") == ("abc",)

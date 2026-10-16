@@ -134,13 +134,12 @@ def numbering(
     is_map = is_mapping(values)
     items = to_list(values.items() if is_map else values)
 
-    if line_parser is None:
-        line_parser = (lambda k, v, c: f"{c}. {k} - {v}") if is_map else (lambda v, c: f"{c}. {v}")
-
     if is_map:
-        lines = [line_parser(key, value, counter) for counter, (key, value) in enumerate(items, start)]
+        pair_parser = line_parser if line_parser is not None else (lambda k, v, c: f"{c}. {k} - {v}")
+        lines = [pair_parser(key, value, counter) for counter, (key, value) in enumerate(items, start)]
     else:
-        lines = [line_parser(value, counter) for counter, value in enumerate(items, start)]
+        value_parser = line_parser if line_parser is not None else (lambda v, c: f"{c}. {v}")
+        lines = [value_parser(value, counter) for counter, value in enumerate(items, start)]
 
     return lines if line_sep is None else line_sep.join(lines)
 

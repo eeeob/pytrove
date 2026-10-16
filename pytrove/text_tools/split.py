@@ -110,7 +110,7 @@ def smart_split(
     Raises:
         IndexError: If an int `indexing` is out of range or its part is filtered out.
     """
-    if callable(separator):
+    if not isinstance(separator, str):
         separator = separator()
 
     parts = text.split(separator, max_split) if isinstance(text, str) else flat_cont(text)

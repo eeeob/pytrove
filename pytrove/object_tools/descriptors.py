@@ -67,7 +67,7 @@ class classproperty(Generic[_T, _VT]):
         self.doc = fget.__doc__ if doc is None else doc
 
     @property
-    def __doc__(self) -> str:
+    def __doc__(self) -> str | None:
         """The property's documentation."""
         return self.doc
 
@@ -75,7 +75,7 @@ class classproperty(Generic[_T, _VT]):
     def __get__(self, instance: Any, owner: None) -> Self: ...
     @overload
     def __get__(self, instance: Any, owner: type[_T]) -> _VT: ...
-    def __get__(self, instance: Any, owner: type | None) -> Any:
+    def __get__(self, instance: Any, owner: type[_T] | None) -> Any:
         """Compute the value for the owning class.
 
         Args:
