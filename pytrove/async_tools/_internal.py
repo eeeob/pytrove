@@ -7,7 +7,7 @@ import logging
 import sys
 import traceback
 from collections.abc import Awaitable
-from typing import TYPE_CHECKING, Any, Final, TypeAlias, overload
+from typing import Any, Final, TypeAlias, overload
 
 from .._internal._asyncio import _get_running_loop
 from ..typings import MaybeAwaitableCallable, _False, _T, _True
@@ -38,45 +38,42 @@ class _GatheringFuture(asyncio.Future):
         super().__init__(loop=loop)
         self._children = children
 
-    if not TYPE_CHECKING:
-        # `asyncio.Future` declares these itself; redefining them for type checkers would only clash.
+    @property
+    def cancel_message(self) -> Any | None:
+        """The message a cancellation was requested with, or `None` if none was."""
+        return getattr(self, "_cancel_message", None)
 
-        @property
-        def cancel_message(self) -> Any | None:
-            """The message a cancellation was requested with, or `None` if none was."""
-            return getattr(self, "_cancel_message", None)
+    @cancel_message.setter
+    def cancel_message(self, value: Any | None) -> None:
+        """Record the cancellation message.
 
-        @cancel_message.setter
-        def cancel_message(self, value: Any | None) -> None:
-            """Record the cancellation message.
+        Args:
+            value: The message.
+        """
+        self._cancel_message = value
 
-            Args:
-                value: The message.
-            """
-            self._cancel_message = value
+    def cancel(self, msg: Any | None = None) -> bool:
+        """Ask every unfinished child to cancel.
 
-        def cancel(self, msg: Any | None = None) -> bool:
-            """Ask every unfinished child to cancel.
+        Args:
+            msg: The cancellation message.
 
-            Args:
-                msg: The cancellation message.
+        Returns:
+            Whether any child accepted the request.
+        """
+        if self.done():
+            return False
 
-            Returns:
-                Whether any child accepted the request.
-            """
-            if self.done():
-                return False
+        ret = False
 
-            ret = False
+        for child in self._children:
+            if child.cancel(msg=msg):
+                ret = True
 
-            for child in self._children:
-                if child.cancel(msg=msg):
-                    ret = True
+        if ret:
+            self.cancel_message = "" if msg is None else msg
 
-            if ret:
-                self.cancel_message = "" if msg is None else msg
-
-            return ret
+        return ret
 
 
 @overload
@@ -121,7 +118,8 @@ def _gather_cancel_on_error(*awaitables: Awaitable[Any], return_exceptions: bool
         nonlocal npending
         npending -= 1
 
-        if _PY314 and current_task is not None:
+        # The literal `sys.version_info` check, not `_PY314`, lets `ty` see the 3.14-only API.
+        if sys.version_info >= (3, 14) and current_task is not None:
             asyncio.future_discard_from_awaited_by(fut, current_task)
 
         if outer is None or outer.done():
@@ -176,7 +174,9 @@ def _gather_cancel_on_error(*awaitables: Awaitable[Any], return_exceptions: bool
                 loop = _get_fut_loop(fut)
 
             if fut is not awaitable:
-                fut._log_destroy_pending = False
+                # Silences "Task was destroyed but it is pending", as `asyncio.gather` does; the
+                # private `Task._log_destroy_pending` is missing from typeshed, hence `setattr`.
+                setattr(fut, "_log_destroy_pending", False)
 
             npending += 1
             awaitable_2_fut[awaitable] = fut
@@ -184,7 +184,8 @@ def _gather_cancel_on_error(*awaitables: Awaitable[Any], return_exceptions: bool
             if fut.done():
                 done_futs.append(fut)
             else:
-                if _PY314 and current_task is not None:
+                # The literal `sys.version_info` check, not `_PY314`, lets `ty` see the 3.14-only API.
+                if sys.version_info >= (3, 14) and current_task is not None:
                     asyncio.future_add_to_awaited_by(fut, current_task)
 
                 fut.add_done_callback(_done_callback)

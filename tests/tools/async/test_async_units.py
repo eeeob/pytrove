@@ -230,6 +230,26 @@ async def test_gather_cancel_on_error_handles_already_done_futures() -> None:
     assert await _gather_cancel_on_error(future, _value(1)) == [9, 1]
 
 
+async def test_gather_cancel_on_error_silences_destroy_pending_only_for_wrapped_awaitables() -> None:
+    task = asyncio.ensure_future(_value(1))
+    outer = _gather_cancel_on_error(_value(2), task)
+    wrapped, passed = outer._children
+
+    assert wrapped._log_destroy_pending is False
+    assert passed._log_destroy_pending is True
+    assert await outer == [2, 1]
+
+
+@pytest.mark.skipif(sys.version_info < (3, 14), reason="the awaited-by API is new in 3.14")
+async def test_gather_cancel_on_error_links_children_to_the_awaiting_task() -> None:
+    outer = _gather_cancel_on_error(_value(1, delay=0.01))
+    child = outer._children[0]
+
+    assert asyncio.current_task() in child._asyncio_awaited_by
+    assert await outer == [1]
+    assert not child._asyncio_awaited_by
+
+
 async def test_gathering_future_cancel_forwards_to_children() -> None:
     outer = _gather_cancel_on_error(_value(1, delay=5), _value(2, delay=5))
     assert isinstance(outer, _GatheringFuture)
