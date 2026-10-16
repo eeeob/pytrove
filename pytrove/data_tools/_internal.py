@@ -232,12 +232,12 @@ def _reconstruct_mapping(
     if callable(factory):
         try:
             new = cls(factory)
+            # A mapping with a `default_factory` is taken as `defaultdict`-like, so mutable;
+            # one whose `update` refuses falls through to the next attempt below.
+            cast(MutableMapping[Any, Any], new).update(as_dict)
         except (TypeError, ValueError):
             pass
         else:
-            if isinstance(new, MutableMapping):
-                new.update(as_dict)
-
             if _mapping_filled(as_dict, new):
                 return new
 

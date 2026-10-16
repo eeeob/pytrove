@@ -208,6 +208,29 @@ def test_snapshot_keeps_a_defaultdicts_factory():
     assert result["a"] is not dd["a"]
 
 
+class _NoUpdateFactoryDict(dict):
+    """A `dict` with a `default_factory` whose `update` refuses, as some strict mappings do."""
+
+    def __init__(self, arg=None):
+        if callable(arg):
+            self.default_factory = arg
+            super().__init__()
+        else:
+            self.default_factory = None
+            super().__init__(arg or {})
+
+    def update(self, *args, **kwargs):
+        raise TypeError("update refused")
+
+
+def test_a_factory_mapping_whose_update_refuses_falls_back_to_the_pairs_constructor():
+    data = _NoUpdateFactoryDict(list)
+    dict.__setitem__(data, "a", 1)
+    result = map_deep(data, str)
+    assert type(result) is _NoUpdateFactoryDict
+    assert dict(result) == {"a": "1"}
+
+
 def test_snapshot_returns_a_range_untouched():
     # A range holds only ints -- nothing under it needed decoupling in the
     # first place, so getting the same object back is the correct answer,
