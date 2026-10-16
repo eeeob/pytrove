@@ -107,8 +107,8 @@ def read_pickle(
     if safe <= PickleSafety.NONE:
         return pickle.loads(content, **kw)
 
-    # `ty` cannot solve `_T` from `NestedContainer[_T]`: the alias's bare `_T` arm
-    # matches containers too, so the leaf types are the parameters' contracts.
+    # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
+    # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
     classes = cast(Iterator[type], iter_flat_cont(allow_classes))
     modules = cast(Iterator[str], iter_flat_cont(allow_modules))
     allowed = _SAFE_PICKLE_CLASSES | frozenset((cls.__module__, cls.__qualname__) for cls in classes)

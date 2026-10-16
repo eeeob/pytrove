@@ -198,8 +198,8 @@ def _remove(
 
     removed: list[Path | OSError] = []
 
-    # `ty` cannot solve `_T` from `NestedContainer[_T]`: the alias's bare `_T` arm
-    # matches containers too, so the leaf type is the parameter's contract.
+    # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
+    # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
     leaves = cast(Iterator[PathLike], iter_flat_cont(paths))
 
     for path in dedupe(ensure_path(path) for path in leaves):
