@@ -45,6 +45,9 @@ def _write_zip(
         stability_check: Which files are worth guarding.
     """
     use_fastzip = False
+    # fastzip's `WZip.write` takes `archive_path`; a second name keeps that call off `ZipFile`'s signature,
+    # since `ty` cannot tie `use_fastzip` to which writer `zf` holds.
+    wzip: Any = None
 
     if (workers or 0) > 1 or executor is not None:
         if backends.WZip is None:
@@ -57,7 +60,7 @@ def _write_zip(
 
     if use_fastzip:
         name = getattr(out, "name", None)
-        zf: Any = backends.WZip(
+        zf = wzip = backends.WZip(
             Path(name if isinstance(name, (str, os.PathLike)) else "archive.zip"),
             fobj=out, threads=workers or None, executor=executor, force_zip64=True,
         )
@@ -83,7 +86,7 @@ def _write_zip(
                         if tmp_path is not None:
                             pending_tmp.append(tmp_path)
 
-                        zf.write(ensure_path(tmp_path if tmp_path is not None else path), archive_path=ensure_path(arcname))
+                        wzip.write(ensure_path(tmp_path if tmp_path is not None else path), archive_path=ensure_path(arcname))
                     elif tmp_path is not None:
                         zf.write(tmp_path, arcname)
                     else:
@@ -139,6 +142,10 @@ def _write_tar(
         workers = 0 if not workers or workers <= 1 else workers
 
         if backends.std_zstd is None:
+            if backends.zstandard is None:
+                msg = "compress_folder: tar.zst needs a zstd backend -- `_require_zstd` must pass before `_write_tar` runs"
+                raise RuntimeError(msg)
+
             compressor = backends.zstandard.ZstdCompressor(level=level, threads=workers).stream_writer(out, closefd=False)
         else:
             zstd = backends.std_zstd

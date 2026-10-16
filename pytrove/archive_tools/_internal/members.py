@@ -2,13 +2,13 @@
 
 from __future__ import annotations as _annotations
 
-import io
 import logging
 import ntpath
 import os
 import posixpath
 import tempfile
 from pathlib import Path
+from typing import IO, TYPE_CHECKING, Any
 
 from ..._internal._fs import _is_dir, _COPY_BUF
 from ...errors import ValidationError
@@ -32,6 +32,11 @@ class _WriteMixin:
     _limiter: _Limiter
     _made: set[Path]
     _built: list[Path] | None
+
+    if TYPE_CHECKING:
+        # Provided by `_PlaceMixin` in `_Extractor`; declared so `ty` can check the calls made through `self`.
+        def _under(self, name: str) -> Path | None: ...
+        def _is_safe_member_name(self, name: Any) -> bool: ...
 
     def _mkdir(self, path: Path) -> None:
         """Create a directory once, recording each level this run brings into being.
@@ -117,7 +122,7 @@ class _WriteMixin:
         if self._built is not None:
             self._built.append(target)
 
-    def _spill(self, m: _Member, data: io.BufferedIOBase, target: Path) -> None:
+    def _spill(self, m: _Member, data: IO[bytes], target: Path) -> None:
         """Copy a member's bytes into place in bounded chunks, re-weighing its size as it grows.
 
         A size different from the header is logged, not fatal. An `OSError`

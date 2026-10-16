@@ -5,9 +5,10 @@ from __future__ import annotations as _annotations
 import asyncio
 import logging
 import time
+from collections.abc import Iterator
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from ..async_tools import gather_helper, safe_wait_task, to_thread
 from ..data_tools.mappings import DefaultWeakValueDict
@@ -42,7 +43,11 @@ class PeriodicArchiver:
             jobs: The jobs, at any nesting.
             base_exclude: Patterns left out of every archive.
         """
-        self.jobs = tuple(iter_flat_cont(jobs))
+        # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
+        # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
+        # Quoted because `cast` evaluates its type at runtime and `ArchiveJob` is imported
+        # only under `TYPE_CHECKING`: `models` sits above the tools in the import layering.
+        self.jobs = tuple(cast("Iterator[ArchiveJob]", iter_flat_cont(jobs)))
         self.base_exclude = base_exclude
         self._locks: DefaultWeakValueDict[int, asyncio.Lock] = DefaultWeakValueDict(asyncio.Lock)
         self._task: asyncio.Task[None] | None = None
@@ -87,7 +92,8 @@ class PeriodicArchiver:
             compress_folder, job.root, job.archive_path(),
             format=job.archive_format,
             include=job.include,
-            exclude=[self.base_exclude, job.exclude, self._siblings(job)],
+            # `None` stands for "no rules", which a nested rule container spells as `()`.
+            exclude=[self.base_exclude, () if job.exclude is None else job.exclude, self._siblings(job)],
             exclude_hidden=job.exclude_hidden,
             stability_retries=job.stability_retries,
             level=job.level,

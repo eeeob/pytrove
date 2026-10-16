@@ -16,9 +16,6 @@ from . import backends
 _LINK_MAX: Final[int] = 4096
 """The longest link destination read from a zip member; no platform stores a longer path."""
 
-_MISS: Final = object()
-"""A cache-miss marker, distinct from the `None` the directory cache stores for "refused"."""
-
 _NT: Final[bool] = os.name == "nt"
 """Whether paths follow Windows rules, which strip trailing dots and spaces."""
 
@@ -177,7 +174,6 @@ __all__ = (
     "_temp_file_rule",
     "_HAS_FILE_ATTRIBUTES",
     "_LINK_MAX",
-    "_MISS",
     "_NT",
     "_SUFFIXES",
 )

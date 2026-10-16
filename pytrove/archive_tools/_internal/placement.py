@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from ...callable_tools import safe_call
-from .common import _MISS, _NT
+from .common import _NT
 from .limiter import _Limiter, _Member
 from .rules import _Filter
 
@@ -88,7 +88,9 @@ class _PlaceMixin:
 
         parent, _, base = name.rpartition("/")
 
-        if (safe := self._cleared.get(parent, _MISS)) is _MISS:
+        try:
+            safe = self._cleared[parent]
+        except KeyError:
             if parent:
                 resolved = safe_call(
                     partial((self._root / parent).resolve, strict=False), include_exc=(ValueError, OSError), log_exc=True,

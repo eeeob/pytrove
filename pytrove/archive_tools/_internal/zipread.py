@@ -10,6 +10,7 @@ import zipfile
 from concurrent.futures import Executor, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import IO, TYPE_CHECKING, cast
 
 from ...errors import ValidationError
 from .common import _split_workers, _LINK_MAX
@@ -78,6 +79,13 @@ class _ZipMixin:
     src: Path
     password: bytes | None
 
+    if TYPE_CHECKING:
+        # Provided by `_PlaceMixin` and `_WriteMixin` in `_Extractor`; declared so `ty` can check the calls made through `self`.
+        def _place(self, m: _Member) -> Path | None: ...
+        def _mkdir(self, path: Path) -> None: ...
+        def _link(self, m: _Member, target: Path) -> None: ...
+        def _spill(self, m: _Member, data: IO[bytes], target: Path) -> None: ...
+
     def _zip_copy(self, readers: _ZipReaders, m: _Member, target: Path) -> None:
         """Write one member, on whichever thread runs this.
 
@@ -93,7 +101,9 @@ class _ZipMixin:
             ValidationError: For WinZip AES, an encrypted member without a
                 password, a wrong password or an unsupported compression method.
         """
-        info = m.raw
+        # `_zip` builds every member it hands here from a `ZipInfo`; `_Member.raw` is
+        # the union both readers share, so the zip side states its own arm.
+        info = cast(zipfile.ZipInfo, m.raw)
 
         if info.compress_type == 99:
             msg = f"extract_archive: {self.src.name}: member {m.name!r} uses WinZip AES encryption, which the standard library cannot read"

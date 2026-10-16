@@ -70,8 +70,10 @@ def _read_stable(path: str, retries: int) -> tuple[str, os.stat_result, bool]:
 
     Raises:
         OSError: If the file cannot be read; the temp file is removed first.
+        ValueError: If `retries` is negative.
     """
-    tmp_path = last_stat = None
+    tmp_path: str | None = None
+    last_stat: os.stat_result | None = None
     settled = False
 
     try:
@@ -93,6 +95,11 @@ def _read_stable(path: str, retries: int) -> tuple[str, os.stat_result, bool]:
 
             log.info("compress_folder: %r changed while being read (attempt %d/%d), reading it again",
                      path, attempt + 1, retries + 1)
+
+        if tmp_path is None or last_stat is None:
+            # Only a negative `retries` skips the loop; `_stable_source` never passes one.
+            msg = f"_read_stable: retries must be at least 0, not {retries!r}"
+            raise ValueError(msg)
 
         os.utime(tmp_path, ns=(last_stat.st_atime_ns, last_stat.st_mtime_ns))
         os.chmod(tmp_path, stat.S_IMODE(last_stat.st_mode))

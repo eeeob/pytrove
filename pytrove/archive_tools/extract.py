@@ -2,8 +2,10 @@
 
 from __future__ import annotations as _annotations
 
+from collections.abc import Iterator
 from concurrent.futures import Executor
 from pathlib import Path
+from typing import cast
 
 from .._internal._types import _Rule
 from ..enums import ArchiveFormat
@@ -79,10 +81,15 @@ def extract_archive(
     if fmt is ArchiveFormat.TAR_ZST:
         _require_zstd()
 
+    # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
+    # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
+    includes = cast(Iterator[_Rule], iter_flat_cont(include))
+    excludes = cast(Iterator[_Rule], iter_flat_cont(exclude))
+
     _Extractor(
         src,
         dest,
-        _Filter.from_rules(iter_flat_cont(include), iter_flat_cont(exclude), who="extract_archive"),
+        _Filter.from_rules(includes, excludes, who="extract_archive"),
         limits,
         password.encode() if isinstance(password, str) else password,
     ).run(fmt, workers, atomic, cleanup_on_error)

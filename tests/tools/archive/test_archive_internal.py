@@ -1,5 +1,6 @@
 from __future__ import annotations as _annotations
 
+import io
 import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -7,7 +8,9 @@ from typing import Any
 
 import pytest
 
-from pytrove.archive_tools._internal import backends, common, stable
+from pytrove.archive_tools._internal import backends, common, stable, writers
+from pytrove.archive_tools._internal.extractor import _Extractor
+from pytrove.archive_tools._internal.rules import _Filter
 from pytrove.enums import ArchiveFormat
 from pytrove.errors import ValidationError
 
@@ -27,7 +30,6 @@ class _Entry:
 def test_constants() -> None:
     assert common._LINK_MAX == 4096
     assert common._NT is (os.name == "nt")
-    assert common._MISS is not None
     assert dict(common._SUFFIXES)[".tgz"] is ArchiveFormat.TAR_GZ
 
 
@@ -119,3 +121,30 @@ def test_stable_source_skips_a_file_that_cannot_be_copied(tmp_path: Path, monkey
 
 def test_stable_source_of_a_missing_file_is_read_directly(tmp_path: Path) -> None:
     assert stable._stable_source(str(tmp_path / "gone"), 3, lambda st, p: True) == (False, None, None)
+
+
+def test_read_stable_refuses_a_negative_retry_count(tmp_path: Path) -> None:
+    target = tmp_path / "f"
+    target.write_bytes(b"x")
+
+    with pytest.raises(ValueError, match="retries must be at least 0"):
+        stable._read_stable(str(target), -1)
+
+
+def test_tar_reader_refuses_tar_zst_without_a_backend(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    src = tmp_path / "a.tar.zst"
+    src.write_bytes(b"")
+    monkeypatch.setattr(backends, "std_zstd", None)
+    monkeypatch.setattr(backends, "zstandard", None)
+    extractor = _Extractor(src, tmp_path / "out", _Filter.from_rules((), ()))
+
+    with pytest.raises(RuntimeError, match="needs a zstd backend"):
+        extractor._tar(ArchiveFormat.TAR_ZST)
+
+
+def test_tar_writer_refuses_tar_zst_without_a_backend(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(backends, "std_zstd", None)
+    monkeypatch.setattr(backends, "zstandard", None)
+
+    with pytest.raises(RuntimeError, match="needs a zstd backend"):
+        writers._write_tar((), io.BytesIO(), ArchiveFormat.TAR_ZST, None, None, None, 0, lambda st, p: False)

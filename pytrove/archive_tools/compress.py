@@ -3,9 +3,10 @@
 from __future__ import annotations as _annotations
 
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from concurrent.futures import Executor
 from pathlib import Path
+from typing import cast
 
 from .._internal._stability import _default_stability_check
 from .._internal._types import _Rule
@@ -121,19 +122,25 @@ def compress_folder(
     if fmt is ArchiveFormat.TAR_ZST:
         _require_zstd()
 
+    # A local of its own, since the rules added below wrap `exclude` in shapes its annotation cannot spell.
+    excluded = exclude
+
     if dest_path.is_relative_to(src):
         # Anchored at the archive's own place, so same-named files elsewhere in the tree are kept.
         here = dest_path.relative_to(src).as_posix()
         folder = here.rpartition("/")[0]
         folder = f"{folder}/" if folder else ""
-        exclude = (f"/{here}", _temp_file_rule(folder, f".{dest_path.name}."), exclude)
+        excluded = (f"/{here}", _temp_file_rule(folder, f".{dest_path.name}."), excluded)
 
     if exclude_hidden:
-        exclude = (_is_hidden, exclude)
+        excluded = (_is_hidden, excluded)
 
+    # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
+    # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
+    # `_is_hidden` reads only a `DirEntry`, which is all a walk shows a rule.
     walk = _Compressor(
         str(src),
-        _Filter.from_rules(iter_flat_cont(include), iter_flat_cont(exclude)),
+        _Filter.from_rules(cast(Iterator[_Rule], iter_flat_cont(include)), cast(Iterator[_Rule], iter_flat_cont(excluded))),
         follow_links=follow_links,
     )
 

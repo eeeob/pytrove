@@ -7,7 +7,7 @@ import logging
 import tarfile
 from concurrent.futures import Executor
 from pathlib import Path
-from typing import IO, Any
+from typing import IO, TYPE_CHECKING, Any
 
 from ...enums import ArchiveFormat
 from . import backends
@@ -23,6 +23,13 @@ class _TarMixin:
 
     src: Path
     password: bytes | None
+
+    if TYPE_CHECKING:
+        # Provided by `_PlaceMixin` and `_WriteMixin` in `_Extractor`; declared so `ty` can check the calls made through `self`.
+        def _place(self, m: _Member) -> Path | None: ...
+        def _mkdir(self, path: Path) -> None: ...
+        def _link(self, m: _Member, target: Path) -> None: ...
+        def _spill(self, m: _Member, data: IO[bytes], target: Path) -> None: ...
 
     def _tar(self, fmt: ArchiveFormat, workers: int | Executor | None = None) -> None:
         """Read the tar stream and write every member that passes.
@@ -50,6 +57,11 @@ class _TarMixin:
         elif backends.std_zstd is not None:
             stream = backends.std_zstd.ZstdFile(raw, "rb")
         else:
+            if backends.zstandard is None:
+                raw.close()
+                msg = "extract_archive: tar.zst needs a zstd backend -- `_require_zstd` must pass before `_tar` runs"
+                raise RuntimeError(msg)
+
             stream = backends.zstandard.ZstdDecompressor().stream_reader(raw, closefd=False)
 
         try:
@@ -80,7 +92,7 @@ class _TarMixin:
 
                     if m.kind != "file":
                         self._link(m, target)
-                    elif (data := tf.extractfile(m.raw)) is not None:
+                    elif (data := tf.extractfile(info)) is not None:
                         self._spill(m, data, target)
         finally:
             try:
