@@ -4,7 +4,7 @@ from __future__ import annotations as _annotations
 
 import os
 import tempfile
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from functools import partial
 from pathlib import Path
@@ -28,7 +28,7 @@ def atomic_write(
     mode: int | None = None,
     lock: LockProtocol | None = None,
     fsync: bool = True,
-) -> Iterator[IO[Any]]:
+) -> Generator[IO[Any], None, None]:
     """Open a temp file that replaces `path` only when the block exits cleanly.
 
     A reader never sees a partial file, and a block that raises leaves the old

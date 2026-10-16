@@ -1,6 +1,7 @@
 from __future__ import annotations as _annotations
 
 from collections import defaultdict
+from collections.abc import Hashable
 from typing import Any, TypeVar
 
 import pytest
@@ -102,6 +103,7 @@ def test_none_cleaner_drops_none_and_cleans_the_rest() -> None:
 def test_result_type_variables() -> None:
     assert isinstance(_R, TypeVar)
     assert isinstance(_RK, TypeVar)
+    assert _RK.__bound__ is Hashable
 
 
 def test_mess_is_a_unique_marker() -> None:

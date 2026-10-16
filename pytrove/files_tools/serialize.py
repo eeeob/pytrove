@@ -4,7 +4,8 @@ from __future__ import annotations as _annotations
 
 import io
 import pickle
-from typing import Any
+from collections.abc import Iterator
+from typing import Any, cast
 
 try:
     import jsonref
@@ -14,7 +15,7 @@ except ImportError:
 from .._internal._optional import _optional_import
 from .._internal._sentinel import _is_given
 from ..enums import PickleSafety
-from ..iter_tools import iter_flat_cont, to_frozenset
+from ..iter_tools import iter_flat_cont
 from ..typings import JsonValue, LockProtocol, NestedContainer, PathLike, _T
 from ._internal import _json_dumps, _json_loads
 from ._pickling import _RestrictedUnpickler, _SAFE_PICKLE_CLASSES
@@ -106,8 +107,12 @@ def read_pickle(
     if safe <= PickleSafety.NONE:
         return pickle.loads(content, **kw)
 
-    allowed = _SAFE_PICKLE_CLASSES | frozenset((cls.__module__, cls.__qualname__) for cls in iter_flat_cont(allow_classes))
-    return _RestrictedUnpickler(io.BytesIO(content), safe, allowed, to_frozenset(iter_flat_cont(allow_modules)), **kw).load()
+    # `ty` cannot solve `_T` from `NestedContainer[_T]`: the alias's bare `_T` arm
+    # matches containers too, so the leaf types are the parameters' contracts.
+    classes = cast(Iterator[type], iter_flat_cont(allow_classes))
+    modules = cast(Iterator[str], iter_flat_cont(allow_modules))
+    allowed = _SAFE_PICKLE_CLASSES | frozenset((cls.__module__, cls.__qualname__) for cls in classes)
+    return _RestrictedUnpickler(io.BytesIO(content), safe, allowed, frozenset(modules), **kw).load()
 
 
 def write_pickle(path: PathLike, data: Any, lock: LockProtocol | None = None, fsync: bool = True, **kw: Any) -> None:

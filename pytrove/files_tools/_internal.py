@@ -8,10 +8,10 @@ import math
 import os
 import shutil
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from functools import partial
 from pathlib import Path
-from typing import Any, Final, TypedDict
+from typing import Any, Final, Literal, TypedDict, cast
 
 try:
     import orjson
@@ -198,7 +198,11 @@ def _remove(
 
     removed: list[Path | OSError] = []
 
-    for path in dedupe(ensure_path(path) for path in iter_flat_cont(paths)):
+    # `ty` cannot solve `_T` from `NestedContainer[_T]`: the alias's bare `_T` arm
+    # matches containers too, so the leaf type is the parameter's contract.
+    leaves = cast(Iterator[PathLike], iter_flat_cont(paths))
+
+    for path in dedupe(ensure_path(path) for path in leaves):
         try:
             remover(path)
         except FileNotFoundError:
@@ -219,7 +223,7 @@ def _remove(
     return removed
 
 
-def _spill_parts(path: Path, side: TruncateSide, size: int, dropped: int, spill: bool | PathLike, fsync: bool) -> list[Path]:
+def _spill_parts(path: Path, side: TruncateSide, size: int, dropped: int, spill: Literal[True] | PathLike, fsync: bool) -> list[Path]:
     """Copy the bytes `truncate_file` will remove into numbered part files.
 
     Args:

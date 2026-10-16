@@ -2,12 +2,12 @@
 
 from __future__ import annotations as _annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from enum import Enum
-from typing import Any, Literal, overload
+from typing import Any, Literal, cast, overload
 
 from ..errors import ValidationError
-from ..iter_tools import iter_flat_cont, to_frozenset
+from ..iter_tools import iter_flat_cont
 from ..typings import Container, NestedContainer, NestedContainerMappingValue, _EnumT, _KT, _T, _VT
 from ..validate_tools import is_container, is_mapping
 from ._internal import _none_cleaner, _reconstruct, _reconstruct_mapping, _R, _RK
@@ -16,8 +16,8 @@ from ._internal import _none_cleaner, _reconstruct, _reconstruct_mapping, _R, _R
 @overload
 def map_deep(
     data: Mapping[_KT, NestedContainerMappingValue[_KT, _VT]],
-    func: Callable[[_KT | _VT], _R],
-) -> Mapping[_R, NestedContainerMappingValue[_R, _R]]: ...
+    func: Callable[[_KT | _VT], _RK],
+) -> Mapping[_RK, NestedContainerMappingValue[_RK, _RK]]: ...
 @overload
 def map_deep(data: NestedContainer[_T], func: Callable[[_T], _R]) -> NestedContainer[_R]: ...
 def map_deep(data: Any, func: Callable[[Any], Any]) -> Any:
@@ -132,7 +132,8 @@ def snapshot(data: _T) -> _T:
     Returns:
         An equal structure of the same shape, every container and mapping rebuilt.
     """
-    return map_deep(data, lambda value: value)
+    # `map_deep` keeps the shape, which its overloads cannot carry from `_T` to `_T`.
+    return cast(_T, map_deep(data, lambda value: value))
 
 
 def enum_to_value(data: _T) -> _T:
@@ -144,7 +145,8 @@ def enum_to_value(data: _T) -> _T:
     Returns:
         The structure with enum members replaced by their values.
     """
-    return map_deep(data, lambda value: value.value if isinstance(value, Enum) else value)
+    # `map_deep` keeps the shape, which its overloads cannot carry from `_T` to `_T`.
+    return cast(_T, map_deep(data, lambda value: value.value if isinstance(value, Enum) else value))
 
 
 @overload
@@ -188,7 +190,11 @@ def value_to_enum(values: Any, enum_classes: NestedContainer[type[Enum]], map_re
 
     enum_map: dict[Any, Enum] = {}
 
-    for enum_cls in to_frozenset(iter_flat_cont(enum_classes)):
+    # `ty` cannot solve `_T` from `NestedContainer[_T]`: the alias's bare `_T` arm
+    # matches containers too, so the leaf type is the parameter's contract.
+    classes = cast(Iterator[type[Enum]], iter_flat_cont(enum_classes))
+
+    for enum_cls in frozenset(classes):
         enum_map.update(enum_cls._value2member_map_)
 
     def convert(v: Any) -> Any:
@@ -228,11 +234,12 @@ def clean_none_values(data: _T) -> _T:
     Returns:
         The structure without `None`s.
     """
+    # Both rebuild `data` as its own type, which their signatures cannot carry to `_T`.
     if is_mapping(data):
-        return _reconstruct_mapping(data, value_func=_none_cleaner)
+        return cast(_T, _reconstruct_mapping(data, value_func=_none_cleaner))
 
     if is_container(data):
-        return _reconstruct(data, _none_cleaner)
+        return cast(_T, _reconstruct(data, _none_cleaner))
 
     return data
 

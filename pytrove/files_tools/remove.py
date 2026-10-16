@@ -4,7 +4,8 @@ from __future__ import annotations as _annotations
 
 import os
 from pathlib import Path
-from typing import overload
+from collections.abc import Iterator
+from typing import cast, overload
 
 from .._internal._fs import _is_dir
 from ..iter_tools import dedupe, iter_flat_cont
@@ -21,7 +22,7 @@ def remove_files(
 ) -> list[Path | OSError]: ...
 def remove_files(
     *files: NestedContainer[PathLike], return_exc: bool = False, log_exc: bool = False,
-) -> list[Path | OSError]:
+) -> list[Path] | list[Path | OSError]:
     """Unlink each path as the single entry it is: a file, a symlink or a junction.
 
     A link is unlinked, never followed; a real directory is refused. Paths are
@@ -52,7 +53,7 @@ def remove_folders(
 ) -> list[Path | OSError]: ...
 def remove_folders(
     *folders: NestedContainer[PathLike], return_exc: bool = False, log_exc: bool = False,
-) -> list[Path | OSError]:
+) -> list[Path] | list[Path | OSError]:
     """Remove each real directory with everything under it.
 
     A file, symlink or junction passed here is refused. A junction found
@@ -80,7 +81,7 @@ def remove_paths(
 ) -> list[Path | OSError]: ...
 def remove_paths(
     *paths: NestedContainer[PathLike], return_exc: bool = False, log_exc: bool = False,
-) -> list[Path | OSError]:
+) -> list[Path] | list[Path | OSError]:
     """Remove each path whatever it is: a real directory as a tree, anything else as one entry.
 
     Args:
@@ -96,7 +97,11 @@ def remove_paths(
     """
     removed: list[Path | OSError] = []
 
-    for path in dedupe(ensure_path(path) for path in iter_flat_cont(paths)):
+    # `ty` cannot solve `_T` from `NestedContainer[_T]`: the alias's bare `_T` arm
+    # matches containers too, so the leaf type is the parameter's contract.
+    leaves = cast(Iterator[PathLike], iter_flat_cont(paths))
+
+    for path in dedupe(ensure_path(path) for path in leaves):
         remover = remove_folders if _is_dir(path) else remove_files
         removed.extend(remover(path, return_exc=return_exc, log_exc=log_exc))
 

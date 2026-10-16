@@ -4,16 +4,16 @@ from __future__ import annotations as _annotations
 
 import copy
 import logging
-from collections.abc import Callable, Iterator, Mapping
-from typing import Any, Final, TypeVar
+from collections.abc import Callable, Hashable, Iterator, Mapping, MutableMapping
+from typing import Any, Final, TypeVar, cast
 
 from ..typings import Container
 
 _R = TypeVar("_R")
 """A transform's result type."""
 
-_RK = TypeVar("_RK")
-"""A key transform's result type."""
+_RK = TypeVar("_RK", bound=Hashable)
+"""A key transform's result type; hashable, since it becomes a key."""
 
 _MESS: Final = object()
 """Returned by a transform to drop an item; distinct from `None`, which may be kept."""
@@ -165,14 +165,17 @@ def _reconstruct(data: Container[Any], func: Callable[[Any], Any] | None = None)
     Returns:
         The rebuilt container, a lazy iterator, or `data` itself.
     """
-    cls = type(data)
+    # Any container class may arrive; its constructor is probed below, not known.
+    cls = cast(Callable[..., Container[Any]], type(data))
 
     if hasattr(cls, "__next__"):
         return _transform(data, func)
 
-    if isinstance(data, tuple) and hasattr(cls, "_make") and hasattr(data, "_fields"):
+    make = getattr(cls, "_make", None)
+
+    if isinstance(data, tuple) and callable(make) and hasattr(data, "_fields"):
         try:
-            return cls._make(_transform(data, func))
+            return make(_transform(data, func))
         except TypeError:
             pass  # A dropped item cannot shrink a namedtuple, and nothing else can hold it.
 
@@ -221,17 +224,20 @@ def _reconstruct_mapping(
     Returns:
         The rebuilt mapping, or a plain dict of the transformed pairs.
     """
-    cls = type(data)
+    # Any mapping class may arrive; its constructor is probed below, not known.
+    cls = cast(Callable[..., Mapping[Any, Any]], type(data))
     as_dict = dict(_transform_mapping(data, key_func, value_func))
     factory = getattr(data, "default_factory", None)
 
     if callable(factory):
         try:
             new = cls(factory)
-            new.update(as_dict)
         except (TypeError, ValueError):
             pass
         else:
+            if isinstance(new, MutableMapping):
+                new.update(as_dict)
+
             if _mapping_filled(as_dict, new):
                 return new
 
