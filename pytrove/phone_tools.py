@@ -90,7 +90,7 @@ def cc_from_rc(rc: RegionCode) -> int:
 
 
 @_optional_import(("phonenumbers", "phone"))
-def cc_from_phone(phone_number: PhoneNumber | PhoneNumberObj) -> int:
+def cc_from_phone(phone_number: PhoneNumber | int | PhoneNumberObj) -> int:
     """Return a phone number's calling code.
 
     Args:
@@ -105,7 +105,13 @@ def cc_from_phone(phone_number: PhoneNumber | PhoneNumberObj) -> int:
     if not isinstance(phone_number, PhoneNumberObj):
         phone_number = parse_phone(phone_number, return_numobj=True)
 
-    return phone_number.country_code
+    cc = phone_number.country_code
+
+    if cc is None:
+        msg = f"invalid PhoneNumber {phone_number}"
+        raise ValidationError(msg)
+
+    return cc
 
 
 @_optional_import(("phonenumbers", "phone"))
@@ -127,7 +133,7 @@ def rc_from_cc(cc: int) -> RegionCode:
 
 
 @_optional_import(("phonenumbers", "phone"))
-def rc_from_phone(phone_number: PhoneNumber | PhoneNumberObj) -> RegionCode:
+def rc_from_phone(phone_number: PhoneNumber | int | PhoneNumberObj) -> RegionCode:
     """Return the region a phone number belongs to.
 
     Args:
@@ -143,7 +149,11 @@ def rc_from_phone(phone_number: PhoneNumber | PhoneNumberObj) -> RegionCode:
         phone_number = parse_phone(phone_number, return_numobj=True)
 
     rc = region_code_for_number(phone_number)
-    validation(rc is not None, f"invalid PhoneNumber {phone_number}")
+
+    if rc is None:
+        msg = f"invalid PhoneNumber {phone_number}"
+        raise ValidationError(msg)
+
     return rc.lower()
 
 

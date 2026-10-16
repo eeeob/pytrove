@@ -38,7 +38,9 @@ def parse_email_bytes(bytes_msg: bytes | bytearray, multi_part_sep: str = "\n") 
     text = ""
 
     for part in msg.walk():
-        if part.get_content_maintype().lower() != "text" or not (payload := part.get_payload(decode=True)):
+        payload = part.get_payload(decode=True)
+
+        if part.get_content_maintype().lower() != "text" or not isinstance(payload, bytes) or not payload:
             continue
 
         charset = part.get_content_charset() or "utf-8"

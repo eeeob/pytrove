@@ -16,6 +16,12 @@ _ET = TypeVar("_ET", covariant=True)
 _AT = TypeVar("_AT", covariant=True)
 """`middleware`'s `after` result type; covariant for the same reason."""
 
+_T_contra = TypeVar("_T_contra", contravariant=True)
+"""The wrapped function's result type, where a protocol only ever takes it in."""
+
+_T_co = TypeVar("_T_co", covariant=True)
+"""A result type a protocol only ever hands back."""
+
 _ExcLogger: TypeAlias = bool | Callable[[BaseException], Any]
 """`safe_call`'s `log_exc`: `True` to log, or a callback receiving the exception."""
 
@@ -38,13 +44,13 @@ class _AwaitOnErrorDecorator(Protocol[_P, _ET]):
     def __call__(self, func: Callable[_P, _T]) -> Callable[_P, _T | Awaitable[_ET]]: ...
 
 
-class _WaitAfterDecorator(Protocol[_P, _T, _AT]):
+class _WaitAfterDecorator(Protocol[_P, _T_contra, _AT]):
     """What `middleware(after=...)` returns for a sync `after`."""
 
     @overload
-    def __call__(self, func: Callable[_P, _Coro[_T]]) -> Callable[_P, _Coro[_AT]]: ...
+    def __call__(self, func: Callable[_P, _Coro[_T_contra]]) -> Callable[_P, _Coro[_AT]]: ...
     @overload
-    def __call__(self, func: Callable[_P, _T]) -> Callable[_P, _AT]: ...
+    def __call__(self, func: Callable[_P, _T_contra]) -> Callable[_P, _AT]: ...
 
 
 class _AwaitAfterDecorator(Protocol[_P, _T, _AT]):
@@ -56,13 +62,13 @@ class _AwaitAfterDecorator(Protocol[_P, _T, _AT]):
     def __call__(self, func: Callable[_P, _T]) -> Callable[_P, _T | Awaitable[_AT]]: ...
 
 
-class _LazyCallAll(Protocol[_T]):
+class _LazyCallAll(Protocol[_T_co]):
     """What `call_all(lazy=True)` returns: `call_all` again, with the captured functions prepended."""
 
     @overload
-    def __call__(self, *funcs: Callable[[], _VT], lazy: _False = False) -> tuple[_T | _VT, ...]: ...
+    def __call__(self, *funcs: Callable[[], _VT], lazy: _False = False) -> tuple[_T_co | _VT, ...]: ...
     @overload
-    def __call__(self, *funcs: Callable[[], _VT], lazy: _True) -> _LazyCallAll[_T | _VT]: ...
+    def __call__(self, *funcs: Callable[[], _VT], lazy: _True) -> _LazyCallAll[_T_co | _VT]: ...
 
 
 __all__ = (

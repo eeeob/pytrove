@@ -37,6 +37,8 @@ def test_code_conversions():
     assert cc_from_phone("+966501234567") == 966
     assert rc_from_cc(966) == "sa"
     assert rc_from_phone("+966501234567") == "sa"
+    assert cc_from_phone(966501234567) == 966
+    assert rc_from_phone(966501234567) == "sa"
 
     with pytest.raises(ValidationError, match="invalid country code"):
         rc_from_cc(999999)

@@ -180,7 +180,7 @@ def raise_if(
                 result = await func(*args, **kwargs)
 
                 if _matches(result):
-                    raise exc() if callable(exc) else exc
+                    raise exc if isinstance(exc, BaseException) else exc()
 
                 return result
 
@@ -191,7 +191,7 @@ def raise_if(
             result = func(*args, **kwargs)
 
             if _matches(result):
-                raise exc() if callable(exc) else exc
+                raise exc if isinstance(exc, BaseException) else exc()
 
             return result
 

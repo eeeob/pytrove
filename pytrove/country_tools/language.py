@@ -8,8 +8,8 @@ except ImportError:
     pass
 
 from .._internal._optional import _optional_import
+from ..errors import ValidationError
 from ..typings import RegionCode
-from ..validate_tools import validation
 from ._internal import _primary_official_language
 
 
@@ -28,7 +28,11 @@ def get_clanguage_code(rc: RegionCode) -> str:
     """
     rc = rc.upper()
     language = _primary_official_language(rc)
-    validation(language is not None, f"No official language data for region code - {rc}")
+
+    if language is None:
+        msg = f"No official language data for region code - {rc}"
+        raise ValidationError(msg)
+
     return language
 
 
@@ -57,7 +61,11 @@ def get_cname_native(rc: RegionCode) -> str:
         locale = Locale("en")
 
     name = locale.territories.get(rc) or Locale("en").territories.get(rc)
-    validation(name is not None, f"No territory name available for region code - {rc}")
+
+    if name is None:
+        msg = f"No territory name available for region code - {rc}"
+        raise ValidationError(msg)
+
     return name
 
 
@@ -88,7 +96,11 @@ def get_clanguage_name(rc: RegionCode, native: bool = True) -> str:
         locale = Locale("en")
 
     name = locale.languages.get(base_language) or Locale("en").languages.get(base_language)
-    validation(name is not None, f"No language name available for language code - {language}")
+
+    if name is None:
+        msg = f"No language name available for language code - {language}"
+        raise ValidationError(msg)
+
     return name
 
 

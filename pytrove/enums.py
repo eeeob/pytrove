@@ -30,7 +30,17 @@ else:
             return name.lower()
 
         __str__ = str.__str__
-        __format__ = str.__format__
+
+        def __format__(self, format_spec: str) -> str:
+            """Format the member as its string value, as `str.__format__` does.
+
+            Args:
+                format_spec: The format specification.
+
+            Returns:
+                The formatted value.
+            """
+            return str.__format__(self, format_spec)
 
 
 class TriggerOn(StrEnum):

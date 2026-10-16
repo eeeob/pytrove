@@ -66,10 +66,10 @@ def jitter(
     left = (low, cut_low) if cut_low > low else None
     right = (cut_high, high) if cut_high < high else None
 
-    if left is None and right is None:  # The band covers the window.
-        return low if (previous - low) >= (high - previous) else high
-
     if left is None:
+        if right is None:  # The band covers the window.
+            return low if (previous - low) >= (high - previous) else high
+
         seg = right
     elif right is None:
         seg = left

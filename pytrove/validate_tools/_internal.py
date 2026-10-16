@@ -70,9 +70,7 @@ def _flatten_class_info(class_info: _ClassInfo) -> tuple[type, ...]:
 
         return tuple(flattened)
 
-    origin = get_origin(class_info)
-
-    if origin is Union or origin is UnionType:
+    if isinstance(class_info, UnionType) or get_origin(class_info) is Union:
         return _flatten_class_info(get_args(class_info))
 
     return (class_info,)

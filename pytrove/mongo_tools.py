@@ -2,7 +2,13 @@
 
 from __future__ import annotations as _annotations
 
+import sys
 from typing import Any
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 try:
     from pymongo import IndexModel
@@ -19,7 +25,7 @@ if HAS_PYMONGO:
         """A `pymongo.IndexModel` that hashes and compares by its definition."""
 
         @classmethod
-        def from_dict(cls, dct: dict[str, Any]) -> MongoIndex:
+        def from_dict(cls, dct: dict[str, Any]) -> Self:
             """Build an index from a document as `index_information()` lists it.
 
             Args:

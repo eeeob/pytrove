@@ -38,6 +38,7 @@ def test_str_enum_members_are_strings_with_lowercase_auto_values() -> None:
     assert isinstance(Color.RED, str)
     assert str(Color.RED) == "red"
     assert f"{Color.RED}" == "red"
+    assert f"{Color.RED:>5}" == "  red"
 
 
 def test_trigger_on_values() -> None:

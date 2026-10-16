@@ -7,7 +7,7 @@ import logging
 from typing import Any, Final, overload
 
 from ..data_tools import map_deep
-from ..typings import StrInt, _False, _T, _True
+from ..typings import NestedContainer, StrInt, _False, _T, _True
 from ._internal import _eval_calc_ast
 
 CALC_ALLOWED_CHARS: Final[frozenset[str]] = frozenset("0123456789*/-+.")
@@ -43,7 +43,7 @@ def to_int(value: Any, as_int: bool = True) -> Any:
         return value
 
 
-def to_int_deep(data: _T, as_int: bool = False) -> _T:
+def to_int_deep(data: NestedContainer[_T], as_int: bool = False) -> NestedContainer[_T | int | float]:
     """Apply `to_int` to every leaf under `data`, mapping keys included.
 
     Args:
