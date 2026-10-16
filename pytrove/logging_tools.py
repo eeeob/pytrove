@@ -8,11 +8,14 @@ from collections.abc import Callable, Iterator
 from datetime import datetime, timedelta, timezone
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Any, cast, overload
+from typing import Any, Final, cast, overload
 
 from .iter_tools import iter_flat_cont
 from .models import LoggerOptions, LogHandlerOptions
 from .typings import Container, NestedContainer, _False, _True
+
+_UTC3: Final[timezone] = timezone(timedelta(hours=3))
+"""The fixed UTC+3 zone `UTC3LogFormatter` writes record times in."""
 
 
 class UTC3LogFormatter(logging.Formatter):
@@ -28,7 +31,8 @@ class UTC3LogFormatter(logging.Formatter):
         Returns:
             The time tuple in UTC+3.
         """
-        return datetime.fromtimestamp(time.time() if stamp is None else stamp, tz=timezone(timedelta(hours=3))).timetuple()
+        stamp = time.time() if stamp is None else stamp
+        return datetime.fromtimestamp(stamp, tz=_UTC3).timetuple()
 
     # `Formatter.converter` is a writable attribute, so it is overridden as one, not as a method.
     converter: Callable[[float | None], time.struct_time] = _to_utc3
@@ -79,8 +83,8 @@ def attach_logger_handlers(hdlrs_options: NestedContainer[LogHandlerOptions], re
     """
     handlers: list[Any] = []
 
-    # `ty` cannot solve `_T` from `NestedContainer[_T]`: the alias's bare `_T` arm
-    # matches containers too, so the leaf type is the parameter's contract.
+    # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
+    # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
     for options in cast(Iterator[LogHandlerOptions], iter_flat_cont(hdlrs_options)):
         logger = options.resolve_logger()
         handler = options.resolve_handler()
@@ -111,8 +115,8 @@ def set_loggers(loggers_options: NestedContainer[LoggerOptions]) -> logging.Logg
     """
     loggers = []
 
-    # `ty` cannot solve `_T` from `NestedContainer[_T]`: the alias's bare `_T` arm
-    # matches containers too, so the leaf type is the parameter's contract.
+    # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
+    # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
     for options in cast(Iterator[LoggerOptions], iter_flat_cont(loggers_options)):
         logger = options.resolve_logger()
 

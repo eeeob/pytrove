@@ -2,13 +2,22 @@ from __future__ import annotations as _annotations
 
 import io
 import logging
+import time
 from collections.abc import Iterator
+from datetime import timedelta
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 import pytest
 
-from pytrove.logging_tools import attach_logger_handlers, flush_logger_handler, get_rotating_log_files, set_loggers
+from pytrove.logging_tools import (
+    UTC3LogFormatter,
+    attach_logger_handlers,
+    flush_logger_handler,
+    get_rotating_log_files,
+    set_loggers,
+    _UTC3,
+)
 from pytrove.models import LoggerOptions, LogHandlerOptions
 
 
@@ -88,3 +97,24 @@ def test_rotating_files_oldest_first(tmp_path: Path) -> None:
         assert [p.name for p in get_rotating_log_files(handler, with_base=False)] == ["app.log.2", "app.log.1"]
     finally:
         handler.close()
+
+
+def test_utc3_formatter_writes_utc_plus_3() -> None:
+    record = logging.LogRecord("x", logging.INFO, "f", 1, "m", None, None)
+    record.created = 0.0
+    assert UTC3LogFormatter("%(asctime)s").format(record).startswith("1970-01-01 03:00:00")
+
+
+def test_utc3_zone_is_a_fixed_plus_three_hours() -> None:
+    assert _UTC3.utcoffset(None) == timedelta(hours=3)
+
+
+def test_utc3_converter_is_the_static_to_utc3() -> None:
+    assert UTC3LogFormatter.converter is UTC3LogFormatter._to_utc3
+    assert UTC3LogFormatter()._to_utc3(0.0)[:8] == time.gmtime(3 * 3600)[:8]
+
+
+@pytest.mark.parametrize("args", [(None,), ()])
+def test_utc3_converter_reads_a_missing_stamp_as_now(monkeypatch: pytest.MonkeyPatch, args: tuple[None, ...]) -> None:
+    monkeypatch.setattr(time, "time", lambda: 86_400.0)
+    assert UTC3LogFormatter().converter(*args)[:8] == time.gmtime(86_400 + 3 * 3600)[:8]
