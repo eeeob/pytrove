@@ -2,6 +2,7 @@
 
 from __future__ import annotations as _annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -18,12 +19,12 @@ def ensure_path(path: PathLike) -> Path:
     """Turn a path-like into a `Path`, returning a `Path` as it is.
 
     Args:
-        path: A string or `os.PathLike`.
+        path: A string, bytes or `os.PathLike`; bytes are decoded as `os.fsdecode` does.
 
     Returns:
         The path.
     """
-    return path if isinstance(path, Path) else Path(path)
+    return path if isinstance(path, Path) else Path(os.fsdecode(path))
 
 
 def resolve_path(path: PathLike, strict: bool = False) -> Path:

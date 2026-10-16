@@ -2,6 +2,7 @@ from __future__ import annotations as _annotations
 
 import collections
 import json
+import os
 import pickle
 import threading
 from datetime import datetime
@@ -36,6 +37,11 @@ def test_ensure_path_returns_a_path_as_is() -> None:
     path = Path("x")
     assert ensure_path(path) is path
     assert ensure_path("x") == Path("x")
+
+
+def test_ensure_path_decodes_bytes_paths() -> None:
+    assert ensure_path(b"x") == Path("x")
+    assert ensure_path(os.fsencode(Path("a") / "b")) == Path("a") / "b"
 
 
 def test_resolve_path_is_absolute_and_strict_on_request(tmp_path: Path) -> None:
