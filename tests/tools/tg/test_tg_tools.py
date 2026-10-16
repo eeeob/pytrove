@@ -3,7 +3,8 @@ import pytest
 from pytrove import (
     rand_tg_device,
 )
-from pytrove.enums import PlatformDevice
+from pytrove.enums import ImapEmailProvider, PlatformDevice
+from pytrove.errors import ValidationError
 from pytrove.tg_tools import fetch_tg_email_code
 
 
@@ -47,7 +48,12 @@ async def test_fetch_tg_email_code_matches_a_six_digit_code(monkeypatch):
     monkeypatch.setattr("pytrove.tg_tools.accounts.fetch_emails_from", fake_fetch)
     monkeypatch.setattr(
         "pytrove.tg_tools.accounts.detect_email_provider",
-        lambda email: None,
+        lambda email: ImapEmailProvider.GMAIL,
     )
 
     assert await fetch_tg_email_code("a@gmail.com", "pw", "Ali Hassan", 6) == "123456"
+
+
+async def test_fetch_tg_email_code_refuses_an_unknown_email_domain():
+    with pytest.raises(ValidationError, match="unknown.example"):
+        await fetch_tg_email_code("a@unknown.example", "pw", "Ali Hassan", 6)

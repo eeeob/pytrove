@@ -6,6 +6,7 @@ import re
 
 from .._internal._optional import _optional_import
 from ..email_tools import detect_email_provider, fetch_emails_from
+from ..errors import ValidationError
 from ._internal.points import _interpolate_time, _points
 
 
@@ -46,10 +47,19 @@ async def fetch_tg_email_code(email: str, password: str, full_name: str, code_le
 
     Returns:
         The code, or `None` when no email matches.
+
+    Raises:
+        ValidationError: If `email` is not an address, or no known IMAP provider serves its domain.
     """
+    provider = detect_email_provider(email)
+
+    if provider is None:
+        msg = f"no known IMAP provider serves {email!r}"
+        raise ValidationError(msg)
+
     code_pattern = re.compile(rf"\b\d{{{code_length}}}\b")
 
-    async for message in fetch_emails_from(email, password, detect_email_provider(email)):
+    async for message in fetch_emails_from(email, password, provider):
         if (match := code_pattern.search(message)) and full_name in message:
             return match.group()
 
