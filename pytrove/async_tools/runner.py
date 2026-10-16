@@ -183,14 +183,15 @@ class SyncAwaitableRunner:
 
             self.__closed = True
 
+        thread = self.__thread
         loop = self.__loop
         stopping = self.__stopping
 
-        if not self.started or loop is None or stopping is None:
+        if thread is None or loop is None or stopping is None:
             return
 
         loop.call_soon_threadsafe(stopping.set)  # `asyncio.Event` is not thread-safe.
-        self.__thread.join()
+        thread.join()
 
     def __enter__(self) -> Self:
         """Use the runner as a context manager.

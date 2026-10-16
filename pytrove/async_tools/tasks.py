@@ -59,7 +59,7 @@ async def cancel_task(task: asyncio.Task, msg: str | None = None) -> bool:
     if not task.cancel(msg):
         return False
 
-    await asafe_call(task, include_exc=asyncio.CancelledError, log_exc=False, return_exc=False, raise_exc=False)
+    await asafe_call(task, include_exc=asyncio.CancelledError, log_exc=False)
     return True
 
 

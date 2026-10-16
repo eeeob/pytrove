@@ -78,6 +78,44 @@ def test_worker_lifecycle_without_a_loop() -> None:
     assert not worker.is_running()
 
 
+def test_worker_is_finished_only_after_its_thread_ended() -> None:
+    worker = AioThreadWorker(run_now=False)
+    assert not worker.is_finished()
+
+    worker.run(wait=5)
+    assert not worker.is_finished()
+    worker.run()  # A no-op while the thread is alive.
+
+    asyncio.run(worker.join(timeout=5))
+    assert worker.is_finished()
+
+    with pytest.raises(RuntimeError, match="finished"):
+        worker.run()
+
+
+def test_worker_join_before_start_prevents_any_start() -> None:
+    worker = AioThreadWorker(run_now=False)
+    asyncio.run(worker.join())
+
+    assert worker.is_stopping()
+    assert not worker.is_started()
+
+    with pytest.raises(RuntimeError, match="already been asked to stop"):
+        worker.run()
+
+
+def test_worker_join_is_safe_to_repeat() -> None:
+    worker = AioThreadWorker()
+
+    async def join_twice() -> None:
+        """Join, then join again once the thread has ended."""
+        await worker.join(timeout=5)
+        await worker.join(timeout=5)
+
+    asyncio.run(join_twice())
+    assert worker.is_finished()
+
+
 def test_worker_validates_its_arguments() -> None:
     with pytest.raises(TypeError, match="concurrency"):
         AioThreadWorker(concurrency="2", run_now=False)
@@ -109,6 +147,14 @@ def test_lazy_runner_starts_on_first_use() -> None:
 
     runner.close()
     runner.close()
+
+
+def test_closing_a_never_started_runner_only_marks_it_closed() -> None:
+    runner = SyncAwaitableRunner(lazy=True)
+    runner.close()
+
+    assert runner.closed
+    assert not runner.started
 
 
 def test_check_loop_factory() -> None:

@@ -78,7 +78,9 @@ async def _run_tracked(
 
     task = asyncio.current_task()
 
-    if tasks is not None:
+    # Always a task in practice (`submit` awaits it in a task or schedules it as one); the
+    # check only narrows `current_task`'s `Task | None` for the set.
+    if tasks is not None and task is not None:
         tasks.add(task)
 
     try:
@@ -92,7 +94,7 @@ async def _run_tracked(
         finally:
             slots.release()  # Synchronous, so a cancellation cannot leak the slot.
     finally:
-        if tasks is not None:
+        if tasks is not None and task is not None:
             tasks.discard(task)
 
 

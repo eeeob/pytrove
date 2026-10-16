@@ -159,7 +159,8 @@ class AioThreadWorker:
 
     def is_finished(self) -> bool:
         """Tell whether the worker's thread has run and ended for good."""
-        return self.is_started() and not self.__thread.is_alive()
+        thread = self.__thread
+        return thread is not None and not thread.is_alive()
 
     def get_loop(self) -> asyncio.AbstractEventLoop:
         """Return the worker's loop, unable to be stopped or closed from outside.
@@ -208,7 +209,9 @@ class AioThreadWorker:
         from ..callable_tools import safe_call  # `callable_tools` imports `async_tools`, so not at module level.
 
         with self.__lock:
-            if not self.is_started():
+            started_thread = self.__thread
+
+            if started_thread is None:
                 if self.is_stopping():
                     msg = "worker has already been asked to stop and cannot be started; create a new AioThreadWorker instead"
                     raise RuntimeError(msg)
@@ -221,7 +224,7 @@ class AioThreadWorker:
                 self.__thread = thread
                 self.__thread_ready.set()
                 del self.__name
-            elif not self.__thread.is_alive():
+            elif not started_thread.is_alive():
                 msg = "worker is finished and cannot be restarted; create a new AioThreadWorker instead"
                 raise RuntimeError(msg)
 
@@ -238,14 +241,14 @@ class AioThreadWorker:
             RuntimeError: If it was never started, is called from its own thread, or its thread died.
             TimeoutError: If it is not running in time.
         """
-        if not self.is_started():
+        thread = self.__thread
+
+        if thread is None:
             msg = "worker has not been started -- call run() first (or construct with run_now=True)"
             raise RuntimeError(msg)
 
         if self.is_running():
             return
-
-        thread = self.__thread
 
         if threading.current_thread() is thread:
             msg = "cannot wait for the worker to start from inside the worker's own thread -- it would block forever"
@@ -283,14 +286,20 @@ class AioThreadWorker:
             was_stopping = self.__stopping
             self.__stopping = True
 
-        if not self.is_started():
+        thread = self.__thread
+
+        if thread is None:
             return
 
         if not was_stopping:
             await to_thread(self.wait_for_running)
-            self.__loop.call_soon_threadsafe(self.__drain.set)  # `asyncio.Event` is not thread-safe.
+            loop = self.__loop
+            drain = self.__drain
 
-        thread = self.__thread
+            # `__bootstrap` clears `__loop` and `__drain` only after the drain set below, so both
+            # are published here; the check only narrows their `| None` for the checker.
+            if loop is not None and drain is not None:
+                loop.call_soon_threadsafe(drain.set)  # `asyncio.Event` is not thread-safe.
 
         if not thread.is_alive():
             return
