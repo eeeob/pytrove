@@ -47,6 +47,14 @@ def test_smart_split_basic():
     assert smart_split("a,b,c", separator=",") == ["a", "b", "c"]
 
 
+def test_smart_split_calls_a_callable_separator():
+    assert smart_split("a;b", separator=lambda: ";") == ["a", "b"]
+
+
+def test_smart_split_none_separator_splits_on_whitespace_like_str_split():
+    assert smart_split("a b  c", separator=None) == ["a", "b", "c"]
+
+
 def test_smart_split_indexing_int_returns_single_item():
     assert smart_split("a,b,c", 1, separator=",") == "b"
 
