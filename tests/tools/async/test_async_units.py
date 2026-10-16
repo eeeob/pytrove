@@ -73,6 +73,42 @@ async def test_to_thread_returns_or_raises_a_failure(caplog: pytest.LogCaptureFi
         await to_thread(boom, log_exc=False)
 
 
+@pytest.mark.parametrize("return_exc", [False, True])
+async def test_to_thread_takes_return_exc_as_a_plain_bool(return_exc: bool) -> None:
+    def boom() -> None:
+        """Fail."""
+        raise ValueError
+
+    assert await to_thread(int, "7", return_exc=return_exc, log_exc=False) == 7
+
+    if return_exc:
+        assert isinstance(await to_thread(boom, return_exc=return_exc, log_exc=False), ValueError)
+    else:
+        with pytest.raises(ValueError):
+            await to_thread(boom, return_exc=return_exc, log_exc=False)
+
+
+@pytest.mark.parametrize("return_exc", [False, True])
+async def test_maybe_awaitable_forwards_return_exc_to_every_path(return_exc: bool) -> None:
+    def boom(_x: int, *, key: str) -> None:
+        """Fail."""
+        raise ValueError(key)
+
+    async def aboom(_x: int, *, key: str) -> None:
+        """Fail asynchronously."""
+        raise ValueError(key)
+
+    for awaitable_or_callable, args in ((_fail(ValueError("a")), ()), (aboom, (1,)), (boom, (1,))):
+        kwargs = {"key": "k"} if args else {}
+
+        if return_exc:
+            result = await maybe_awaitable(awaitable_or_callable, *args, return_exc=True, log_exc=False, **kwargs)
+            assert isinstance(result, ValueError)
+        else:
+            with pytest.raises(ValueError):
+                await maybe_awaitable(awaitable_or_callable, *args, log_exc=False, **kwargs)
+
+
 async def test_gather_helper_flattens_skips_none_and_logs_returned_failures(caplog: pytest.LogCaptureFixture) -> None:
     results = await gather_helper([_value(1), None, (_fail(KeyError()),)], return_exc=True)
     assert results[0] == 1
@@ -107,6 +143,17 @@ async def test_safe_await_unwraps_a_single_awaitable_and_lists_several() -> None
 async def test_safe_await_raises_when_told_not_to_return() -> None:
     with pytest.raises(KeyError):
         await safe_await(_fail(KeyError()), return_exc=False, log_exc=False)
+
+
+async def test_safe_await_takes_an_explicit_true_return_exc() -> None:
+    assert isinstance(await safe_await(_fail(KeyError()), return_exc=True, log_exc=False), KeyError)
+    assert await safe_await([_value(1)], return_exc=True) == [1]
+    assert await safe_await(_value(1), _value(2), return_exc=True) == [1, 2]
+
+
+async def test_gather_helpers_take_an_explicit_false_return_exc() -> None:
+    assert await gather_helper(_value(1), return_exc=False) == [1]
+    assert await gather_abort([_value(1), _value(2)], return_exc=False) == [1, 2]
 
 
 async def test_asafe_call_swallows_by_default_and_returns_when_asked() -> None:

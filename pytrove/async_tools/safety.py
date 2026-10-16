@@ -5,9 +5,9 @@ from __future__ import annotations as _annotations
 import inspect
 import logging
 import traceback
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Iterator
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, overload
+from typing import Any, cast, overload
 
 from .._internal._exceptions import _HARD_PROPAGATE
 from .._internal._types import _ExcFilter
@@ -20,24 +20,28 @@ from .run import call_sync_or_await, to_thread
 log = logging.getLogger(__name__)
 
 
-@overload
-async def safe_await(awaitables: Awaitable[_T], *, log_exc: bool = True) -> _T | Exception: ...
+# Each shape lists `return_exc=False` first, so a plain `bool` (or `True`, or nothing) falls to the
+# arm that may return an exception.
 @overload
 async def safe_await(awaitables: Awaitable[_T], *, return_exc: _False, log_exc: bool = True) -> _T: ...
 @overload
-async def safe_await(
-    awaitables: Container[NestedContainer[Awaitable[_T] | None]], *, log_exc: bool = True,
-) -> list[_T | Exception]: ...
+async def safe_await(awaitables: Awaitable[_T], *, return_exc: bool = True, log_exc: bool = True) -> _T | Exception: ...
 @overload
 async def safe_await(
     awaitables: Container[NestedContainer[Awaitable[_T] | None]], *, return_exc: _False, log_exc: bool = True,
 ) -> list[_T]: ...
 @overload
-async def safe_await(*awaitables: NestedContainer[Awaitable[_T] | None], log_exc: bool = True) -> list[_T | Exception]: ...
+async def safe_await(
+    awaitables: Container[NestedContainer[Awaitable[_T] | None]], *, return_exc: bool = True, log_exc: bool = True,
+) -> list[_T | Exception]: ...
 @overload
 async def safe_await(
     *awaitables: NestedContainer[Awaitable[_T] | None], return_exc: _False, log_exc: bool = True,
 ) -> list[_T]: ...
+@overload
+async def safe_await(
+    *awaitables: NestedContainer[Awaitable[_T] | None], return_exc: bool = True, log_exc: bool = True,
+) -> list[_T | Exception]: ...
 async def safe_await(*awaitables: Any, return_exc: bool = True, log_exc: bool = True) -> Any:
     """Await awaitables one after another, returning failures instead of raising.
 
@@ -60,7 +64,11 @@ async def safe_await(*awaitables: Any, return_exc: bool = True, log_exc: bool = 
     results = []
     is_multi = False
 
-    for i, awaitable in enumerate(iter_flat_cont(awaitables)):
+    # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
+    # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
+    leaves = cast(Iterator[Awaitable[Any]], iter_flat_cont(awaitables))
+
+    for i, awaitable in enumerate(leaves):
         is_multi = is_multi or i > 0
 
         try:

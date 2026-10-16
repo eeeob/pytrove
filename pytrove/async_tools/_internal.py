@@ -82,6 +82,10 @@ def _gather_cancel_on_error(*awaitables: Awaitable[_T], return_exceptions: _Fals
 def _gather_cancel_on_error(
     *awaitables: Awaitable[_T], return_exceptions: _True,
 ) -> asyncio.Future[list[_T | Exception]]: ...
+@overload
+def _gather_cancel_on_error(
+    *awaitables: Awaitable[_T], return_exceptions: bool,
+) -> asyncio.Future[list[_T | BaseException]]: ...
 def _gather_cancel_on_error(*awaitables: Awaitable[Any], return_exceptions: bool = False) -> asyncio.Future[list[Any]]:
     """Gather like `asyncio.gather`, but cancel every sibling as soon as one fails.
 

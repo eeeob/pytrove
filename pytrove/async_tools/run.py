@@ -11,16 +11,19 @@ from collections.abc import Awaitable, Callable
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, overload
 
-from ..typings import MaybeAwaitableCallable, _P, _T, _True
+from ..typings import MaybeAwaitableCallable, _False, _P, _T
 from ._internal import _log_exc
 
 
+# `return_exc=False` (or nothing) is listed first, so `True` or a plain `bool` falls to the arm
+# that may return an exception.
 @overload
 async def to_thread(
     func: Callable[_P, _T],
     *args: _P.args,
     executor: ThreadPoolExecutor | None = None,
     log_exc: bool = True,
+    return_exc: _False = False,
     **kwargs: _P.kwargs,
 ) -> _T: ...
 @overload
@@ -29,7 +32,7 @@ async def to_thread(
     *args: _P.args,
     executor: ThreadPoolExecutor | None = None,
     log_exc: bool = True,
-    return_exc: _True,
+    return_exc: bool,
     **kwargs: _P.kwargs,
 ) -> _T | Exception: ...
 async def to_thread(
