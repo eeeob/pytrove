@@ -4,11 +4,11 @@ from __future__ import annotations as _annotations
 
 import logging
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import datetime, timedelta, timezone
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Any, overload
+from typing import Any, cast, overload
 
 from .iter_tools import iter_flat_cont
 from .models import LoggerOptions, LogHandlerOptions
@@ -18,16 +18,20 @@ from .typings import Container, NestedContainer, _False, _True
 class UTC3LogFormatter(logging.Formatter):
     """A formatter that writes record times in UTC+3, whatever the machine's zone."""
 
-    def converter(self, stamp: float) -> time.struct_time:
+    @staticmethod
+    def _to_utc3(stamp: float | None = None) -> time.struct_time:
         """Convert a record's timestamp to UTC+3.
 
         Args:
-            stamp: The record's Unix timestamp.
+            stamp: The record's Unix timestamp; `None` means now, as with `time.localtime`.
 
         Returns:
             The time tuple in UTC+3.
         """
-        return datetime.fromtimestamp(stamp, tz=timezone(timedelta(hours=3))).timetuple()
+        return datetime.fromtimestamp(time.time() if stamp is None else stamp, tz=timezone(timedelta(hours=3))).timetuple()
+
+    # `Formatter.converter` is a writable attribute, so it is overridden as one, not as a method.
+    converter: Callable[[float | None], time.struct_time] = _to_utc3
 
 
 def flush_logger_handler(handler: logging.Handler | None = None) -> None:
@@ -75,7 +79,9 @@ def attach_logger_handlers(hdlrs_options: NestedContainer[LogHandlerOptions], re
     """
     handlers: list[Any] = []
 
-    for options in iter_flat_cont(hdlrs_options):
+    # `ty` cannot solve `_T` from `NestedContainer[_T]`: the alias's bare `_T` arm
+    # matches containers too, so the leaf type is the parameter's contract.
+    for options in cast(Iterator[LogHandlerOptions], iter_flat_cont(hdlrs_options)):
         logger = options.resolve_logger()
         handler = options.resolve_handler()
 
@@ -105,7 +111,9 @@ def set_loggers(loggers_options: NestedContainer[LoggerOptions]) -> logging.Logg
     """
     loggers = []
 
-    for options in iter_flat_cont(loggers_options):
+    # `ty` cannot solve `_T` from `NestedContainer[_T]`: the alias's bare `_T` arm
+    # matches containers too, so the leaf type is the parameter's contract.
+    for options in cast(Iterator[LoggerOptions], iter_flat_cont(loggers_options)):
         logger = options.resolve_logger()
 
         if options.reset_level:
