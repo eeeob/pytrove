@@ -1,8 +1,11 @@
+from __future__ import annotations as _annotations
+
 import os
 import shutil
 import stat
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -10,12 +13,12 @@ from pytrove import remove_path
 from pytrove._internal import _fs
 
 
-def _own_islink(path):
-    """What _is_link means, spelled out here so the tests own a definition.
+def _own_islink(path: str | os.PathLike[str]) -> bool:
+    """What `_is_link` means, spelled out here so the tests own a definition.
 
     A symlink anywhere, plus a Windows junction, which is a directory
-    reparse point carrying IO_REPARSE_TAG_MOUNT_POINT. _files_tools gets
-    this from shutil where it can and writes it out where it cannot; this
+    reparse point carrying `IO_REPARSE_TAG_MOUNT_POINT`. `_fs` gets
+    this from `shutil` where it can and writes it out where it cannot; this
     is the version the tests compare against, so a stdlib that answers
     differently is a red test rather than a quiet change of behaviour.
     """
@@ -34,7 +37,7 @@ def _own_islink(path):
     )
 
 
-def _make_junction(link, target):
+def _make_junction(link: Path, target: Path) -> Path | None:
     """A Windows junction at `link`, or None where one cannot be made."""
 
     if os.name != "nt":
@@ -46,9 +49,9 @@ def _make_junction(link, target):
     return link if done.returncode == 0 and link.exists() else None
 
 
-def test_is_link_agrees_with_the_definition_on_every_kind_of_path(tmp_path):
-    # The four shapes that reach the removers, whichever way _files_tools
-    # resolved _is_link on this interpreter: shutil's own on 3.10-3.12, a
+def test_is_link_agrees_with_the_definition_on_every_kind_of_path(tmp_path: Path) -> None:
+    # The four shapes that reach the removers, whichever way `_fs`
+    # resolved `_is_link` on this interpreter: `shutil`'s own on 3.10-3.12, a
     # wrapper around it on 3.13-3.14, the local fallback anywhere else.
     a_dir = tmp_path / "d"
     a_dir.mkdir()
@@ -60,19 +63,19 @@ def test_is_link_agrees_with_the_definition_on_every_kind_of_path(tmp_path):
         assert bool(_fs._is_link(path)) == _own_islink(path), path
 
 
-def test_a_missing_path_is_not_a_link(tmp_path):
+def test_a_missing_path_is_not_a_link(tmp_path: Path) -> None:
     # Not an error either: the removers ask this about paths that may well
-    # have gone, and every branch of _is_link swallows the OSError itself.
+    # have gone, and every branch of `_is_link` swallows the `OSError` itself.
     assert not _fs._is_link(tmp_path / "never")
     assert not _fs._is_dir(tmp_path / "never")
 
 
 @pytest.mark.skipif(os.name != "nt", reason="junctions are a Windows reparse point")
-def test_a_junction_is_a_link_and_is_not_a_plain_directory(tmp_path):
-    # The case the whole predicate exists for. A junction reports is_dir()
-    # True and is_symlink() False, so `is_dir() and not is_symlink()` walks
-    # into one -- measured on 3.10 through 3.14, os.path.islink() is False
-    # for a junction on every one of them, and os.path.isjunction() only
+def test_a_junction_is_a_link_and_is_not_a_plain_directory(tmp_path: Path) -> None:
+    # The case the whole predicate exists for. A junction reports `is_dir()`
+    # True and `is_symlink()` False, so `is_dir() and not is_symlink()` walks
+    # into one -- measured on 3.10 through 3.14, `os.path.islink()` is False
+    # for a junction on every one of them, and `os.path.isjunction()` only
     # exists from 3.12.
     target = tmp_path / "real"
     target.mkdir()
@@ -103,16 +106,18 @@ def test_a_junction_is_a_link_and_is_not_a_plain_directory(tmp_path):
     (0x8000001B, False, True),                          # APPEXECLINK
 ])
 @pytest.mark.skipif(os.name != "nt", reason="reparse tags are Windows-only")
-def test_only_a_junction_tag_counts_as_a_link(monkeypatch, tag, link, plain_dir):
+def test_only_a_junction_tag_counts_as_a_link(
+    monkeypatch: pytest.MonkeyPatch, tag: int, link: bool, plain_dir: bool
+) -> None:
     # Windows hands out far more reparse tags than the three `stat` names,
     # and all but the junction mark a real file or a real directory that is
     # merely stored unusually. Treating any tag as a link -- which this
     # briefly did -- would send a cloud-backed directory to unlink and leave
-    # it standing, since remove_paths splits on _is_dir before
-    # remove_folders is ever reached.
+    # it standing, since `remove_paths` splits on `_is_dir` before
+    # `remove_folders` is ever reached.
     #
     # A placeholder cannot be created on demand, so the stat is faked. It
-    # carries st_file_attributes as well as the tag, because shutil's own
+    # carries `st_file_attributes` as well as the tag, because shutil's own
     # version reads both and this has to be a stat either implementation
     # can answer.
     class Faked:
@@ -129,21 +134,21 @@ def test_only_a_junction_tag_counts_as_a_link(monkeypatch, tag, link, plain_dir)
 
 
 @pytest.mark.skipif(os.name != "nt", reason="reparse tags are Windows-only")
-def test_the_junction_tag_is_the_one_shutil_uses():
-    # _is_link is shutil's own _rmtree_islink where the shape allows it, so
+def test_the_junction_tag_is_the_one_shutil_uses() -> None:
+    # `_is_link` is `shutil`'s own `_rmtree_islink` where the shape allows it, so
     # this holds by construction there. It is asserted for the fallback,
-    # which writes the constant out: rmtree acts on shutil's answer, and a
+    # which writes the constant out: `rmtree` acts on `shutil`'s answer, and a
     # remover that disagreed with it would decline to follow a link that
     # rmtree then followed.
     assert _own_islink.__doc__  # the definition above is the one compared to
     assert stat.IO_REPARSE_TAG_MOUNT_POINT == 0xA0000003
 
 
-def test_is_link_is_resolved_from_shutil_where_the_shape_is_known():
-    # The version gate in _files_tools claims 3.10 through 3.14. Two shapes
+def test_is_link_is_resolved_from_shutil_where_the_shape_is_known() -> None:
+    # The version gate in `_fs` claims 3.10 through 3.14. Two shapes
     # live in that range -- _rmtree_islink(path) up to 3.12 and
-    # _rmtree_islink(st) from 3.13 -- and the gate has to have picked the
-    # right one, because picking the wrong one raises AttributeError at the
+    # `_rmtree_islink(st)` from 3.13 -- and the gate has to have picked the
+    # right one, because picking the wrong one raises `AttributeError` at the
     # first call rather than at the import.
     if not (3, 10) <= sys.version_info[:2] <= (3, 14):
         pytest.skip("outside the range the gate claims")
@@ -152,7 +157,7 @@ def test_is_link_is_resolved_from_shutil_where_the_shape_is_known():
         "the gate imports this unconditionally inside its range"
     )
 
-    # Whichever shape it is, _is_link answers a path without raising.
+    # Whichever shape it is, `_is_link` answers a path without raising.
     assert _fs._is_link(__file__) == _own_islink(__file__)
 
 
@@ -167,7 +172,7 @@ def test_is_link_without_file_attributes_is_os_path_islink(monkeypatch: pytest.M
     assert seen == ["anything"]
 
 
-def test_is_dir_is_the_inverse_of_is_link_for_a_directory(tmp_path):
+def test_is_dir_is_the_inverse_of_is_link_for_a_directory(tmp_path: Path) -> None:
     a_dir = tmp_path / "d"
     a_dir.mkdir()
     a_file = tmp_path / "f.txt"
