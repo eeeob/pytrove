@@ -10,7 +10,7 @@ from ...date_tools import date_to_stamp, time_utc
 from ...files_tools import load_json
 
 _POINTS_FILE: Final[Path] = Path(__file__).parents[2] / "data" / "tg_points.json"
-"""Bundled `[user id, "YYYY-MM-DD"]` pairs, ascending; read on first use only."""
+"""Bundled `[user id, "YYYY-MM-DD"]` pairs in date order; read on first use only."""
 
 
 @cache
@@ -18,7 +18,7 @@ def _points() -> tuple[tuple[int, float], ...]:
     """Load the bundled points on first use, then reuse them.
 
     Returns:
-        `(user id, creation timestamp)` pairs, ascending.
+        `(user id, creation timestamp)` pairs, in date order.
     """
     # `load_json` returns any `JsonValue`; the bundled file is a list of `[id, "YYYY-MM-DD"]`
     # pairs (checked by its tests), so the cast states that fixed shape for unpacking.
