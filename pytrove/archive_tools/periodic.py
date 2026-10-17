@@ -43,11 +43,13 @@ class PeriodicArchiver:
             jobs: The jobs, at any nesting.
             base_exclude: Patterns left out of every archive.
         """
+        # `cast` evaluates its type at runtime, and `models` sits above the tools in the import
+        # layering, so `ArchiveJob` is imported here rather than at module level.
+        from ..models.archive_models import ArchiveJob
+
         # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
         # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
-        # Quoted because `cast` evaluates its type at runtime and `ArchiveJob` is imported
-        # only under `TYPE_CHECKING`: `models` sits above the tools in the import layering.
-        self.jobs = tuple(cast("Iterator[ArchiveJob]", iter_flat_cont(jobs)))
+        self.jobs = tuple(cast(Iterator[ArchiveJob], iter_flat_cont(jobs)))
         self.base_exclude = base_exclude
         self._locks: DefaultWeakValueDict[int, asyncio.Lock] = DefaultWeakValueDict(asyncio.Lock)
         self._task: asyncio.Task[None] | None = None
