@@ -37,6 +37,7 @@ class Catalog:
     os: dict[str, dict[str, Any]] | None = None
 
     def write(self, out_dir: Path = OUT_DIR) -> Path:
+        """Write this catalog as JSON under `out_dir` and return its path."""
         out_dir.mkdir(parents=True, exist_ok=True)
 
         payload: dict[str, Any] = {

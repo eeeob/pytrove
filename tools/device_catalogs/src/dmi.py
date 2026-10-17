@@ -77,6 +77,7 @@ class DmiHarvest:
     )
 
     def __init__(self, cache: Cache) -> None:
+        """Compile the dmidecode patterns for every field this harvest reads."""
         self.cache = cache
         self.patterns = {
             name: (re.compile(r"^" + block + r"\n((?:\t.*\n)+)", re.M),
@@ -117,14 +118,17 @@ class DmiHarvest:
 
     @staticmethod
     def git(*args: str) -> str:
+        """Run `git` with `args` and return its decoded standard output."""
         done = subprocess.run(["git", *args], check=True, capture_output=True)
         return done.stdout.decode("utf-8", "replace")
 
     # --- step 2: which probes to read ------------------------------------
 
     def sample(self, paths: Iterable[str]) -> list[tuple[str, str]]:
-        """One probe per distinct (vendor, model) folder, spread evenly across
-        each vendor's models rather than taking the first N alphabetically.
+        """Pick one probe per distinct (vendor, model) folder.
+
+        Probes are spread evenly across each vendor's models rather than
+        taking the first N alphabetically.
         """
         seen: set[tuple[str, str]] = set()
         per_folder: dict[str, list[str]] = collections.defaultdict(list)
@@ -150,6 +154,7 @@ class DmiHarvest:
     # --- step 3: read them -----------------------------------------------
 
     def read_probe(self, item: tuple[str, str]) -> dict[str, str] | None:
+        """Read one probe's DMI fields, or None when it cannot be fetched."""
         vendor, path = item
         try:
             text = self.cache.download(self.RAW + urllib.parse.quote(path), timeout=90)

@@ -19,6 +19,7 @@ BUILDERS: dict[str, type[Builder]] = {
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Parse the command line, run the selected builders, return the exit code."""
     parser = argparse.ArgumentParser(
         description="Regenerate pytrove/data/devices/*.json from public sources.")
     parser.add_argument("--offline", action="store_true",

@@ -27,7 +27,9 @@ class ApiLevel(NamedTuple):
 
 
 class AndroidBuilder(Builder):
-    """Android phones: model codes from Google, dates and support windows from
+    """Android phones, joined from three sources.
+
+    Model codes come from Google, dates and support windows from
     endoflife.date, and Xiaomi from its firmware tracker.
 
     No single source has all three, so this joins them on the device's
@@ -180,6 +182,7 @@ class AndroidBuilder(Builder):
         r"\s+(China|Global|EEA|India|Russia|Taiwan|Japan|Korea|Indonesia|Turkey|NFC|TD|LTE)$")
 
     def __init__(self, cache: Cache) -> None:
+        """Start with empty Google Play lookups; `build` fills them."""
         super().__init__(cache)
         #: (retail branding, marketing name) -> every Build.MODEL code Google lists.
         self.play: dict[tuple[str, str], set[str]] = collections.defaultdict(set)
@@ -202,30 +205,36 @@ class AndroidBuilder(Builder):
 
     @classmethod
     def sdk_of_android(cls, android: str) -> int | None:
+        """Return the SDK level of an Android release, or None if unknown."""
         return next((e.api for e in cls.API_LEVELS if e.android == android), None)
 
     @classmethod
     def release_of_sdk(cls, api: int) -> str:
+        """Return the release date of an SDK level."""
         return next(e.released for e in cls.API_LEVELS if e.api == api)
 
     # --- name builders ----------------------------------------------------
 
     @classmethod
     def title_name(cls, cycle: str, prefix: str = "") -> str:
+        """Title-case an endoflife.date cycle, after an optional brand prefix."""
         words = [w.upper() if cls.UPPER_WORD.fullmatch(w) else w.capitalize()
                  for w in cycle.replace("-", " ").split()]
         return (prefix + " " + " ".join(words)).strip()
 
     @classmethod
     def oneplus_name(cls, cycle: str) -> str:
+        """Name a OnePlus device from its endoflife.date cycle."""
         return cls.title_name(cycle, "OnePlus")
 
     @staticmethod
     def motorola_name(cycle: str) -> str:
+        """Name a Motorola device from its endoflife.date cycle."""
         return cycle.replace("-", " ")
 
     @classmethod
     def pixel_name(cls, cycle: str) -> str:
+        """Name a Pixel device from its endoflife.date cycle."""
         found = cls.PIXEL_CYCLE.fullmatch(cycle)
         if found:
             return "Pixel " + found.group(1) + cls.PIXEL_SUFFIX.get(found.group(2) or "", "")
@@ -293,9 +302,11 @@ class AndroidBuilder(Builder):
 
     def sdk_range(self, released: str, max_sdk: int,
                   upgrades: int | None = None) -> list[str]:
-        """The SDK levels this phone plausibly ran, from its launch level up to
-        the lowest of: its support ceiling, the newest level that exists, and
-        launch plus the upgrades its own support window allows.
+        """Return the SDK levels this phone plausibly ran.
+
+        They run from its launch level up to the lowest of: its support
+        ceiling, the newest level that exists, and launch plus the upgrades
+        its own support window allows.
         """
         launch = self.sdk_at(released)
         allowed = self.MAX_OS_UPGRADES if upgrades is None else upgrades
@@ -538,6 +549,7 @@ class AndroidBuilder(Builder):
     # --- output -----------------------------------------------------------
 
     def build(self) -> list[Catalog]:
+        """Join every Android source into the Android catalog."""
         self.load_play_catalog()
         self.add_eol_families()
         self.add_xiaomi()

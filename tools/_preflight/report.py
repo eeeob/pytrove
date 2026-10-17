@@ -26,8 +26,10 @@ from .models import Action, Registry, Report, Schedule, Verdict
 # ============================== text output ==============================
 
 class TextReport:
-    """The human form. Plain ASCII: this goes into terminals and into a
-    GitHub issue body, and both render a fixed-width table reliably.
+    """The human form.
+
+    Plain ASCII: this goes into terminals and into a GitHub issue body, and
+    both render a fixed-width table reliably.
     """
 
     #: One mark per state, so a long table can be skimmed by column.

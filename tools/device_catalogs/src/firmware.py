@@ -15,8 +15,10 @@ from .shared import TODAY
 # ------------------- firmware harvest (Chinese OEM phones) -------------------
 
 class FirmwareHarvest:
-    """Retail `Build.MANUFACTURER`/`Build.MODEL` and the newest Android release
-    shipped, read out of stock firmware on dumps.tadiphone.dev.
+    """Retail device names and newest Android releases from stock firmware.
+
+    Reads `Build.MANUFACTURER`/`Build.MODEL` and the newest Android release
+    shipped out of stock firmware on dumps.tadiphone.dev.
 
     Needed because endoflife.date tracks no Chinese phone brand -- of its 483
     products the only phone families are pixel, samsung-mobile, oneplus,
@@ -117,11 +119,13 @@ class FirmwareHarvest:
         r"^(ro\.product(?:\.[a-z_]+)?\.(?:model|manufacturer))=(.*)$", re.M)
 
     def __init__(self, cache: Cache) -> None:
+        """Keep the cache the harvest reads and writes through."""
         self.cache = cache
 
     # --- the GitLab API ---------------------------------------------------
 
     def api(self, path: str) -> Any:
+        """Call the GitLab API at `path` and return the decoded JSON."""
         return json.loads(self.cache.download(self.BASE + path, timeout=90))
 
     def file(self, project: int, path: str, ref: str) -> str:
@@ -135,6 +139,7 @@ class FirmwareHarvest:
             return ""
 
     def tree(self, project: int, path: str, ref: str) -> list[dict[str, Any]]:
+        """List the entries under `path` in a dump."""
         try:
             return self.api(
                 f"/projects/{project}/repository/tree"
@@ -173,6 +178,7 @@ class FirmwareHarvest:
 
     @classmethod
     def props(cls, text: str) -> dict[str, str]:
+        """Parse a `build.prop` text into a key-to-value mapping."""
         return {key: value.strip()
                 for key, value in cls.PROP_LINE.findall(text)}
 
@@ -238,6 +244,7 @@ class FirmwareHarvest:
     # --- step 3: the harvest ---------------------------------------------
 
     def read_dump(self, item: tuple[str, int, str, int, str]) -> list[dict[str, Any]]:
+        """Return one record per retail model a dump proves."""
         brand, project, ref, release, day = item
         return [{"brand": brand, "manufacturer": manufacturer, "code": code,
                  "android": release, "date": day, "project": project,
@@ -299,8 +306,10 @@ class FirmwareHarvest:
                 for record in old]
 
     def merge(self, fresh: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """`fresh`, plus every device an earlier harvest proved and this run
-        did not see again.
+        """Merge `fresh` with what an earlier harvest proved.
+
+        The result is `fresh` plus every device an earlier harvest proved and
+        this run did not see again.
 
         The dumps group is listed newest first and only MAX_PAGES pages deep,
         so a phone scrolls out of the window as dumps pile up behind it -- we

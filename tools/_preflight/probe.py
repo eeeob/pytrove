@@ -143,9 +143,11 @@ class Prober:
         etag: str = "",
         last_modified: str = "",
     ) -> Verdict:
-        """Reach one source. The verdict carries no comparison yet -- the
-        state here is only OK (reached, or 304) or a failure; deciding
-        `changed` needs the lock, and that is the checker's job.
+        """Reach one source.
+
+        The verdict carries no comparison yet -- the state here is only OK
+        (reached, or 304) or a failure; deciding `changed` needs the lock,
+        and that is the checker's job.
         """
         url = source.target
         if source.contract and source.contract.kind is ContractKind.GIT_REFS:

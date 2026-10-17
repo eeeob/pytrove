@@ -275,17 +275,20 @@ class WebBuilder(Builder):
 
     @classmethod
     def chromium_agent(cls, platform: WebPlatform, major: int) -> str:
+        """Return a Chromium User-Agent for `platform` at version `major`."""
         return cls.CHROMIUM_TEMPLATE.format(
             token=platform.chromium,
             product=cls.CHROMIUM_PRODUCT.format(major=major))
 
     @classmethod
     def edge_agent(cls, platform: WebPlatform, major: int) -> str:
+        """Return an Edge User-Agent for `platform` at version `major`."""
         return (cls.chromium_agent(platform, major)
                 + cls.EDGE_SUFFIX.format(major=major))
 
     @classmethod
     def firefox_agent(cls, platform: WebPlatform, major: int) -> str:
+        """Return a Firefox User-Agent for `platform` at version `major`."""
         parts = [platform.firefox_platform, platform.firefox_oscpu, f"rv:{major}.0"]
         return cls.FIREFOX_TEMPLATE.format(
             comment="; ".join(part for part in parts if part),
@@ -294,6 +297,7 @@ class WebBuilder(Builder):
     # --- output -----------------------------------------------------------
 
     def build(self) -> list[Catalog]:
+        """Build the web catalog from every browser's version feed."""
         by_platform = {p.key: p for p in self.PLATFORMS}
         agents = {"Chrome": self.chromium_agent,
                   "Edge": self.edge_agent,

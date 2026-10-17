@@ -121,8 +121,9 @@ class IOSBuilder(Builder):
         return wanted
 
     def firmwares(self, wanted: dict[str, dict[str, str]]) -> dict[str, dict[str, Any]]:
-        """Every released firmware per identifier, cached as one file because
-        it costs one request per device.
+        """Return every released firmware per identifier.
+
+        Cached as one file because it costs one request per device.
         """
         name = self.FIRMWARE_FILE
         if self.cache.has(name):
@@ -152,6 +153,7 @@ class IOSBuilder(Builder):
         return out
 
     def build(self) -> list[Catalog]:
+        """Build the iOS catalog from firmware data and Telegram's names."""
         firmwares = self.firmwares(self.identifiers())
         telegram_names = self.telegram_names()
 

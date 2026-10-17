@@ -16,8 +16,10 @@ from .shared import Share
 # ----------------------------- desktop builder -----------------------------
 
 class DesktopBuilder(Builder):
-    """One catalog for every desktop OS, because that is the one platform
-    Telegram's clients present: `PlatformDevice.DESKTOP`.
+    """One catalog for every desktop OS.
+
+    That is the one platform Telegram's clients present:
+    `PlatformDevice.DESKTOP`.
 
     Windows and Linux share the hardware pool outright -- the same PC reports
     either, and both clients derive the model from the same firmware fields
@@ -242,8 +244,10 @@ class DesktopBuilder(Builder):
         return by_vendor
 
     def pc_pool(self, records: Iterable[dict[str, str]]) -> list[dict[str, Any]]:
-        """The newest PER_VENDOR models per vendor, plus the no-firmware
-        fallback, all reportable under both Windows and Linux.
+        """Return the newest `PER_VENDOR` models per vendor, plus a fallback.
+
+        The fallback covers firmware that reports nothing; every entry is
+        reportable under both Windows and Linux.
         """
         by_vendor = self.models_by_vendor(records)
         devices: list[dict[str, Any]] = [
@@ -321,6 +325,7 @@ class DesktopBuilder(Builder):
     # --- output -----------------------------------------------------------
 
     def build(self) -> list[Catalog]:
+        """Build the desktop catalog from the DMI pool and Linux-only models."""
         devices = self.pc_pool(DmiHarvest(self.cache).records())
         devices += self.linux_only_models()
 

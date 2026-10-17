@@ -217,8 +217,9 @@ class Lock:
         return rebuilt
 
     def _failing(self, verdict: Verdict, today: str) -> dict[str, Any]:
-        """The block that appears on an entry only while it is failing, so an
-        all-clear run leaves no trace and produces no diff.
+        """Build the block that appears on an entry only while it is failing.
+
+        An all-clear run therefore leaves no trace and produces no diff.
         """
         return {
             "state": verdict.state,
