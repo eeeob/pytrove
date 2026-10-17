@@ -102,11 +102,22 @@ async def test_maybe_awaitable_forwards_return_exc_to_every_path(return_exc: boo
         kwargs = {"key": "k"} if args else {}
 
         if return_exc:
-            result = await maybe_awaitable(awaitable_or_callable, *args, return_exc=True, log_exc=False, **kwargs)
+            result = await maybe_awaitable(awaitable_or_callable, *args, return_exc=return_exc, log_exc=False, **kwargs)
             assert isinstance(result, ValueError)
         else:
             with pytest.raises(ValueError):
-                await maybe_awaitable(awaitable_or_callable, *args, log_exc=False, **kwargs)
+                await maybe_awaitable(awaitable_or_callable, *args, return_exc=return_exc, log_exc=False, **kwargs)
+
+
+async def test_gather_helper_returns_a_cancelled_child_as_cancelled_error() -> None:
+    async def hang() -> None:
+        """Wait until cancelled."""
+        await asyncio.Event().wait()
+
+    child = asyncio.ensure_future(hang())
+    asyncio.get_running_loop().call_soon(child.cancel)
+    results = await gather_helper(child, return_exc=True, log_exc=False)
+    assert isinstance(results[0], asyncio.CancelledError)
 
 
 async def test_gather_helper_flattens_skips_none_and_logs_returned_failures(caplog: pytest.LogCaptureFixture) -> None:

@@ -10,7 +10,7 @@ from collections.abc import Awaitable
 from typing import Any, Final, TypeAlias, overload
 
 from .._internal._asyncio import _get_running_loop
-from ..typings import MaybeAwaitableCallable, _False, _T, _True
+from ..typings import MaybeAwaitableCallable, _False, _T
 
 _PY314: Final[bool] = sys.version_info >= (3, 14)
 """Whether the awaited-by introspection API of Python 3.14 is available."""
@@ -80,12 +80,8 @@ class _GatheringFuture(asyncio.Future):
 def _gather_cancel_on_error(*awaitables: Awaitable[_T], return_exceptions: _False = False) -> asyncio.Future[list[_T]]: ...
 @overload
 def _gather_cancel_on_error(
-    *awaitables: Awaitable[_T], return_exceptions: _True,
-) -> asyncio.Future[list[_T | Exception]]: ...
-@overload
-def _gather_cancel_on_error(
     *awaitables: Awaitable[_T], return_exceptions: bool,
-) -> asyncio.Future[list[_T | BaseException]]: ...
+) -> asyncio.Future[list[_T | Exception | asyncio.CancelledError]]: ...
 def _gather_cancel_on_error(*awaitables: Awaitable[Any], return_exceptions: bool = False) -> asyncio.Future[list[Any]]:
     """Gather like `asyncio.gather`, but cancel every sibling as soon as one fails.
 

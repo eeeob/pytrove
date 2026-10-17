@@ -186,11 +186,14 @@ async def asafe_call(
     return None
 
 
+# Same overload order as `safe_await`: `return_exc=False` (or nothing) first, so `True` or a
+# plain `bool` falls to the arm that may return an exception.
 @overload
 async def maybe_awaitable(
     awaitable_or_callable: MaybeAwaitable[_P, _T],
     *args: _P.args,
     executor: ThreadPoolExecutor | None = None,
+    return_exc: _False = False,
     log_exc: bool = True,
     **kwargs: _P.kwargs,
 ) -> _T: ...
@@ -199,7 +202,7 @@ async def maybe_awaitable(
     awaitable_or_callable: MaybeAwaitable[_P, _T],
     *args: _P.args,
     executor: ThreadPoolExecutor | None = None,
-    return_exc: _True,
+    return_exc: bool,
     log_exc: bool = True,
     **kwargs: _P.kwargs,
 ) -> _T | Exception: ...

@@ -22,7 +22,7 @@ async def gather_helper(
 @overload
 async def gather_helper(
     *awaitables: NestedContainer[Awaitable[_T] | None], return_exc: bool, log_exc: bool = True,
-) -> list[_T | Exception]: ...
+) -> list[_T | Exception | asyncio.CancelledError]: ...
 async def gather_helper(*awaitables: Any, return_exc: bool = False, log_exc: bool = True) -> list[Any]:
     """Run awaitables concurrently like `asyncio.gather`, flattening nested containers.
 
@@ -58,7 +58,7 @@ async def gather_abort(
 @overload
 async def gather_abort(
     *awaitables: NestedContainer[Awaitable[_T] | None], return_exc: bool, log_exc: bool = True,
-) -> list[_T | Exception]: ...
+) -> list[_T | Exception | asyncio.CancelledError]: ...
 async def gather_abort(*awaitables: Any, return_exc: bool = False, log_exc: bool = True) -> list[Any]:
     """Run awaitables concurrently, cancelling the rest as soon as one fails.
 
