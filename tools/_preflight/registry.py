@@ -21,7 +21,7 @@ code 4 before the first request rather than a traceback out of the middle of a
 check that has already touched the network.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import re
 from typing import Any, Final
@@ -82,7 +82,6 @@ def _regex(pattern: str, key: str, where: str) -> str:
 
 def _member(enum: type, value: Any, key: str, where: str) -> Any:
     """One of a closed set of values, by name of the thing it describes."""
-
     try:
         return enum(value)
     except ValueError:
@@ -335,7 +334,6 @@ def load_schedule(tool: str) -> Schedule:
     against anything: it says how often the check runs, which only the report
     and the workflow care about.
     """
-
     path = Layout.schedule_path(tool)
     where = f"{path.parent.name}/{path.name}"
 
@@ -370,7 +368,6 @@ def find_schedule(tool: str) -> Schedule | None:
     place a missing schedule matters is the workflow, and a test is what
     notices it there.
     """
-
     return load_schedule(tool) if Layout.schedule_path(tool).is_file() else None
 
 
@@ -378,7 +375,6 @@ def find_schedule(tool: str) -> Schedule | None:
 
 def load(tool: str) -> Registry:
     """Parse one tool's declarations. Raises `RegistryError` on anything odd."""
-
     path = Layout.registry_path(tool)
     if not path.is_file():
         raise RegistryError(

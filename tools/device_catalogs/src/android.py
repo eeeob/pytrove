@@ -1,13 +1,14 @@
 """Android phones: model codes, release dates and SDK ranges."""
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import collections
 import csv
 from datetime import date
 import io
 import re
-from typing import Any, Callable, ClassVar, NamedTuple
+from typing import Any, ClassVar, NamedTuple
+from collections.abc import Callable
 
 from .builder import Builder
 from .cache import Cache
@@ -193,7 +194,6 @@ class AndroidBuilder(Builder):
     @classmethod
     def sdk_at(cls, day: str) -> int:
         """The API level current on `day`, floored at MIN_SDK."""
-
         level = cls.MIN_SDK
         for entry in cls.API_LEVELS:
             if entry.released <= day:
@@ -236,7 +236,6 @@ class AndroidBuilder(Builder):
     @staticmethod
     def parse_flat_yaml(text: str) -> list[dict[str, str]]:
         """Reader for the tracker's list-of-flat-mappings YAML."""
-
         items: list[dict[str, str]] = []
         current: dict[str, str] | None = None
         for line in text.splitlines():
@@ -255,8 +254,7 @@ class AndroidBuilder(Builder):
 
     @staticmethod
     def parse_codenames(text: str) -> dict[str, str]:
-        """codename -> first listed marketing name, from the tracker's devices.yml."""
-
+        """Codename -> first listed marketing name, from the tracker's devices.yml."""
         names: dict[str, str] = {}
         key: str | None = None
         for line in text.splitlines():
@@ -270,7 +268,6 @@ class AndroidBuilder(Builder):
 
     def load_play_catalog(self) -> None:
         """Google publishes the CSV as UTF-16; it is the authority on Build.MODEL."""
-
         text = self.cache.fetch_text(self.PLAY_FILE, self.PLAY_URL,
                                      encoding=self.PLAY_ENCODING)
         for row in csv.DictReader(io.StringIO(text)):
@@ -288,7 +285,6 @@ class AndroidBuilder(Builder):
         Sources disagree on the "5G" suffix, so the name is tried as given,
         with it, and without it.
         """
-
         key = normalize(name)
         for candidate in (key, key + " 5g", key.replace(" 5g", "").strip()):
             if (brand, candidate) in self.play:
@@ -299,8 +295,8 @@ class AndroidBuilder(Builder):
                   upgrades: int | None = None) -> list[str]:
         """The SDK levels this phone plausibly ran, from its launch level up to
         the lowest of: its support ceiling, the newest level that exists, and
-        launch plus the upgrades its own support window allows."""
-
+        launch plus the upgrades its own support window allows.
+        """
         launch = self.sdk_at(released)
         allowed = self.MAX_OS_UPGRADES if upgrades is None else upgrades
         top = min(max_sdk, self.API_LEVELS[-1].api, launch + allowed)
@@ -309,7 +305,6 @@ class AndroidBuilder(Builder):
     def add(self, brand: str, name: str, released: str, max_sdk: int, source: str,
             upgrades: int | None = None) -> bool:
         """Record every regional variant of one phone. False when nothing matched."""
-
         if self.SKIP.search(name):
             return False
 
@@ -353,7 +348,6 @@ class AndroidBuilder(Builder):
         which is every Motorola one: there the span cannot be measured and a
         conservative constant is all that is left.
         """
-
         rel, sup = cycle.get("releaseDate"), cycle.get("support")
         if not (isinstance(rel, str) and isinstance(sup, str)):
             return cls.MAX_OS_UPGRADES
@@ -379,7 +373,6 @@ class AndroidBuilder(Builder):
         is a date (a family still open-ended, where the API is a bool) there
         is nothing to bound with, so the caller's clamp to today decides.
         """
-
         for key in ("support", "eol"):
             value = cycle.get(key)
             if isinstance(value, str):
@@ -388,7 +381,6 @@ class AndroidBuilder(Builder):
 
     def add_eol_families(self) -> None:
         """Samsung, Pixel, OnePlus and Motorola, which endoflife.date dates."""
-
         for product, brand, namer_name in self.EOL_FAMILIES:
             data = self.cache.fetch_json(self.EOL_FILE.format(product=product),
                                          self.EOL_URL.format(product=product))
@@ -414,7 +406,6 @@ class AndroidBuilder(Builder):
         ceiling, and the floor is XIAOMI_BACK levels below it with a synthetic
         date taken from the API level table.
         """
-
         latest = self.parse_flat_yaml(self.cache.fetch_text(
             self.XIAOMI_LATEST_FILE, self.XIAOMI_BASE + self.XIAOMI_LATEST,
             errors="ignore"))
@@ -465,7 +456,6 @@ class AndroidBuilder(Builder):
         name through Google's catalog, which then expands it to every regional
         variant -- the dump only ever covers the market it was pulled from.
         """
-
         records = FirmwareHarvest(self.cache).records()
         wrong: set[tuple[str, str]] = set()
         done: set[tuple[str, str]] = set()

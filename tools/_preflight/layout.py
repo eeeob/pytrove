@@ -8,7 +8,7 @@ Imports nothing from the package. It is the answer to "where", and that
 question has no opinions in it.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 from pathlib import Path
 from typing import ClassVar
@@ -115,7 +115,6 @@ class Layout:
     @classmethod
     def aside(cls, path: Path) -> Path:
         """Where a `merge` cache goes when it is set aside."""
-
         return path.with_name(f"{path.stem}{cls.PREV}{path.suffix}")
 
     @classmethod
@@ -125,7 +124,6 @@ class Layout:
         Checked two ways because `.suffixes` only sees a dotted tail: a name
         with no extension at all still carries the marker inline.
         """
-
         return cls.PREV in path.suffixes or f"{cls.PREV}." in path.name
 
     # --- discovery --------------------------------------------------------
@@ -138,6 +136,5 @@ class Layout:
         so it has no `sources/` and the glob never finds it. No name is
         special-cased anywhere in this package.
         """
-
         found = cls.TOOLS_DIR.glob(f"*/{cls.SOURCES}/{cls.REGISTRY_FILE}")
         return sorted(path.parent.parent.name for path in found)

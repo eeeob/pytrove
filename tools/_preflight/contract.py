@@ -10,13 +10,14 @@ without complaint and write silently wrong data, which is worse than a crash
 because nothing tells you it happened.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import csv
 import io
 import json
 import re
-from typing import Any, Callable, ClassVar
+from typing import Any, ClassVar
+from collections.abc import Callable
 
 from .enums import ContractKind
 from .models import Contract
@@ -55,7 +56,6 @@ class ContractCheck:
         in a traceback, which reports nothing, cleans nothing and leaves the
         exit code to chance. The same discipline `fingerprint` already keeps.
         """
-
         if contract is None:
             return ()
 
@@ -77,7 +77,6 @@ class ContractCheck:
     def _guard(check: Callable[[Contract, bytes], list[str]],
                contract: Contract, body: bytes) -> list[str]:
         """Run one check, turning anything it raises into a stated failure."""
-
         try:
             return check(contract, body)
         except Exception as exc:                          # noqa: BLE001
@@ -188,7 +187,6 @@ class ContractCheck:
         An empty advertisement means the remote answered but has no refs,
         which for a repository we clone is as useless as a 404.
         """
-
         text = cls._decode(contract, body)
         errors: list[str] = []
         if "service=git-upload-pack" not in text:

@@ -35,7 +35,7 @@ and firefox and no safari. Hand-typing those numbers is the one thing this
 script does not do, so macOS is covered by Chrome, Edge and Firefox only.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import collections
 from typing import Any, ClassVar, NamedTuple
@@ -220,7 +220,6 @@ class WebBuilder(Builder):
 
     def chrome_majors(self, platform: WebPlatform) -> list[tuple[int, str]]:
         """(major, first serving date) newest first, from Google's feed."""
-
         data = self.cache.fetch_json(
             self.CHROME_FILE.format(slug=platform.chrome_slug),
             self.CHROME_URL.format(slug=platform.chrome_slug))
@@ -238,7 +237,6 @@ class WebBuilder(Builder):
 
     def firefox_majors(self) -> list[tuple[int, str]]:
         """(major, release date) newest first, from Mozilla's own history."""
-
         data = self.cache.fetch_json(self.FIREFOX_FILE, self.FIREFOX_URL)
 
         first: dict[int, str] = {}
@@ -253,7 +251,6 @@ class WebBuilder(Builder):
 
     def edge_majors(self, platform: WebPlatform) -> list[tuple[int, str]]:
         """(major, first publish date) newest first, from Microsoft's feed."""
-
         data = self.cache.fetch_json(self.EDGE_FILE, self.EDGE_URL)
         arch = self.EDGE_ARCH.get(platform.edge_platform)
 

@@ -10,7 +10,7 @@ A tool can still be run on its own, with no check and no cleaning:
     python -m tools.<tool> --offline
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 from ._preflight.door import Dispatcher
 

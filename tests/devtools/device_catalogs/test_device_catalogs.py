@@ -14,7 +14,7 @@ both invisible in the output -- the catalog looks the same either way -- so
 they need checking here or nowhere.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import os
 import sys

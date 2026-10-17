@@ -11,7 +11,7 @@ that would otherwise be rewritten at three call sites -- "is this fatal",
 "may this run proceed", "which URL does the checker actually request".
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import hashlib
 from dataclasses import dataclass, field, fields
@@ -104,7 +104,6 @@ class Source:
     @property
     def target(self) -> str:
         """The URL the checker actually requests."""
-
         return self.url or self.probe_url
 
     @property
@@ -124,7 +123,6 @@ class Source:
         effect -- the lock would keep serving the old answer forever. A
         differing digest makes the next request unconditional.
         """
-
         parts = "|".join(
             str(getattr(block, f.name))
             for block in (self.contract, self.fingerprint) if block is not None
@@ -202,7 +200,6 @@ class Citation:
         machinery already turns "a required string is missing" into a stated,
         fatal failure, and that is exactly the verdict a moved rule deserves.
         """
-
         return Source(
             id=self.id,
             probe_url=self.url,
@@ -253,7 +250,6 @@ class Watch:
         A probe URL and a fingerprint, with no contract and no cache: the body
         is read for one number and then dropped.
         """
-
         return Source(id=self.id, probe_url=self.url,
                       fingerprint=self.fingerprint)
 
@@ -293,7 +289,6 @@ class Schedule:
         count, and three runs is a different promise at a weekly cadence than
         at a daily one. The report turns one into the other with this.
         """
-
         parts = self.cron.split()
         if len(parts) != self.FIELDS:
             return 0
@@ -360,7 +355,6 @@ class Registry:
         Watches are not here. Their baseline is their own declaration rather
         than the lock, so they are compared against a different thing.
         """
-
         return self.sources + tuple(c.as_source() for c in self.citations)
 
     @property
@@ -373,7 +367,6 @@ class Registry:
         register, which would then never be checked at all. Citations and
         watches contribute nothing; they are never fetched into the cache.
         """
-
         return frozenset(
             {s.cache for s in self.sources if s.cache}
             | {d.cache for d in self.derived if d.cache})
@@ -448,14 +441,12 @@ class Report:
     @property
     def gating(self) -> tuple[Verdict, ...]:
         """The verdicts that can stop a build: everything but the watches."""
-
         return tuple(v for v in self.verdicts
                      if v.source_id not in self.watched)
 
     @property
     def fatal(self) -> tuple[Verdict, ...]:
         """Sources that died. These need a developer, not a retry."""
-
         return tuple(v for v in self.gating if v.is_fatal)
 
     @property
@@ -473,13 +464,11 @@ class Report:
         A single failure is weather. The counter lives in the tracked lock so
         it survives a fresh CI runner, and this is the one place it is read.
         """
-
         return tuple(v for v in self.verdicts
                      if v.consecutive >= self.ESCALATE_AFTER)
 
     def sorted_verdicts(self) -> list[Verdict]:
         """Worst first, so what needs action is at the top of the report."""
-
         return sorted(self.verdicts,
                       key=lambda v: (v.state.rank, v.source_id))
 
@@ -494,7 +483,6 @@ class Report:
         cache usually covers the gap entirely and a dropped connection is not
         a reason to be unable to build.
         """
-
         if self.fatal:
             return False
         return allow_flaky or not self.transient
@@ -508,7 +496,6 @@ class Report:
         something acted on the count the rule was a sentence in a report that
         changed no outcome.
         """
-
         if self.fatal or self.escalated:
             return Exit.DEAD
         if self.transient and not allow_flaky:

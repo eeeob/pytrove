@@ -15,7 +15,7 @@ where the source is consumed and what its loss costs, both declared in the
 registry, so the person reading it does not have to go looking.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import json
 from typing import Any, ClassVar
@@ -27,7 +27,8 @@ from .models import Action, Registry, Report, Schedule, Verdict
 
 class TextReport:
     """The human form. Plain ASCII: this goes into terminals and into a
-    GitHub issue body, and both render a fixed-width table reliably."""
+    GitHub issue body, and both render a fixed-width table reliably.
+    """
 
     #: One mark per state, so a long table can be skimmed by column.
     MARK: ClassVar[dict[str, str]] = {
@@ -83,7 +84,6 @@ class TextReport:
     @classmethod
     def field(cls, label: str, value: str) -> list[str]:
         """One label and its value, every continuation line aligned under it."""
-
         body = [line.strip() for line in (value or "").strip().splitlines()]
         if not body:
             return []
@@ -97,7 +97,6 @@ class TextReport:
     @classmethod
     def failure(cls, report: Report, registry: Registry) -> list[str]:
         """Everything a developer needs in order to act, and nothing else."""
-
         lines = [f"PREFLIGHT FAILED -- {report.tool}", ""]
 
         for verdict in report.fatal:

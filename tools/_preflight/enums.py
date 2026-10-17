@@ -13,7 +13,7 @@ constants below each enum rather than attributes on it, because any plain
 assignment inside an enum body would become another member.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import sys
 from enum import IntEnum
@@ -63,25 +63,21 @@ class State(StrEnum):
     @property
     def is_fatal(self) -> bool:
         """Dead or reshaped: needs a human, not a retry."""
-
         return self in FATAL_STATES
 
     @property
     def is_transient(self) -> bool:
         """Stops a run but accuses nobody; `--allow-flaky` passes it."""
-
         return self in TRANSIENT_STATES
 
     @property
     def is_clear(self) -> bool:
         """The source answered and is still what it claims to be."""
-
         return self in CLEAR_STATES
 
     @property
     def rank(self) -> int:
         """Position in `STATE_ORDER`, for sorting a report worst first."""
-
         return STATE_ORDER.index(self)
 
 
@@ -133,7 +129,6 @@ class Verb(StrEnum):
     @property
     def removes(self) -> bool:
         """Whether the cache lost the file, which is what a run records."""
-
         return self in REMOVING_VERBS
 
 
@@ -171,7 +166,6 @@ class FingerprintKind(StrEnum):
     @property
     def needs_pattern(self) -> bool:
         """Whether a declaration of this kind is incomplete without one."""
-
         return self in PATTERN_KINDS
 
 
@@ -228,7 +222,6 @@ class Exit(IntEnum):
         would retry instead of fetching a developer. An unrecognised code
         outranks every known one, because nothing here produced it.
         """
-
         rank = {code: index for index, code in enumerate(EXIT_ORDER)}
         return a if rank.get(a, 0) <= rank.get(b, 0) else b
 

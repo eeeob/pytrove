@@ -1,6 +1,6 @@
 """Which builders exist, and the argument parsing that drives them."""
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import argparse
 

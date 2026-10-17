@@ -11,7 +11,7 @@ a tool but forgets to register would never be checked at all while every
 report says the sources are fine. That one makes the omission a failure.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import ast
 import json
@@ -431,7 +431,7 @@ def test_an_unusable_body_yields_no_fingerprint_rather_than_an_error():
     (urllib.error.HTTPError("u", 403, "forbidden", {}, None), State.FLAKY),
     (urllib.error.HTTPError("u", 503, "down", {}, None), State.FLAKY),
     (urllib.error.HTTPError("u", 304, "same", {}, None), State.OK),
-    (urllib.error.URLError(socket.timeout("timed out")), State.FLAKY),
+    (urllib.error.URLError(TimeoutError("timed out")), State.FLAKY),
     (urllib.error.URLError(socket.gaierror("no dns")), State.FLAKY),
     (TimeoutError("timed out"), State.FLAKY),
 ])

@@ -1,6 +1,6 @@
 """The download cache: the only module that touches the network."""
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import json
 import os
@@ -8,7 +8,8 @@ import shutil
 import stat
 import urllib.request
 from pathlib import Path
-from typing import Any, Iterable, NoReturn
+from typing import Any, NoReturn
+from collections.abc import Iterable
 
 from .shared import CACHE_DIR, USER_AGENT
 
@@ -37,14 +38,12 @@ class Cache:
 
     def missing(self, hint: str) -> NoReturn:
         """Abort because a cache entry `--offline` needs is not there."""
-
         raise SystemExit(hint)
 
     # --- cached downloads -------------------------------------------------
 
     def fetch(self, name: str, url: str) -> bytes:
         """`url`, from the cache when it is there and from the network when not."""
-
         path = self.path(name)
         if path.exists():
             return path.read_bytes()
@@ -82,8 +81,8 @@ class Cache:
 
     def get_json(self, url: str) -> Any:
         """A single uncached request, for sources queried per device rather
-        than downloaded whole (ipsw.me)."""
-
+        than downloaded whole (ipsw.me).
+        """
         return json.loads(self.download(url))
 
     # --- cache-only storage ----------------------------------------------

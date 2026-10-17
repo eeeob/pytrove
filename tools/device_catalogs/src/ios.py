@@ -1,6 +1,6 @@
 """iPhones, their firmwares, and the strings Telegram iOS sends for them."""
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import re
 import time
@@ -81,13 +81,12 @@ class IOSBuilder(Builder):
     )
 
     def telegram_names(self) -> dict[str, str]:
-        """identifier -> the string Telegram iOS actually puts on the wire.
+        """Identifier -> the string Telegram iOS actually puts on the wire.
 
         MTApiEnvironment.platformString is a hardcoded table, so Apple's own
         marketing name is the wrong source for this field even when it is the
         prettier one: an identifier the table omits reports "Unknown iPhone".
         """
-
         source = self.cache.fetch_text(self.MTAPI_FILE, self.MTAPI_URL, errors="replace")
         body = source[source.index(self.MTAPI_OPEN):]
         body = body[:body.index(self.MTAPI_CLOSE)]
@@ -101,8 +100,7 @@ class IOSBuilder(Builder):
                 if key.startswith("iPhone") and "," in key}
 
     def identifiers(self) -> dict[str, dict[str, str]]:
-        """iPhone identifier -> name and release date, from appledb."""
-
+        """IPhone identifier -> name and release date, from appledb."""
         wanted: dict[str, dict[str, str]] = {}
         for entry in self.cache.fetch_json(self.APPLEDB_FILE, self.APPLEDB_URL):
             if entry.get("type") != "iPhone" or entry.get("internal"):
@@ -124,8 +122,8 @@ class IOSBuilder(Builder):
 
     def firmwares(self, wanted: dict[str, dict[str, str]]) -> dict[str, dict[str, Any]]:
         """Every released firmware per identifier, cached as one file because
-        it costs one request per device."""
-
+        it costs one request per device.
+        """
         name = self.FIRMWARE_FILE
         if self.cache.has(name):
             return self.cache.read_json(name)

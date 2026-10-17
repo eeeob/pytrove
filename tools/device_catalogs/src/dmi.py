@@ -1,13 +1,14 @@
 """Real dmidecode records from linuxhw/DMI, for PC hardware."""
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import collections
 import re
 import subprocess
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
-from typing import ClassVar, Iterable
+from typing import ClassVar
+from collections.abc import Iterable
 
 from .cache import Cache
 
@@ -93,7 +94,6 @@ class DmiHarvest:
         trees, which silently starved whole vendors. `--filter=blob:none`
         fetches the trees only: a few megabytes for ~160k paths.
         """
-
         if self.cache.has(self.PATHS_FILE):
             return self.cache.read_lines(self.PATHS_FILE)
         if self.cache.offline:
@@ -124,8 +124,8 @@ class DmiHarvest:
 
     def sample(self, paths: Iterable[str]) -> list[tuple[str, str]]:
         """One probe per distinct (vendor, model) folder, spread evenly across
-        each vendor's models rather than taking the first N alphabetically."""
-
+        each vendor's models rather than taking the first N alphabetically.
+        """
         seen: set[tuple[str, str]] = set()
         per_folder: dict[str, list[str]] = collections.defaultdict(list)
 
@@ -166,7 +166,6 @@ class DmiHarvest:
 
     def records(self) -> list[dict[str, str]]:
         """The DMI fields the client actually reads, from real machines."""
-
         if self.cache.has(self.RECORDS_FILE):
             return self.cache.read_json(self.RECORDS_FILE)
         if self.cache.offline:

@@ -1,6 +1,6 @@
 """Retail phone identity read out of stock firmware dumps."""
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import json
 import re
@@ -126,7 +126,6 @@ class FirmwareHarvest:
 
     def file(self, project: int, path: str, ref: str) -> str:
         """One file out of a dump, or "" when the dump does not carry it."""
-
         url = (f"{self.BASE}/projects/{project}/repository/files/"
                f"{urllib.parse.quote(path, safe='')}/raw"
                f"?ref={urllib.parse.quote(ref, safe='')}")
@@ -148,7 +147,6 @@ class FirmwareHarvest:
 
     def dumps(self, brand: str) -> list[tuple[int, str, int, str]]:
         """(project id, branch, android release, build date) per fresh dump."""
-
         found: list[tuple[int, str, int, str]] = []
         for page in range(1, self.MAX_PAGES + 1):
             try:
@@ -181,7 +179,6 @@ class FirmwareHarvest:
     @classmethod
     def pick(cls, props: dict[str, str], partition: str, field: str) -> str:
         """The value `partition` contributes for `field`, placeholders aside."""
-
         for key in (f"ro.product.{partition}.{field}", f"ro.product.{field}"):
             value = props.get(key, "").strip()
             if value and value.lower() not in cls.PLACEHOLDER:
@@ -194,7 +191,6 @@ class FirmwareHarvest:
         A list rather than one pair because the regional overlay files give a
         phone one model code per market, exactly as Google's catalog does.
         """
-
         files = {partition: self.file(project, path, ref)
                  for partition, path in self.PROP_PATH.items()}
 
@@ -252,7 +248,6 @@ class FirmwareHarvest:
 
     def records(self) -> list[dict[str, Any]]:
         """One record per (brand, model code) a retail dump has ever proved."""
-
         if self.cache.has(self.RECORDS_FILE):
             return self.cache.read_json(self.RECORDS_FILE)
         if self.cache.offline:
@@ -292,7 +287,6 @@ class FirmwareHarvest:
 
     def carried(self) -> list[dict[str, Any]]:
         """Whatever the previous harvest wrote, set aside under PREV_FILE."""
-
         if not self.cache.has(self.PREV_FILE):
             return []
         old = self.cache.read_json(self.PREV_FILE)
@@ -316,7 +310,6 @@ class FirmwareHarvest:
         A sighting therefore expires on its own schedule, after
         RECORD_MAX_AGE_DAYS, rather than at the end of the run that missed it.
         """
-
         kept = {(r["brand"], r["code"]): r for r in self.carried()}
         for record in fresh:
             key = (record["brand"], record["code"])
@@ -340,7 +333,6 @@ class FirmwareHarvest:
 
     def store(self, records: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Write the accumulation, and retire the file it was merged from."""
-
         out = sorted(records, key=lambda r: (r["brand"], r["code"]))
         self.cache.write_json(self.RECORDS_FILE, out)
         self.cache.path(self.PREV_FILE).unlink(missing_ok=True)
