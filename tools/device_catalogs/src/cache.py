@@ -9,7 +9,7 @@ import stat
 import urllib.request
 from pathlib import Path
 from typing import Any, NoReturn
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 
 from .shared import CACHE_DIR, USER_AGENT
 
@@ -109,7 +109,8 @@ class Cache:
         Windows and silently leave the clone behind.
         """
 
-        def drop_readonly(func, path, _exc):
+        def drop_readonly(func: Callable[[str], object], path: str,
+                          _exc: object) -> None:
             os.chmod(path, stat.S_IWRITE)
             func(path)
 

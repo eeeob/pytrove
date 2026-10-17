@@ -33,7 +33,7 @@ else:                                             # pragma: no cover
         disagree about what a state is called depending on the interpreter.
         """
 
-        def _generate_next_value_(name, *_):
+        def _generate_next_value_(name: str, *_: object) -> str:
             return name.lower()
         
         __str__ = str.__str__

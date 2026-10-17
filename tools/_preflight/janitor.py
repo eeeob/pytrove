@@ -24,6 +24,7 @@ import os
 import shutil
 import stat
 import time
+from collections.abc import Callable
 from datetime import date
 from pathlib import Path
 from typing import ClassVar
@@ -68,7 +69,8 @@ class Janitor:
         return aside
 
     @staticmethod
-    def _drop_readonly(func, path, _exc):         # noqa: ANN001
+    def _drop_readonly(func: Callable[[str], object], path: str,
+                       _exc: object) -> None:
         """Git marks its objects read-only, which makes rmtree fail on Windows.
 
         `onerror` rather than `onexc`: the latter arrived in 3.12 and tools/
