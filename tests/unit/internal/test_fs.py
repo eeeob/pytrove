@@ -156,6 +156,17 @@ def test_is_link_is_resolved_from_shutil_where_the_shape_is_known():
     assert _fs._is_link(__file__) == _own_islink(__file__)
 
 
+def test_is_link_without_file_attributes_is_os_path_islink(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Off Windows `os.lstat` reports no file attributes, so there is no
+    # junction to look for and `_is_link` is `os.path.islink`.
+    seen: list[str] = []
+    monkeypatch.setattr(_fs, "_HAS_FILE_ATTRIBUTES", False)
+    monkeypatch.setattr(os.path, "islink", lambda path: seen.append(path) or True)
+
+    assert _fs._is_link("anything") is True
+    assert seen == ["anything"]
+
+
 def test_is_dir_is_the_inverse_of_is_link_for_a_directory(tmp_path):
     a_dir = tmp_path / "d"
     a_dir.mkdir()

@@ -225,6 +225,24 @@ def test_compile_from_file_nests_skips_definitions_and_applies_file_defaults(tmp
         CompiledTemplate.compile_from_file(path)
 
 
+@needs_pyrogram
+def test_compile_from_file_reads_plain_json_without_the_jsonref_extra(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from pytrove.models.template_models import template
+
+    def no_jsonref(path: object) -> object:
+        """Fail as `load_ref_json` does when `jsonref` is absent."""
+        msg = "pytrove[jsonref]"
+        raise ImportError(msg)
+
+    monkeypatch.setattr(template, "load_ref_json", no_jsonref)
+    path = tmp_path / "templates.json"
+    path.write_text(json.dumps({"top": {"message": ["plain"]}}), encoding="utf-8")
+
+    assert CompiledTemplate.compile_from_file(path)["top"].format()["text"] == "plain"
+
+
 @pytest.mark.skipif(HAS_PYROGRAM, reason="checks the error raised without the tg extra")
 def test_template_parts_need_the_tg_extra() -> None:
     with pytest.raises(ImportError, match="pytrove\\[tg\\]"):
@@ -232,5 +250,8 @@ def test_template_parts_need_the_tg_extra() -> None:
 
     with pytest.raises(ImportError, match="pytrove\\[tg\\]"):
         CompiledButton(text="t", type="url", value="v").format({})
+
+    with pytest.raises(ImportError, match="pytrove\\[tg\\]"):
+        CompiledRichMessage.compile({"html": ["x"]}).format({})
 
     assert CompiledLine.compile("still works").format({}) == "still works"

@@ -2,6 +2,8 @@ from __future__ import annotations as _annotations
 
 import random
 
+import pytest
+
 from pytrove.models import Jitter
 
 
@@ -94,3 +96,36 @@ def test_Jitter_value_can_be_moved_between_calls() -> None:
     j.value = 1000
     j.reset()
     assert 900.0 <= j() <= 1100.0
+
+
+def test_Jitter_swaps_the_ends_of_a_negative_window() -> None:
+    j = Jitter(-5, rng=random.Random(0))
+    for _ in range(200):
+        assert -5.5 <= j() <= -4.5
+
+
+def test_Jitter_zero_width_window_returns_its_single_point() -> None:
+    j = Jitter(5, decrease=0, increase=0)
+    assert j() == 5.0
+    assert j.last == 5.0
+
+
+def test_Jitter_clamps_bias_and_wobble_into_the_unit_range() -> None:
+    def run(**kw: float) -> list[float]:
+        """Return a seeded stream for these settings."""
+        j = Jitter(5, rng=random.Random(3), **kw)
+        return [j() for _ in range(50)]
+
+    assert run(bias=-1.0) == run(bias=0.0)
+    assert run(bias=2.0) == run(bias=1.0)
+    assert run(wobble=-1.0) == run(wobble=0.0)
+    assert run(wobble=5.0) == run(wobble=1.0)
+
+
+def test_Jitter_min_distance_wider_than_the_window_takes_the_furthest_end() -> None:
+    j = Jitter(5, min_distance=10.0, rng=random.Random(4))
+    for _ in range(50):
+        prev = j()
+        nxt = j()
+        far = 4.5 if (prev - 4.5) >= (5.5 - prev) else 5.5
+        assert nxt == pytest.approx(far)

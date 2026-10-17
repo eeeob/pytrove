@@ -86,3 +86,13 @@ async def test_delayed_callback_wait_returns_none_when_cancelled() -> None:
     cb = DelayedCallback(10, print)
     cb.cancel_event.set()
     assert await cb.wait() is None
+
+
+async def test_delayed_callback_cancel_after_it_finished_only_clears_the_task() -> None:
+    cb = DelayedCallback(0, lambda: 1)
+    task = cb.start()
+    assert await task == 1
+
+    await cb.cancel()
+    assert cb.task is None and cb.cancelled
+    assert task.result() == 1 and not task.cancelled()

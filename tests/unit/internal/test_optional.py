@@ -124,6 +124,15 @@ def test_unavailable_class_refuses_every_use() -> None:
             use()
 
 
+def test_unavailable_class_refuses_instance_attribute_access() -> None:
+    stand_in = _unavailable_class("Thing", (MISSING, "nope"))
+    # `__new__` refuses, so build the instance past it to reach the instance `__getattr__`.
+    instance = object.__new__(stand_in)
+
+    with pytest.raises(ImportError, match=r"pytrove\[nope\]"):
+        _ = instance.attr
+
+
 def test_unavailable_class_requires_something_missing() -> None:
     with pytest.raises(RuntimeError, match="No missing packages"):
         _unavailable_class("Thing", ("pytest", "dev"))
