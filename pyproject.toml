@@ -58,9 +58,9 @@ dev = [
 
 
 mongo = [
-    # 4.6.3 fixes CVE-2024-5629. Every 4.x up to 4.18.0 still carries
-    # CVE-2026-96748 and no fixed release is known yet; raise the floor once one exists.
-    "pymongo>=4.6.3",
+    # Every 4.x up to 4.18.0 carries CVE-2026-96748 (and earlier releases more);
+    # 4.19.0 is the first release with no known vulnerability.
+    "pymongo>=4.19.0",
 ]
 country = [
     # Floors set when the feature was added; clean.
