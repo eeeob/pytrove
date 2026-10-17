@@ -14,7 +14,7 @@ else:
 
 try:
     from pyrogram.enums import ParseMode
-    from pyrogram.types import InlineKeyboardMarkup, InputRichMessage
+    from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, InputRichMessage
 except ImportError:
     HAS_PYROGRAM = False
 else:
@@ -25,8 +25,7 @@ from ...data_tools import clean_none_values
 from ...date_tools import arabic_time
 from ...files_tools import load_ref_json, read_json
 from ...typings import JsonValue, NestedStrKeyDict, PathLike, TemplateDict, TemplatePyroMessage, _False, _True
-from ...validate_tools import is_mapping
-from ._internal import _compile_lines, _format_lines
+from ._internal import _compile_lines, _CompiledTemplateDict, _format_lines, _is_each_button
 from .buttons import CompiledButtonRow, CompiledEachButton
 from .conditions import CompiledDefaults
 from .lines import CompiledEachLine, CompiledLine
@@ -73,26 +72,24 @@ if HAS_PYROGRAM:
             Returns:
                 The compiled template.
             """
-            template["parse_mode"] = (
-                ParseMode(parse_mode)
-                if (parse_mode := template.get("parse_mode", None) or parse_mode) is not None
-                else None
+            # The dict is rewritten in place into its compiled shape.
+            compiled = cast(_CompiledTemplateDict, template)
+            compiled["parse_mode"] = (
+                ParseMode(mode) if (mode := template.get("parse_mode", None) or parse_mode) is not None else None
             )
-            template["key_time"] = template.get("key_time", None) or key_time
-            template["message"] = _compile_lines(template.get("message", None))
-            template["buttons"] = [
-                CompiledEachButton.compile(button)
-                if (is_mapping(button) and button.get("each"))
-                else CompiledButtonRow.compile(button)
+            compiled["key_time"] = template.get("key_time", None) or key_time
+            compiled["message"] = _compile_lines(template.get("message", None))
+            compiled["buttons"] = [
+                CompiledEachButton.compile(button) if _is_each_button(button) else CompiledButtonRow.compile(button)
                 for button in template.get("buttons", [])
             ] or None
-            template["rich_message"] = (
+            compiled["rich_message"] = (
                 CompiledRichMessage.compile(rich_message)
                 if (rich_message := template.get("rich_message", None))
                 else None
             )
 
-            return cls.from_dict(template, True)
+            return cls.from_dict(compiled, True)
 
         def apply_key_time(self, kw: Mapping[str, Any]) -> None:
             """Fill in the `key_time` key the lines can reference, unless already passed.
@@ -139,19 +136,15 @@ if HAS_PYROGRAM:
             Returns:
                 The keyboard, or `None` if no button rendered.
             """
-            rows = []
+            rows: list[list[InlineKeyboardButton]] = []
 
             for buttons in self.buttons or ():
-                row = buttons.format(kw)
-
-                if not row:
-                    continue
-
                 # `CompiledEachButton` returns several rows and `CompiledButtonRow`
                 # one, so only the former needs `extend()`.
                 if isinstance(buttons, CompiledEachButton):
-                    rows.extend(row)
-                else:
+                    if each_rows := buttons.format(kw):
+                        rows.extend(each_rows)
+                elif row := buttons.format(kw):
                     rows.append(row)
 
             if rows:
@@ -168,16 +161,21 @@ if HAS_PYROGRAM:
             Returns:
                 `rich_message` or `text`/`parse_mode`, plus `reply_markup`, with `None` values dropped.
             """
-            kw = self.with_defaults(clean_none_values(kw))
+            values = self.with_defaults(clean_none_values(kw))
 
-            rich_message = self.format_rich_message(kw)
+            rich_message = self.format_rich_message(values)
             content = (
                 {"rich_message": rich_message}
                 if rich_message is not None
-                else {"text": self.format_message(kw), "parse_mode": self.parse_mode}
+                else {"text": self.format_message(values), "parse_mode": self.parse_mode}
             )
 
-            return clean_none_values({**content, "reply_markup": self.format_keyboard(kw)})
+            # `clean_none_values` drops the `None` values that no `TemplatePyroMessage`
+            # key can hold, which its `_T -> _T` signature cannot express.
+            return cast(
+                TemplatePyroMessage,
+                clean_none_values({**content, "reply_markup": self.format_keyboard(values)}),
+            )
 
         @classmethod
         def compile_from_file(
@@ -185,7 +183,7 @@ if HAS_PYROGRAM:
             path: PathLike,
             parse_mode: ParseMode | None = None,
             key_time: str | None = None,
-        ) -> NestedStrKeyDict[CompiledTemplate]:
+        ) -> NestedStrKeyDict[Self]:
             """Compile every template in a JSON file.
 
             The file may also set `parse_mode`/`key_time` defaults for all of
@@ -215,10 +213,10 @@ if HAS_PYROGRAM:
 
             return cls.compile_template(
                 templates,
-                ParseMode(parse_mode)
-                if (parse_mode := templates.pop("parse_mode", None) or parse_mode) is not None
-                else None,
-                templates.pop("key_time", None) or key_time,
+                ParseMode(mode) if (mode := templates.pop("parse_mode", None) or parse_mode) is not None else None,
+                # The file format holds `key_time` as a string; like every other template
+                # key it is taken from the JSON unchecked.
+                cast(str | None, templates.pop("key_time", None)) or key_time,
             )
 
         @overload
@@ -240,7 +238,7 @@ if HAS_PYROGRAM:
             key_time: str | None = None,
             *,
             is_single_template: _False = False,
-        ) -> NestedStrKeyDict[CompiledTemplate]: ...
+        ) -> NestedStrKeyDict[Self]: ...
         @classmethod
         def compile_template(
             cls,
@@ -249,7 +247,7 @@ if HAS_PYROGRAM:
             key_time: str | None = None,
             *,
             is_single_template: bool = False,
-        ) -> Self | NestedStrKeyDict[CompiledTemplate]:
+        ) -> Self | NestedStrKeyDict[Self]:
             """Compile a mapping of templates, recursing into each group marked `"nested": true`.
 
             Entries whose name starts with `$` are skipped: they hold the

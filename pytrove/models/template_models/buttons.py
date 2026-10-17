@@ -5,10 +5,9 @@ from __future__ import annotations as _annotations
 import inspect
 import sys
 import warnings
-from collections import ChainMap
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -35,6 +34,7 @@ from ...object_tools import classproperty
 from ...typings import MaybeList, StrInt, TemplateButtonDict, TemplateButtonType, TemplateEachButtonDict
 from ...validate_tools import is_container, is_mapping
 from ..base import BaseDataClass
+from ._internal import _chain_mappings, _CompiledEachButtonDict
 from .conditions import CompiledConditional
 
 
@@ -68,7 +68,7 @@ class CompiledButton(CompiledConditional):
 
     @classproperty(cached=True)
     @_optional_import(("kurigram", "tg"))
-    def _buttons_params(cls) -> frozenset[str]:
+    def _buttons_params(cls: type[CompiledButton]) -> frozenset[str]:
         """The parameter names `InlineKeyboardButton` accepts."""
         return frozenset(inspect.signature(InlineKeyboardButton).parameters.keys())
 
@@ -139,8 +139,10 @@ class CompiledEachButton(BaseDataClass):
         Returns:
             The compiled button block.
         """
-        item["item"] = CompiledButton.compile(item["item"])
-        return cls.from_dict(item, True)
+        # The dict is rewritten in place into its compiled shape.
+        compiled = cast(_CompiledEachButtonDict, item)
+        compiled["item"] = CompiledButton.compile(item["item"])
+        return cls.from_dict(compiled, True)
 
     @_optional_import(("kurigram", "tg"))
     def format(self, kw: Mapping[str, Any]) -> list[list[InlineKeyboardButton]] | None:
@@ -166,7 +168,7 @@ class CompiledEachButton(BaseDataClass):
             if not is_mapping(raw_each):
                 continue
 
-            if (button := item.format(ChainMap(raw_each, kw))) is not None:
+            if (button := item.format(_chain_mappings(raw_each, kw))) is not None:
                 current.append(button)
 
             if len(current) == row_width:
@@ -199,10 +201,12 @@ class CompiledButtonRow(BaseDataClass):
         Returns:
             The compiled row.
         """
-        if is_mapping(item):
-            item = [item]
+        # A mapping is the one-button arm of `MaybeList`, anything else its list arm.
+        # `ty` cannot split the arms by `is_mapping`: it keeps a `list & Mapping`
+        # intersection in one branch and the `TypedDict` in the other.
+        buttons = cast(list[TemplateButtonDict], [item] if is_mapping(item) else item)
 
-        return cls.from_dict({"buttons": [CompiledButton.compile(button) for button in item]}, True)
+        return cls.from_dict({"buttons": [CompiledButton.compile(button) for button in buttons]}, True)
 
     @_optional_import(("kurigram", "tg"))
     def format(self, kw: Mapping[str, Any]) -> list[InlineKeyboardButton] | None:

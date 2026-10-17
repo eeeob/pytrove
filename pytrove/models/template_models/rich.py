@@ -5,7 +5,7 @@ from __future__ import annotations as _annotations
 import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -19,7 +19,7 @@ except ImportError:
 
 from ..._internal._optional import _optional_import
 from ...typings import TemplateRichMessageDict
-from ._internal import _compile_lines, _format_lines
+from ._internal import _compile_lines, _CompiledRichMessageDict, _format_lines
 from .conditions import CompiledDefaults
 from .lines import CompiledEachLine, CompiledLine
 
@@ -54,10 +54,12 @@ class CompiledRichMessage(CompiledDefaults):
         Returns:
             The compiled rich message.
         """
-        item["html"] = _compile_lines(item.get("html", None))
-        item["markdown"] = _compile_lines(item.get("markdown", None))
+        # The dict is rewritten in place into its compiled shape.
+        compiled = cast(_CompiledRichMessageDict, item)
+        compiled["html"] = _compile_lines(item.get("html", None))
+        compiled["markdown"] = _compile_lines(item.get("markdown", None))
 
-        return cls.from_dict(item, True)
+        return cls.from_dict(compiled, True)
 
     @_optional_import(("kurigram>=2.2.24", "tg"))
     def format(self, kw: Mapping[str, Any]) -> InputRichMessage | None:
@@ -74,7 +76,8 @@ class CompiledRichMessage(CompiledDefaults):
         for lines, parse in ((self.html, "html"), (self.markdown, "markdown")):
             if (formatted := _format_lines(lines, kw)) is not None:
                 return InputRichMessage(
-                    **{parse: formatted},
+                    html=formatted if parse == "html" else None,
+                    markdown=formatted if parse == "markdown" else None,
                     is_rtl=self.is_rtl,
                     skip_entity_detection=self.skip_entity_detection,
                 )

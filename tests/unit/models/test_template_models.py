@@ -145,6 +145,28 @@ def test_template_compiles_and_formats_a_whole_message() -> None:
 
 
 @needs_pyrogram
+def test_template_compile_rewrites_the_dict_and_keyboard_skips_empty_rows() -> None:
+    from pyrogram.enums import ParseMode
+
+    raw = {
+        "message": ["a"],
+        "buttons": [[_button(all_of=["x"])], {"each": "people", "item": _button()}, _button()],
+        "rich_message": {"markdown": ["m"]},
+        "parse_mode": "markdown",
+    }
+    template = CompiledTemplate.compile(raw)
+
+    assert raw["parse_mode"] is ParseMode.MARKDOWN and raw["key_time"] is None
+    assert raw["message"] == template.message and raw["rich_message"] == template.rich_message
+    assert [type(part) for part in raw["buttons"]] == [CompiledButtonRow, CompiledEachButton, CompiledButtonRow]
+
+    keyboard = template.format_keyboard({"name": "n", "people": []})
+    assert [[b.text for b in row] for row in keyboard.inline_keyboard] == [["n"]]
+    keyboard = template.format_keyboard({"name": "n", "x": 1, "people": [{"name": "p"}]})
+    assert [[b.text for b in row] for row in keyboard.inline_keyboard] == [["n"], ["p"], ["n"]]
+
+
+@needs_pyrogram
 def test_compile_from_file_nests_skips_definitions_and_applies_file_defaults(tmp_path: Path) -> None:
     from pyrogram.enums import ParseMode
 

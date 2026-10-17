@@ -3,10 +3,9 @@
 from __future__ import annotations as _annotations
 
 import sys
-from collections import ChainMap
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -16,6 +15,7 @@ else:
 from ...typings import TemplateEachLineDict, TemplateLineDict
 from ...validate_tools import is_container, is_mapping
 from ..base import BaseDataClass
+from ._internal import _chain_mappings, _CompiledEachLineDict
 from .conditions import CompiledConditional
 
 
@@ -87,8 +87,10 @@ class CompiledEachLine(BaseDataClass):
         Returns:
             The compiled line.
         """
-        item["item"] = CompiledLine.compile(item["item"])
-        return cls.from_dict(item, True)
+        # The dict is rewritten in place into its compiled shape.
+        compiled = cast(_CompiledEachLineDict, item)
+        compiled["item"] = CompiledLine.compile(item["item"])
+        return cls.from_dict(compiled, True)
 
     def format(self, kw: Mapping[str, Any]) -> str | None:
         """Render one line per element.
@@ -109,7 +111,7 @@ class CompiledEachLine(BaseDataClass):
         return "\n".join(
             line
             for raw_each in each
-            if is_mapping(raw_each) and (line := item.format(ChainMap(raw_each, kw))) is not None
+            if is_mapping(raw_each) and (line := item.format(_chain_mappings(raw_each, kw))) is not None
         ) or None
 
 

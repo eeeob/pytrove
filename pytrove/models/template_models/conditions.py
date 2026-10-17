@@ -2,7 +2,6 @@
 
 from __future__ import annotations as _annotations
 
-from collections import ChainMap
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -10,6 +9,7 @@ from typing import Any
 from ...iter_tools import to_frozenset
 from ...typings import JsonValue
 from ..base import BaseDataClass
+from ._internal import _chain_mappings
 
 
 @dataclass(slots=True)
@@ -31,7 +31,7 @@ class CompiledDefaults(BaseDataClass):
         Returns:
             `kw` with the defaults beneath it, or `kw` itself if there are none.
         """
-        return ChainMap(kw, defaults) if (defaults := self.default_keys) else kw
+        return _chain_mappings(kw, defaults) if (defaults := self.default_keys) else kw
 
 
 @dataclass(slots=True)
