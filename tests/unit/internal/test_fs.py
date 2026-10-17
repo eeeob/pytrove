@@ -176,3 +176,7 @@ def test_is_dir_is_the_inverse_of_is_link_for_a_directory(tmp_path):
     assert _fs._is_dir(a_dir) is True
     assert _fs._is_dir(a_file) is False
     assert _fs._is_dir(tmp_path / "ghost") is False
+
+
+def test_copy_buf_is_one_mebibyte() -> None:
+    assert _fs._COPY_BUF == 1 << 20
