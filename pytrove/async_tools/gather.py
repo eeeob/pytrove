@@ -8,16 +8,20 @@ from collections.abc import Awaitable, Iterator
 from typing import Any, cast, overload
 
 from ..iter_tools import iter_flat_cont
-from ..typings import NestedContainer, _T, _True
+from ..typings import NestedContainer, _False, _T
 from ..validate_tools import is_exception
 from ._internal import _gather_cancel_on_error, _log_exc
 
 
-@overload
-async def gather_helper(*awaitables: NestedContainer[Awaitable[_T] | None], log_exc: bool = True) -> list[_T]: ...
+# `return_exc=False` (or nothing) is listed first, so `True` or a plain `bool` falls to the arm
+# that may return an exception.
 @overload
 async def gather_helper(
-    *awaitables: NestedContainer[Awaitable[_T] | None], return_exc: _True, log_exc: bool = True,
+    *awaitables: NestedContainer[Awaitable[_T] | None], return_exc: _False = False, log_exc: bool = True,
+) -> list[_T]: ...
+@overload
+async def gather_helper(
+    *awaitables: NestedContainer[Awaitable[_T] | None], return_exc: bool, log_exc: bool = True,
 ) -> list[_T | Exception]: ...
 async def gather_helper(*awaitables: Any, return_exc: bool = False, log_exc: bool = True) -> list[Any]:
     """Run awaitables concurrently like `asyncio.gather`, flattening nested containers.
@@ -46,11 +50,14 @@ async def gather_helper(*awaitables: Any, return_exc: bool = False, log_exc: boo
     return results
 
 
-@overload
-async def gather_abort(*awaitables: NestedContainer[Awaitable[_T] | None], log_exc: bool = True) -> list[_T]: ...
+# Same overload order as `gather_helper`.
 @overload
 async def gather_abort(
-    *awaitables: NestedContainer[Awaitable[_T] | None], return_exc: _True, log_exc: bool = True,
+    *awaitables: NestedContainer[Awaitable[_T] | None], return_exc: _False = False, log_exc: bool = True,
+) -> list[_T]: ...
+@overload
+async def gather_abort(
+    *awaitables: NestedContainer[Awaitable[_T] | None], return_exc: bool, log_exc: bool = True,
 ) -> list[_T | Exception]: ...
 async def gather_abort(*awaitables: Any, return_exc: bool = False, log_exc: bool = True) -> list[Any]:
     """Run awaitables concurrently, cancelling the rest as soon as one fails.
