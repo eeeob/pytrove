@@ -25,7 +25,11 @@ classifiers = [
     "Typing :: Typed",
 ]
 
+# Rule 2.3: every dependency has a version floor and no upper bound unless a
+# real compatibility break needs one; the reason for each floor is beside it.
+# "Clean" means the floor has no known vulnerability (checked 2026-10-17).
 dependencies = [
+    # Backports the newer `typing` names the library imports below 3.13.
     "typing_extensions>=4.0; python_version<'3.13'",
 ]
 
@@ -35,38 +39,89 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "hatch<=1.16.5",
-    "twine<=6.2.0",
-    "pytest>=8",
+    # The former `<=1.16.5` cap had no technical reason, so only a floor
+    # remains: the 1.16 line the cap was set on, which is clean.
+    "hatch>=1.16",
+    # Same as hatch: the former `<=6.2.0` cap had no technical reason.
+    "twine>=6.2",
+    # Earlier releases (8.x through 9.0.2) carry CVE-2025-71176.
+    "pytest>=9.0.3",
+    # Floor set when the async tests were added; clean.
     "pytest-asyncio>=0.24",
     # Pinned exactly: ty is pre-1.0 and each release can add or change
     # diagnostics, which would fail CI with no change in the code.
     "ty==0.0.88",
+    # Pinned exactly for the same reason as ty: a new release can add or
+    # change lint rules, which would fail the checks with no change in the code.
+    "ruff==0.17.1",
 ]
 
 
-mongo = ["pymongo>=4.6.3"]
-country = ["pycountry>=26.2.16", "phonenumbers>=9.0.21"]
-crypto = ["cryptography>=48.0.1"]
-bs4 = ["beautifulsoup4>=4.14.3"]
-imap = ["aioimaplib>=2.0.1"]
-phone = ["phonenumbers>=9.0.21"]
-tg = ["kurigram>=2.1.35"]
-typecheck = ["typeguard>=4.3"]
-proxy = ["wrapt>=1.16"]
-locale = ["babel>=2.14"]
-jsonref = ["jsonref>=1.1"]
-fastjson = ["orjson>=3.9"]
+mongo = [
+    # 4.6.3 fixes CVE-2024-5629. Every 4.x up to 4.18.0 still carries
+    # CVE-2026-96748 and no fixed release is known yet; raise the floor once one exists.
+    "pymongo>=4.6.3",
+]
+country = [
+    # Floors set when the feature was added; clean.
+    "pycountry>=26.2.16",
+    "phonenumbers>=9.0.21",
+]
+crypto = [
+    # Earlier releases carry CVE-2026-69247 and CVE-2026-69249.
+    "cryptography>=50.0.0",
+]
+bs4 = [
+    # Floor set when the feature was added; clean.
+    "beautifulsoup4>=4.14.3",
+]
+imap = [
+    # Floor set when the feature was added; clean.
+    "aioimaplib>=2.0.1",
+]
+phone = [
+    # Floor set when the feature was added; clean.
+    "phonenumbers>=9.0.21",
+]
+tg = [
+    # Floor set when the feature was added; clean.
+    "kurigram>=2.1.35",
+]
+typecheck = [
+    # Floor set when the feature was added; clean.
+    "typeguard>=4.3",
+]
+proxy = [
+    # Floor set when the feature was added; clean.
+    "wrapt>=1.16",
+]
+locale = [
+    # Floor set when the feature was added; clean.
+    "babel>=2.14",
+]
+jsonref = [
+    # Floor set when the feature was added; clean.
+    "jsonref>=1.1",
+]
+fastjson = [
+    # 3.9.0 carries CVE-2024-27454 and 3.10 through 3.11.5 carry CVE-2025-67221.
+    "orjson>=3.11.7",
+]
 archive = [
+    # Floor set when the feature was added; clean. 3.14 uses the stdlib
+    # `compression.zstd` instead.
     "zstandard>=0.22; python_version < '3.14'",
     # fastzip fails to import on Windows (its _crc32_combine loads libz via
     # ctypes.util.find_library("z"), which finds nothing there), so it is
     # installed only where it actually works; compress_folder's `workers`
     # just falls back to the serial zipfile writer where it is absent.
+    # Floor set when the feature was added; clean.
     "fastzip>=0.5; sys_platform != 'win32'",
+    # Floor set when the feature was added; clean.
     "pathspec>=1.0",
 ]
 
+# Every optional group above, so `full` installs all optional features.
 full = [
     "pytrove[imap,phone,country,bs4,mongo,tg,crypto,typecheck,proxy,locale,jsonref,fastjson,archive]"
 ]
