@@ -121,8 +121,7 @@ def _chain_mappings(*maps: Mapping[str, Any]) -> Mapping[str, Any]:
         A `ChainMap` over `maps`.
     """
     # `ChainMap` types its maps as `MutableMapping` because a write lands in the first
-    # one; reads work on any `Mapping`, and the only writer, `CompiledTemplate.format()`,
-    # passes the dict it built itself as the first map.
+    # one; the chains built here are only read, and reads work on any `Mapping`.
     return ChainMap(*cast(tuple[MutableMapping[str, Any], ...], maps))
 
 

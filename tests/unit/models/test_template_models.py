@@ -4,6 +4,8 @@ import importlib.util
 import json
 from collections import ChainMap
 from pathlib import Path
+from types import MappingProxyType
+from typing import Any
 
 import pytest
 
@@ -142,6 +144,31 @@ def test_template_compiles_and_formats_a_whole_message() -> None:
     payload = rich.format(time="now")
     assert set(payload) == {"rich_message"}
     assert payload["rich_message"].html == "<b>now</b>"
+
+
+@needs_pyrogram
+def test_apply_key_time_layers_the_time_without_touching_kw() -> None:
+    template = CompiledTemplate.compile({"message": ["{time}"]}, key_time="time")
+    kw: dict[str, Any] = {"name": "a"}
+    view = template.apply_key_time(kw)
+    assert kw == {"name": "a"}
+    assert view["name"] == "a"
+    assert isinstance(view["time"], str)
+    assert template.apply_key_time({"time": "set"})["time"] == "set"
+    assert CompiledTemplate.compile({"message": ["x"]}).apply_key_time(kw) is kw
+
+
+@needs_pyrogram
+def test_format_message_accepts_a_read_only_mapping() -> None:
+    template = CompiledTemplate.compile({"message": ["at {time}"]}, key_time="time")
+    assert template.format_message(MappingProxyType({})).startswith("at ")
+
+
+@needs_pyrogram
+def test_format_shows_the_buttons_the_same_key_time_as_the_text() -> None:
+    template = CompiledTemplate.compile({"message": ["{time}"], "buttons": [_button("{time}")]}, key_time="time")
+    out = template.format(name="a")
+    assert out["reply_markup"].inline_keyboard[0][0].text == out["text"]
 
 
 @needs_pyrogram

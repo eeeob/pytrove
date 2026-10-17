@@ -25,7 +25,7 @@ from ...data_tools import clean_none_values
 from ...date_tools import arabic_time
 from ...files_tools import load_ref_json, read_json
 from ...typings import JsonValue, NestedStrKeyDict, PathLike, TemplateDict, TemplatePyroMessage, _False, _True
-from ._internal import _compile_lines, _CompiledTemplateDict, _format_lines, _is_each_button
+from ._internal import _chain_mappings, _compile_lines, _CompiledTemplateDict, _format_lines, _is_each_button
 from .buttons import CompiledButtonRow, CompiledEachButton
 from .conditions import CompiledDefaults
 from .lines import CompiledEachLine, CompiledLine
@@ -91,14 +91,21 @@ if HAS_PYROGRAM:
 
             return cls.from_dict(compiled, True)
 
-        def apply_key_time(self, kw: Mapping[str, Any]) -> None:
-            """Fill in the `key_time` key the lines can reference, unless already passed.
+        def apply_key_time(self, kw: Mapping[str, Any]) -> Mapping[str, Any]:
+            """Layer the `key_time` key the lines can reference over `kw`, unless already passed.
+
+            `kw` itself is never changed, so a read-only mapping works too.
 
             Args:
-                kw: The `format()` keyword arguments; updated in place.
+                kw: The `format()` keyword arguments.
+
+            Returns:
+                `kw` itself, or a view of it with `key_time` filled in.
             """
-            if self.key_time is not None and self.key_time not in kw:
-                kw[self.key_time] = arabic_time()
+            if self.key_time is None or self.key_time in kw:
+                return kw
+
+            return _chain_mappings({self.key_time: arabic_time()}, kw)
 
         def format_message(self, kw: Mapping[str, Any]) -> str | None:
             """Render `message`.
@@ -109,8 +116,7 @@ if HAS_PYROGRAM:
             Returns:
                 The text, or `None` if no line rendered.
             """
-            self.apply_key_time(kw)
-            return _format_lines(self.message, kw)
+            return _format_lines(self.message, self.apply_key_time(kw))
 
         def format_rich_message(self, kw: Mapping[str, Any]) -> InputRichMessage | None:
             """Render `rich_message`.
@@ -124,8 +130,7 @@ if HAS_PYROGRAM:
             if self.rich_message is None:
                 return None
 
-            self.apply_key_time(kw)
-            return self.rich_message.format(kw)
+            return self.rich_message.format(self.apply_key_time(kw))
 
         def format_keyboard(self, kw: Mapping[str, Any]) -> InlineKeyboardMarkup | None:
             """Render the keyboard.
@@ -161,7 +166,8 @@ if HAS_PYROGRAM:
             Returns:
                 `rich_message` or `text`/`parse_mode`, plus `reply_markup`, with `None` values dropped.
             """
-            values = self.with_defaults(clean_none_values(kw))
+            # Applied once here, so the text, the rich message and the buttons all see one time.
+            values = self.apply_key_time(self.with_defaults(clean_none_values(kw)))
 
             rich_message = self.format_rich_message(values)
             content = (
