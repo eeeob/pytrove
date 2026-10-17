@@ -180,10 +180,12 @@ class DmiHarvest:
         print(f"  read {len(records)} of {len(wanted)} probes"
               + (f" ({lost} unreachable)" if lost else ""))
         if wanted and len(records) < len(wanted) * self.MIN_READ:
-            raise SystemExit(
+            msg = (
                 f"only {len(records)} of {len(wanted)} DMI probes could be read "
                 f"({len(records) / len(wanted):.0%}, floor "
                 f"{self.MIN_READ:.0%}).\nraw.githubusercontent is rate limiting "
-                f"this run; nothing was written. retry later.")
+                f"this run; nothing was written. retry later."
+            )
+            raise SystemExit(msg)
         self.cache.write_json(self.RECORDS_FILE, records)
         return records

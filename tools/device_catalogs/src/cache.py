@@ -48,7 +48,8 @@ class Cache:
         if path.exists():
             return path.read_bytes()
         if self.offline:
-            raise SystemExit(f"--offline but {path} is missing")
+            msg = f"--offline but {path} is missing"
+            raise SystemExit(msg)
 
         data = self.download(url)
         self.directory.mkdir(parents=True, exist_ok=True)

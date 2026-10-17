@@ -335,7 +335,8 @@ class WebBuilder(Builder):
         seen = collections.Counter(d["model"] for d in devices)
         duplicates = [model for model, count in seen.items() if count > 1]
         if duplicates:
-            raise SystemExit(f"duplicate User-Agent strings: {duplicates}")
+            msg = f"duplicate User-Agent strings: {duplicates}"
+            raise SystemExit(msg)
 
         return [Catalog(
             platform=self.platform,
