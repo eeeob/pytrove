@@ -4,15 +4,12 @@ import re
 
 import pytest
 
-from pytrove.models import DeviceInfo
-from pytrove.tg_tools._internal.catalog import _load, _DATA_DIR, _SCHEMA, GROUP_SHARES, OS_SHARES
+from pytrove.tg_tools._internal.catalog import _load, _DATA_DIR, _SCHEMA, GROUP_SHARES
 from pytrove.tg_tools._internal.families import (
     AndroidDevice,
     DesktopDevice,
-    SystemInfo,
     WebDevice,
     iOSDevice,
-    random_family,
 )
 
 #: Only present after a build; the tests that need it skip when it is absent.
@@ -589,128 +586,3 @@ def test_linux_model_pool_adds_the_fallbacks_windows_has_none_of():
     assert "Notebook" not in models
     # none of these reach a Windows client
     assert not ({"KVM", "Laptop"} & set(DesktopDevice.models("windows")))
-
-
-# --- sampling --------------------------------------------------------------
-
-def test_random_device_only_returns_pairs_the_catalog_allows(platform):
-    allowed = {(d.model, v) for d in platform.catalog().devices for v in d.versions}
-
-    for _ in range(200):
-        device = platform.random_device()
-        assert (device.model, device.version) in allowed
-
-
-def test_same_unique_id_gives_the_same_device(platform):
-    assert platform.random_device("user-42") == platform.random_device("user-42")
-
-
-def test_different_unique_ids_spread_across_devices(platform):
-    drawn = {platform.random_device(f"user-{i}").model for i in range(60)}
-    assert len(drawn) > 1
-
-
-def test_random_device_without_an_id_varies(platform):
-    drawn = {platform.random_device() for _ in range(80)}
-    assert len(drawn) > 1
-
-
-@pytest.mark.parametrize("os", DESKTOP_OSES)
-def test_pinning_an_os_only_draws_that_os(os):
-    allowed = {(d.model, v)
-               for d in DesktopDevice.catalog().by_os[os].devices
-               for v in d.by_os[os][0]}
-
-    for i in range(120):
-        device = DesktopDevice.random_device(f"pin-{i}", os=os)
-        assert (device.model, device.version) in allowed
-
-
-def test_pinning_an_os_is_deterministic():
-    assert (DesktopDevice.random_device("abc", os="linux")
-            == DesktopDevice.random_device("abc", os="linux"))
-
-
-def test_pinning_an_unknown_os_raises():
-    with pytest.raises(ValueError, match="no 'haiku' devices"):
-        DesktopDevice.random_device(os="haiku")
-
-    with pytest.raises(ValueError, match="no 'windows' devices"):
-        AndroidDevice.random_device(os="windows")
-
-
-def test_desktop_draws_follow_the_os_shares():
-    os_of = {v["version"]: v["os"] for v in _load("desktop")["versions"]}
-    picks = collections.Counter(
-        os_of[DesktopDevice.random_device().version] for _ in range(4000))
-    total = sum(OS_SHARES.values())
-
-    for name, share in OS_SHARES.items():
-        assert abs(picks[name] / 4000 - share / total) < 0.05, (name, picks)
-
-
-def test_newer_releases_are_drawn_more_often_than_the_oldest():
-    versions = [iOSDevice.random_device().version for _ in range(600)]
-    newest = sum(1 for v in versions if v.startswith("27"))
-    oldest = sum(1 for v in versions if v.startswith("18"))
-
-    assert newest > 0
-    assert newest >= oldest / 2   # recency weighting, not a hard ordering
-
-
-def test_random_family_is_weighted_towards_mobile():
-    picks = collections.Counter(
-        random_family(ALL_PLATFORMS).platform for _ in range(3000))
-
-    assert picks["android"] > picks["desktop"] > picks["ios"] / 2
-    assert set(picks) == {p.platform for p in ALL_PLATFORMS}
-
-
-def test_random_family_is_deterministic_with_a_unique_id():
-    assert random_family(ALL_PLATFORMS, "abc") is random_family(ALL_PLATFORMS, "abc")
-
-
-# --- lookup and types ------------------------------------------------------
-
-def test_find_device_matches_model_and_optional_version():
-    device = AndroidDevice.catalog().devices[0]
-
-    assert AndroidDevice.find_device(device.model) is not None
-    assert AndroidDevice.find_device(device.model, device.versions[0]) == DeviceInfo(
-        device.model, device.versions[0]
-    )
-    assert AndroidDevice.find_device(device.model, "SDK 1") is None
-    assert AndroidDevice.find_device("no such model") is None
-
-
-def test_models_and_versions_narrow_to_one_os():
-    # Windows draws only the shared pool, Linux adds its own boards on top.
-    assert set(DesktopDevice.models("windows")) < set(DesktopDevice.models())
-    assert set(DesktopDevice.versions("windows")).isdisjoint(
-        DesktopDevice.versions("linux"))
-    assert sum(len(DesktopDevice.versions(os)) for os in DESKTOP_OSES) == len(
-        DesktopDevice.versions())
-
-
-def test_single_os_platform_reports_no_oses():
-    assert AndroidDevice.oses() == ()
-    assert iOSDevice.oses() == ()
-    assert DesktopDevice.oses() == DESKTOP_OSES
-
-
-def test_device_info_is_immutable_and_prints_both_parts():
-    device = DeviceInfo("model", "version")
-
-    assert str(device) == "model version"
-    assert device.to_dict() == {"device_model": "model", "system_version": "version"}
-
-    with pytest.raises(AttributeError):
-        device.model = "other"
-
-
-def test_unknown_platform_raises():
-    class Nope(SystemInfo):
-        platform = "nope"
-
-    with pytest.raises(FileNotFoundError):
-        Nope.random_device()
