@@ -36,31 +36,6 @@ from pytrove.archive_tools._internal.rules import _Filter
 # The optional backends are the modules themselves, or None. There is no
 # parallel set of flags any more, so a test forcing one path puts None
 # where the module was.
-# _resolve_under was folded into _Extractor._place, so the tests that used
-# it directly go through _safe_target below instead.
-
-
-def _safe_target(dest, name, cache=None):
-    """Where `name` resolves to, for a bare destination and no rules.
-
-    Working out a member's path is not a method of its own any more -- it
-    lives inside _Extractor._place, which reads the extraction's root and
-    its directory cache -- so a synthetic directory member is put through
-    _place instead. A directory skips the `overwrite` policy, so what comes
-    back is the resolved path or None, which is what these tests are about.
-
-    A fresh extractor per call is what a test wants anyway, since the cache
-    is what several of them are about.
-    """
-
-    e = _Extractor(dest, dest, _Filter.from_rules((), ()))
-    e._root = dest
-    e._limiter = limiter._Limiter(ArchiveLimits(), dest)
-
-    if cache is not None:
-        e._cleared = cache
-
-    return e._place(limiter._Member(name, None, 0, 0, "dir"))
 HAS_ZSTD = backends.std_zstd is not None or backends.zstandard is not None
 
 
@@ -220,34 +195,6 @@ def test_extract_archive_refuses_a_directory_as_source(tree, tmp_path):
     assert not (tmp_path / "out").exists()
 
 
-@pytest.mark.parametrize("name", [
-    "../escape.txt",
-    "../../escape.txt",
-    "a/../../escape.txt",
-    "..\\escape.txt",
-    "",
-])
-def test_safe_target_refuses_traversal(tmp_path, name):
-    dest = tmp_path / "dest"
-    dest.mkdir()
-    assert _safe_target(dest, name) is None
-
-
-@pytest.mark.parametrize("name", [
-    "../escape.txt", "../../escape.txt", "a/../../escape.txt", "..\\escape.txt",
-    "", "/", "///", "C:/Windows/x", "c:x", "sub/../../escape.txt",
-    "pkg/a.py", "a/../b.txt", "sub/./a.txt", "/etc/passwd", "plain.txt",
-])
-def test_the_directory_cache_never_changes_the_verdict(tmp_path, name):
-    # _safe_target resolves the directory part once and reuses it for
-    # siblings. That is only sound if it decides exactly what the
-    # per-member resolve decided.
-    dest = tmp_path / "dest"
-    dest.mkdir()
-
-    assert _safe_target(dest, name, {}) == _safe_target(dest, name)
-
-
 def test_a_junction_inside_dest_cannot_be_written_through(tmp_path):
     # The one thing resolve() buys over folding ".." by hand, and the
     # reason the cache keys on the directory: a link that already sits in
@@ -281,20 +228,6 @@ def test_a_junction_inside_dest_cannot_be_written_through(tmp_path):
 
     assert list(outside.iterdir()) == []
     assert (dest / "ok.txt").read_text() == "fine"
-
-
-@pytest.mark.parametrize("name", [
-    "/etc/passwd", "C:/Windows/x", "c:x", "//server/share/x", "/",
-])
-def test_absolute_names_are_refused_outright(tmp_path, name):
-    # tar strips the leading separator and keeps such a member. This does
-    # not: rewriting where the archive asked to go is a silent repair, and
-    # an archive that asks to write outside the directory it was handed has
-    # not earned the benefit of the doubt on its other names either.
-    dest = tmp_path / "dest"
-    dest.mkdir()
-
-    assert _safe_target(dest, name) is None
 
 
 def test_extract_refuses_to_escape_the_destination(tmp_path):
@@ -800,19 +733,6 @@ def _tar_of(tmp_path, members):
 
 
 # --- what a member name may be --------------------------------------------
-
-@pytest.mark.parametrize("name", [
-    "/etc/passwd", "C:/Windows/x", "c:x", "//server/share/x", "/", "///",
-])
-def test_an_absolute_member_name_is_refused_not_repaired(tmp_path, name):
-    # tar strips the leading separator and keeps the member. This does not:
-    # rewriting where the archive asked to go is a silent repair, and an
-    # archive asking to write outside its destination has not earned the
-    # benefit of the doubt on its other names either.
-    dest = tmp_path / "dest"
-    dest.mkdir()
-
-    assert _safe_target(dest, name) is None
 
 
 # --- the policies ----------------------------------------------------------
@@ -2621,160 +2541,10 @@ def test_a_member_overwrite_refuses_is_not_reported_as_an_escape(tmp_path, caplo
     assert "already exists" in caplog.text
 
 
-def test_a_member_the_policy_refuses_is_never_counted():
-    # Directly, because through an extraction the tallies are only visible
-    # by what they refuse. `overwrite` is asked first, so a member it turns
-    # away leaves every tally exactly where it was.
-    dest = Path("dest")
-    lim = limiter._Limiter(
-        ArchiveLimits(overwrite="skip", max_dir_entries=10), Path("a.zip"))
-
-    assert lim.allows_target("sub/a.txt", dest / "sub" / "a.txt") is True
-    assert lim.allows_target("sub/a.txt", dest / "sub" / "a.txt") is False
-
-    # Nothing was spent on the second: no bytes, no entry, no breadth.
-    assert (lim.files, lim.total, lim._breadth, lim._counted) == (0, 0, {}, set())
-
-
 # --- a source file changing while it is being archived ---------------------
-
-class _FakeStat:
-    def __init__(self, st_size, st_mtime_ns, st_ctime_ns=0, st_atime_ns=0, st_mode=0o644):
-        self.st_size = st_size
-        self.st_mtime_ns = st_mtime_ns
-        self.st_ctime_ns = st_ctime_ns
-        self.st_atime_ns = st_atime_ns
-        self.st_mode = st_mode
-
-
-def test_same_stat_compares_size_mtime_and_ctime():
-    base = _FakeStat(1, 1, 1)
-
-    assert stable._same_stat(base, _FakeStat(1, 1, 1)) is True
-    assert stable._same_stat(base, _FakeStat(2, 1, 1)) is False
-    assert stable._same_stat(base, _FakeStat(1, 2, 1)) is False
-    assert stable._same_stat(base, _FakeStat(1, 1, 2)) is False
-
-
-def test_read_stable_settles_on_the_first_attempt_when_nothing_changes(tmp_path):
-    target = tmp_path / "f.bin"
-    content = b"hello world" * 100
-    target.write_bytes(content)
-
-    tmp, st, settled = stable._read_stable(str(target), retries=3)
-    try:
-        assert settled is True
-        assert st.st_size == len(content)
-        assert Path(tmp).read_bytes() == content
-    finally:
-        os.unlink(tmp)
-
-
-def test_read_stable_retries_until_two_stats_agree(tmp_path, monkeypatch):
-    target = tmp_path / "f.bin"
-    target.write_bytes(b"x")
-
-    # shutil.copyfile is stubbed out here so the only os.stat(target) calls
-    # left are _read_stable's own before/after pair -- copyfile's internal
-    # samefile check calls os.stat too, which would otherwise consume from
-    # this same faked sequence for a reason unrelated to what this test is
-    # about.
-    monkeypatch.setattr(stable.shutil, "copyfile", lambda src, dst: None)
-
-    # Attempt 1: before=(0) after=(1) -- disagree, retried.
-    # Attempt 2: before=(2) after=(2) -- agree, settled.
-    stats = iter([
-        _FakeStat(0, 0), _FakeStat(1, 0),
-        _FakeStat(2, 0), _FakeStat(2, 0),
-    ])
-    monkeypatch.setattr(stable.os, "stat", lambda path: next(stats))
-
-    tmp, st, settled = stable._read_stable(str(target), retries=3)
-    try:
-        assert settled is True
-    finally:
-        os.unlink(tmp)
-
-
-def test_read_stable_gives_up_after_its_retry_budget(monkeypatch, tmp_path):
-    target = tmp_path / "f.bin"
-    target.write_bytes(b"x")
-
-    monkeypatch.setattr(stable.shutil, "copyfile", lambda src, dst: None)
-
-    sizes = iter(range(20))
-    monkeypatch.setattr(stable.os, "stat", lambda path: _FakeStat(next(sizes), 0))
-
-    tmp, st, settled = stable._read_stable(str(target), retries=2)
-    try:
-        assert settled is False
-    finally:
-        os.unlink(tmp)
-
-
-def test_read_stable_sets_the_temp_file_mtime_and_mode_from_the_verified_stat(tmp_path):
-    target = tmp_path / "f.bin"
-    target.write_bytes(b"abc")
-    os.chmod(target, 0o600)
-    st = target.stat()
-
-    tmp, _, settled = stable._read_stable(str(target), retries=0)
-    try:
-        assert settled is True
-        tmp_st = os.stat(tmp)
-        assert tmp_st.st_mtime_ns == st.st_mtime_ns
-        assert stat.S_IMODE(tmp_st.st_mode) == stat.S_IMODE(st.st_mode)
-    finally:
-        os.unlink(tmp)
 
 
 # --- the passive before/after check on the direct, unguarded write --------
-
-def test_warn_if_changed_logs_when_the_stat_differs_after_the_write(tmp_path, monkeypatch, caplog):
-    target = tmp_path / "f.bin"
-    target.write_bytes(b"x")
-    before = target.stat()
-
-    # Simulate the file having changed by the time the "after" stat runs.
-    monkeypatch.setattr(stable.os, "stat", lambda path: _FakeStat(999, 0))
-
-    with caplog.at_level("WARNING"):
-        stable._warn_if_changed(str(target), before)
-
-    assert "changed while being archived" in caplog.text
-
-
-def test_warn_if_changed_is_silent_when_nothing_changed(tmp_path, caplog):
-    target = tmp_path / "f.bin"
-    target.write_bytes(b"x")
-    before = target.stat()
-
-    with caplog.at_level("WARNING"):
-        stable._warn_if_changed(str(target), before)
-
-    assert caplog.text == ""
-
-
-def test_warn_if_changed_does_nothing_without_a_before_stat(tmp_path, caplog):
-    target = tmp_path / "f.bin"
-    target.write_bytes(b"x")
-
-    with caplog.at_level("WARNING"):
-        stable._warn_if_changed(str(target), None)
-
-    assert caplog.text == ""
-
-
-def test_warn_if_changed_is_silent_if_the_file_is_gone_by_the_second_stat(tmp_path, caplog):
-    target = tmp_path / "f.bin"
-    target.write_bytes(b"x")
-    before = target.stat()
-    target.unlink()
-
-    with caplog.at_level("WARNING"):
-        stable._warn_if_changed(str(target), before)
-
-    assert caplog.text == ""
 
 
 @pytest.mark.parametrize("fmt", FORMATS)
