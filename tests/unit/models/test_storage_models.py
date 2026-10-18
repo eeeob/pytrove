@@ -77,3 +77,43 @@ def test_json_container_refuses_a_file_without_an_object(tmp_path: Path) -> None
 
     with pytest.raises(TypeError, match="JSON object"):
         JsonContainer(path).load()
+
+
+def test_json_container_delete_of_a_missing_key_does_not_save(tmp_path: Path) -> None:
+    path = tmp_path / "store.json"
+    container = JsonContainer(path)
+    container.delete("absent", save_now=True)
+    assert not path.exists()
+
+
+def test_json_container_delete_without_save_now_leaves_the_file(tmp_path: Path) -> None:
+    path = tmp_path / "store.json"
+    path.write_text('{"a": 1}', encoding="utf-8")
+    container = JsonContainer(path)
+    container.delete("a")
+    assert container.get("a") is None
+    assert json.loads(path.read_text(encoding="utf-8")) == {"a": 1}
+
+
+async def test_json_container_async_delete_of_a_missing_key_does_not_save(tmp_path: Path) -> None:
+    path = tmp_path / "store.json"
+    container = JsonContainer(path)
+    await container.async_delete("absent", save_now=True)
+    assert not path.exists()
+
+
+async def test_json_container_async_get_reuses_loaded_data(tmp_path: Path) -> None:
+    path = tmp_path / "store.json"
+    path.write_text('{"a": 1}', encoding="utf-8")
+    container = JsonContainer(path)
+    container.load()
+    path.write_text('{"a": 2}', encoding="utf-8")
+    assert await container.async_get("a") == 1
+
+
+async def test_json_container_async_update_loads_the_file_first(tmp_path: Path) -> None:
+    path = tmp_path / "store.json"
+    path.write_text('{"a": 1}', encoding="utf-8")
+    container = JsonContainer(path)
+    await container.async_update({"b": 2}, save_now=True)
+    assert json.loads(path.read_text(encoding="utf-8")) == {"a": 1, "b": 2}

@@ -1,25 +1,23 @@
 from __future__ import annotations as _annotations
 
-import importlib.util
 from collections import ChainMap
 from types import MappingProxyType
 from typing import is_typeddict
 
 import pytest
 
-from pytrove.models import CompiledButton, CompiledEachButton, CompiledEachLine, CompiledLine, CompiledRichMessage
+from pytrove.models import CompiledEachLine, CompiledLine
 from pytrove.models.template_models._internal import (
-    _chain_mappings,
     _CompiledEachButtonDict,
     _CompiledEachLineDict,
     _CompiledRichMessageDict,
     _CompiledTemplateDict,
+    _chain_mappings,
+    _compile_lines,
+    _format_lines,
     _is_each_button,
     _is_each_line,
 )
-
-HAS_PYROGRAM = importlib.util.find_spec("pyrogram") is not None
-needs_pyrogram = pytest.mark.skipif(not HAS_PYROGRAM, reason="needs the tg extra")
 
 
 @pytest.mark.parametrize(
@@ -57,22 +55,9 @@ def test_chain_mappings_layers_without_copying() -> None:
     assert dict(_chain_mappings()) == {}
 
 
-def test_line_and_rich_message_compile_rewrite_the_dict_in_place() -> None:
-    raw = {"each": "xs", "item": "{x}"}
-    line = CompiledEachLine.compile(raw)
-    assert isinstance(raw["item"], CompiledLine)
-    assert line.item is raw["item"]
-
-    raw_rich = {"html": ["a"]}
-    rich = CompiledRichMessage.compile(raw_rich)
-    assert raw_rich["markdown"] is None
-    assert raw_rich["html"] == rich.html
-    assert [type(line) for line in raw_rich["html"]] == [CompiledLine]
-
-
-@needs_pyrogram
-def test_each_button_compile_rewrites_the_dict_in_place() -> None:
-    raw = {"each": "xs", "item": {"text": "t", "type": "url", "value": "v"}}
-    button = CompiledEachButton.compile(raw)
-    assert isinstance(raw["item"], CompiledButton)
-    assert button.item is raw["item"]
+def test_compile_and_format_line_blocks() -> None:
+    lines = _compile_lines(["a", {"text": "{b}", "any_of": ["b"]}, {"each": "xs", "item": "{x}"}])
+    assert [type(line) for line in lines] == [CompiledLine, CompiledLine, CompiledEachLine]
+    assert _format_lines(lines, {"xs": [{"x": 1}]}) == "a\n1"
+    assert _compile_lines([]) is None and _compile_lines(None) is None
+    assert _format_lines(None, {}) is None

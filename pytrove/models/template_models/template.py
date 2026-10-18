@@ -257,7 +257,8 @@ if HAS_PYROGRAM:
             """Compile a mapping of templates, recursing into each group marked `"nested": true`.
 
             Entries whose name starts with `$` are skipped: they hold the
-            definitions `$ref` points at, not templates.
+            definitions `$ref` points at, not templates. Entries that are not
+            JSON objects are skipped too.
 
             Args:
                 template: The templates, or one template with `is_single_template`.

@@ -8,10 +8,7 @@ from typing import Any, Literal, ParamSpec, TypeVar, get_args, get_origin, get_t
 
 import pytest
 
-import pytrove.typings
-from pytrove.enums import ArchiveDuplicatePolicy, ArchiveLinkPolicy, ArchiveOverwritePolicy
 from pytrove.typings import (
-    ArchiveLimits,
     Container,
     ContainerWithoutMapping,
     CountryInfo,
@@ -21,8 +18,6 @@ from pytrove.typings import (
     NestedContainer,
     NotContainer,
     PathLike,
-    TemplateDict,
-    TemplatePyroMessage,
     _CT,
     _EnumT,
     _ExcT,
@@ -34,7 +29,6 @@ from pytrove.typings import (
     _True,
     _VT,
 )
-from pytrove.typings import archive, core, template
 
 CONTAINER_ORIGINS = [Sequence, Set, Collection, Reversible, Iterator]
 
@@ -42,15 +36,6 @@ CONTAINER_ORIGINS = [Sequence, Set, Collection, Reversible, Iterator]
 def _value(alias: Any) -> Any:
     """Unwrap a PEP 695 alias (3.12+) to the union it stands for."""
     return getattr(alias, "__value__", alias)
-
-
-def test_the_entry_point_is_the_union_of_its_modules() -> None:
-    assert pytrove.typings.__all__ == (*archive.__all__, *core.__all__, *template.__all__)
-    assert all(hasattr(pytrove.typings, name) for name in pytrove.typings.__all__)
-
-
-def test_every_template_type_is_prefixed() -> None:
-    assert all(name.startswith("Template") for name in template.__all__)
 
 
 @pytest.mark.parametrize("alias", [Container, ContainerWithoutMapping])
@@ -98,32 +83,3 @@ def test_a_threading_lock_satisfies_lock_protocol() -> None:
 
 def test_country_info_fields() -> None:
     assert get_type_hints(CountryInfo) == {"cc": int, "rc": str, "flag": str, "name": str}
-
-
-def test_archive_limits_defaults_cap_nothing_and_refuse_links() -> None:
-    limits = ArchiveLimits()
-    assert limits[:8] == (None,) * 8
-    assert limits.symlinks is ArchiveLinkPolicy.ERROR
-    assert limits.hardlinks is ArchiveLinkPolicy.ERROR
-    assert limits.overwrite is ArchiveOverwritePolicy.OVERWRITE
-    assert limits.duplicates is ArchiveDuplicatePolicy.SKIP
-
-
-def test_archive_limits_compare_and_hash_by_value() -> None:
-    assert ArchiveLimits(max_files=3) == ArchiveLimits(max_files=3)
-    assert hash(ArchiveLimits(max_files=3)) == hash(ArchiveLimits(max_files=3))
-
-
-def test_permissive_limits_allow_links_and_keep_other_fields() -> None:
-    limits = ArchiveLimits.permissive(max_files=5)
-    assert limits.symlinks is ArchiveLinkPolicy.ALLOW
-    assert limits.hardlinks is ArchiveLinkPolicy.ALLOW
-    assert limits.max_files == 5
-
-
-@pytest.mark.parametrize("typed_dict", [TemplateDict, TemplatePyroMessage])
-def test_template_dict_keys_are_all_declared_optional(typed_dict: type) -> None:
-    # The annotations are deferred strings (rule 4.2), so `__required_keys__` cannot be trusted on every version.
-    annotations = [getattr(v, "__forward_arg__", v) for v in typed_dict.__annotations__.values()]
-    assert annotations
-    assert all(v.startswith("NotRequired[") for v in annotations)

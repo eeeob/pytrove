@@ -165,3 +165,19 @@ def test_only_fields_contribute_enum_types() -> None:
     Model._ensure_field_meta()
 
     assert Model.__enums_types__ == frozenset()
+
+
+def test_private_field_keeps_an_attribute_the_class_already_defines() -> None:
+    @dataclass
+    class Custom(BaseDataClass):
+        _x: int = 1
+
+        @property
+        def x(self) -> str:
+            """Return a value the generated property would not."""
+            return "custom"
+
+    Custom._ensure_field_meta()
+
+    assert Custom().x == "custom"
+    assert Custom(_x=5)._x == 5
