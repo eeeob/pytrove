@@ -71,6 +71,18 @@ async def test_middleware_never_hands_keyboard_interrupt_to_an_async_on_error() 
         await middleware(interrupted, on_error=lambda exc: None)()
 
 
+def test_middleware_lets_a_hook_exception_propagate() -> None:
+    def boom(*_: object) -> None:
+        """Raise `KeyError` whatever the arguments."""
+        raise KeyError
+
+    with pytest.raises(KeyError):
+        middleware(lambda: 1, before=boom, on_error=lambda exc: "swallowed")()
+
+    with pytest.raises(KeyError):
+        middleware(lambda: 1, after=boom, on_error=lambda exc: "swallowed")()
+
+
 def test_middleware_accepts_an_explicit_none_hook() -> None:
     assert middleware(lambda: 1, before=None, after=None, on_error=None)() == 1
 

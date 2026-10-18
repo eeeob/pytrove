@@ -88,12 +88,12 @@ def middleware(
 def middleware(func: Callable[..., Any] | None = None, **kw: Any) -> Any:
     """Wrap a sync or async function with hooks, directly or as a decorator.
 
-    `before(*args, **kwargs)` runs first; an exception goes to
+    `before(*args, **kwargs)` runs first; an exception raised by `func` goes to
     `on_error(exc, *args, **kwargs)`, whose return value replaces the result
     (without it the exception propagates); `after(result, *args, **kwargs)`
-    runs last and its return value is the result. For an async function each
-    hook may be sync or async. `SystemExit` and `KeyboardInterrupt` never reach
-    `on_error`.
+    runs last and its return value is the result. An exception raised by a hook
+    itself propagates. For an async function each hook may be sync or async.
+    `SystemExit` and `KeyboardInterrupt` never reach `on_error`.
 
     Args:
         func: The function to wrap; omit it to get a decorator.
