@@ -9,7 +9,7 @@ from pytrove.tg_tools._internal.families import _DEVICES, random_family
 
 
 @pytest.mark.parametrize("platform", list(PlatformDevice))
-def test_rand_tg_device_works_for_every_platform(platform):
+def test_rand_tg_device_works_for_every_platform(platform: PlatformDevice) -> None:
     device = rand_tg_device(platform)
     assert device.model and device.version
 
@@ -23,7 +23,7 @@ def test_rand_tg_device_pins_and_reproduces() -> None:
     )
 
 
-def test_device_info_is_immutable_and_prints_both_parts():
+def test_device_info_is_immutable_and_prints_both_parts() -> None:
     device = DeviceInfo("model", "version")
 
     assert str(device) == "model version"

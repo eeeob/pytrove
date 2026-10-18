@@ -26,15 +26,8 @@ def test_account_age_is_interpolated_and_capped() -> None:
 
 
 @needs_email
-async def test_fetch_tg_email_code_matches_a_six_digit_code(monkeypatch):
-    async def fake_fetch(*args, **kwargs):
-        yield "Hello Ali Hassan, your code is 123456"
-
-    monkeypatch.setattr("pytrove.tg_tools.accounts.fetch_emails_from", fake_fetch)
-    monkeypatch.setattr(
-        "pytrove.tg_tools.accounts.detect_email_provider",
-        lambda email: ImapEmailProvider.GMAIL,
-    )
+async def test_fetch_tg_email_code_matches_a_six_digit_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    _fake_inbox(monkeypatch, "Hello Ali Hassan, your code is 123456")
 
     assert await fetch_tg_email_code("a@gmail.com", "pw", "Ali Hassan", 6) == "123456"
 

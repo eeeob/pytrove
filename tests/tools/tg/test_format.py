@@ -29,35 +29,35 @@ without_tg = pytest.mark.skipif(HAS_TG, reason="checks the error raised without 
 
 
 @needs_tg
-def test_parse_tg_target_passes_an_int_through():
+def test_parse_tg_target_passes_an_int_through() -> None:
     assert parse_tg_target(123456) == 123456
 
 
 @needs_tg
-def test_parse_tg_target_reads_a_phone_number_as_an_int():
+def test_parse_tg_target_reads_a_phone_number_as_an_int() -> None:
     assert parse_tg_target("+967 (777) 123-456") == 967777123456
     assert parse_tg_target("967777123456") == 967777123456
 
 
 @needs_tg
-def test_parse_tg_target_strips_at_and_plus_from_a_username():
+def test_parse_tg_target_strips_at_and_plus_from_a_username() -> None:
     assert parse_tg_target("@some_user") == "some_user"
     assert parse_tg_target("some_user") == "some_user"
 
 
 @needs_tg
-def test_parse_tg_target_lowercases_a_username():
+def test_parse_tg_target_lowercases_a_username() -> None:
     assert parse_tg_target("@Some_User") == "some_user"
 
 
 @needs_tg
-def test_parse_tg_target_reads_a_channel_message_link_into_a_chat_id():
+def test_parse_tg_target_reads_a_channel_message_link_into_a_chat_id() -> None:
     # get_channel_id(1234567890) == -1001234567890
     assert parse_tg_target("https://t.me/c/1234567890") == -1001234567890
 
 
 @needs_tg
-def test_parse_tg_target_keeps_a_non_numeric_link_capture_as_a_string():
+def test_parse_tg_target_keeps_a_non_numeric_link_capture_as_a_string() -> None:
     assert parse_tg_target("https://t.me/some_channel") == "some_channel"
 
 
