@@ -6,7 +6,7 @@ import pytest
 
 from pytrove.enums import PlatformDevice
 from pytrove.models import DeviceInfo
-from pytrove.tg_tools._internal.catalog import _load, OS_SHARES
+from pytrove.tg_tools._internal.catalog import _catalog, _load, OS_SHARES
 from pytrove.tg_tools._internal.families import (
     _DEVICES,
     AndroidDevice,
@@ -150,3 +150,53 @@ def test_families_and_rng() -> None:
     assert _rng("a").random() == _rng("a").random()
     assert _rng(5).random() == _rng("5").random()
     assert random_family(_DEVICES.values(), "a") is random_family(_DEVICES.values(), "a")
+
+
+def test_rng_seeds_bytes_and_text_alike() -> None:
+    assert _rng(b"a").random() == _rng("a").random()
+    assert _rng(bytearray(b"a")).random() == _rng("a").random()
+
+
+def test_rng_without_a_seed_differs_each_time() -> None:
+    assert _rng().random() != _rng().random()
+
+
+def test_devices_map_each_platform_to_its_family() -> None:
+    assert _DEVICES == {
+        PlatformDevice.ANDROID: AndroidDevice,
+        PlatformDevice.IOS: iOSDevice,
+        PlatformDevice.DESKTOP: DesktopDevice,
+        PlatformDevice.WEB: WebDevice,
+    }
+    assert [f.platform_weight for f in ALL_PLATFORMS] == [26.0, 50.0, 19.0, 5.0]
+    assert SystemInfo.platform_weight == 1.0
+
+
+def test_catalog_is_the_cached_platform_catalog(platform: type[SystemInfo]) -> None:
+    assert platform.catalog() is _catalog(platform.platform)
+
+
+def test_devices_lists_every_model_and_version_pair(platform: type[SystemInfo]) -> None:
+    pairs = platform.devices()
+
+    assert pairs == tuple(DeviceInfo(d.model, v) for d in platform.catalog().devices for v in d.versions)
+    assert all(isinstance(pair, DeviceInfo) for pair in pairs)
+
+
+@pytest.mark.parametrize("os", DESKTOP_OSES)
+def test_devices_narrowed_to_one_os_only_pairs_its_versions(os: str) -> None:
+    pairs = DesktopDevice.devices(os)
+
+    assert pairs and set(pairs) <= set(DesktopDevice.devices())
+    assert {pair.version for pair in pairs} == set(DesktopDevice.versions(os))
+
+
+def test_listing_an_unknown_os_raises() -> None:
+    with pytest.raises(ValueError, match="desktop has no 'haiku' devices"):
+        DesktopDevice.devices("haiku")
+
+    with pytest.raises(ValueError, match=r"android has no 'linux' devices; known: \(\)"):
+        AndroidDevice.models("linux")
+
+    with pytest.raises(ValueError, match="no 'haiku' devices"):
+        DesktopDevice.versions("haiku")

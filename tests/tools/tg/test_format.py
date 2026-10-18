@@ -1,7 +1,7 @@
 from __future__ import annotations as _annotations
 
 import pytest
-from pyrogram.enums import ParseMode
+from pyrogram.enums import ChatType, ParseMode
 from pyrogram.types import CallbackQuery, Chat, Message, User
 
 from pytrove import parse_tg_target
@@ -86,3 +86,87 @@ def test_hidden_link_and_mention() -> None:
 def test_link_patterns() -> None:
     assert CHAT_LINK_PATTERN.match("t.me/name/5").group(1) == "name"
     assert INVITE_LINK_PATTERN.match("https://t.me/+hash").group(1) == "hash"
+
+
+def test_parse_tg_target_keeps_an_invite_link_as_it_is() -> None:
+    assert parse_tg_target("https://t.me/+AbC-d") == "https://t.me/+AbC-d"
+
+
+def test_parse_tg_target_squeezes_spaces_out_of_a_username() -> None:
+    assert parse_tg_target("  Some  User ") == "someuser"
+
+
+def test_parse_tg_target_reads_any_telegram_domain() -> None:
+    assert parse_tg_target("telegram.me/Some") == "some"
+    assert parse_tg_target("www.telegram.dog/c/123/4") == -1000000000123
+
+
+def test_extract_pyro_update_text_of_a_callback_without_data_is_empty() -> None:
+    assert extract_pyro_update_text(CallbackQuery(id="1", from_user=User(id=1), chat_instance="c")) == ""
+
+
+def test_extract_pyro_update_text_prefers_text_over_caption() -> None:
+    assert extract_pyro_update_text(Message(id=1, text="t", caption="c")) == "t"
+
+
+def test_extract_pyro_update_text_names_the_refused_type() -> None:
+    with pytest.raises(ValidationError, match="int"):
+        extract_pyro_update_text(5)
+
+
+def test_format_tg_username_keeps_the_case_of_a_bare_username() -> None:
+    assert format_tg_username("@Name") == "@Name"
+    assert format_tg_username("  @n ") == "@n"
+
+
+def test_format_tg_username_of_a_chat_and_of_nothing() -> None:
+    assert format_tg_username(Chat(id=1, username="Grp")) == "@Grp"
+    assert format_tg_username("") is None
+    assert format_tg_username(Chat(id=1), default="none") == "none"
+
+
+def test_format_tg_username_reads_other_telegram_domains() -> None:
+    assert format_tg_username("telegram.dog/x", with_at=False) == "x"
+
+
+def test_format_tg_link_of_a_message_is_its_own_link() -> None:
+    chat = Chat(id=-1001234567890, type=ChatType.SUPERGROUP, username="grp")
+
+    assert format_tg_link(Message(id=7, chat=chat)) == "https://t.me/grp/7"
+
+
+def test_format_tg_link_of_a_public_link_is_the_canonical_t_me_link() -> None:
+    assert format_tg_link("telegram.dog/x") == "https://t.me/x"
+    assert format_tg_link("  @n ") == "https://t.me/n"
+
+
+def test_format_tg_link_of_a_numeric_string_is_read_as_an_id() -> None:
+    assert format_tg_link("-1001234567890") == "tg://openmessage?chat_id=1234567890"
+
+
+def test_format_tg_link_of_a_zero_id_is_the_default() -> None:
+    assert format_tg_link(0) is None
+    assert format_tg_link(0, "none") == "none"
+
+
+def test_format_hidden_tg_link_pads_text_up_to_the_threshold_only() -> None:
+    assert links._HIDDEN_PADDING in format_hidden_tg_link("https://x.y", "abc")
+    assert format_hidden_tg_link("https://x.y", "abcd") == "<a href=https://x.y>abcd</a>"
+    assert format_hidden_tg_link("https://x.y", "abcd", ParseMode.MARKDOWN) == "[abcd](https://x.y)"
+
+
+def test_mention_tg_user_shows_the_given_name_in_the_given_mode() -> None:
+    assert mention_tg_user(7, "Ali Hassan") == "<a href=tg://user?id=7>Ali Hassan</a>"
+    assert mention_tg_user(7, "Ali Hassan", ParseMode.MARKDOWN) == "[Ali Hassan](tg://user?id=7)"
+
+
+def test_chat_link_pattern_captures_a_name_or_an_id() -> None:
+    assert CHAT_LINK_PATTERN.match("https://www.telegram.org/c/123/4").group(1) == "123"
+    assert CHAT_LINK_PATTERN.match("https://example.com/name") is None
+    assert CHAT_LINK_PATTERN.match("@name") is None
+
+
+def test_invite_link_pattern_captures_the_hash_of_both_forms() -> None:
+    assert INVITE_LINK_PATTERN.match("t.me/joinchat/Ab-c").group(1) == "Ab-c"
+    assert INVITE_LINK_PATTERN.match("https://t.me/name") is None
+    assert INVITE_LINK_PATTERN.match("https://t.me/+hash/5") is None

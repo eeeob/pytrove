@@ -34,3 +34,23 @@ def test_interpolate_time() -> None:
     assert points._interpolate_time(5, 3, 7.0, 3, 9.0) == 7.0
     assert points._interpolate_time(10**9, 0, 0.0, 1, 10**12) <= time.time()
     assert points._POINTS_FILE.name == "tg_points.json"
+
+
+def test_points_are_loaded_once_and_reused() -> None:
+    assert points._points() is points._points()
+
+
+def test_points_are_timestamps_in_date_order() -> None:
+    loaded = points._points()
+
+    assert len(loaded) >= 2
+    assert [stamp for _, stamp in loaded] == sorted(stamp for _, stamp in loaded)
+
+
+def test_interpolate_time_is_exact_at_both_ends() -> None:
+    assert points._interpolate_time(0, 0, 10.0, 10, 20.0) == 10.0
+    assert points._interpolate_time(10, 0, 10.0, 10, 20.0) == 20.0
+
+
+def test_interpolate_time_extrapolates_past_the_second_point() -> None:
+    assert points._interpolate_time(20, 0, 10.0, 10, 20.0) == 30.0
