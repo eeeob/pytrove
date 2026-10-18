@@ -113,7 +113,7 @@ def _write_tar(
 ) -> None:
     """Write walked entries into one compressed tar stream.
 
-    A tar is one stream, so a pool is refused with a warning and a count goes
+    A tar is one stream, so a pool is ignored with a warning and a count goes
     to the zstd codec. Links are followed (`dereference=True`), as zip does,
     because a link member would be refused by `extract_archive` by default.
 
