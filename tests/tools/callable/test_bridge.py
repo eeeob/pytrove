@@ -55,6 +55,23 @@ def test_run_awaitable_sync_uses_a_loop_running_in_another_thread() -> None:
         loop.close()
 
 
+async def test_run_awaitable_sync_targets_another_thread_loop_from_inside_a_running_loop() -> None:
+    loop = asyncio.new_event_loop()
+    thread = threading.Thread(target=loop.run_forever, daemon=True)
+    thread.start()
+
+    try:
+        async def ten() -> int:
+            """Return ten."""
+            return 10
+
+        assert run_awaitable_sync(ten(), loop) == 10
+    finally:
+        loop.call_soon_threadsafe(loop.stop)
+        thread.join()
+        loop.close()
+
+
 def test_run_awaitable_sync_rejects_an_idle_or_closed_loop() -> None:
     loop = asyncio.new_event_loop()
 

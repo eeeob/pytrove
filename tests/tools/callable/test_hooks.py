@@ -62,6 +62,19 @@ async def test_middleware_awaits_sync_or_async_hooks_around_a_coroutine() -> Non
         await middleware(broken)()
 
 
+async def test_middleware_never_hands_keyboard_interrupt_to_an_async_on_error() -> None:
+    async def interrupted() -> None:
+        """Raise `KeyboardInterrupt`."""
+        raise KeyboardInterrupt
+
+    with pytest.raises(KeyboardInterrupt):
+        await middleware(interrupted, on_error=lambda exc: None)()
+
+
+def test_middleware_accepts_an_explicit_none_hook() -> None:
+    assert middleware(lambda: 1, before=None, after=None, on_error=None)() == 1
+
+
 def test_middleware_as_a_decorator_and_its_argument_checks() -> None:
     @middleware(after=lambda result: result * 10)
     def five() -> int:
