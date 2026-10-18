@@ -9,12 +9,13 @@ default: one of these caches is 20 MB and 5,700 requests to rebuild, and it
 should not be touched because somebody typed the command bare.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import argparse
 import sys
 import time
-from typing import ClassVar, Sequence
+from typing import ClassVar
+from collections.abc import Sequence
 
 from .enums import Exit
 from .flight import Preflight

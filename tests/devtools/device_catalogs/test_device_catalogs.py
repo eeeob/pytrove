@@ -14,7 +14,7 @@ both invisible in the output -- the catalog looks the same either way -- so
 they need checking here or nowhere.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import os
 import sys
@@ -64,7 +64,7 @@ def _harvest(tmp_path: Path, *, offline: bool = False,
 
 # ------------------------- the filename contract --------------------------
 
-def test_the_set_aside_name_is_the_one_the_janitor_produces():
+def test_the_set_aside_name_is_the_one_the_janitor_produces() -> None:
     # The two sides never import each other: the janitor renames a `merge`
     # cache to <name>.prev<ext> knowing nothing about what is in it, and the
     # harvest reads that name knowing nothing about the janitor. A filename is
@@ -75,7 +75,7 @@ def test_the_set_aside_name_is_the_one_the_janitor_produces():
     assert FirmwareHarvest.PREV_FILE == f"{stem}{Layout.PREV}.{ext}"
 
 
-def test_the_record_window_matches_what_the_registry_declares():
+def test_the_record_window_matches_what_the_registry_declares() -> None:
     # record_max_age_days is what the registry promises a reader, and
     # RECORD_MAX_AGE_DAYS is what actually expires a record. Only the second
     # one does anything, so they have to be checked against each other.
@@ -89,7 +89,7 @@ def test_the_record_window_matches_what_the_registry_declares():
 
 # ----------------------------- the merge ----------------------------------
 
-def test_a_device_the_dump_window_scrolled_past_stays_in_the_catalog(tmp_path):
+def test_a_device_the_dump_window_scrolled_past_stays_in_the_catalog(tmp_path: Path) -> None:
     # The case the whole mechanism exists for: OPPOCPH2579 left one run and
     # came back in the next, because four pages of dumps no longer reached it.
     harvest = _harvest(tmp_path, aside=[_record("CPH2579", brand="oppo",
@@ -101,7 +101,7 @@ def test_a_device_the_dump_window_scrolled_past_stays_in_the_catalog(tmp_path):
     assert codes == ["CPH2579", "V2401"]
 
 
-def test_a_carried_device_keeps_the_sighting_it_was_last_seen_on(tmp_path):
+def test_a_carried_device_keeps_the_sighting_it_was_last_seen_on(tmp_path: Path) -> None:
     # Carrying must not re-stamp the record: a device that keeps being carried
     # would then never expire, and the window would be unbounded in practice.
     harvest = _harvest(tmp_path, aside=[_record("CPH2579", seen=_days_ago(400))])
@@ -111,7 +111,7 @@ def test_a_carried_device_keeps_the_sighting_it_was_last_seen_on(tmp_path):
     assert carried["last_seen"] == _days_ago(400)
 
 
-def test_a_device_unseen_for_longer_than_the_window_is_dropped(tmp_path):
+def test_a_device_unseen_for_longer_than_the_window_is_dropped(tmp_path: Path) -> None:
     # The other half of carrying. Without an expiry the cache would only ever
     # grow, and a model the dumps genuinely stopped carrying -- because the
     # phone is gone -- would stay in the catalog for good.
@@ -125,7 +125,7 @@ def test_a_device_unseen_for_longer_than_the_window_is_dropped(tmp_path):
     assert codes == ["EDGE"]
 
 
-def test_a_ceiling_a_dump_proved_never_moves_back_down(tmp_path):
+def test_a_ceiling_a_dump_proved_never_moves_back_down(tmp_path: Path) -> None:
     # `android` is the newest release a dump ever proved this phone runs, and
     # AndroidBuilder turns it into the top of the device's version list. A run
     # that sees only an older regional dump of the same phone must not lower
@@ -141,7 +141,7 @@ def test_a_ceiling_a_dump_proved_never_moves_back_down(tmp_path):
     assert merged[0]["last_seen"] == TODAY
 
 
-def test_a_fresh_dump_raising_the_ceiling_wins(tmp_path):
+def test_a_fresh_dump_raising_the_ceiling_wins(tmp_path: Path) -> None:
     harvest = _harvest(tmp_path, aside=[_record("V2401", android=15,
                                                 seen=_days_ago(30))])
 
@@ -150,7 +150,7 @@ def test_a_fresh_dump_raising_the_ceiling_wins(tmp_path):
     assert [r["android"] for r in merged] == [16]
 
 
-def test_the_same_code_under_two_brands_is_two_devices(tmp_path):
+def test_the_same_code_under_two_brands_is_two_devices(tmp_path: Path) -> None:
     # The key is (brand, code), not code: OPPO and realme ship the same
     # hardware under different retail names and the catalog carries both.
     harvest = _harvest(tmp_path, aside=[_record("RMX3999", brand="realme",
@@ -161,7 +161,7 @@ def test_the_same_code_under_two_brands_is_two_devices(tmp_path):
     assert len(merged) == 2
 
 
-def test_nothing_set_aside_means_the_harvest_behaves_as_it_always_did(tmp_path):
+def test_nothing_set_aside_means_the_harvest_behaves_as_it_always_did(tmp_path: Path) -> None:
     # The accumulation has to be invisible when it is not in play, because
     # that is every run between two preflight cleanings.
     harvest = _harvest(tmp_path)
@@ -172,7 +172,7 @@ def test_nothing_set_aside_means_the_harvest_behaves_as_it_always_did(tmp_path):
 
 # --------------------------- dating a carry -------------------------------
 
-def test_a_harvest_from_before_the_merge_is_dated_by_its_own_file(tmp_path):
+def test_a_harvest_from_before_the_merge_is_dated_by_its_own_file(tmp_path: Path) -> None:
     # Records written before the file accumulated carry no sighting date. They
     # cannot be dropped for that -- the first cleaning would then throw away
     # every device at once -- and they cannot be called current either, so the
@@ -191,7 +191,7 @@ def test_a_harvest_from_before_the_merge_is_dated_by_its_own_file(tmp_path):
 
 # ------------------------------ persistence --------------------------------
 
-def test_the_set_aside_file_is_retired_once_it_has_been_merged(tmp_path):
+def test_the_set_aside_file_is_retired_once_it_has_been_merged(tmp_path: Path) -> None:
     # It has to go, or the next cleaning's rename would have nothing to
     # overwrite and a run that merged successfully would keep re-reading an
     # old generation, including the records it just expired.
@@ -203,7 +203,7 @@ def test_the_set_aside_file_is_retired_once_it_has_been_merged(tmp_path):
     assert not harvest.cache.has(FirmwareHarvest.PREV_FILE)
 
 
-def test_what_is_written_is_ordered_by_brand_then_code(tmp_path):
+def test_what_is_written_is_ordered_by_brand_then_code(tmp_path: Path) -> None:
     # The cache is read back verbatim on the next run, so a stable order is
     # what keeps a rebuild from the same cache byte-identical.
     harvest = _harvest(tmp_path)
@@ -216,7 +216,7 @@ def test_what_is_written_is_ordered_by_brand_then_code(tmp_path):
         ("oppo", "CPH2401"), ("oppo", "CPH2579"), ("vivo", "V2401")]
 
 
-def test_an_offline_rebuild_falls_back_to_the_set_aside_file(tmp_path):
+def test_an_offline_rebuild_falls_back_to_the_set_aside_file(tmp_path: Path) -> None:
     # A cleaning followed by an offline rebuild is a real sequence: preflight
     # renames the file, then somebody rebuilds with no network. The data is
     # right there, so refusing would be a worse answer than a harvest that
@@ -229,14 +229,14 @@ def test_an_offline_rebuild_falls_back_to_the_set_aside_file(tmp_path):
     assert harvest.cache.has(FirmwareHarvest.RECORDS_FILE)
 
 
-def test_an_offline_rebuild_with_nothing_cached_still_stops(tmp_path):
+def test_an_offline_rebuild_with_nothing_cached_still_stops(tmp_path: Path) -> None:
     harvest = _harvest(tmp_path, offline=True)
 
     with pytest.raises(SystemExit, match="run once with network access"):
         harvest.records()
 
 
-def test_a_cached_harvest_is_used_as_it_stands(tmp_path):
+def test_a_cached_harvest_is_used_as_it_stands(tmp_path: Path) -> None:
     # The cache always wins over the network, even without --offline, and that
     # must not change now that a merge exists: a run with a records file does
     # not harvest, so it must not touch a set aside file either.

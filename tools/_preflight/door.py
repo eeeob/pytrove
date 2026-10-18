@@ -10,12 +10,13 @@ cannot tell the difference. That is the half of the no-reversing rule this
 module has to keep -- a tool never learns that preflight exists.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import runpy
 import sys
 import time
-from typing import ClassVar, Sequence
+from typing import ClassVar
+from collections.abc import Sequence
 
 from .enums import Exit
 from .flight import Preflight
@@ -85,7 +86,6 @@ class Dispatcher:
     @classmethod
     def _preflight(cls, tool: str, *, allow_flaky: bool) -> int | None:
         """None when the run may continue; an exit code when it may not."""
-
         started = time.monotonic()
         try:
             flight = Preflight(tool)
@@ -109,7 +109,6 @@ class Dispatcher:
     @classmethod
     def _run(cls, tool: str, tool_argv: list[str]) -> int:
         """Launch the tool through its own door, as a module."""
-
         module = f"tools.{tool}"
         argv = sys.argv
         sys.argv = [f"{sys.executable} -m {module}", *tool_argv]
@@ -130,7 +129,6 @@ class Dispatcher:
         instead raised a `ValueError`, so the tool's own explanation was
         replaced by a traceback from the launcher.
         """
-
         if code is None:
             return Exit.OK
         if isinstance(code, int):

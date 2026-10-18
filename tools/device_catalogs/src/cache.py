@@ -1,6 +1,6 @@
 """The download cache: the only module that touches the network."""
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import json
 import os
@@ -8,7 +8,8 @@ import shutil
 import stat
 import urllib.request
 from pathlib import Path
-from typing import Any, Iterable, NoReturn
+from typing import Any, NoReturn
+from collections.abc import Callable, Iterable
 
 from .shared import CACHE_DIR, USER_AGENT
 
@@ -24,32 +25,34 @@ class Cache:
     """
 
     def __init__(self, directory: Path = CACHE_DIR, *, offline: bool = False) -> None:
+        """Cache under `directory`; `offline` forbids any network access."""
         self.directory = directory
         self.offline = offline
 
     # --- paths -----------------------------------------------------------
 
     def path(self, name: str) -> Path:
+        """Return the path of the cache entry `name`."""
         return self.directory / name
 
     def has(self, name: str) -> bool:
+        """Return whether the cache entry `name` exists."""
         return self.path(name).is_file()
 
     def missing(self, hint: str) -> NoReturn:
         """Abort because a cache entry `--offline` needs is not there."""
-
         raise SystemExit(hint)
 
     # --- cached downloads -------------------------------------------------
 
     def fetch(self, name: str, url: str) -> bytes:
         """`url`, from the cache when it is there and from the network when not."""
-
         path = self.path(name)
         if path.exists():
             return path.read_bytes()
         if self.offline:
-            raise SystemExit(f"--offline but {path} is missing")
+            msg = f"--offline but {path} is missing"
+            raise SystemExit(msg)
 
         data = self.download(url)
         self.directory.mkdir(parents=True, exist_ok=True)
@@ -64,15 +67,17 @@ class Cache:
         encoding: str = "utf-8", 
         errors: str = "strict"
         ) -> str:
-
+        """Return the cache entry `name`, fetched from `url` if absent, as text."""
         return self.fetch(name, url).decode(encoding, errors)
 
     def fetch_json(self, name: str, url: str) -> Any:
+        """Return the cache entry `name`, fetched from `url` if absent, as JSON."""
         return json.loads(self.fetch(name, url))
 
     # --- uncached network -------------------------------------------------
 
     def download(self, url: str, *, timeout: int = 180) -> bytes:
+        """Download `url` without caching and return its body."""
         # `with`, not a bare call: the DMI and firmware steps download from a
         # dozen threads at once, and leaving each socket to the garbage
         # collector keeps connections open for as long as it takes to notice.
@@ -81,24 +86,29 @@ class Cache:
             return response.read()
 
     def get_json(self, url: str) -> Any:
-        """A single uncached request, for sources queried per device rather
-        than downloaded whole (ipsw.me)."""
+        """Make a single uncached JSON request.
 
+        For sources queried per device rather than downloaded whole (ipsw.me).
+        """
         return json.loads(self.download(url))
 
     # --- cache-only storage ----------------------------------------------
 
     def read_json(self, name: str) -> Any:
+        """Read the cache entry `name` as JSON."""
         return json.loads(self.path(name).read_text(encoding="utf-8"))
 
     def write_json(self, name: str, value: Any) -> None:
+        """Write `value` to the cache entry `name` as JSON."""
         self.directory.mkdir(parents=True, exist_ok=True)
         self.path(name).write_text(json.dumps(value), encoding="utf-8")
 
     def read_lines(self, name: str) -> list[str]:
+        """Read the cache entry `name` as a list of lines."""
         return self.path(name).read_text(encoding="utf-8").splitlines()
 
     def write_lines(self, name: str, lines: Iterable[str]) -> None:
+        """Write `lines` to the cache entry `name`, one per line."""
         self.directory.mkdir(parents=True, exist_ok=True)
         self.path(name).write_text("\n".join(lines), encoding="utf-8")
 
@@ -109,7 +119,8 @@ class Cache:
         Windows and silently leave the clone behind.
         """
 
-        def drop_readonly(func, path, _exc):
+        def drop_readonly(func: Callable[[str], object], path: str,
+                          _exc: object) -> None:
             os.chmod(path, stat.S_IWRITE)
             func(path)
 

@@ -17,13 +17,14 @@ is worth it. The hash is still recorded in the lock, as the fallback for
 bodies with no natural scalar and as a tiebreaker.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import csv
 import io
 import json
 import re
-from typing import Any, Callable, ClassVar
+from typing import Any, ClassVar
+from collections.abc import Callable
 
 from .enums import FingerprintKind
 from .models import Fingerprint
@@ -94,7 +95,6 @@ class FingerprintValue:
         HEAD rather than the first SHA keeps the value stable when a remote
         reorders its refs.
         """
-
         text = body.decode("utf-8", "replace")
         head = re.search(r"([0-9a-f]{40})\s+HEAD", text)
         if head:

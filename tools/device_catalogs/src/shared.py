@@ -3,7 +3,7 @@
 Imports nothing from the package, so it can be read first and loaded alone.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import re
 from datetime import date
@@ -32,11 +32,11 @@ SCHEMA = 1
 
 def version_key(version: str) -> tuple[int, ...]:
     """Sort key for a dotted version, so 18.10 follows 18.9."""
-
     return tuple(int(part) for part in re.findall(r"\d+", version))
 
 
 def major_of(version: str) -> int:
+    """Return the major component of a dotted version string."""
     return int(version.split(".")[0])
 
 
@@ -46,7 +46,6 @@ def normalize(value: str | None) -> str:
     Used to match a device name across sources that spell it differently
     ("Galaxy S23+ 5G" vs "galaxy s23+ 5g").
     """
-
     value = re.sub(r"[^a-z0-9+]+", " ", (value or "").lower().strip())
     return re.sub(r"\s+", " ", value).strip()
 

@@ -21,7 +21,7 @@ code 4 before the first request rather than a traceback out of the middle of a
 check that has already touched the network.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import re
 from typing import Any, Final
@@ -37,10 +37,11 @@ except ModuleNotFoundError:                       # 3.10, via tools/requirements
     try:
         import tomli as tomllib                   # type: ignore[no-redef]
     except ModuleNotFoundError:                   # pragma: no cover
-        raise SystemExit(
+        msg = (
             "reading a tool's .toml declarations needs tomli on Python 3.10:\n"
             "    pip install -r tools/requirements.txt"
-        ) from None
+        )
+        raise SystemExit(msg) from None
 
 
 class RegistryError(SystemExit):
@@ -57,7 +58,8 @@ class RegistryError(SystemExit):
 
 def _require(table: dict[str, Any], key: str, where: str) -> Any:
     if key not in table:
-        raise RegistryError(f"{where}: missing required key {key!r}")
+        msg = f"{where}: missing required key {key!r}"
+        raise RegistryError(msg)
     return table[key]
 
 
@@ -65,7 +67,8 @@ def _reject_unknown(table: dict[str, Any], known: frozenset[str],
                     where: str) -> None:
     unknown = sorted(set(table) - known)
     if unknown:
-        raise RegistryError(f"{where}: unknown key(s) {unknown}")
+        msg = f"{where}: unknown key(s) {unknown}"
+        raise RegistryError(msg)
 
 
 def _tuple(value: Any) -> tuple[str, ...]:
@@ -76,32 +79,34 @@ def _regex(pattern: str, key: str, where: str) -> str:
     try:
         re.compile(pattern)
     except re.error as exc:
-        raise RegistryError(f"{where}: {key} is not a valid regex: {exc}") from None
+        msg = f"{where}: {key} is not a valid regex: {exc}"
+        raise RegistryError(msg) from None
     return pattern
 
 
 def _member(enum: type, value: Any, key: str, where: str) -> Any:
     """One of a closed set of values, by name of the thing it describes."""
-
     try:
         return enum(value)
     except ValueError:
         known = sorted(member.value for member in enum)
-        raise RegistryError(
-            f"{where}: {key} {value!r}; known: {known}") from None
+        msg = f"{where}: {key} {value!r}; known: {known}"
+        raise RegistryError(msg) from None
 
 
 def _toml(path: Any) -> dict[str, Any]:
     try:
         return tomllib.loads(path.read_text(encoding="utf-8"))
     except tomllib.TOMLDecodeError as exc:
-        raise RegistryError(f"{path}: {exc}") from None
+        msg = f"{path}: {exc}"
+        raise RegistryError(msg) from None
 
 
 def _only_tables(data: dict[str, Any], known: frozenset[str], path: Any) -> None:
     unknown = sorted(set(data) - known)
     if unknown:
-        raise RegistryError(f"{path}: unknown top-level table(s) {unknown}")
+        msg = f"{path}: unknown top-level table(s) {unknown}"
+        raise RegistryError(msg)
 
 
 def _duplicates(ids: list[str]) -> list[str]:
@@ -145,7 +150,8 @@ def _fingerprint(table: dict[str, Any] | None, where: str) -> Fingerprint | None
     kind = _member(FingerprintKind, _require(table, "kind", where),
                    "fingerprint kind", where)
     if kind.needs_pattern and not table.get("pattern"):
-        raise RegistryError(f"{where}: fingerprint kind {kind} needs a pattern")
+        msg = f"{where}: fingerprint kind {kind} needs a pattern"
+        raise RegistryError(msg)
 
     return Fingerprint(
         kind=kind,
@@ -184,19 +190,24 @@ def _source(table: dict[str, Any], index: int) -> Source:
     )
 
     if not source.target:
-        raise RegistryError(f"{where}: needs either url or probe_url")
+        msg = f"{where}: needs either url or probe_url"
+        raise RegistryError(msg)
     if source.url and source.probe_url:
-        raise RegistryError(f"{where}: url and probe_url are mutually exclusive")
+        msg = f"{where}: url and probe_url are mutually exclusive"
+        raise RegistryError(msg)
     if source.url and not source.cache:
-        raise RegistryError(f"{where}: a fetched url needs a cache name")
+        msg = f"{where}: a fetched url needs a cache name"
+        raise RegistryError(msg)
     if source.probe_url and source.cache:
-        raise RegistryError(
-            f"{where}: a probe_url caches nothing; declare its cache as [[derived]]")
+        msg = f"{where}: a probe_url caches nothing; declare its cache as [[derived]]"
+        raise RegistryError(msg)
     for key in ("consumed_by", "on_removal"):
         if not getattr(source, key):
-            raise RegistryError(
+            msg = (
                 f"{where}: {key} is required -- a failure report has to tell a "
-                f"developer where this source is read and what its loss costs")
+                f"developer where this source is read and what its loss costs"
+            )
+            raise RegistryError(msg)
     return source
 
 
@@ -218,16 +229,21 @@ def _derived(table: dict[str, Any], index: int, source_ids: set[str]) -> Derived
     )
 
     if not derived.derives_from:
-        raise RegistryError(
+        msg = (
             f"{where}: derives_from is required -- a produced cache has no URL "
-            f"to revalidate, so a source it was built from is the only signal")
+            f"to revalidate, so a source it was built from is the only signal"
+        )
+        raise RegistryError(msg)
     unknown = sorted(set(derived.derives_from) - source_ids)
     if unknown:
-        raise RegistryError(f"{where}: derives_from names no such source: {unknown}")
+        msg = f"{where}: derives_from names no such source: {unknown}"
+        raise RegistryError(msg)
     if derived.on_change is Policy.MERGE and not derived.record_max_age_days:
-        raise RegistryError(
+        msg = (
             f"{where}: on_change = 'merge' needs record_max_age_days, or the "
-            f"file grows forever and keeps devices no dump has shown in years")
+            f"file grows forever and keeps devices no dump has shown in years"
+        )
+        raise RegistryError(msg)
     return derived
 
 
@@ -246,9 +262,11 @@ def _citation(table: dict[str, Any], index: int) -> Citation:
 
     anchors = _tuple(table.get("anchors"))
     if not anchors:
-        raise RegistryError(
+        msg = (
             f"{where}: anchors is required -- a citation with nothing to look "
-            f"for would pass while the rule it quotes was rewritten")
+            f"for would pass while the rule it quotes was rewritten"
+        )
+        raise RegistryError(msg)
 
     return Citation(
         id=str(table["id"]),
@@ -272,7 +290,8 @@ def _citations(tool: str) -> tuple[Citation, ...]:
 
     duplicate = _duplicates([c.id for c in found])
     if duplicate:
-        raise RegistryError(f"{path}: duplicate citation id(s) {duplicate}")
+        msg = f"{path}: duplicate citation id(s) {duplicate}"
+        raise RegistryError(msg)
     return found
 
 
@@ -291,9 +310,11 @@ def _watch(table: dict[str, Any], index: int) -> Watch:
 
     block = table.get("fingerprint")
     if not isinstance(block, dict):
-        raise RegistryError(
+        msg = (
             f"{where}: needs a [watch.fingerprint] block -- without one there "
-            f"is no number to compare the declared value against")
+            f"is no number to compare the declared value against"
+        )
+        raise RegistryError(msg)
 
     return Watch(
         id=str(table["id"]),
@@ -318,7 +339,8 @@ def _watches(tool: str) -> tuple[Watch, ...]:
 
     duplicate = _duplicates([w.id for w in found])
     if duplicate:
-        raise RegistryError(f"{path}: duplicate watch id(s) {duplicate}")
+        msg = f"{path}: duplicate watch id(s) {duplicate}"
+        raise RegistryError(msg)
     return found
 
 
@@ -335,30 +357,34 @@ def load_schedule(tool: str) -> Schedule:
     against anything: it says how often the check runs, which only the report
     and the workflow care about.
     """
-
     path = Layout.schedule_path(tool)
     where = f"{path.parent.name}/{path.name}"
 
     if not path.is_file():
-        raise RegistryError(f"{where}: {tool} declares no schedule")
+        msg = f"{where}: {tool} declares no schedule"
+        raise RegistryError(msg)
 
     table = _toml(path).get(SCHEDULE_SECTION)
     if not isinstance(table, dict):
-        raise RegistryError(f"{where}: missing the [{SCHEDULE_SECTION}] table")
+        msg = f"{where}: missing the [{SCHEDULE_SECTION}] table"
+        raise RegistryError(msg)
     _reject_unknown(table, SCHEDULE_KEYS, where)
 
     cron = str(table.get("cron", "")).strip()
     if not cron:
-        raise RegistryError(f"{where}: [{SCHEDULE_SECTION}] needs cron")
+        msg = f"{where}: [{SCHEDULE_SECTION}] needs cron"
+        raise RegistryError(msg)
 
     schedule = Schedule(tool=tool, cron=cron,
                         notes=str(table.get("notes", "")).strip())
     if not schedule.every_days:
-        raise RegistryError(
+        msg = (
             f"{where}: cron {cron!r} is not a cadence that can be stated in "
             f"days. Use 'm h * * D' for weekly, 'm h D * *' for monthly or "
             f"'m h * * *' for daily -- anything else leaves the escalation "
-            f"rule unable to say how long three runs is.")
+            f"rule unable to say how long three runs is."
+        )
+        raise RegistryError(msg)
     return schedule
 
 
@@ -370,7 +396,6 @@ def find_schedule(tool: str) -> Schedule | None:
     place a missing schedule matters is the workflow, and a test is what
     notices it there.
     """
-
     return load_schedule(tool) if Layout.schedule_path(tool).is_file() else None
 
 
@@ -378,12 +403,13 @@ def find_schedule(tool: str) -> Schedule | None:
 
 def load(tool: str) -> Registry:
     """Parse one tool's declarations. Raises `RegistryError` on anything odd."""
-
     path = Layout.registry_path(tool)
     if not path.is_file():
-        raise RegistryError(
+        msg = (
             f"no registry for {tool!r}: {path} is missing.\n"
-            f"tools with one: {', '.join(Layout.tools()) or '(none)'}")
+            f"tools with one: {', '.join(Layout.tools()) or '(none)'}"
+        )
+        raise RegistryError(msg)
 
     data = _toml(path)
     meta = data.get("tool", {})
@@ -391,14 +417,15 @@ def load(tool: str) -> Registry:
 
     declared = meta.get("name", tool)
     if declared != tool:
-        raise RegistryError(
-            f"{path}: [tool] name is {declared!r} but it sits in {tool!r}/")
+        msg = f"{path}: [tool] name is {declared!r} but it sits in {tool!r}/"
+        raise RegistryError(msg)
 
     sources = tuple(_source(t, i) for i, t in enumerate(data.get("source", []), 1))
     ids = [s.id for s in sources]
     duplicate = _duplicates(ids)
     if duplicate:
-        raise RegistryError(f"{path}: duplicate source id(s) {duplicate}")
+        msg = f"{path}: duplicate source id(s) {duplicate}"
+        raise RegistryError(msg)
 
     derived = tuple(
         _derived(t, i, set(ids)) for i, t in enumerate(data.get("derived", []), 1))
@@ -409,14 +436,17 @@ def load(tool: str) -> Registry:
     declared_ids = [*ids, *(c.id for c in citations), *(w.id for w in watches)]
     clash = _duplicates(declared_ids)
     if clash:
-        raise RegistryError(
+        msg = (
             f"{path}: {clash} is declared more than once across sources, "
-            f"citations and watches; each id is one kind of promise")
+            f"citations and watches; each id is one kind of promise"
+        )
+        raise RegistryError(msg)
 
     caches = [s.cache for s in sources if s.cache] + [d.cache for d in derived]
     clashing = _duplicates(caches)
     if clashing:
-        raise RegistryError(f"{path}: two entries claim the same cache file {clashing}")
+        msg = f"{path}: two entries claim the same cache file {clashing}"
+        raise RegistryError(msg)
 
     return Registry(
         tool=tool,

@@ -11,7 +11,7 @@ a tool but forgets to register would never be checked at all while every
 report says the sources are fine. That one makes the omission a failure.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import ast
 import json
@@ -21,8 +21,10 @@ import socket
 import sys
 import time
 import urllib.error
+from collections.abc import Iterable
 from datetime import date, timedelta
 from pathlib import Path
+from typing import Any, NoReturn
 
 import pytest
 
@@ -58,24 +60,24 @@ from tools._preflight.report import TextReport                      # noqa: E402
 # =============================== fixtures ===============================
 
 @pytest.fixture(scope="module", params=Layout.tools())
-def tool(request):
+def tool(request: pytest.FixtureRequest) -> str:
     """Every tool that declares sources, so a new one is covered for free."""
 
     return request.param
 
 
 @pytest.fixture(scope="module")
-def loaded(tool):
+def loaded(tool: str) -> Registry:
     return _registry.load(tool)
 
 
 # ======================== the tool folder contract ========================
 
-def test_at_least_one_tool_declares_sources():
+def test_at_least_one_tool_declares_sources() -> None:
     assert Layout.tools(), "no tools/*/sources/sources.toml found"
 
 
-def test_preflight_is_machinery_and_not_a_tool():
+def test_preflight_is_machinery_and_not_a_tool() -> None:
     # It has no sources of its own, so the discovery glob never finds it and
     # nothing has to exclude it by name. If that ever changes, the generic
     # checker would start checking itself.
@@ -83,7 +85,7 @@ def test_preflight_is_machinery_and_not_a_tool():
     assert not (PREFLIGHT / Layout.SOURCES).exists()
 
 
-def test_a_tool_has_exactly_one_way_in(tool):
+def test_a_tool_has_exactly_one_way_in(tool: str) -> None:
     # `src/__main__.py` made `python -m tools.<tool>.src` a second door, and
     # it bypassed the real one -- which is where the staleness nudge lives,
     # so the way in that skipped it was the way that told you nothing. One
@@ -96,7 +98,7 @@ def test_a_tool_has_exactly_one_way_in(tool):
     assert not inner, inner
 
 
-def test_the_tool_root_holds_sections_and_exactly_one_door(tool):
+def test_the_tool_root_holds_sections_and_exactly_one_door(tool: str) -> None:
     root = TOOLS / tool
     files = sorted(p.name for p in root.iterdir() if p.is_file())
 
@@ -106,7 +108,7 @@ def test_the_tool_root_holds_sections_and_exactly_one_door(tool):
     assert (root / Layout.SRC).is_dir()
 
 
-def test_every_tool_carries_its_own_guide(tool):
+def test_every_tool_carries_its_own_guide(tool: str) -> None:
     # `docs/` is the one section this package never reads, which is exactly
     # why it needs a guard: nothing else would notice a tool shipping with
     # no explanation of what its data has to be or where its rules came
@@ -117,14 +119,14 @@ def test_every_tool_carries_its_own_guide(tool):
     assert guide.read_text(encoding="utf-8").strip(), "the guide is empty"
 
 
-def test_the_tools_tree_explains_itself():
+def test_the_tools_tree_explains_itself() -> None:
     readme = TOOLS / "README.md"
 
     assert readme.is_file(), "tools/README.md is missing"
     assert readme.read_text(encoding="utf-8").strip()
 
 
-def test_the_door_only_reaches_into_src(tool):
+def test_the_door_only_reaches_into_src(tool: str) -> None:
     """The door must not import the preflight package.
 
     This is the direction that must never reverse: the tool depends on
@@ -150,18 +152,18 @@ def test_the_door_only_reaches_into_src(tool):
     assert any(name.startswith(Layout.SRC) for name in imported), sorted(imported)
 
 
-def test_the_cache_lives_under_the_tool(loaded, tool):
+def test_the_cache_lives_under_the_tool(loaded: Registry, tool: str) -> None:
     assert loaded.cache_dir == TOOLS / tool / Layout.CACHE
 
 
 # ============================== the registry ==============================
 
-def test_registry_parses_and_declares_sources(loaded):
+def test_registry_parses_and_declares_sources(loaded: Registry) -> None:
     assert loaded.sources, "a registry with no sources checks nothing"
     assert loaded.tool
 
 
-def test_every_source_says_where_it_is_read_and_what_it_costs(loaded):
+def test_every_source_says_where_it_is_read_and_what_it_costs(loaded: Registry) -> None:
     # The failure report is only useful if the registry carries this: a dead
     # source is a code change, and the person reading the report should not
     # have to go hunting for the call sites.
@@ -170,7 +172,7 @@ def test_every_source_says_where_it_is_read_and_what_it_costs(loaded):
         assert source.on_removal.strip(), source.id
 
 
-def test_every_source_is_reachable_in_exactly_one_way(loaded):
+def test_every_source_is_reachable_in_exactly_one_way(loaded: Registry) -> None:
     for source in loaded.sources:
         assert bool(source.url) != bool(source.probe_url), source.id
         # A fetched body is cached; a probed endpoint caches nothing of its
@@ -178,12 +180,12 @@ def test_every_source_is_reachable_in_exactly_one_way(loaded):
         assert bool(source.cache) == bool(source.url), source.id
 
 
-def test_every_policy_is_one_the_janitor_implements(loaded):
+def test_every_policy_is_one_the_janitor_implements(loaded: Registry) -> None:
     for entry in (*loaded.sources, *loaded.derived):
         assert entry.on_change in set(Policy), entry.id
 
 
-def test_a_merging_cache_declares_a_record_age_limit(loaded):
+def test_a_merging_cache_declares_a_record_age_limit(loaded: Registry) -> None:
     # Without it the file grows forever and keeps devices no dump has shown
     # in years, which is the opposite of what accumulating is for.
     for entry in loaded.derived:
@@ -191,7 +193,7 @@ def test_a_merging_cache_declares_a_record_age_limit(loaded):
             assert entry.record_max_age_days > 0, entry.id
 
 
-def test_an_expensive_cache_is_not_rebuilt_on_every_upstream_twitch(loaded):
+def test_an_expensive_cache_is_not_rebuilt_on_every_upstream_twitch(loaded: Registry) -> None:
     # A cache whose cost is measured in thousands of requests must not be
     # `delete`: the DMI repository takes commits daily, so that would mean a
     # full re-harvest every week.
@@ -200,14 +202,14 @@ def test_an_expensive_cache_is_not_rebuilt_on_every_upstream_twitch(loaded):
             assert entry.on_change == Policy.KEEP, entry.id
 
 
-def test_every_derived_cache_names_a_source_it_depends_on(loaded):
+def test_every_derived_cache_names_a_source_it_depends_on(loaded: Registry) -> None:
     known = {s.id for s in loaded.sources}
     for entry in loaded.derived:
         assert entry.derives_from, entry.id
         assert set(entry.derives_from) <= known, entry.id
 
 
-def test_every_cache_file_is_declared(loaded):
+def test_every_cache_file_is_declared(loaded: Registry) -> None:
     """The completeness check: nothing in .cache may be unaccounted for.
 
     A file here that the registry does not name is either a leftover from a
@@ -229,7 +231,7 @@ def test_every_cache_file_is_declared(loaded):
         on_disk - loaded.declared_cache_files)
 
 
-def test_a_registry_rejects_an_unknown_key(tmp_path, monkeypatch):
+def test_a_registry_rejects_an_unknown_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     tool = tmp_path / "fake_tool" / Layout.SOURCES
     tool.mkdir(parents=True)
     (tool / Layout.REGISTRY_FILE).write_text(
@@ -276,7 +278,7 @@ def _local_imports(module: str) -> set[str]:
     return found
 
 
-def test_the_package_map_lists_every_module():
+def test_the_package_map_lists_every_module() -> None:
     declared = set(_declared_layers())
     on_disk = {p.stem for p in PREFLIGHT.glob("*.py")
                if p.stem not in {"__init__", "__main__"}}
@@ -284,7 +286,7 @@ def test_the_package_map_lists_every_module():
     assert declared == on_disk, sorted(declared ^ on_disk)
 
 
-def test_each_module_imports_only_the_ones_above_it():
+def test_each_module_imports_only_the_ones_above_it() -> None:
     # A dependency graph that reads top to bottom is the difference between
     # a package you can review in order and one you have to hold in your
     # head all at once. It also makes a cycle impossible by construction.
@@ -299,17 +301,17 @@ def test_each_module_imports_only_the_ones_above_it():
 
 
 @pytest.mark.parametrize("module", ["enums", "layout"])
-def test_the_foundation_imports_nothing_from_the_package(module):
+def test_the_foundation_imports_nothing_from_the_package(module: str) -> None:
     # Either can be read first and alone, which is what makes them the right
     # place to look up a value or a path.
     assert _local_imports(module) == set()
 
 
-def test_the_types_know_the_vocabulary_and_nothing_else():
+def test_the_types_know_the_vocabulary_and_nothing_else() -> None:
     assert _local_imports("models") == {"enums"}
 
 
-def test_every_closed_set_of_values_is_declared_in_one_module():
+def test_every_closed_set_of_values_is_declared_in_one_module() -> None:
     # The point of the vocabulary module: a state, a policy or an exit code
     # defined in two places is how one module starts handling a value no
     # other module has heard of.
@@ -332,7 +334,7 @@ def test_every_closed_set_of_values_is_declared_in_one_module():
 
 # ============================ the declaration ============================
 
-def test_the_declaration_digest_changes_with_the_declaration():
+def test_the_declaration_digest_changes_with_the_declaration() -> None:
     # This is what makes a tightened contract take effect: a 304 carries no
     # body, so a stored verdict is only reusable while the declaration that
     # produced it is unchanged.
@@ -352,7 +354,7 @@ def test_the_declaration_digest_changes_with_the_declaration():
 
 # ============================== contracts ==============================
 
-def test_a_reshaped_json_feed_fails_its_contract():
+def test_a_reshaped_json_feed_fails_its_contract() -> None:
     contract = Contract(kind=ContractKind.JSON_LIST, min_items=2,
                         item_keys=("cycle", "releaseDate"))
 
@@ -363,7 +365,7 @@ def test_a_reshaped_json_feed_fails_its_contract():
     assert ContractCheck.run(contract, b"<html>oops</html>")        # not JSON
 
 
-def test_a_csv_contract_reads_the_declared_encoding():
+def test_a_csv_contract_reads_the_declared_encoding() -> None:
     body = '"Model","Retail Branding"\n"X","Y"\n'.encode("utf-16")
     holds = Contract(kind=ContractKind.CSV, encoding="utf-16",
                      must_have_columns=("Model", "Retail Branding"), min_rows=1)
@@ -374,7 +376,7 @@ def test_a_csv_contract_reads_the_declared_encoding():
     assert ContractCheck.run(wrong, body)
 
 
-def test_a_renamed_method_breaks_the_text_contract():
+def test_a_renamed_method_breaks_the_text_contract() -> None:
     # The real case: Telegram-iOS refactoring platformString, which the tool
     # locates by string index and would otherwise crash on mid-build.
     contract = Contract(kind=ContractKind.TEXT,
@@ -387,7 +389,7 @@ def test_a_renamed_method_breaks_the_text_contract():
     assert ContractCheck.run(contract, good.replace(b'return @"iPhone Air";', b""))
 
 
-def test_a_git_advertisement_must_carry_refs():
+def test_a_git_advertisement_must_carry_refs() -> None:
     contract = Contract(kind=ContractKind.GIT_REFS)
 
     assert not ContractCheck.run(
@@ -405,17 +407,18 @@ def test_a_git_advertisement_must_carry_refs():
     ("regex_max_int", r'"version":\s*"(\d+)\.', b'"version": "99.1" "version": "156.0"', 156),
     ("git_head", "", b"0" * 39 + b"1 HEAD\n", "0" * 39 + "1"),
 ])
-def test_a_fingerprint_reduces_a_body_to_its_watched_value(kind, pattern, body, expected):
+def test_a_fingerprint_reduces_a_body_to_its_watched_value(
+        kind: str, pattern: str, body: bytes, expected: int | str) -> None:
     assert FingerprintValue.of(Fingerprint(kind=kind, pattern=pattern), body) == expected
 
 
-def test_csv_rows_counts_data_rows_not_the_header():
+def test_csv_rows_counts_data_rows_not_the_header() -> None:
     body = "a,b\n1,2\n3,4\n".encode("utf-16")
     assert FingerprintValue.of(
         Fingerprint(kind=FingerprintKind.CSV_ROWS), body, encoding="utf-16") == 2
 
 
-def test_an_unusable_body_yields_no_fingerprint_rather_than_an_error():
+def test_an_unusable_body_yields_no_fingerprint_rather_than_an_error() -> None:
     # A fingerprint is a comparison aid. A malformed body has already failed
     # its contract, which is the loud signal; this must not add a second.
     assert FingerprintValue.of(Fingerprint(kind=FingerprintKind.JSON_LEN), b"not json") is None
@@ -431,11 +434,12 @@ def test_an_unusable_body_yields_no_fingerprint_rather_than_an_error():
     (urllib.error.HTTPError("u", 403, "forbidden", {}, None), State.FLAKY),
     (urllib.error.HTTPError("u", 503, "down", {}, None), State.FLAKY),
     (urllib.error.HTTPError("u", 304, "same", {}, None), State.OK),
-    (urllib.error.URLError(socket.timeout("timed out")), State.FLAKY),
+    (urllib.error.URLError(TimeoutError("timed out")), State.FLAKY),
     (urllib.error.URLError(socket.gaierror("no dns")), State.FLAKY),
     (TimeoutError("timed out"), State.FLAKY),
 ])
-def test_a_dead_source_is_told_apart_from_an_unreachable_one(exc, expected):
+def test_a_dead_source_is_told_apart_from_an_unreachable_one(
+        exc: Exception, expected: State) -> None:
     # The distinction the whole gate rests on. A 404 means a developer has to
     # remove the source from the tool; a timeout means the network blinked,
     # and reporting the second as the first hands somebody a request for
@@ -444,7 +448,7 @@ def test_a_dead_source_is_told_apart_from_an_unreachable_one(exc, expected):
     assert state == expected
 
 
-def test_a_429_is_expected_rather_than_alarming():
+def test_a_429_is_expected_rather_than_alarming() -> None:
     # The DMI harvest makes thousands of raw.githubusercontent requests and
     # gets throttled for it, which must never read as a dead source.
     state, status, _ = Prober.classify(
@@ -453,7 +457,7 @@ def test_a_429_is_expected_rather_than_alarming():
     assert state == State.FLAKY and status == 429
 
 
-def test_a_mostly_unreachable_run_blames_the_network_not_the_sources():
+def test_a_mostly_unreachable_run_blames_the_network_not_the_sources() -> None:
     flaky = [Verdict(source_id=f"s{i}", state=State.FLAKY) for i in range(6)]
     fine = [Verdict(source_id=f"o{i}", state=State.OK) for i in range(2)]
 
@@ -474,24 +478,24 @@ def _report(*states: str, network: str = Health.OK, first: bool = False) -> Repo
     )
 
 
-def test_a_dead_source_always_stops_the_run():
+def test_a_dead_source_always_stops_the_run() -> None:
     assert not _report(State.OK, State.GONE).may_proceed()
     assert not _report(State.OK, State.GONE).may_proceed(allow_flaky=True)
     assert not _report(State.CONTRACT_BROKEN).may_proceed(allow_flaky=True)
 
 
-def test_an_unreachable_source_stops_the_run_but_can_be_waived():
+def test_an_unreachable_source_stops_the_run_but_can_be_waived() -> None:
     report = _report(State.OK, State.FLAKY)
 
     assert not report.may_proceed()
     assert report.may_proceed(allow_flaky=True)
 
 
-def test_a_change_is_not_a_failure():
+def test_a_change_is_not_a_failure() -> None:
     assert _report(State.OK, State.CHANGED, State.NEW).may_proceed()
 
 
-def test_the_report_puts_what_needs_action_first():
+def test_the_report_puts_what_needs_action_first() -> None:
     report = _report(State.OK, State.CHANGED, State.GONE, State.CONTRACT_BROKEN)
     order = [v.state for v in report.sorted_verdicts()]
 
@@ -501,12 +505,12 @@ def test_the_report_puts_what_needs_action_first():
 
 # =============================== the lock ===============================
 
-def _registry_for(tmp_path: Path, *sources: Source, **kw) -> Registry:
+def _registry_for(tmp_path: Path, *sources: Source, **kw: Any) -> Registry:
     return Registry(tool="t", tool_dir=tmp_path, cache_dir=tmp_path / ".cache",
                     sources=tuple(sources), **kw)
 
 
-def test_a_first_run_reports_new_and_never_changed(tmp_path):
+def test_a_first_run_reports_new_and_never_changed(tmp_path: Path) -> None:
     # Eighteen false alarms on day one teach a maintainer to ignore the
     # dashboard, and it never recovers from that.
     lock = Lock(tmp_path / "sources.lock.json")
@@ -515,7 +519,7 @@ def test_a_first_run_reports_new_and_never_changed(tmp_path):
     assert lock.fingerprint("anything") is None
 
 
-def test_the_lock_is_written_only_when_its_content_differs(tmp_path):
+def test_the_lock_is_written_only_when_its_content_differs(tmp_path: Path) -> None:
     # The one guarantee the tracked file offers: a diff means something moved.
     path = tmp_path / "sources.lock.json"
     lock = Lock(path)
@@ -529,7 +533,7 @@ def test_the_lock_is_written_only_when_its_content_differs(tmp_path):
     assert not lock.save(lock.rebuild(registry, [verdict], today="2026-01-01"))
 
 
-def test_an_ok_run_carries_the_entry_forward_untouched(tmp_path):
+def test_an_ok_run_carries_the_entry_forward_untouched(tmp_path: Path) -> None:
     # Some feeds answer with a different body every time -- Google's version
     # history carries a fresh nextPageToken -- while the value we watch is
     # unchanged. Rewriting the hash there would churn the file every run.
@@ -551,7 +555,7 @@ def test_an_ok_run_carries_the_entry_forward_untouched(tmp_path):
     assert path.read_text(encoding="utf-8") == before
 
 
-def test_a_failure_counter_appears_only_while_failing(tmp_path):
+def test_a_failure_counter_appears_only_while_failing(tmp_path: Path) -> None:
     path = tmp_path / "sources.lock.json"
     lock = Lock(path)
     source = Source(id="s", url="u", cache="c", consumed_by="x", on_removal="x")
@@ -572,7 +576,7 @@ def test_a_failure_counter_appears_only_while_failing(tmp_path):
     assert Lock.FAILING not in path.read_text(encoding="utf-8")
 
 
-def test_an_unreachable_source_keeps_the_fingerprint_it_had(tmp_path):
+def test_an_unreachable_source_keeps_the_fingerprint_it_had(tmp_path: Path) -> None:
     # Otherwise a timeout erases what the next run compares against, and
     # everything comes back as `new`.
     path = tmp_path / "sources.lock.json"
@@ -596,7 +600,7 @@ def _changed(source_id: str) -> Verdict:
     return Verdict(source_id=source_id, state=State.CHANGED, was=1, now=2)
 
 
-def test_a_changed_source_loses_its_cached_body(tmp_path):
+def test_a_changed_source_loses_its_cached_body(tmp_path: Path) -> None:
     cache = tmp_path / ".cache"
     cache.mkdir()
     (cache / "body.json").write_text("{}", encoding="utf-8")
@@ -610,7 +614,7 @@ def test_a_changed_source_loses_its_cached_body(tmp_path):
     assert not (cache / "body.json").exists()
 
 
-def test_a_merging_cache_is_renamed_aside_not_deleted(tmp_path):
+def test_a_merging_cache_is_renamed_aside_not_deleted(tmp_path: Path) -> None:
     # The janitor never reads or rewrites a tool's file, so it cannot merge.
     # It sets the old one aside under a name the tool looks for, and the tool
     # -- which knows the record identity -- does the merging.
@@ -629,7 +633,7 @@ def test_a_merging_cache_is_renamed_aside_not_deleted(tmp_path):
     assert not (cache / "records.json").exists()
 
 
-def test_an_expensive_cache_survives_an_upstream_change(tmp_path):
+def test_an_expensive_cache_survives_an_upstream_change(tmp_path: Path) -> None:
     cache = tmp_path / ".cache"
     cache.mkdir()
     (cache / "dmi.json").write_text("[]", encoding="utf-8")
@@ -644,7 +648,7 @@ def test_an_expensive_cache_survives_an_upstream_change(tmp_path):
     assert (cache / "dmi.json").exists()
 
 
-def test_a_derived_cache_goes_stale_by_dependency(tmp_path):
+def test_a_derived_cache_goes_stale_by_dependency(tmp_path: Path) -> None:
     cache = tmp_path / ".cache"
     cache.mkdir()
     (cache / "built.json").write_text("{}", encoding="utf-8")
@@ -662,7 +666,7 @@ def test_a_derived_cache_goes_stale_by_dependency(tmp_path):
     assert not (cache / "built.json").exists()
 
 
-def test_scratch_never_survives_a_run(tmp_path):
+def test_scratch_never_survives_a_run(tmp_path: Path) -> None:
     cache = tmp_path / ".cache"
     (cache / "dmi-repo" / "objects").mkdir(parents=True)
     source = Source(id="s", probe_url="u", consumed_by="x", on_removal="x")
@@ -675,7 +679,7 @@ def test_scratch_never_survives_a_run(tmp_path):
     assert not (cache / "dmi-repo").exists()
 
 
-def test_an_undeclared_cache_file_is_reported_and_never_deleted(tmp_path):
+def test_an_undeclared_cache_file_is_reported_and_never_deleted(tmp_path: Path) -> None:
     # Guessing that an unknown file is rubbish is how a 20 MB cache vanishes.
     cache = tmp_path / ".cache"
     cache.mkdir()
@@ -689,7 +693,7 @@ def test_an_undeclared_cache_file_is_reported_and_never_deleted(tmp_path):
     assert (cache / "mystery.json").exists()
 
 
-def test_a_dry_run_changes_nothing(tmp_path):
+def test_a_dry_run_changes_nothing(tmp_path: Path) -> None:
     cache = tmp_path / ".cache"
     cache.mkdir()
     (cache / "body.json").write_text("{}", encoding="utf-8")
@@ -727,7 +731,8 @@ def _days_back(days: int) -> str:
     return (date.today() - timedelta(days=days)).isoformat()
 
 
-def _cached(tmp_path: Path, name: str = "c", *, fetched_days_ago: int = 7):
+def _cached(tmp_path: Path, name: str = "c", *,
+            fetched_days_ago: int = 7) -> tuple[Source, Path]:
     cache = tmp_path / ".cache"
     cache.mkdir(exist_ok=True)
     path = cache / name
@@ -737,7 +742,7 @@ def _cached(tmp_path: Path, name: str = "c", *, fetched_days_ago: int = 7):
     return source, path
 
 
-def test_a_cache_older_than_a_change_someone_else_recorded_is_dropped(tmp_path):
+def test_a_cache_older_than_a_change_someone_else_recorded_is_dropped(tmp_path: Path) -> None:
     source, path = _cached(tmp_path, fetched_days_ago=7)
     # `ok`, because this run compares against the value CI already wrote.
     verdict = Verdict(source_id="s", state=State.OK,
@@ -749,7 +754,7 @@ def test_a_cache_older_than_a_change_someone_else_recorded_is_dropped(tmp_path):
     assert not path.exists()
 
 
-def test_a_cache_fetched_on_the_day_of_the_change_is_kept(tmp_path):
+def test_a_cache_fetched_on_the_day_of_the_change_is_kept(tmp_path: Path) -> None:
     # Whole days, matching the lock's own granularity: the run that found the
     # change is also the run that refetched, so same-day is current.
     source, path = _cached(tmp_path, fetched_days_ago=0)
@@ -762,7 +767,7 @@ def test_a_cache_fetched_on_the_day_of_the_change_is_kept(tmp_path):
     assert path.exists()
 
 
-def test_a_source_that_never_moved_keeps_its_cache_for_ever(tmp_path):
+def test_a_source_that_never_moved_keeps_its_cache_for_ever(tmp_path: Path) -> None:
     # No recorded change, no reason to refetch. This is the common case and
     # the one that would be ruinous to get wrong: the DMI harvest is 5,700
     # requests, and the whole point of a cache is not making them again.
@@ -775,7 +780,7 @@ def test_a_source_that_never_moved_keeps_its_cache_for_ever(tmp_path):
     assert path.exists()
 
 
-def test_a_change_this_run_found_is_not_handled_twice(tmp_path):
+def test_a_change_this_run_found_is_not_handled_twice(tmp_path: Path) -> None:
     # The `changed` pass owns it, and it reports the move itself -- two
     # actions for one file would read as two different reasons to distrust
     # the same cache.
@@ -789,7 +794,7 @@ def test_a_change_this_run_found_is_not_handled_twice(tmp_path):
     assert "1 -> 2" in actions[0].reason
 
 
-def test_a_source_that_could_not_be_reached_never_costs_its_cache(tmp_path):
+def test_a_source_that_could_not_be_reached_never_costs_its_cache(tmp_path: Path) -> None:
     # The cache is exactly what makes an unreachable source survivable. A
     # timeout deleting the body it was covering for would turn one dropped
     # connection into a build that cannot run at all.
@@ -812,7 +817,8 @@ class _FakeProber(Prober):
         super().__init__()
         self.seen: list[tuple[str, str]] = []
 
-    def probe(self, source, *, etag="", last_modified=""):           # noqa: ANN001
+    def probe(self, source: Source, *, etag: str = "",
+              last_modified: str = "") -> Verdict:
         self.seen.append((etag, last_modified))
         return Verdict(source_id=source.id, state=State.OK, body=b"body",
                        sha256="hash", bytes_len=4)
@@ -827,7 +833,7 @@ class _FakeProber(Prober):
       "http": {"etag": "E", "last_modified": "L"}}, False),
 ])
 def test_a_conditional_request_needs_a_trustworthy_previous_verdict(
-        tmp_path, stored, expect_conditional):
+        tmp_path: Path, stored: dict[str, Any], expect_conditional: bool) -> None:
     """A 304 carries no body, so it reuses the stored verdict.
 
     That is only honest while the declaration is the one that verdict was
@@ -876,7 +882,8 @@ def test_a_conditional_request_needs_a_trustworthy_previous_verdict(
     ({"etag": '"strong"', "last_modified": "L"}, ('"strong"', "")),
     ({}, ("", "")),
 ])
-def test_only_a_strong_etag_may_shorten_a_check(tmp_path, stored, expect):
+def test_only_a_strong_etag_may_shorten_a_check(
+        tmp_path: Path, stored: dict[str, str], expect: tuple[str, str]) -> None:
     path = tmp_path / "sources.lock.json"
     path.write_text(json.dumps({
         "lock_schema": 1,
@@ -886,7 +893,7 @@ def test_only_a_strong_etag_may_shorten_a_check(tmp_path, stored, expect):
     assert Lock(path).validators("s") == expect
 
 
-def test_last_modified_is_still_recorded_as_a_fact(tmp_path):
+def test_last_modified_is_still_recorded_as_a_fact(tmp_path: Path) -> None:
     """Withheld from a request, but not from the lock.
 
     It is a genuine upstream fact and reads well in a diff; it simply must
@@ -917,14 +924,15 @@ def test_last_modified_is_still_recorded_as_a_fact(tmp_path):
     # a kind the parser would have rejected, reaching the checker anyway.
     (Contract(kind="xml"), b"<a/>", "unknown contract kind"),
 ])
-def test_a_body_that_cannot_be_judged_is_a_stated_failure(contract, body, expect):
+def test_a_body_that_cannot_be_judged_is_a_stated_failure(
+        contract: Contract, body: bytes | str, expect: str) -> None:
     if body == "oversized_csv_field":
         body = b'a,b\n"' + b"x" * 200_000
     errors = ContractCheck.run(contract, body)
     assert errors and expect in errors[0]
 
 
-def test_every_contract_kind_the_model_declares_is_implemented():
+def test_every_contract_kind_the_model_declares_is_implemented() -> None:
     """One list, two places. They must not drift.
 
     `ContractKind` is what the registry validates against and
@@ -940,7 +948,8 @@ def test_every_contract_kind_the_model_declares_is_implemented():
     'contract = { kind = "text", must_match = "[" }',
     'fingerprint = { kind = "regex_count", pattern = "(" }',
 ])
-def test_a_pattern_that_will_not_compile_is_a_malformed_registry(tmp_path, block):
+def test_a_pattern_that_will_not_compile_is_a_malformed_registry(
+        tmp_path: Path, block: str) -> None:
     """Caught at parse time, so it is exit code 4 rather than a traceback out
     of the middle of a check that has already touched the network."""
 
@@ -962,7 +971,8 @@ def test_a_pattern_that_will_not_compile_is_a_malformed_registry(tmp_path, block
 # ========================= a run can be stopped =========================
 
 @pytest.mark.parametrize("raised", [KeyboardInterrupt, SystemExit])
-def test_an_interrupt_is_not_classified_as_a_flaky_source(raised):
+def test_an_interrupt_is_not_classified_as_a_flaky_source(
+        raised: type[BaseException]) -> None:
     """Catching BaseException around a request is right -- one bad socket must
     not end a run of eighteen sources. Swallowing Ctrl-C was not: it became
     `flaky`, was retried twice with a sleep between, and the run carried on to
@@ -971,7 +981,8 @@ def test_an_interrupt_is_not_classified_as_a_flaky_source(raised):
     class Interrupting(Prober):
         BACKOFF = 0.0
 
-        def request(self, url, *, etag="", last_modified=""):
+        def request(self, url: str, *, etag: str = "",
+                    last_modified: str = "") -> NoReturn:
             raise raised
 
     with pytest.raises(raised):
@@ -979,12 +990,14 @@ def test_an_interrupt_is_not_classified_as_a_flaky_source(raised):
             Source(id="s", url="u", cache="c", consumed_by="x", on_removal="x"))
 
 
-def test_a_real_failure_is_still_classified_and_retried():
+def test_a_real_failure_is_still_classified_and_retried() -> None:
     class Broken(Prober):
         BACKOFF = 0.0
 
-        def request(self, url, *, etag="", last_modified=""):
-            raise OSError("socket died")
+        def request(self, url: str, *, etag: str = "",
+                    last_modified: str = "") -> NoReturn:
+            msg = "socket died"
+            raise OSError(msg)
 
     verdict = Broken().probe(
         Source(id="s", url="u", cache="c", consumed_by="x", on_removal="x"))
@@ -1003,7 +1016,8 @@ def test_a_real_failure_is_still_classified_and_retried():
     ([Exit.OK, Exit.CHANGED, Exit.OK], Exit.CHANGED),
     ([Exit.OK, Exit.OK], Exit.OK),
 ])
-def test_all_reports_the_worst_outcome_not_the_first(codes, worst):
+def test_all_reports_the_worst_outcome_not_the_first(
+        codes: list[Exit], worst: Exit) -> None:
     """Taking the first non-zero code answered "unreachable" for a run in
     which another tool's source was dead, so the caller would retry instead
     of fetching a developer."""
@@ -1014,7 +1028,7 @@ def test_all_reports_the_worst_outcome_not_the_first(codes, worst):
     assert folded == worst
 
 
-def test_every_exit_code_is_ranked():
+def test_every_exit_code_is_ranked() -> None:
     assert set(_enums.EXIT_ORDER) == set(Exit)
 
 
@@ -1025,17 +1039,18 @@ def test_every_exit_code_is_ranked():
     # the tool's own explanation became a traceback from the launcher.
     ("the cache is missing", Exit.DEAD),
 ])
-def test_a_tool_may_exit_with_a_message(capsys, code, expect):
+def test_a_tool_may_exit_with_a_message(
+        capsys: pytest.CaptureFixture[str], code: object, expect: int) -> None:
     assert Dispatcher._exit_code(code) == expect
 
 
 # ===================== a source believed to be dead =====================
 
-def test_a_source_is_only_called_dead_after_enough_consecutive_runs():
+def test_a_source_is_only_called_dead_after_enough_consecutive_runs() -> None:
     """One failure is weather. The counter lives in the tracked lock so it
     survives a fresh CI runner, and the report is where it is acted on."""
 
-    def report(consecutive):
+    def report(consecutive: int) -> Report:
         return Report(tool="t", network="ok", first_run=False, verdicts=(
             Verdict(source_id="s", state=State.GONE, consecutive=consecutive),))
 
@@ -1046,18 +1061,19 @@ def test_a_source_is_only_called_dead_after_enough_consecutive_runs():
 
 # ================== break, then recover, then change ==================
 
-def _lifecycle_lock(tmp_path, source):
+def _lifecycle_lock(tmp_path: Path, source: Source) -> tuple[Lock, Registry]:
     return Lock(tmp_path / "sources.lock.json"), _registry_for(tmp_path, source)
 
 
-def _verdict(source, state, now=None, errors=()):
+def _verdict(source: Source, state: State, now: Any = None,
+             errors: Iterable[str] = ()) -> Verdict:
     return Verdict(source_id=source.id, state=state, now=now,
                    body=None if state in (State.GONE,) else b"body",
                    sha256="s", bytes_len=4, declaration=source.digest,
                    contract_errors=tuple(errors))
 
 
-def test_a_failure_does_not_erase_the_fingerprint_it_failed_to_produce(tmp_path):
+def test_a_failure_does_not_erase_the_fingerprint_it_failed_to_produce(tmp_path: Path) -> None:
     """Break a source, then let it recover.
 
     Recording the failure used to write a hash where the fingerprint was,
@@ -1087,7 +1103,7 @@ def test_a_failure_does_not_erase_the_fingerprint_it_failed_to_produce(tmp_path)
         lock.fingerprint("s"), 3, "a", lock.sha256("s")) is False
 
 
-def test_a_recovered_source_stops_being_called_reshaped(tmp_path):
+def test_a_recovered_source_stops_being_called_reshaped(tmp_path: Path) -> None:
     """Otherwise the lock keeps claiming the source is broken, and holds it
     off the conditional path forever on the strength of a failure that is
     over."""
@@ -1113,7 +1129,7 @@ def test_a_recovered_source_stops_being_called_reshaped(tmp_path):
     assert lock.save(lock.rebuild(registry, [_verdict(source, State.OK, now=3)])) is False
 
 
-def test_an_unreachable_source_records_no_verdict_at_all(tmp_path):
+def test_an_unreachable_source_records_no_verdict_at_all(tmp_path: Path) -> None:
     """`flaky` never got a body, so it has nothing to say about the shape.
     Writing `contract: broken` for a timeout would accuse a working source."""
 
@@ -1158,14 +1174,14 @@ def _triggers() -> list[str]:
     return re.findall(r'^\s*-\s*cron:\s*"([^"]+)"', _workflow(), re.M)
 
 
-def test_every_tool_declares_how_often_it_is_checked():
+def test_every_tool_declares_how_often_it_is_checked() -> None:
     # A tool with sources and no schedule is checked only when somebody
     # remembers to, which is the state this whole package exists to replace.
     for tool in Layout.tools():
         assert _registry.load_schedule(tool).every_days > 0
 
 
-def test_every_declared_cadence_is_a_trigger_the_workflow_really_has():
+def test_every_declared_cadence_is_a_trigger_the_workflow_really_has() -> None:
     triggers = _triggers()
 
     assert triggers, "the workflow declares no schedule at all"
@@ -1173,7 +1189,7 @@ def test_every_declared_cadence_is_a_trigger_the_workflow_really_has():
         assert _registry.load_schedule(tool).cron in triggers
 
 
-def test_the_workflow_fires_on_nothing_a_tool_did_not_ask_for():
+def test_the_workflow_fires_on_nothing_a_tool_did_not_ask_for() -> None:
     # The other direction, and the one that rots quietly: a cron left behind
     # after a tool's cadence changed would keep waking the job on a schedule
     # nothing in the repository claims.
@@ -1182,7 +1198,7 @@ def test_the_workflow_fires_on_nothing_a_tool_did_not_ask_for():
     assert set(_triggers()) <= declared
 
 
-def test_the_scheduled_run_checks_sources_and_never_builds():
+def test_the_scheduled_run_checks_sources_and_never_builds() -> None:
     # Rebuilding a catalog rewrites a file that ships in the wheel. That is a
     # decision with a human behind it, so the unattended job reports and
     # records, and runs no generator.
@@ -1193,7 +1209,7 @@ def test_the_scheduled_run_checks_sources_and_never_builds():
     assert "-m tools " not in text
 
 
-def test_the_scheduled_run_keeps_the_counter_it_depends_on():
+def test_the_scheduled_run_keeps_the_counter_it_depends_on() -> None:
     # The consecutive-failure counter lives in the tracked lock precisely
     # because a runner is new every week. If the workflow does not push the
     # lock back, no counter ever reaches ESCALATE_AFTER and no source is ever
@@ -1216,7 +1232,8 @@ def test_the_scheduled_run_keeps_the_counter_it_depends_on():
     ("0 5 * * *", _models.Schedule.DAILY),
     ("0 5 1 * *", _models.Schedule.MONTHLY),
 ])
-def test_a_cadence_is_read_out_of_the_cron_not_declared_beside_it(cron, days):
+def test_a_cadence_is_read_out_of_the_cron_not_declared_beside_it(
+        cron: str, days: int) -> None:
     # Derived, so there is no second number to drift. The reader is the
     # escalation line: three runs is three weeks here and three days at a
     # daily cadence, and only one of those is worth waiting for.
@@ -1230,12 +1247,12 @@ def test_a_cadence_is_read_out_of_the_cron_not_declared_beside_it(cron, days):
     "0 5 * *",                                    # four fields
     "nonsense",
 ])
-def test_a_cron_that_is_not_a_cadence_is_refused_rather_than_rounded(cron):
+def test_a_cron_that_is_not_a_cadence_is_refused_rather_than_rounded(cron: str) -> None:
     assert _models.Schedule(tool="t", cron=cron).every_days == 0
 
 
 def test_a_schedule_that_cannot_be_stated_in_days_is_malformed(
-        tmp_path, monkeypatch):
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     folder = tmp_path / "fake_tool" / Layout.SCHEDULE
     folder.mkdir(parents=True)
     (folder / Layout.SCHEDULE_FILE).write_text(
@@ -1246,7 +1263,7 @@ def test_a_schedule_that_cannot_be_stated_in_days_is_malformed(
         _registry.load_schedule("fake_tool")
 
 
-def test_a_schedule_rejects_an_unknown_key(tmp_path, monkeypatch):
+def test_a_schedule_rejects_an_unknown_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # Same rule as the registry, for the same reason: a typo that dropped the
     # cron would leave a tool looking scheduled and never checked.
     folder = tmp_path / "fake_tool" / Layout.SCHEDULE
@@ -1260,7 +1277,7 @@ def test_a_schedule_rejects_an_unknown_key(tmp_path, monkeypatch):
 
 
 def test_a_tool_with_no_schedule_is_still_checkable_by_hand(
-        tmp_path, monkeypatch):
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # Finding a cadence is soft; needing one is the workflow's business.
     monkeypatch.setattr(Layout, "TOOLS_DIR", tmp_path)
 
@@ -1274,7 +1291,7 @@ def _failing(consecutive: int, state: str = State.FLAKY) -> Report:
         Verdict(source_id="s", state=state, consecutive=consecutive),))
 
 
-def test_an_escalated_source_is_dead_however_flaky_a_run_may_be():
+def test_an_escalated_source_is_dead_however_flaky_a_run_may_be() -> None:
     # The waiver covers a dropped connection, not three weeks of one. Until
     # this, --allow-flaky hid an escalation completely: the exit code said the
     # sources were fine while the report said one had failed every run for a
@@ -1285,14 +1302,14 @@ def test_an_escalated_source_is_dead_however_flaky_a_run_may_be():
     assert report.exit_code() == Exit.DEAD
 
 
-def test_one_unreachable_run_is_passable_when_the_caller_says_so():
+def test_one_unreachable_run_is_passable_when_the_caller_says_so() -> None:
     report = _failing(1)
 
     assert report.exit_code() == Exit.UNREACHABLE
     assert report.exit_code(allow_flaky=True) == Exit.OK
 
 
-def test_waiving_flakiness_does_not_hide_a_change():
+def test_waiving_flakiness_does_not_hide_a_change() -> None:
     report = Report(tool="t", network=Health.OK, first_run=False, verdicts=(
         Verdict(source_id="a", state=State.FLAKY, consecutive=1),
         Verdict(source_id="b", state=State.CHANGED, was=1, now=2)))
@@ -1300,7 +1317,7 @@ def test_waiving_flakiness_does_not_hide_a_change():
     assert report.exit_code(allow_flaky=True) == Exit.CHANGED
 
 
-def test_the_escalation_line_says_how_long_that_actually_is(tmp_path):
+def test_the_escalation_line_says_how_long_that_actually_is(tmp_path: Path) -> None:
     # Nobody thinks in runs. The count is what the rule can measure; the
     # cadence is what turns it into a sentence somebody can act on.
     registry = _registry_for(tmp_path)
@@ -1357,14 +1374,14 @@ def _ported_tools() -> list[str]:
     return [t for t in Layout.tools() if _registry.load(t).citations]
 
 
-def test_at_least_one_rule_is_declared_as_ported():
+def test_at_least_one_rule_is_declared_as_ported() -> None:
     # Not a tautology: this tool reimplements lib_base, Chromium and Gecko,
     # and if that ever stopped being declared the rest of these tests would
     # pass by having nothing to check.
     assert _ported_tools()
 
 
-def test_every_ported_rule_points_at_a_module_that_exists():
+def test_every_ported_rule_points_at_a_module_that_exists() -> None:
     for tool in _ported_tools():
         src = Layout.TOOLS_DIR / tool / Layout.SRC
         for citation in _registry.load(tool).citations:
@@ -1401,7 +1418,7 @@ def _references(ported_to: str) -> list[tuple[str, str]]:
     return found
 
 
-def test_every_ported_rule_points_at_code_that_still_exists():
+def test_every_ported_rule_points_at_code_that_still_exists() -> None:
     # The half no upstream check can cover. A constant renamed on this side
     # leaves the citation quoting a rule nothing implements any more, and the
     # weekly check would go on reporting it healthy for ever.
@@ -1426,7 +1443,7 @@ def test_every_ported_rule_points_at_code_that_still_exists():
     assert checked >= 20, checked
 
 
-def test_a_citation_declares_every_part_of_its_promise(tmp_path, monkeypatch):
+def test_a_citation_declares_every_part_of_its_promise(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # A citation with nothing to look for would pass every week while the
     # rule it quotes was rewritten underneath it.
     folder = tmp_path / "fake_tool"
@@ -1444,7 +1461,7 @@ def test_a_citation_declares_every_part_of_its_promise(tmp_path, monkeypatch):
         _registry.load("fake_tool")
 
 
-def test_one_body_cannot_be_both_a_source_and_a_citation(tmp_path, monkeypatch):
+def test_one_body_cannot_be_both_a_source_and_a_citation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # They are opposite promises about the same bytes: a source is parsed on
     # every build and may change, a citation is quoted once and must not.
     folder = tmp_path / "fake_tool"
@@ -1464,7 +1481,7 @@ def test_one_body_cannot_be_both_a_source_and_a_citation(tmp_path, monkeypatch):
         _registry.load("fake_tool")
 
 
-def test_a_ported_rule_is_probed_as_a_text_contract():
+def test_a_ported_rule_is_probed_as_a_text_contract() -> None:
     # No second code path: a citation is structurally a probe-only source
     # whose contract is the lines it quotes, so the machinery that turns "a
     # required string is missing" into a fatal, stated failure already
@@ -1481,7 +1498,7 @@ def test_a_ported_rule_is_probed_as_a_text_contract():
     assert not source.cache and not source.is_cached
 
 
-def test_a_rule_that_moved_stops_the_build(tmp_path):
+def test_a_rule_that_moved_stops_the_build(tmp_path: Path) -> None:
     # The gate, not just the exit code. A port whose premise is gone would
     # otherwise regenerate the catalog from rules the client has replaced,
     # and every string it wrote would look perfectly plausible.
@@ -1494,7 +1511,7 @@ def test_a_rule_that_moved_stops_the_build(tmp_path):
     assert broken.exit_code() == Exit.DEAD
 
 
-def test_a_ported_rule_is_locked_apart_from_a_source(tmp_path):
+def test_a_ported_rule_is_locked_apart_from_a_source(tmp_path: Path) -> None:
     # So the diff stays readable: a line under `sources` means data moved, a
     # line under `citations` means a rule did and a port needs re-reading.
     source = Source(id="feed", url="https://example.com/a",
@@ -1516,7 +1533,7 @@ def test_a_ported_rule_is_locked_apart_from_a_source(tmp_path):
     assert set(rebuilt[Lock.CITATIONS]) == {"rule"}
 
 
-def test_a_ported_rule_declares_no_cache_to_clean(tmp_path):
+def test_a_ported_rule_declares_no_cache_to_clean(tmp_path: Path) -> None:
     citation = _models.Citation(
         id="rule", url="https://example.com/a.cpp", anchors=("one",),
         ported_to="src/x.py :: X.y", on_drift="everything")
@@ -1527,7 +1544,7 @@ def test_a_ported_rule_declares_no_cache_to_clean(tmp_path):
     assert len(registry.probes) == 1
 
 
-def test_the_report_keeps_ported_rules_in_their_own_section(tmp_path):
+def test_the_report_keeps_ported_rules_in_their_own_section(tmp_path: Path) -> None:
     citation = _models.Citation(
         id="rule", url="https://example.com/a.cpp", anchors=("one",),
         ported_to="src/x.py :: X.y", on_drift="the whole desktop catalog")
@@ -1570,7 +1587,7 @@ def _watching_tools() -> list[str]:
     return [t for t in Layout.tools() if _registry.load(t).watches]
 
 
-def _watch(**kw) -> _models.Watch:
+def _watch(**kw: Any) -> _models.Watch:
     base = dict(id="w", url="https://example.com/page",
                 value=7, fingerprint=Fingerprint(kind=FingerprintKind.REGEX_MAX_INT,
                                                  pattern=r"v(\d+)"),
@@ -1578,7 +1595,7 @@ def _watch(**kw) -> _models.Watch:
     return _models.Watch(**{**base, **kw})
 
 
-def test_every_watched_decision_points_at_code_that_still_exists():
+def test_every_watched_decision_points_at_code_that_still_exists() -> None:
     # The same guard the citations get, for the same reason: a renamed table
     # leaves the watch describing a decision nothing implements, and the
     # weekly check would go on comparing a number against nothing.
@@ -1596,7 +1613,7 @@ def test_every_watched_decision_points_at_code_that_still_exists():
                 assert attr in classes[owner], f"{watch.id}: {owner}.{attr} is gone"
 
 
-def test_a_watch_without_a_way_to_read_the_answer_is_refused(tmp_path, monkeypatch):
+def test_a_watch_without_a_way_to_read_the_answer_is_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # A declared value and no fingerprint is a number nothing compares: the
     # decision would look watched and never be checked again.
     folder = tmp_path / "fake_tool"
@@ -1613,7 +1630,7 @@ def test_a_watch_without_a_way_to_read_the_answer_is_refused(tmp_path, monkeypat
         _registry.load("fake_tool")
 
 
-def test_a_watch_is_not_something_the_checker_compares_to_the_lock(tmp_path):
+def test_a_watch_is_not_something_the_checker_compares_to_the_lock(tmp_path: Path) -> None:
     registry = Registry(tool="t", tool_dir=tmp_path,
                         cache_dir=tmp_path / ".cache", watches=(_watch(),))
 
@@ -1621,7 +1638,7 @@ def test_a_watch_is_not_something_the_checker_compares_to_the_lock(tmp_path):
     assert registry.declared_cache_files == frozenset()
 
 
-def test_a_moved_decision_never_stops_a_build():
+def test_a_moved_decision_never_stops_a_build() -> None:
     # The generator does not request these URLs, so nothing it builds depends
     # on them. A page that moved is news; blocking a rebuild over it would
     # teach everyone to pass --no-preflight, which costs the real checks too.
@@ -1636,7 +1653,7 @@ def test_a_moved_decision_never_stops_a_build():
     assert report.exit_code() == Exit.OK
 
 
-def test_a_watch_that_stays_unreadable_for_three_weeks_is_still_escalated():
+def test_a_watch_that_stays_unreadable_for_three_weeks_is_still_escalated() -> None:
     # Never gated is not the same as never mentioned. The page behind a
     # hand-kept table disappearing is worth somebody's afternoon.
     report = Report(
@@ -1648,7 +1665,7 @@ def test_a_watch_that_stays_unreadable_for_three_weeks_is_still_escalated():
     assert report.exit_code(allow_flaky=True) == Exit.DEAD
 
 
-def test_a_moved_decision_is_reported_and_not_quietly_re_recorded(tmp_path):
+def test_a_moved_decision_is_reported_and_not_quietly_re_recorded(tmp_path: Path) -> None:
     # The point of keeping the baseline in config.toml: a feed gets a new
     # fingerprint written and goes quiet, while a decision keeps saying so
     # until a human edits the file. Recording it here would turn the one
@@ -1664,7 +1681,7 @@ def test_a_moved_decision_is_reported_and_not_quietly_re_recorded(tmp_path):
     assert Lock.WATCHES not in rebuilt
 
 
-def test_a_watch_keeps_its_failure_counter_and_nothing_else(tmp_path):
+def test_a_watch_keeps_its_failure_counter_and_nothing_else(tmp_path: Path) -> None:
     # The counter has to survive a fresh runner for the three-run rule to
     # mean anything, and it is the only thing about a watch worth keeping.
     registry = Registry(tool="t", tool_dir=tmp_path,
@@ -1680,7 +1697,7 @@ def test_a_watch_keeps_its_failure_counter_and_nothing_else(tmp_path):
     assert entry[Lock.FAILING]["consecutive"] == 2
 
 
-def test_the_janitor_has_nothing_to_do_about_a_moved_decision(tmp_path):
+def test_the_janitor_has_nothing_to_do_about_a_moved_decision(tmp_path: Path) -> None:
     # A watch caches nothing, so there is nothing to delete -- and the id must
     # not be mistaken for a source's, which would make the janitor act on a
     # cache file that belongs to something else entirely.
@@ -1694,7 +1711,7 @@ def test_the_janitor_has_nothing_to_do_about_a_moved_decision(tmp_path):
     assert Janitor(registry, dry_run=True).run(report) == []
 
 
-def test_the_report_keeps_watched_values_in_their_own_section(tmp_path):
+def test_the_report_keeps_watched_values_in_their_own_section(tmp_path: Path) -> None:
     watch = _watch(used_by="src/desktop.py :: DesktopBuilder.LIBC",
                    decision="no feed publishes this")
     registry = Registry(tool="t", tool_dir=tmp_path,

@@ -1,6 +1,6 @@
 """The base class every platform step derives from."""
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 from abc import ABC, abstractmethod
 from typing import ClassVar
@@ -22,6 +22,7 @@ class Builder(ABC):
     platform: ClassVar[str]
 
     def __init__(self, cache: Cache) -> None:
+        """Keep the cache every source of this step is read through."""
         self.cache = cache
 
     @abstractmethod
@@ -29,5 +30,6 @@ class Builder(ABC):
         """Produce every catalog this step owns."""
 
     def run(self) -> None:
+        """Build every catalog this step owns and write it to disk."""
         for catalog in self.build():
             catalog.write()
