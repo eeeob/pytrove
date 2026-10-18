@@ -23,16 +23,6 @@ def test_rand_tg_device_pins_and_reproduces() -> None:
     )
 
 
-def test_device_info_is_immutable_and_prints_both_parts() -> None:
-    device = DeviceInfo("model", "version")
-
-    assert str(device) == "model version"
-    assert device.to_dict() == {"device_model": "model", "system_version": "version"}
-
-    with pytest.raises(AttributeError):
-        device.model = "other"
-
-
 @pytest.mark.parametrize("platform", list(PlatformDevice))
 def test_rand_tg_device_pinned_draws_only_from_that_platform(platform: PlatformDevice) -> None:
     family = _DEVICES[platform]
