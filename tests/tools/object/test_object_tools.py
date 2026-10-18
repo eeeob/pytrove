@@ -1,58 +1,35 @@
+"""Tests of `crypto_tools.generate_secret` that still live here; they belong in `tests/tools/crypto/`."""
+
+from __future__ import annotations as _annotations
+
 import pytest
-from pytrove.object_tools import walk_subclasses
-from pytrove import generate_secret, patch_cls
+
+from pytrove import generate_secret
 
 
-def test_walk_subclasses_yields_a_diamond_once():
-    class Base: ...
-    class Left(Base): ...
-    class Right(Base): ...
-    class Bottom(Left, Right): ...
-
-    names = [c.__name__ for c in walk_subclasses(Base)]
-
-    assert sorted(names) == ["Bottom", "Left", "Right"]
-
-
-def test_generate_secret_length_and_charset():
+def test_generate_secret_length_and_charset() -> None:
     secret = generate_secret(16)
     assert len(secret) == 16
 
 
-def test_generate_secret_rejects_non_positive_length():
+def test_generate_secret_rejects_non_positive_length() -> None:
     with pytest.raises(ValueError):
         generate_secret(0)
 
 
-def test_generate_secret_rejects_no_charset():
+def test_generate_secret_rejects_no_charset() -> None:
     with pytest.raises(ValueError):
         generate_secret(8, use_upper=False, use_lower=False, use_digits=False, use_symbols=False)
 
 
-def test_generate_secret_only_digits():
+def test_generate_secret_only_digits() -> None:
     secret = generate_secret(10, use_upper=False, use_lower=False, use_symbols=False)
     assert secret.isdigit()
     assert len(secret) == 10
 
 
-def test_patch_cls_merges_methods_into_base():
-    class Base:
-        def greet(self):
-            return "base"
+def test_generate_secret_requires_room_for_each_set() -> None:
+    with pytest.raises(ValueError, match="too small"):
+        generate_secret(2)
 
-    class Patch(Base):
-        def greet(self):
-            return "patched"
-
-    patch_cls(Patch)
-    assert Base().greet() == "patched"
-
-
-def test_patch_cls_requires_single_base():
-    with pytest.raises(TypeError):
-        class Multi:
-            pass
-
-        @patch_cls
-        class BadPatch(Multi, dict):
-            pass
+    assert len(generate_secret(4)) == 4
