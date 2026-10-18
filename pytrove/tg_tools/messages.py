@@ -52,8 +52,9 @@ def split_tg_message(text: str, length: int = TgMessageLength.TEXT, reverse: boo
                 messages.append(current[:length])
                 current = current[length:]
 
-    if current:
-        messages.append(current)
+    # `text` is longer than `length`, so there is at least one line, and every
+    # line leaves a non-empty remainder of at most `length` in `current`.
+    messages.append(current)
 
     return [m.strip() for m in messages if m.strip()]
 
