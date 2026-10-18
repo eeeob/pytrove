@@ -1,5 +1,6 @@
 from __future__ import annotations as _annotations
 
+import importlib.util
 import time
 from collections.abc import AsyncIterator
 
@@ -9,6 +10,10 @@ from pytrove.enums import ImapEmailProvider
 from pytrove.errors import ValidationError
 from pytrove.tg_tools import fetch_tg_email_code, tg_account_created_at
 from pytrove.tg_tools._internal import points
+
+HAS_EMAIL = all(importlib.util.find_spec(name) is not None for name in ("aioimaplib", "bs4"))
+
+needs_email = pytest.mark.skipif(not HAS_EMAIL, reason="needs the imap and bs4 extras")
 
 
 def test_account_age_is_interpolated_and_capped() -> None:
@@ -20,6 +25,7 @@ def test_account_age_is_interpolated_and_capped() -> None:
     assert points._points()[1][1] <= tg_account_created_at(mid) <= points._points()[2][1]
 
 
+@needs_email
 async def test_fetch_tg_email_code_matches_a_six_digit_code(monkeypatch):
     async def fake_fetch(*args, **kwargs):
         yield "Hello Ali Hassan, your code is 123456"
@@ -65,24 +71,34 @@ def _fake_inbox(monkeypatch: pytest.MonkeyPatch, *messages: str) -> None:
     monkeypatch.setattr("pytrove.tg_tools.accounts.detect_email_provider", lambda email: ImapEmailProvider.GMAIL)
 
 
+@needs_email
 async def test_fetch_tg_email_code_skips_an_email_for_someone_else(monkeypatch: pytest.MonkeyPatch) -> None:
     _fake_inbox(monkeypatch, "Hello Omar, your code is 111111", "Hello Ali Hassan, your code is 222222")
 
     assert await fetch_tg_email_code("a@gmail.com", "pw", "Ali Hassan", 6) == "222222"
 
 
+@needs_email
 async def test_fetch_tg_email_code_only_matches_a_code_of_the_given_length(monkeypatch: pytest.MonkeyPatch) -> None:
     _fake_inbox(monkeypatch, "Ali Hassan: 1234567 or 1234", "Ali Hassan: 54321")
 
     assert await fetch_tg_email_code("a@gmail.com", "pw", "Ali Hassan", 5) == "54321"
 
 
+@needs_email
 async def test_fetch_tg_email_code_returns_none_when_no_email_matches(monkeypatch: pytest.MonkeyPatch) -> None:
     _fake_inbox(monkeypatch, "Hello Omar, your code is 111111", "Ali Hassan, no code here")
 
     assert await fetch_tg_email_code("a@gmail.com", "pw", "Ali Hassan", 6) is None
 
 
+@needs_email
 async def test_fetch_tg_email_code_refuses_an_unknown_email_domain() -> None:
     with pytest.raises(ValidationError, match="unknown.example"):
         await fetch_tg_email_code("a@unknown.example", "pw", "Ali Hassan", 6)
+
+
+@pytest.mark.skipif(HAS_EMAIL, reason="checks the error raised without the imap and bs4 extras")
+async def test_fetch_tg_email_code_without_its_extras_raises_a_clear_import_error() -> None:
+    with pytest.raises(ImportError, match=r"pip install 'pytrove\[imap, bs4\]'"):
+        await fetch_tg_email_code("a@gmail.com", "pw", "Ali Hassan", 6)
