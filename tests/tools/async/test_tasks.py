@@ -23,6 +23,52 @@ async def _hang() -> None:
     await asyncio.sleep(10)
 
 
+async def _value(v: Any, delay: float = 0) -> Any:
+    """Return `v` after `delay` seconds."""
+    await asyncio.sleep(delay)
+    return v
+
+
+async def _fail(exc: BaseException, delay: float = 0) -> None:
+    """Raise `exc` after `delay` seconds."""
+    await asyncio.sleep(delay)
+    raise exc
+
+
+async def test_safe_wait_task_tolerates_what_it_is_told_to() -> None:
+    assert await safe_wait_task(asyncio.ensure_future(_value(3))) == 3
+
+    cancelled = asyncio.ensure_future(_value(1, delay=5))
+    cancelled.cancel()
+    assert await safe_wait_task(cancelled) is None
+
+    cancelled = asyncio.ensure_future(_value(1, delay=5))
+    cancelled.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await safe_wait_task(cancelled, canceled_ok=False)
+
+    assert await safe_wait_task(asyncio.ensure_future(_fail(KeyError())), exc_ok=True) is None
+
+    with pytest.raises(KeyError):
+        await safe_wait_task(asyncio.ensure_future(_fail(KeyError())))
+
+
+async def test_cancel_task_waits_for_the_cancellation() -> None:
+    task = asyncio.ensure_future(_value(1, delay=5))
+    await asyncio.sleep(0)
+    assert await cancel_task(task) is True
+    assert task.cancelled()
+    assert await cancel_task(task) is False
+
+
+async def test_cancel_task_refuses_the_current_task() -> None:
+    current = asyncio.current_task()
+    assert current is not None
+
+    with pytest.raises(RuntimeError, match="current task"):
+        await cancel_task(current)
+
+
 @pytest.mark.parametrize(
     "wait",
     [

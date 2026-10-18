@@ -1,6 +1,7 @@
 from __future__ import annotations as _annotations
 
 import asyncio
+import threading
 from typing import Any
 
 import pytest
@@ -8,6 +9,47 @@ import pytest
 from pytrove.async_tools import SyncAwaitableRunner
 
 _LOOP_ATTR = "_SyncAwaitableRunner__loop"
+
+
+async def _thread_id() -> int:
+    """Return the id of the thread this runs on."""
+    return threading.get_ident()
+
+
+def test_runner_keeps_one_loop_across_calls() -> None:
+    with SyncAwaitableRunner(name="r") as runner:
+        first = runner.run(_thread_id())
+        assert runner(_thread_id()) == first
+        assert runner.running
+
+    assert runner.closed
+    assert not runner.running
+    coro = _thread_id()
+
+    with pytest.raises(RuntimeError, match="is not running"):
+        runner.run(coro)
+
+    coro.close()
+
+
+def test_lazy_runner_starts_on_first_use() -> None:
+    runner = SyncAwaitableRunner(lazy=True)
+    assert not runner.started
+    assert runner.run(asyncio.sleep(0, result=3)) == 3
+
+    with pytest.raises(RuntimeError, match="already started"):
+        runner.start()
+
+    runner.close()
+    runner.close()
+
+
+def test_closing_a_never_started_runner_only_marks_it_closed() -> None:
+    runner = SyncAwaitableRunner(lazy=True)
+    runner.close()
+
+    assert runner.closed
+    assert not runner.started
 
 
 def test_close_drains_tasks_left_on_the_loop() -> None:

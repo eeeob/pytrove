@@ -1,11 +1,21 @@
 from __future__ import annotations as _annotations
 
 import asyncio
+import sys
+import traceback
 from typing import Any
 
 import pytest
 
-from pytrove.async_tools._internal import _gather_cancel_on_error, _get_fut_loop, _wait_done
+from pytrove.async_tools._internal import (
+    _GatheringFuture,
+    _gather_cancel_on_error,
+    _get_fut_loop,
+    _log_exc,
+    _wait_done,
+    _ExcLogger,
+    _PY314,
+)
 
 
 async def _value(v: Any, delay: float = 0) -> Any:
@@ -40,6 +50,81 @@ class _ResultRaisingFuture(asyncio.Future):
         """
         msg = "odd"
         raise KeyError(msg)
+
+
+def test_py314_flag_matches_the_interpreter() -> None:
+    assert _PY314 is (sys.version_info >= (3, 14))
+
+
+def test_exc_logger_alias_exists() -> None:
+    assert _ExcLogger is not None
+
+
+async def test_gather_cancel_on_error_of_nothing_is_an_empty_list() -> None:
+    assert await _gather_cancel_on_error() == []
+
+
+async def test_gather_cancel_on_error_runs_a_repeated_awaitable_once() -> None:
+    future = asyncio.ensure_future(_value(1))
+    assert await _gather_cancel_on_error(future, future) == [1, 1]
+
+
+async def test_gather_cancel_on_error_handles_already_done_futures() -> None:
+    future = asyncio.get_running_loop().create_future()
+    future.set_result(9)
+    assert await _gather_cancel_on_error(future, _value(1)) == [9, 1]
+
+
+async def test_gather_cancel_on_error_silences_destroy_pending_only_for_wrapped_awaitables() -> None:
+    task = asyncio.ensure_future(_value(1))
+    outer = _gather_cancel_on_error(_value(2), task)
+    wrapped, passed = outer._children
+
+    assert wrapped._log_destroy_pending is False
+    assert passed._log_destroy_pending is True
+    assert await outer == [2, 1]
+
+
+@pytest.mark.skipif(sys.version_info < (3, 14), reason="the awaited-by API is new in 3.14")
+async def test_gather_cancel_on_error_links_children_to_the_awaiting_task() -> None:
+    outer = _gather_cancel_on_error(_value(1, delay=0.01))
+    child = outer._children[0]
+
+    assert asyncio.current_task() in child._asyncio_awaited_by
+    assert await outer == [1]
+    assert not child._asyncio_awaited_by
+
+
+async def test_gathering_future_cancel_forwards_to_children() -> None:
+    outer = _gather_cancel_on_error(_value(1, delay=5), _value(2, delay=5))
+    assert isinstance(outer, _GatheringFuture)
+    await asyncio.sleep(0)
+    assert outer.cancel("stop") is True
+    assert outer.cancel_message == "stop"
+
+    with pytest.raises(asyncio.CancelledError):
+        await outer
+
+    assert outer.cancel() is False
+
+
+async def test_get_fut_loop_returns_the_futures_loop() -> None:
+    future = asyncio.get_running_loop().create_future()
+    assert _get_fut_loop(future) is asyncio.get_running_loop()
+    future.cancel()
+
+
+def test_log_exc_puts_the_header_index_and_traceback_in_one_record(caplog: pytest.LogCaptureFixture) -> None:
+    msg = "boom"
+    try:
+        raise KeyError(msg)
+    except KeyError as e:
+        _log_exc("head", traceback.extract_stack(), e, index=2)
+        _log_exc(None, None, e, index=0)
+
+    assert "head [awaitable index=2]" in caplog.text
+    assert "[awaitable index=0]" in caplog.text
+    assert "KeyError" in caplog.text
 
 
 async def test_gathering_future_cancel_skips_children_already_done() -> None:

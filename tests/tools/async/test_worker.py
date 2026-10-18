@@ -18,6 +18,117 @@ async def _thread_id() -> int:
     return threading.get_ident()
 
 
+@needs_proxy
+async def test_worker_runs_work_on_its_own_thread() -> None:
+    async with AioThreadWorker(name="w") as worker:
+        assert worker.is_running()
+        assert await worker.submit(_thread_id) != threading.get_ident()
+        assert await worker(asyncio.sleep, 0, result=5) == 5
+        loop = worker.get_loop()
+
+        with pytest.raises(AttributeError):
+            loop.stop()
+
+    assert worker.is_finished()
+    assert worker.is_stopping()
+
+
+async def test_worker_refuses_work_after_join() -> None:
+    worker = AioThreadWorker()
+    await worker.join()
+
+    with pytest.raises(RuntimeError, match="closed|stopping"):
+        await worker.submit(_thread_id)
+
+    with pytest.raises(RuntimeError, match="finished"):
+        worker.run()
+
+
+@needs_proxy
+async def test_worker_caps_concurrency() -> None:
+    running = 0
+    peak = 0
+
+    async def job() -> None:
+        """Track how many jobs overlap."""
+        nonlocal running, peak
+        running += 1
+        peak = max(peak, running)
+        await asyncio.sleep(0.01)
+        running -= 1
+
+    async with AioThreadWorker(concurrency=2) as worker:
+        await asyncio.gather(*(worker.submit(job) for _ in range(6)))
+
+    assert peak == 2
+
+
+@needs_proxy
+async def test_worker_rejects_a_non_awaitable_function() -> None:
+    async with AioThreadWorker() as worker:
+        with pytest.raises(TypeError, match="awaitable"):
+            await worker.submit(lambda: 1)
+
+
+def test_worker_lifecycle_without_a_loop() -> None:
+    worker = AioThreadWorker(run_now=False)
+    assert not worker.is_started()
+
+    with pytest.raises(RuntimeError, match="not been started"):
+        worker.wait_for_running()
+
+    worker.run(wait=5)
+    assert worker.is_running()
+    asyncio.run(worker.join(timeout=5))
+    assert not worker.is_running()
+
+
+def test_worker_is_finished_only_after_its_thread_ended() -> None:
+    worker = AioThreadWorker(run_now=False)
+    assert not worker.is_finished()
+
+    worker.run(wait=5)
+    assert not worker.is_finished()
+    worker.run()  # A no-op while the thread is alive.
+
+    asyncio.run(worker.join(timeout=5))
+    assert worker.is_finished()
+
+    with pytest.raises(RuntimeError, match="finished"):
+        worker.run()
+
+
+def test_worker_join_before_start_prevents_any_start() -> None:
+    worker = AioThreadWorker(run_now=False)
+    asyncio.run(worker.join())
+
+    assert worker.is_stopping()
+    assert not worker.is_started()
+
+    with pytest.raises(RuntimeError, match="already been asked to stop"):
+        worker.run()
+
+
+def test_worker_join_is_safe_to_repeat() -> None:
+    worker = AioThreadWorker()
+
+    async def join_twice() -> None:
+        """Join, then join again once the thread has ended."""
+        await worker.join(timeout=5)
+        await worker.join(timeout=5)
+
+    asyncio.run(join_twice())
+    assert worker.is_finished()
+
+
+def test_worker_validates_its_arguments() -> None:
+    with pytest.raises(TypeError, match="concurrency"):
+        AioThreadWorker(concurrency="2", run_now=False)
+
+    with pytest.raises(TypeError, match="exception_handler"):
+        AioThreadWorker(exception_handler=5, run_now=False)
+
+
 async def test_awaiting_the_worker_joins_it() -> None:
     worker = AioThreadWorker()
     await worker
