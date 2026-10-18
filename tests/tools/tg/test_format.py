@@ -241,3 +241,8 @@ def test_parse_tg_target_keeps_a_joinchat_link_as_it_is() -> None:
 def test_tools_without_the_tg_extra_raise_a_clear_import_error(tool: Callable[..., object], args: tuple[object, ...]) -> None:
     with pytest.raises(ImportError, match=r"pip install 'pytrove\[tg\]'"):
         tool(*args)
+
+
+@needs_tg
+def test_format_tg_link_of_a_private_chat_message_is_empty() -> None:
+    assert format_tg_link(Message(id=7, chat=Chat(id=5, type=ChatType.PRIVATE)), "none") == ""

@@ -95,3 +95,9 @@ async def test_fetch_tg_email_code_refuses_an_unknown_email_domain() -> None:
 async def test_fetch_tg_email_code_without_its_extras_raises_a_clear_import_error() -> None:
     with pytest.raises(ImportError, match=r"pip install 'pytrove\[imap, bs4\]'"):
         await fetch_tg_email_code("a@gmail.com", "pw", "Ali Hassan", 6)
+
+
+@needs_email
+async def test_fetch_tg_email_code_refuses_a_value_that_is_not_an_address() -> None:
+    with pytest.raises(ValidationError, match="not valid email"):
+        await fetch_tg_email_code("not-an-address", "pw", "Ali Hassan", 6)
