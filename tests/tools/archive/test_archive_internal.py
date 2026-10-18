@@ -851,7 +851,7 @@ def test_zip_on_a_pool_serialises_two_members_landing_on_one_path(tmp_path: Path
     assert (extractor._root / "same.txt").read_bytes() == b"second"
 
 
-def _safe_target(dest, name, cache=None):
+def _safe_target(dest: Path, name: str, cache: dict[str, Path | None] | None = None) -> Path | None:
     """Where `name` resolves to, for a bare destination and no rules.
 
     Working out a member's path is not a method of its own any more -- it
@@ -881,7 +881,7 @@ def _safe_target(dest, name, cache=None):
     "..\\escape.txt",
     "",
 ])
-def test_safe_target_refuses_traversal(tmp_path, name):
+def test_safe_target_refuses_traversal(tmp_path: Path, name: str) -> None:
     dest = tmp_path / "dest"
     dest.mkdir()
     assert _safe_target(dest, name) is None
@@ -892,7 +892,7 @@ def test_safe_target_refuses_traversal(tmp_path, name):
     "", "/", "///", "C:/Windows/x", "c:x", "sub/../../escape.txt",
     "pkg/a.py", "a/../b.txt", "sub/./a.txt", "/etc/passwd", "plain.txt",
 ])
-def test_the_directory_cache_never_changes_the_verdict(tmp_path, name):
+def test_the_directory_cache_never_changes_the_verdict(tmp_path: Path, name: str) -> None:
     # _safe_target resolves the directory part once and reuses it for
     # siblings. That is only sound if it decides exactly what the
     # per-member resolve decided.
@@ -905,7 +905,7 @@ def test_the_directory_cache_never_changes_the_verdict(tmp_path, name):
 @pytest.mark.parametrize("name", [
     "/etc/passwd", "C:/Windows/x", "c:x", "//server/share/x", "/",
 ])
-def test_absolute_names_are_refused_outright(tmp_path, name):
+def test_absolute_names_are_refused_outright(tmp_path: Path, name: str) -> None:
     # tar strips the leading separator and keeps such a member. This does
     # not: rewriting where the archive asked to go is a silent repair, and
     # an archive that asks to write outside the directory it was handed has
@@ -919,7 +919,7 @@ def test_absolute_names_are_refused_outright(tmp_path, name):
 @pytest.mark.parametrize("name", [
     "/etc/passwd", "C:/Windows/x", "c:x", "//server/share/x", "/", "///",
 ])
-def test_an_absolute_member_name_is_refused_not_repaired(tmp_path, name):
+def test_an_absolute_member_name_is_refused_not_repaired(tmp_path: Path, name: str) -> None:
     # tar strips the leading separator and keeps the member. This does not:
     # rewriting where the archive asked to go is a silent repair, and an
     # archive asking to write outside its destination has not earned the
@@ -930,7 +930,7 @@ def test_an_absolute_member_name_is_refused_not_repaired(tmp_path, name):
     assert _safe_target(dest, name) is None
 
 
-def test_a_member_the_policy_refuses_is_never_counted():
+def test_a_member_the_policy_refuses_is_never_counted() -> None:
     # Directly, because through an extraction the tallies are only visible
     # by what they refuse. `overwrite` is asked first, so a member it turns
     # away leaves every tally exactly where it was.
@@ -946,7 +946,7 @@ def test_a_member_the_policy_refuses_is_never_counted():
 
 
 class _FakeStat:
-    def __init__(self, st_size, st_mtime_ns, st_ctime_ns=0, st_atime_ns=0, st_mode=0o644):
+    def __init__(self, st_size: int, st_mtime_ns: int, st_ctime_ns: int = 0, st_atime_ns: int = 0, st_mode: int = 0o644) -> None:
         self.st_size = st_size
         self.st_mtime_ns = st_mtime_ns
         self.st_ctime_ns = st_ctime_ns
@@ -954,7 +954,7 @@ class _FakeStat:
         self.st_mode = st_mode
 
 
-def test_same_stat_compares_size_mtime_and_ctime():
+def test_same_stat_compares_size_mtime_and_ctime() -> None:
     base = _FakeStat(1, 1, 1)
 
     assert stable._same_stat(base, _FakeStat(1, 1, 1)) is True
@@ -963,7 +963,7 @@ def test_same_stat_compares_size_mtime_and_ctime():
     assert stable._same_stat(base, _FakeStat(1, 1, 2)) is False
 
 
-def test_read_stable_settles_on_the_first_attempt_when_nothing_changes(tmp_path):
+def test_read_stable_settles_on_the_first_attempt_when_nothing_changes(tmp_path: Path) -> None:
     target = tmp_path / "f.bin"
     content = b"hello world" * 100
     target.write_bytes(content)
@@ -977,7 +977,7 @@ def test_read_stable_settles_on_the_first_attempt_when_nothing_changes(tmp_path)
         os.unlink(tmp)
 
 
-def test_read_stable_retries_until_two_stats_agree(tmp_path, monkeypatch):
+def test_read_stable_retries_until_two_stats_agree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     target = tmp_path / "f.bin"
     target.write_bytes(b"x")
 
@@ -1003,7 +1003,7 @@ def test_read_stable_retries_until_two_stats_agree(tmp_path, monkeypatch):
         os.unlink(tmp)
 
 
-def test_read_stable_gives_up_after_its_retry_budget(monkeypatch, tmp_path):
+def test_read_stable_gives_up_after_its_retry_budget(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     target = tmp_path / "f.bin"
     target.write_bytes(b"x")
 
@@ -1019,7 +1019,7 @@ def test_read_stable_gives_up_after_its_retry_budget(monkeypatch, tmp_path):
         os.unlink(tmp)
 
 
-def test_read_stable_sets_the_temp_file_mtime_and_mode_from_the_verified_stat(tmp_path):
+def test_read_stable_sets_the_temp_file_mtime_and_mode_from_the_verified_stat(tmp_path: Path) -> None:
     target = tmp_path / "f.bin"
     target.write_bytes(b"abc")
     os.chmod(target, 0o600)
@@ -1035,7 +1035,7 @@ def test_read_stable_sets_the_temp_file_mtime_and_mode_from_the_verified_stat(tm
         os.unlink(tmp)
 
 
-def test_warn_if_changed_logs_when_the_stat_differs_after_the_write(tmp_path, monkeypatch, caplog):
+def test_warn_if_changed_logs_when_the_stat_differs_after_the_write(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     target = tmp_path / "f.bin"
     target.write_bytes(b"x")
     before = target.stat()
@@ -1049,7 +1049,7 @@ def test_warn_if_changed_logs_when_the_stat_differs_after_the_write(tmp_path, mo
     assert "changed while being archived" in caplog.text
 
 
-def test_warn_if_changed_is_silent_when_nothing_changed(tmp_path, caplog):
+def test_warn_if_changed_is_silent_when_nothing_changed(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     target = tmp_path / "f.bin"
     target.write_bytes(b"x")
     before = target.stat()
@@ -1060,7 +1060,7 @@ def test_warn_if_changed_is_silent_when_nothing_changed(tmp_path, caplog):
     assert caplog.text == ""
 
 
-def test_warn_if_changed_does_nothing_without_a_before_stat(tmp_path, caplog):
+def test_warn_if_changed_does_nothing_without_a_before_stat(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     target = tmp_path / "f.bin"
     target.write_bytes(b"x")
 
@@ -1070,7 +1070,7 @@ def test_warn_if_changed_does_nothing_without_a_before_stat(tmp_path, caplog):
     assert caplog.text == ""
 
 
-def test_warn_if_changed_is_silent_if_the_file_is_gone_by_the_second_stat(tmp_path, caplog):
+def test_warn_if_changed_is_silent_if_the_file_is_gone_by_the_second_stat(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     target = tmp_path / "f.bin"
     target.write_bytes(b"x")
     before = target.stat()
