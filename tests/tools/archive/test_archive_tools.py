@@ -213,6 +213,13 @@ def test_rejects_a_file_as_source(tree, tmp_path):
         backup_folder(tree / "a.py", tmp_path / "no.zip")
 
 
+def test_extract_archive_refuses_a_directory_as_source(tree, tmp_path):
+    with pytest.raises(ValidationError, match="is not a file"):
+        extract_archive(tree, tmp_path / "out")
+
+    assert not (tmp_path / "out").exists()
+
+
 @pytest.mark.parametrize("name", [
     "../escape.txt",
     "../../escape.txt",

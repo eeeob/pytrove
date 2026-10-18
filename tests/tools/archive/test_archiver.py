@@ -174,6 +174,53 @@ async def test_run_job_calls_on_error_and_still_cleans_up(tree):
     assert not (tree / "out.zip").exists()
 
 
+async def test_run_job_reports_a_failed_create_and_has_nothing_to_remove(tree, monkeypatch):
+    errors = []
+    removed = []
+
+    async def on_error(job, exc):
+        errors.append(str(exc))
+
+    async def failing_create(job):
+        raise OSError("disk full")
+
+    import pytrove.archive_tools.periodic as archiver_module
+    monkeypatch.setattr(archiver_module, "remove_file", removed.append)
+
+    job = make_job(tree, on_error=on_error)
+    archiver = PeriodicArchiver([job])
+    monkeypatch.setattr(archiver, "create", failing_create)
+    stamp_before = job.last_run
+
+    await archiver.run_job(job)
+
+    assert errors == ["disk full"]
+    assert removed == []
+    assert job.last_run >= stamp_before
+
+
+async def test_stop_before_start_is_a_no_op(tree):
+    archiver = PeriodicArchiver([make_job(tree)])
+
+    await archiver.stop()
+
+    assert archiver._task is None
+
+
+async def test_stop_leaves_an_already_finished_run_alone(tree):
+    async def finished():
+        return None
+
+    archiver = PeriodicArchiver([make_job(tree)])
+    task = asyncio.create_task(finished())
+    await task
+    archiver._running.add(task)
+
+    await archiver.stop()
+
+    assert not task.cancelled()
+
+
 async def test_run_job_with_no_on_error_swallows_and_logs(tree, caplog):
     async def failing_on_archive(job, path):
         raise ValueError("boom")
