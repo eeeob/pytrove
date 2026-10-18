@@ -82,7 +82,7 @@ class TemplateButtonDict(TemplateConditionalDict):
         type: Which button argument `value` fills.
         value: The URL or callback data, a `str.format` template.
         meta: Extra `InlineKeyboardButton` arguments as raw JSON values, such as
-            `{"style": "primary"}`; compiling turns enum names into members.
+            `{"style": "primary"}`; compiling turns enum values into members.
     """
 
     text: str
