@@ -5,6 +5,7 @@ from __future__ import annotations as _annotations
 import asyncio
 
 from ..typings import _T
+from ._internal import _wait_done
 from .safety import asafe_call
 
 
@@ -20,11 +21,14 @@ async def safe_wait_task(task: asyncio.Task[_T], canceled_ok: bool = True, exc_o
         The task's result, or `None` for a tolerated outcome.
 
     Raises:
-        asyncio.CancelledError: If the task was cancelled and `canceled_ok` is false.
+        asyncio.CancelledError: If the task was cancelled and `canceled_ok` is false,
+            or the caller itself is cancelled while waiting.
         Exception: Whatever the task raised, if `exc_ok` is false.
     """
+    await _wait_done(task)
+
     try:
-        return await task
+        return task.result()
     except asyncio.CancelledError:
         if not canceled_ok:
             raise
@@ -51,6 +55,7 @@ async def cancel_task(task: asyncio.Task, msg: str | None = None) -> bool:
 
     Raises:
         RuntimeError: If `task` is the current task.
+        asyncio.CancelledError: If the caller itself is cancelled while waiting.
     """
     if task is asyncio.current_task():
         msg_ = "Cannot cancel the current task"
@@ -59,7 +64,8 @@ async def cancel_task(task: asyncio.Task, msg: str | None = None) -> bool:
     if not task.cancel(msg):
         return False
 
-    await asafe_call(task, include_exc=asyncio.CancelledError, log_exc=False)
+    await _wait_done(task)
+    await asafe_call(task, include_exc=asyncio.CancelledError, log_exc=False)  # Done: reads the outcome at once.
     return True
 
 
