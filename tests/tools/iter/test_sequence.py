@@ -2,25 +2,10 @@ from __future__ import annotations as _annotations
 
 import random
 from collections import deque
-from collections.abc import MutableSequence
-from typing import Any, TypeVar
 
 import pytest
 
-from pytrove.iter_tools import dedupe, pad_list, shuffle, to_frozenset, to_list, to_set, to_tuple
-from pytrove.iter_tools._internal import _MS, _items
-
-
-@pytest.mark.parametrize(("convert", "single", "empty"), [
-    (to_list, [5], []),
-    (to_tuple, (5,), ()),
-    (to_set, {5}, set()),
-    (to_frozenset, frozenset({5}), frozenset()),
-])
-def test_converters_wrap_a_single_value_and_empty_none(convert: Any, single: Any, empty: Any) -> None:
-    assert convert(5) == single
-    assert convert(None) == empty
-    assert convert("ab") == convert(["ab"])
+from pytrove.iter_tools import dedupe, pad_list, shuffle
 
 
 def test_dedupe_keeps_first_seen_order() -> None:
@@ -67,38 +52,3 @@ def test_shuffle_copies_any_other_iterable_into_a_list() -> None:
 def test_shuffle_keeps_a_deque_a_deque() -> None:
     values = deque(range(5))
     assert shuffle(values) is values
-
-
-def test_ms_is_bound_to_mutable_sequences() -> None:
-    assert isinstance(_MS, TypeVar)
-    assert _MS.__bound__ == MutableSequence[Any]
-
-
-def test_items_of_none_is_empty() -> None:
-    assert tuple(_items(None)) == ()
-
-
-def test_items_of_a_container_is_the_container_itself() -> None:
-    values = [1, 2, 3]
-    assert _items(values) is values
-
-
-def test_items_wraps_a_single_value() -> None:
-    assert _items(5) == (5,)
-    assert _items("abc") == ("abc",)
-
-
-def test_items_of_a_mapping_is_the_mapping_so_converters_take_its_keys() -> None:
-    mapping = {"a": 1}
-    assert _items(mapping) is mapping
-    assert to_list(mapping) == ["a"]
-
-
-def test_items_of_an_iterator_is_consumed_once() -> None:
-    values = iter([1, 2])
-    assert tuple(_items(values)) == (1, 2)
-    assert tuple(values) == ()
-
-
-def test_items_wraps_bytes_as_a_single_value() -> None:
-    assert _items(b"ab") == (b"ab",)

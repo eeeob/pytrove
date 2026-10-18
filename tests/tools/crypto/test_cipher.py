@@ -1,37 +1,39 @@
+from __future__ import annotations as _annotations
+
 import pytest
 
 pytest.importorskip("cryptography")
 
-from pytrove import encrypt, decrypt, d_encrypt, d_decrypt
-from pytrove.errors import ValidationError
+from pytrove import d_decrypt, d_encrypt, decrypt, encrypt  # noqa: E402 - only importable once the skip above has passed.
+from pytrove.errors import ValidationError  # noqa: E402
 
 
-def test_encrypt_decrypt_roundtrip_bytes():
+def test_encrypt_decrypt_roundtrip_bytes() -> None:
     data = b"secret payload"
     enc = encrypt(data, "password123")
     assert decrypt(enc, "password123") == data
 
 
-def test_encrypt_decrypt_roundtrip_str():
+def test_encrypt_decrypt_roundtrip_str() -> None:
     enc = encrypt("hello world", "password123")
     assert decrypt(enc, "password123") == b"hello world"
 
 
-def test_decrypt_wrong_password_raises():
+def test_decrypt_wrong_password_raises() -> None:
     enc = encrypt("hello", "correct-password")
     with pytest.raises(ValidationError):
         decrypt(enc, "wrong-password")
 
 
-def test_decrypt_too_short_raises():
+def test_decrypt_too_short_raises() -> None:
     with pytest.raises(ValidationError):
         decrypt(b"short", "password")
 
 
-def test_decrypt_minimum_valid_length_boundary():
+def test_decrypt_minimum_valid_length_boundary() -> None:
     # 16-byte salt + 12-byte nonce + 16-byte GCM tag = 44 bytes is the exact
     # floor for a valid (empty-plaintext) ciphertext; one byte less must
-    # always be rejected before ever reaching AESGCM.decrypt().
+    # always be rejected before ever reaching `AESGCM.decrypt()`.
     enc = encrypt(b"", "password123")
     assert len(enc) == 44
     assert decrypt(enc, "password123") == b""
@@ -40,23 +42,23 @@ def test_decrypt_minimum_valid_length_boundary():
         decrypt(enc[:-1], "password123")
 
 
-def test_deterministic_encrypt_same_input_same_output():
+def test_deterministic_encrypt_same_input_same_output() -> None:
     a = d_encrypt("same input", "password123")
     b = d_encrypt("same input", "password123")
     assert a == b  # deterministic by design (AES-SIV)
     assert d_decrypt(a, "password123") == b"same input"
 
 
-def test_data_resolver_applied_on_decrypt():
+def test_data_resolver_applied_on_decrypt() -> None:
     enc = encrypt("42", "password123")
     result = decrypt(enc, "password123", data_resolver=lambda b: int(b))
     assert result == 42
 
 
-def test_d_decrypt_wrong_password_raises():
+def test_d_decrypt_wrong_password_raises() -> None:
     with pytest.raises(ValidationError, match="Decryption failed"):
         d_decrypt(d_encrypt("secret", "right"), "wrong")
 
 
-def test_d_decrypt_applies_the_resolver():
+def test_d_decrypt_applies_the_resolver() -> None:
     assert d_decrypt(d_encrypt(b"x", "pw"), "pw", data_resolver=bytes.decode) == "x"
