@@ -170,3 +170,19 @@ def test_invite_link_pattern_captures_the_hash_of_both_forms() -> None:
     assert INVITE_LINK_PATTERN.match("t.me/joinchat/Ab-c").group(1) == "Ab-c"
     assert INVITE_LINK_PATTERN.match("https://t.me/name") is None
     assert INVITE_LINK_PATTERN.match("https://t.me/+hash/5") is None
+
+
+JOINCHAT_LINK = "https://t.me/joinchat/AbC-d"
+
+
+def test_format_tg_username_treats_a_joinchat_link_as_an_invite_link() -> None:
+    assert format_tg_username(JOINCHAT_LINK) is None
+    assert format_tg_username(JOINCHAT_LINK, with_invite_link=True) == JOINCHAT_LINK
+
+
+def test_format_tg_link_returns_a_joinchat_link_as_it_is() -> None:
+    assert format_tg_link(JOINCHAT_LINK) == JOINCHAT_LINK
+
+
+def test_parse_tg_target_keeps_a_joinchat_link_as_it_is() -> None:
+    assert parse_tg_target(JOINCHAT_LINK) == JOINCHAT_LINK

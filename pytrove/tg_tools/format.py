@@ -81,11 +81,11 @@ def format_tg_username(
     if not text:
         return default
 
-    match = CHAT_LINK_PATTERN.match(text.lower())
-
-    if not match and INVITE_LINK_PATTERN.match(text.lower()):
+    # The invite pattern goes first: `CHAT_LINK_PATTERN` also matches a `joinchat/` link.
+    if INVITE_LINK_PATTERN.match(text.lower()):
         return text if with_invite_link else default
 
+    match = CHAT_LINK_PATTERN.match(text.lower())
     name = (match.group(1) if match else text.replace("@", "")).strip()
     return "@" + name if with_at else name
 
@@ -120,11 +120,12 @@ def format_tg_link(target: StrInt | Message | Chat | User, default: Any = None) 
         return default
 
     text = str(key)
-    match = CHAT_LINK_PATTERN.match(text.lower())
 
-    if not match and INVITE_LINK_PATTERN.match(text):
+    # The invite pattern goes first: `CHAT_LINK_PATTERN` also matches a `joinchat/` link.
+    if INVITE_LINK_PATTERN.match(text):
         return text
 
+    match = CHAT_LINK_PATTERN.match(text.lower())
     value = to_int((match.group(1) if match else text.replace("@", "")).strip())
 
     if not isinstance(value, int):
@@ -160,11 +161,13 @@ def parse_tg_target(target: StrInt) -> StrInt:
     if phone.isdigit():
         return int(phone)
 
+    # The invite pattern goes first: `CHAT_LINK_PATTERN` also matches a `joinchat/` link.
+    if INVITE_LINK_PATTERN.match(target):
+        return target
+
     match = CHAT_LINK_PATTERN.match(target.lower())
 
     if not match:
-        if INVITE_LINK_PATTERN.match(target):
-            return target
         return re.sub(r"[@+\s]", "", target.lower())
 
     try:
