@@ -15,7 +15,8 @@ def tg_account_created_at(user_id: int) -> float:
 
     Ids grow over time, so the date is interpolated between bundled known
     points, and extrapolated past the last one but never into the future.
-    The points are read on first use.
+    An id at or below the first point gets that point's date. The points are
+    read on first use.
 
     Args:
         user_id: The account's id.
@@ -37,7 +38,7 @@ def tg_account_created_at(user_id: int) -> float:
 
 @_optional_import(("aioimaplib", "imap"), ("beautifulsoup4", "bs4"))
 async def fetch_tg_email_code(email: str, password: str, full_name: str, code_length: int) -> str | None:
-    """Find a Telegram login code in the inbox, in the newest email addressed to `full_name`.
+    """Find a Telegram login code in the inbox: the first code in the newest email that names `full_name`.
 
     Args:
         email: The address; its domain picks the IMAP server.
