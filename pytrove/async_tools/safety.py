@@ -5,7 +5,7 @@ from __future__ import annotations as _annotations
 import inspect
 import logging
 import traceback
-from collections.abc import Awaitable, Iterator
+from collections.abc import Awaitable, Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, cast, overload
 
@@ -187,7 +187,45 @@ async def asafe_call(
 
 
 # Same overload order as `safe_await`: `return_exc=False` (or nothing) first, so `True` or a
-# plain `bool` falls to the arm that may return an exception.
+# plain `bool` falls to the arm that may return an exception. The coroutine-function and the
+# sync-callable shapes come before `MaybeAwaitable`, whose `Coroutine[..., R] | R` return would
+# otherwise bind `R` to the whole coroutine; `MaybeAwaitable` stays last for union-typed values.
+@overload
+async def maybe_awaitable(
+    awaitable_or_callable: Callable[_P, Awaitable[_T]],
+    *args: _P.args,
+    executor: ThreadPoolExecutor | None = None,
+    return_exc: _False = False,
+    log_exc: bool = True,
+    **kwargs: _P.kwargs,
+) -> _T: ...
+@overload
+async def maybe_awaitable(
+    awaitable_or_callable: Callable[_P, Awaitable[_T]],
+    *args: _P.args,
+    executor: ThreadPoolExecutor | None = None,
+    return_exc: bool,
+    log_exc: bool = True,
+    **kwargs: _P.kwargs,
+) -> _T | Exception: ...
+@overload
+async def maybe_awaitable(
+    awaitable_or_callable: Callable[_P, _T],
+    *args: _P.args,
+    executor: ThreadPoolExecutor | None = None,
+    return_exc: _False = False,
+    log_exc: bool = True,
+    **kwargs: _P.kwargs,
+) -> _T: ...
+@overload
+async def maybe_awaitable(
+    awaitable_or_callable: Callable[_P, _T],
+    *args: _P.args,
+    executor: ThreadPoolExecutor | None = None,
+    return_exc: bool,
+    log_exc: bool = True,
+    **kwargs: _P.kwargs,
+) -> _T | Exception: ...
 @overload
 async def maybe_awaitable(
     awaitable_or_callable: MaybeAwaitable[_P, _T],

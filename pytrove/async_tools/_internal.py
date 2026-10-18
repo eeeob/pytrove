@@ -1,4 +1,4 @@
-"""Helpers private to `async_tools`: the cancel-on-error gather and error logging."""
+"""Helpers private to `async_tools`: the cancel-on-error gather, error logging and task waiting."""
 
 from __future__ import annotations as _annotations
 
@@ -241,11 +241,35 @@ def _log_exc(
     log.error("%s\n%s", header, "".join(caller_trace) + "".join(exc_trace))
 
 
+async def _wait_done(task: asyncio.Task[Any]) -> None:
+    """Wait until `task` is done without reading its outcome, so the caller's cancellation stays apart.
+
+    Awaiting the task itself raises `asyncio.CancelledError` alike for the task's cancellation
+    and the caller's; `asyncio.wait` raises it only for the caller's.
+
+    Args:
+        task: The task to wait for.
+
+    Raises:
+        asyncio.CancelledError: If the caller is cancelled; the request is forwarded to `task`,
+            as awaiting it directly would.
+    """
+    if task.done():
+        return
+
+    try:
+        await asyncio.wait((task,))
+    except asyncio.CancelledError:
+        task.cancel()
+        raise
+
+
 __all__ = (
     "_GatheringFuture",
     "_gather_cancel_on_error",
     "_get_fut_loop",
     "_log_exc",
+    "_wait_done",
     "_ExcLogger",
     "_PY314",
 )
