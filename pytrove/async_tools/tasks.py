@@ -56,6 +56,7 @@ async def cancel_task(task: asyncio.Task, msg: str | None = None) -> bool:
     Raises:
         RuntimeError: If `task` is the current task.
         asyncio.CancelledError: If the caller itself is cancelled while waiting.
+        Exception: Whatever the task raised instead of being cancelled.
     """
     if task is asyncio.current_task():
         msg_ = "Cannot cancel the current task"
