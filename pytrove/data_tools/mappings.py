@@ -100,6 +100,9 @@ class DefaultWeakValueDict(KeyDefaultWeakValueDict[_KT, _VT]):
 
         Args:
             default_factory: Builds a value with no arguments.
+
+        Raises:
+            TypeError: If it is not callable.
         """
         super().__init__(_no_arg_factory(default_factory))
 
@@ -154,6 +157,9 @@ class DefaultWeakKeyDict(KeyDefaultWeakKeyDict[_KT, _VT]):
 
         Args:
             default_factory: Builds a value with no arguments.
+
+        Raises:
+            TypeError: If it is not callable.
         """
         super().__init__(_no_arg_factory(default_factory))
 
