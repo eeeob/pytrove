@@ -257,3 +257,16 @@ def test_format_tg_link_keeps_a_private_channel_link_as_a_channel_link() -> None
     assert format_tg_link("https://t.me/c/1234567890/5") == "https://t.me/c/1234567890/5"
     assert format_tg_link("telegram.dog/c/1234567890") == "https://t.me/c/1234567890"
     assert format_tg_link("https://t.me/c/1234567890/5") != format_tg_link(1234567890)
+
+
+@needs_tg
+def test_format_tg_link_ignores_surrounding_whitespace() -> None:
+    assert format_tg_link(" https://t.me/c/1234567890/5 ") == "https://t.me/c/1234567890/5"
+    assert format_tg_link(" https://t.me/+AbCdEf ") == "https://t.me/+AbCdEf"
+    assert format_tg_link(" name ") == "https://t.me/name"
+
+
+@needs_tg
+def test_format_tg_username_of_a_private_channel_link_is_the_default() -> None:
+    assert format_tg_username("https://t.me/c/1234567890/5") is None
+    assert format_tg_username("T.ME/C/1234567890", default="none") == "none"
