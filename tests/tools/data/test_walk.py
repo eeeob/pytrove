@@ -106,6 +106,20 @@ def test_map_deep_preserves_the_container_type() -> None:
     assert result == ("A", "B")
 
 
+def test_whatever_func_raises_propagates_out_of_a_container_too() -> None:
+    # `str.upper(1)` is a TypeError, the same class a constructor raises when it
+    # refuses the items: the rebuild must not read the one as the other and
+    # hand the data back un-transformed.
+    with pytest.raises(TypeError):
+        map_deep([1], str.upper)
+
+    with pytest.raises(TypeError):
+        map_deep({"a": [1]}, str.upper)
+
+    with pytest.raises(ValueError, match="no"):
+        map_deep_kv((1,), lambda v: (_ for _ in ()).throw(ValueError("no")))
+
+
 def test_map_deep_kv_applies_value_func_to_every_leaf_value() -> None:
     assert map_deep_kv({"a": "x", "b": ["y", "z"]}, str.upper) == {"a": "X", "b": ["Y", "Z"]}
 

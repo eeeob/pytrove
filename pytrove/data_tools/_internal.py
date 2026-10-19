@@ -4,7 +4,7 @@ from __future__ import annotations as _annotations
 
 import copy
 import logging
-from collections.abc import Callable, Hashable, Iterator, Mapping, MutableMapping
+from collections.abc import Callable, Hashable, Iterator, Mapping, MutableMapping, Sequence
 from typing import Any, Final, TypeVar, cast
 
 from ..typings import Container
@@ -24,7 +24,8 @@ log = logging.getLogger(__name__)
 def _transform(data: Container[Any], func: Callable[[Any], Any] | None = None) -> Iterator[Any]:
     """Yield `data`'s items through `func`, dropping any `_MESS`, lazily.
 
-    Each rebuild attempt takes a fresh one, so the common case pays one pass.
+    An iterator is rebuilt as this directly; every other container has it
+    materialised once by `_reconstruct`, so the transform runs one pass.
 
     Args:
         data: The container to walk.
@@ -75,7 +76,7 @@ def _transform_mapping(
         yield key, value
 
 
-def _filled(data: Container[Any], func: Callable[[Any], Any] | None, new: Any) -> bool:
+def _filled(items: Sequence[Any], new: Any) -> bool:
     """Tell whether a rebuilt container really received its items.
 
     Some constructors accept the wrong argument silently and return an empty
@@ -83,20 +84,16 @@ def _filled(data: Container[Any], func: Callable[[Any], Any] | None, new: Any) -
     loss is detected; a legitimate shrink such as set deduplication is not.
 
     Args:
-        data: The original container.
-        func: The transform the rebuild used.
+        items: The transformed items, already materialised.
         new: The rebuilt container.
 
     Returns:
-        `False` only when `new` is empty although the transform yields items.
+        `False` only when `new` is empty although `items` is not.
     """
     try:
-        if len(new):
-            return True
+        return bool(len(new)) or not items
     except TypeError:
         return True
-
-    return next(_transform(data, func), _MESS) is _MESS
 
 
 def _mapping_filled(as_dict: dict[Any, Any], new: Any) -> bool:
@@ -156,7 +153,7 @@ def _reconstruct(data: Container[Any], func: Callable[[Any], Any] | None = None)
     `_make`; an `array.array` gets its typecode first; then `cls(items)`,
     checked by `_filled`; then copy-and-refill. When nothing works `data`
     comes back untransformed with a warning, rather than as a list the caller
-    cannot use as the type they had.
+    cannot use as the type they had. Whatever `func` raises propagates.
 
     Args:
         data: The container to rebuild.
@@ -171,29 +168,32 @@ def _reconstruct(data: Container[Any], func: Callable[[Any], Any] | None = None)
     if hasattr(cls, "__next__"):
         return _transform(data, func)
 
+    # Materialised before any constructor is probed: a `TypeError` from `func` must
+    # propagate, not be mistaken for a constructor refusing the items.
+    items = list(_transform(data, func))
     make = getattr(cls, "_make", None)
 
     if isinstance(data, tuple) and callable(make) and hasattr(data, "_fields"):
         try:
-            return make(_transform(data, func))
+            return make(items)
         except TypeError:
             pass  # A dropped item cannot shrink a namedtuple, and nothing else can hold it.
 
     if (typecode := getattr(data, "typecode", None)) is not None:
         try:
-            return cls(typecode, _transform(data, func))
+            return cls(typecode, items)
         except (TypeError, ValueError):
             pass
 
     try:
-        new = cls(_transform(data, func))
+        new = cls(items)
     except (TypeError, ValueError):
         pass
     else:
-        if _filled(data, func, new):
+        if _filled(items, new):
             return new
 
-    if (new := _refilled(data, _transform(data, func))) is not None:
+    if (new := _refilled(data, items)) is not None:
         return new
 
     log.warning(

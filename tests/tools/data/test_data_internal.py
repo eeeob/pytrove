@@ -70,11 +70,10 @@ def test_transform_mapping_drops_a_pair_when_either_side_is_mess() -> None:
 
 
 def test_filled_detects_only_a_total_loss() -> None:
-    assert _filled([1, 2], None, [1])
-    assert not _filled([1, 2], None, [])
-    assert _filled([], None, [])
-    assert _filled([1], None, object())
-    assert _filled([1], lambda v: _MESS, [])  # the transform itself dropped everything
+    assert _filled([1, 2], [1])
+    assert not _filled([1, 2], [])
+    assert _filled([], [])  # the transform itself dropped everything
+    assert _filled([1], object())  # unsized: nothing to judge
 
 
 def test_mapping_filled_detects_only_a_total_loss() -> None:
