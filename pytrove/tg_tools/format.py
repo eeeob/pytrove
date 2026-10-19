@@ -19,7 +19,7 @@ from ..num_tools import to_int
 from ..text_tools import clean_spaces
 from ..typings import StrInt, _T
 from ..validate_tools import is_tg_user_id
-from ._internal.links import _HIDDEN_PADDING, _SHORT_LINK_TEXT
+from ._internal.links import _HIDDEN_PADDING, _PRIVATE_CHAT_LINK_PATTERN, _SHORT_LINK_TEXT
 
 CHAT_LINK_PATTERN: Final[re.Pattern[str]] = re.compile(
     r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:c/)?)([\w]+)(?:.+)?$"
@@ -98,9 +98,11 @@ def format_tg_link(target: StrInt | Message | Chat | User, default: _T) -> str |
 def format_tg_link(target: StrInt | Message | Chat | User, default: Any = None) -> Any:
     """Build a link that opens a message, chat or user.
 
-    A message gives its own `Message.link` (empty in a private chat); a
-    username gives `https://t.me/<name>`; a user id `tg://openmessage?user_id=`;
-    any other id `tg://openmessage?chat_id=`; an invite link is returned as it is.
+    A message gives its own `Message.link`, or `default` when that is empty
+    (a private chat); a username gives `https://t.me/<name>`; a user id
+    `tg://openmessage?user_id=`; any other id `tg://openmessage?chat_id=`; an
+    invite link is returned as it is; a `t.me/c/<id>/...` private-channel link
+    keeps that form.
 
     Args:
         target: A message, chat, user, username, id or link.
@@ -110,7 +112,7 @@ def format_tg_link(target: StrInt | Message | Chat | User, default: Any = None) 
         The link, or `default`.
     """
     if isinstance(target, Message):
-        return target.link
+        return target.link or default
 
     if isinstance(target, (User, Chat)):
         key: StrInt | None = target.username or getattr(target, "invite_link", None) or target.id
@@ -125,6 +127,12 @@ def format_tg_link(target: StrInt | Message | Chat | User, default: Any = None) 
     # The invite pattern goes first: `CHAT_LINK_PATTERN` also matches a `joinchat/` link.
     if INVITE_LINK_PATTERN.match(text):
         return text
+
+    # Before `CHAT_LINK_PATTERN` too: its capture of a `/c/` link is a channel id, not a user id.
+    private = _PRIVATE_CHAT_LINK_PATTERN.match(text)
+
+    if private:
+        return f"https://t.me/c/{private.group(1)}"
 
     match = CHAT_LINK_PATTERN.match(text.lower())
     value = to_int((match.group(1) if match else text.replace("@", "")).strip())

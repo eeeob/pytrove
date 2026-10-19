@@ -244,5 +244,16 @@ def test_tools_without_the_tg_extra_raise_a_clear_import_error(tool: Callable[..
 
 
 @needs_tg
-def test_format_tg_link_of_a_private_chat_message_is_empty() -> None:
-    assert format_tg_link(Message(id=7, chat=Chat(id=5, type=ChatType.PRIVATE)), "none") == ""
+def test_format_tg_link_of_a_private_chat_message_is_the_default() -> None:
+    message = Message(id=7, chat=Chat(id=5, type=ChatType.PRIVATE))
+
+    assert message.link == ""
+    assert format_tg_link(message) is None
+    assert format_tg_link(message, "none") == "none"
+
+
+@needs_tg
+def test_format_tg_link_keeps_a_private_channel_link_as_a_channel_link() -> None:
+    assert format_tg_link("https://t.me/c/1234567890/5") == "https://t.me/c/1234567890/5"
+    assert format_tg_link("telegram.dog/c/1234567890") == "https://t.me/c/1234567890"
+    assert format_tg_link("https://t.me/c/1234567890/5") != format_tg_link(1234567890)
