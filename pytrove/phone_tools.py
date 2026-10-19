@@ -7,6 +7,7 @@ from typing import Any, overload
 
 try:
     from phonenumbers import (
+        NumberParseException,
         PhoneNumber as PhoneNumberObj,
         PhoneNumberFormat,
         country_code_for_valid_region,
@@ -48,7 +49,8 @@ def parse_phone(phone_number: Any, clean: bool = True, return_numobj: bool = Fal
         The number in E.164 form (`+966501234567`), or the parsed object.
 
     Raises:
-        ValidationError: If it is not a valid number.
+        ValidationError: If it is not a valid number, including text that
+            `phonenumbers` cannot parse at all.
     """
     if not isinstance(phone_number, PhoneNumberObj):
         phone_number = to_str(phone_number)
@@ -63,7 +65,11 @@ def parse_phone(phone_number: Any, clean: bool = True, return_numobj: bool = Fal
         if not phone_number.startswith("+"):
             phone_number = "+" + phone_number
 
-        phone_number = parse(phone_number)
+        try:
+            phone_number = parse(phone_number)
+        except NumberParseException as exc:
+            msg = f"Invalid PhoneNumber - {phone_number}"
+            raise ValidationError(msg) from exc
 
     validation(is_phone_number(phone_number, remove_spaces=False, resolve=False), f"Invalid PhoneNumber - {phone_number}")
     return phone_number if return_numobj else format_number(phone_number, PhoneNumberFormat.E164)
