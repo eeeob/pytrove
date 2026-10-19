@@ -90,7 +90,7 @@ def _is_container(obj: Any) -> bool:
 
 @_optional_import(("typeguard", "typecheck"))
 def _checker_lookup(origin_type: Any, *_: Any) -> Callable[..., None] | None:
-    """Teach typeguard the package's two extra checks; registered by `typecheck`.
+    """Teach typeguard the package's three extra checks; registered by `typecheck`.
 
     A value checked against an `Enum` passes if it is any member's value, a
     value checked against `Container[X]` is walked and each item checked
