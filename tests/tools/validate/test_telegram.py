@@ -1,9 +1,9 @@
 from __future__ import annotations as _annotations
 
+import importlib.util
 from typing import Any
 
 import pytest
-from pyrogram.types import Message
 
 from pytrove.validate_tools import telegram
 from pytrove.validate_tools.telegram import (
@@ -18,7 +18,12 @@ from pytrove.validate_tools.telegram import (
     TG_CHANNEL_MSG_LINK_PATTERN,
 )
 
+HAS_PYROGRAM = importlib.util.find_spec("pyrogram") is not None
 
+needs_pyrogram = pytest.mark.skipif(not HAS_PYROGRAM, reason="needs the tg extra")
+
+
+@needs_pyrogram
 @pytest.mark.parametrize(("value", "channel", "user"), [
     (-1001234567890, True, False),
     (123456789, False, True),
@@ -33,6 +38,7 @@ def test_peer_id_checks(value: Any, channel: bool, user: bool) -> None:
 
 @pytest.mark.parametrize(("token", "expected"), [
     ("123456:ABC-def", True),
+    ("123456:ABC", True),
     ("abc:def", False),
     ("123456", False),
     ("1:2:3", False),
@@ -42,6 +48,7 @@ def test_is_tg_bot_token(token: Any, expected: bool) -> None:
     assert is_tg_bot_token(token) is expected
 
 
+@needs_pyrogram
 @pytest.mark.parametrize(("text", "expected"), [
     ("/start", True),
     ("/set_name2", True),
@@ -54,9 +61,21 @@ def test_is_tg_bot_command_on_text(text: str, expected: bool) -> None:
     assert is_tg_bot_command(text) is expected
 
 
+@needs_pyrogram
 def test_is_tg_bot_command_reads_a_messages_text() -> None:
-    assert is_tg_bot_command(Message(id=1, text="/help"))
-    assert not is_tg_bot_command(Message(id=1))
+    message = pytest.importorskip("pyrogram.types").Message
+    assert is_tg_bot_command(message(id=1, text="/help"))
+    assert not is_tg_bot_command(message(id=1))
+
+
+@pytest.mark.skipif(HAS_PYROGRAM, reason="the tg extra is installed")
+async def test_the_pyrogram_checks_name_the_tg_extra_when_it_is_missing() -> None:
+    for check in (is_tg_channel_id, is_tg_user_id, is_tg_bot_command):
+        with pytest.raises(ImportError, match=r"pytrove\[tg\]"):
+            check(1)
+
+    with pytest.raises(ImportError, match=r"pytrove\[tg\]"):
+        await is_valid_tg_app(1, "hash")
 
 
 @pytest.mark.parametrize(("link", "expected"), [
@@ -73,6 +92,7 @@ def test_is_tg_channel_message_link(link: Any, expected: bool) -> None:
 
 def test_the_patterns_match_their_documented_shapes() -> None:
     assert TG_CHANNEL_MSG_LINK_PATTERN.match("t.me/name/5").groups() == ("name", "5")
+    assert TG_CHANNEL_MSG_LINK_PATTERN.match("t.me/c/123/9/5").groups() == ("123", "5")
     assert TG_BOT_COMMAND_PATTERN.match("/go")
     assert not TG_BOT_COMMAND_PATTERN.match("/")
 
@@ -120,19 +140,23 @@ def fake_client(monkeypatch: pytest.MonkeyPatch) -> type[_FakeClient]:
     return _FakeClient
 
 
+@needs_pyrogram
 async def test_is_valid_tg_app_is_true_when_telegram_accepts(fake_client: type[_FakeClient]) -> None:
     assert await is_valid_tg_app("12345", "hash") is True
 
 
+@needs_pyrogram
 async def test_is_valid_tg_app_is_false_on_bad_request(fake_client: type[_FakeClient]) -> None:
     fake_client.error = telegram.BadRequest()
     assert await is_valid_tg_app(12345, "hash") is False
 
 
+@needs_pyrogram
 async def test_is_valid_tg_app_is_false_for_a_non_numeric_id(fake_client: type[_FakeClient]) -> None:
     assert await is_valid_tg_app("abc", "hash") is False
 
 
+@needs_pyrogram
 async def test_is_valid_tg_app_lets_other_failures_propagate(fake_client: type[_FakeClient]) -> None:
     fake_client.error = ConnectionError()
 
@@ -140,6 +164,7 @@ async def test_is_valid_tg_app_lets_other_failures_propagate(fake_client: type[_
         await is_valid_tg_app(1, "hash")
 
 
+@needs_pyrogram
 async def test_is_valid_tg_app_logs_a_failed_disconnect(
     fake_client: type[_FakeClient], caplog: pytest.LogCaptureFixture,
 ) -> None:

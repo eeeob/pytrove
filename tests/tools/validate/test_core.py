@@ -14,7 +14,11 @@ from pytrove.validate_tools.core import (
     all_of,
     any_deep,
     any_of,
+    is_container,
     is_instance,
+    is_mapping,
+    is_sub_container,
+    is_sub_mapping,
     is_subclass,
     iscoroutinefunction_wrapped,
     validation,
@@ -45,6 +49,54 @@ def test_is_exception_is_true_only_for_exception_instances() -> None:
     assert not core.is_exception("error")
 
 
+def test_is_container_accepts_plain_collections() -> None:
+    assert is_container([1, 2, 3])
+    assert is_container((1, 2, 3))
+    assert is_container({1, 2, 3})
+    assert is_container({"a": 1})
+    assert is_container(range(3))
+    assert is_container(x for x in range(2))  # generator expression -> Generator ABC
+
+
+def test_is_container_accepts_bare_iterator() -> None:
+    # Container names Iterator rather than listing filter/enumerate/zip one by
+    # one -- those are all Iterators anyway, and neither `filter` nor `zip` is
+    # subscriptable at runtime, so `filter[I]` raised TypeError the moment the
+    # alias was evaluated. Consequence of the wider member: any single-pass
+    # iterator now counts as a container, list_iterator included.
+    assert is_container(iter([1, 2]))
+    assert is_container(filter(None, [1, 2]))
+    assert is_container(enumerate([1, 2]))
+    assert is_container(zip([1, 2], "ab"))
+    assert is_container(map(str, [1, 2]))
+
+
+def test_is_container_rejects_not_container_types() -> None:
+    # str/bytes/bytearray/memoryview are explicitly excluded even though
+    # they are technically iterable, per typings.NotContainer.
+    assert not is_container("abc")
+    assert not is_container(b"abc")
+    assert not is_container(bytearray(b"abc"))
+    assert not is_container(memoryview(b"abc"))
+    assert not is_container(1)
+    assert not is_container(None)
+
+
+def test_is_mapping() -> None:
+    assert is_mapping({"a": 1})
+    assert not is_mapping([1, 2])
+
+
+def test_is_sub_container_and_is_sub_mapping() -> None:
+    assert is_sub_container(list)
+    assert is_sub_container(dict)
+    assert not is_sub_container(str)
+    assert not is_sub_container([])
+    assert is_sub_mapping(dict)
+    assert not is_sub_mapping(list)
+    assert not is_sub_mapping({})
+
+
 async def _coro() -> None:
     """Do nothing, as a coroutine function."""
 
@@ -64,11 +116,27 @@ def _wrap(f: Callable[..., Any]) -> Callable[..., Any]:
     return wrapper
 
 
+def _async_wrap(f: Callable[..., Any]) -> Callable[..., Any]:
+    """Wrap `f` in a coroutine function."""
+
+    @functools.wraps(f)
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        """Call `f`."""
+        return f(*args, **kwargs)
+
+    return wrapper
+
+
 def test_iscoroutinefunction_wrapped_sees_through_wrappers() -> None:
     assert iscoroutinefunction_wrapped(_coro)
     assert iscoroutinefunction_wrapped(_wrap(_wrap(_coro)))
     assert not iscoroutinefunction_wrapped(_sync)
     assert not iscoroutinefunction_wrapped(_wrap(_sync))
+
+
+def test_iscoroutinefunction_wrapped_stops_at_the_first_coroutine_function() -> None:
+    assert iscoroutinefunction_wrapped(_async_wrap(_sync))
+    assert iscoroutinefunction_wrapped(_wrap(_async_wrap(_sync)))
 
 
 def test_validation_passes_silently_when_the_condition_holds() -> None:
