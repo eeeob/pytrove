@@ -145,7 +145,8 @@ def load_ref_json(
         path: The file to read.
         default: Returned when the file is missing; `{}` when omitted.
         lock: Held while reading.
-        **kw: `jsonref.loads` arguments; `proxies` and `lazy_load` default to `False`.
+        **kw: `jsonref.loads` arguments; `proxies` and `lazy_load` default to `False`,
+            and `base_uri` to the file's own URI.
 
     Returns:
         The resolved document, or the default.
