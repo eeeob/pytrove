@@ -38,6 +38,19 @@ def test_parse_phone_rejects_an_invalid_number() -> None:
         parse_phone(["+966501234567"])
 
 
+def test_parse_phone_wraps_an_unparsable_number_in_validation_error() -> None:
+    phonenumbers = pytest.importorskip("phonenumbers")
+
+    with pytest.raises(ValidationError, match="Invalid PhoneNumber") as info:
+        parse_phone("abc")
+
+    assert isinstance(info.value.__cause__, phonenumbers.NumberParseException)
+
+    for call in (cc_from_phone, rc_from_phone):
+        with pytest.raises(ValidationError, match="Invalid PhoneNumber"):
+            call("abc")
+
+
 def test_cc_from_rc_reads_a_region_in_any_case() -> None:
     assert cc_from_rc("SA") == 966
     assert cc_from_rc("sa") == 966
