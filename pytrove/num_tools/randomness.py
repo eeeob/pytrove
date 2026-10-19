@@ -83,10 +83,6 @@ def jitter(
         else:  # Both tails carry almost no mass.
             span_left = left[1] - left[0]
             span_total = span_left + (right[1] - right[0])
-
-            if span_total <= 0.0:
-                return low
-
             seg = left if src.random() * span_total < span_left else right
 
     a, b = seg
