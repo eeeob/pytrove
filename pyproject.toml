@@ -1,5 +1,8 @@
 [build-system]
-requires = ["hatchling"]
+# Floor at the 1.27 line (2.3). Every release from 1.22 up is clean per
+# Sonatype (2026-10); the floor only rules out builds older than the
+# `pattern` form used under `[tool.hatch.version]`.
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 
