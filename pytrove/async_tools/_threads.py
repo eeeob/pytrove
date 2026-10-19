@@ -73,7 +73,7 @@ async def _run_tracked(
     awaitable = func(*args, **kwargs)
 
     if not inspect.isawaitable(awaitable):
-        msg = f"func must be a awaitable function; calling it returned {type(awaitable).__name__!r}"
+        msg = f"func must be an awaitable function; calling it returned {type(awaitable).__name__!r}"
         raise TypeError(msg)
 
     task = asyncio.current_task()
