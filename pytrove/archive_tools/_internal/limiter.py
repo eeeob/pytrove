@@ -32,8 +32,8 @@ class _Member(NamedTuple):
 
     name: str
     raw: zipfile.ZipInfo | tarfile.TarInfo
-    size: int  # الحجم قبل الضغط
-    packed: int  # الحجم مضغوط
+    size: int
+    packed: int
     kind: Literal["dir", "file", "symlink", "hardlink", "other"]
     target: str | None = None
 

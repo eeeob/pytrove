@@ -147,8 +147,9 @@ class _PlaceMixin:
 
         Refused: non-strings, empty names, NUL, backslashes (a separator on
         Windows, which would defeat the directory cache), absolute names,
-        drive letters, and any segment that is empty or `..` once stripped
-        (Windows strips trailing spaces and dots). `.` is allowed.
+        drive letters, and any segment that is empty or `..` once its
+        surrounding whitespace is stripped (so ` ..` cannot slip through).
+        `.` is allowed.
 
         Args:
             name: The posix member name.
