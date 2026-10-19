@@ -244,8 +244,12 @@ def test_tools_without_the_tg_extra_raise_a_clear_import_error(tool: Callable[..
 
 
 @needs_tg
-def test_format_tg_link_of_a_private_chat_message_is_empty() -> None:
-    assert format_tg_link(Message(id=7, chat=Chat(id=5, type=ChatType.PRIVATE)), "none") == ""
+def test_format_tg_link_of_a_private_chat_message_is_the_default() -> None:
+    message = Message(id=7, chat=Chat(id=5, type=ChatType.PRIVATE))
+
+    assert message.link == ""
+    assert format_tg_link(message) is None
+    assert format_tg_link(message, "none") == "none"
 
 
 @needs_tg

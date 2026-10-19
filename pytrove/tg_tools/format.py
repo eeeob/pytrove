@@ -98,10 +98,11 @@ def format_tg_link(target: StrInt | Message | Chat | User, default: _T) -> str |
 def format_tg_link(target: StrInt | Message | Chat | User, default: Any = None) -> Any:
     """Build a link that opens a message, chat or user.
 
-    A message gives its own `Message.link` (empty in a private chat); a
-    username gives `https://t.me/<name>`; a user id `tg://openmessage?user_id=`;
-    any other id `tg://openmessage?chat_id=`; an invite link is returned as it is;
-    a `t.me/c/<id>/...` private-channel link keeps that form.
+    A message gives its own `Message.link`, or `default` when that is empty
+    (a private chat); a username gives `https://t.me/<name>`; a user id
+    `tg://openmessage?user_id=`; any other id `tg://openmessage?chat_id=`; an
+    invite link is returned as it is; a `t.me/c/<id>/...` private-channel link
+    keeps that form.
 
     Args:
         target: A message, chat, user, username, id or link.
@@ -111,7 +112,7 @@ def format_tg_link(target: StrInt | Message | Chat | User, default: Any = None) 
         The link, or `default`.
     """
     if isinstance(target, Message):
-        return target.link
+        return target.link or default
 
     if isinstance(target, (User, Chat)):
         key: StrInt | None = target.username or getattr(target, "invite_link", None) or target.id
