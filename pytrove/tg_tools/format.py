@@ -77,6 +77,7 @@ def format_tg_username(
         The username, the invite link, or `default`.
     """
     text = target.username if isinstance(target, (User, Chat)) else target
+    text = (text or "").strip()
 
     if not text:
         return default
@@ -84,6 +85,10 @@ def format_tg_username(
     # The invite pattern goes first: `CHAT_LINK_PATTERN` also matches a `joinchat/` link.
     if INVITE_LINK_PATTERN.match(text.lower()):
         return text if with_invite_link else default
+
+    # A private channel has no username; `CHAT_LINK_PATTERN` would capture its id as one.
+    if _PRIVATE_CHAT_LINK_PATTERN.match(text):
+        return default
 
     match = CHAT_LINK_PATTERN.match(text.lower())
     name = (match.group(1) if match else text.replace("@", "")).strip()
@@ -98,8 +103,8 @@ def format_tg_link(target: StrInt | Message | Chat | User, default: _T) -> str |
 def format_tg_link(target: StrInt | Message | Chat | User, default: Any = None) -> Any:
     """Build a link that opens a message, chat or user.
 
-    A message gives its own `Message.link`, or `default` when that is empty
-    (a private chat); a username gives `https://t.me/<name>`; a user id
+    A message gives its own `Message.link`, or `default` when it has none
+    (a private chat, for one); a username gives `https://t.me/<name>`; a user id
     `tg://openmessage?user_id=`; any other id `tg://openmessage?chat_id=`; an
     invite link is returned as it is; a `t.me/c/<id>/...` private-channel link
     keeps that form.
@@ -122,7 +127,8 @@ def format_tg_link(target: StrInt | Message | Chat | User, default: Any = None) 
     if not key:
         return default
 
-    text = str(key)
+    # Stripped first: the anchored patterns below would miss a padded link.
+    text = str(key).strip()
 
     # The invite pattern goes first: `CHAT_LINK_PATTERN` also matches a `joinchat/` link.
     if INVITE_LINK_PATTERN.match(text):
