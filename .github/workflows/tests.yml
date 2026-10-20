@@ -82,6 +82,11 @@ jobs:
       - name: Run tests
         run: pytest
 
+      # CONTRIBUTING 5.5: every `Example` section is a doctest and must be
+      # correct, so the docstrings are executed on the full install.
+      - name: Run docstring examples
+        run: pytest --doctest-modules pytrove
+
   lint:
     runs-on: ubuntu-latest
     steps:
