@@ -22,40 +22,43 @@ class ArchiveLimits(NamedTuple):
     default to the safe answer. A misspelled policy string matches no
     branch and so falls back to the conservative behaviour. An absolute or
     `..` member name is always refused, whatever these settings say.
-
-    Attributes:
-        max_files: Most files and links written; directories are not counted.
-        max_total_size: Most bytes written in total.
-        max_file_size: Most bytes written for any one member.
-        max_ratio: Highest declared-to-stored size ratio for one member, the
-            zip-bomb check. Legitimate ratios above 1000 exist, so it is a policy.
-        max_depth: Deepest directory nesting allowed.
-        max_dir_entries: Most entries in any one directory below the root,
-            counting the directories a member's path implies.
-        max_root_entries: Most entries directly in the destination root.
-        dir_check: Called once per extracted directory, outermost first, with
-            its on-disk staging path. Return a falsy value to drop that subtree,
-            raise to abort. Judge it by name or contents, not by location: it
-            runs inside a staging directory beside `dest`.
-        symlinks: What to do with a symlink member.
-        hardlinks: What to do with a hardlink member.
-        overwrite: What to do when a member's path is already taken.
-        duplicates: What to do with a member name seen before.
     """
 
     max_files: int | None = None
+    """Most files and links written; directories are not counted."""
+
     max_total_size: int | None = None
+    """Most bytes written in total, summed from the headers' declared sizes."""
+
     max_file_size: int | None = None
+    """Most bytes for any one member: checked from its header, then again as its bytes arrive."""
+
     max_ratio: float | None = None
+    """Highest declared-to-stored size ratio for one member, the zip-bomb check; tar members are exempt."""
+
     max_depth: int | None = None
+    """Deepest directory nesting allowed, counted as `/` separators in the member name."""
+
     max_dir_entries: int | None = None
+    """Most entries in any one directory below the root, counting the directories a path implies."""
+
     max_root_entries: int | None = None
+    """Most entries directly in the destination root."""
+
     dir_check: Callable[[Path], bool | None] | None = None
+    """Called per extracted directory, outermost first, with its staging path; falsy drops the subtree, raising aborts."""
 
     symlinks: ArchiveLinkPolicy = ArchiveLinkPolicy.ERROR
+    """What to do with a symlink member."""
+
     hardlinks: ArchiveLinkPolicy = ArchiveLinkPolicy.ERROR
+    """What to do with a hardlink member."""
+
     overwrite: ArchiveOverwritePolicy = ArchiveOverwritePolicy.OVERWRITE
+    """What to do when a member's path is already taken."""
+
     duplicates: ArchiveDuplicatePolicy = ArchiveDuplicatePolicy.SKIP
+    """What to do with a member name seen before; the first one always wins."""
 
     @classmethod
     def permissive(cls, **kw: Any) -> ArchiveLimits:

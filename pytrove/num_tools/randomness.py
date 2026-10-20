@@ -39,6 +39,10 @@ def jitter(
 
     Returns:
         A value inside the window.
+
+    Example:
+        >>> 90.0 <= jitter(100, decrease=0.1, increase=0.2) <= 120.0
+        True
     """
     src = rng or random
 

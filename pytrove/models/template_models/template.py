@@ -42,20 +42,22 @@ if HAS_PYROGRAM:
         `format()` returns a `rich_message` payload in place of
         `text`/`parse_mode`. `default_keys` fills in missing `format()`
         arguments before any part of the template sees them.
-
-        Attributes:
-            message: The lines of the text.
-            buttons: The keyboard, as fixed rows and repeated button blocks.
-            rich_message: The rich message to send instead of `message`.
-            parse_mode: The parse mode `message` is sent with.
-            key_time: A `format()` key filled with `arabic_time()` when not passed.
         """
 
         message: list[CompiledLine | CompiledEachLine] | None = None
+        """The lines of the text, joined by newlines when rendered."""
+
         buttons: list[CompiledButtonRow | CompiledEachButton] | None = None
+        """The keyboard, as fixed rows and repeated button blocks; `None` for no keyboard."""
+
         rich_message: CompiledRichMessage | None = None
+        """The rich message to send instead of `message`; when it renders, `text`/`parse_mode` are not returned."""
+
         parse_mode: ParseMode | None = None
+        """The parse mode `message` is sent with; the file-wide default already applied."""
+
         key_time: str | None = None
+        """A `format()` key filled with `arabic_time()` when not passed; `None` fills nothing."""
 
         @classmethod
         def compile(cls, template: TemplateDict, parse_mode: ParseMode | None = None, key_time: str | None = None) -> Self:

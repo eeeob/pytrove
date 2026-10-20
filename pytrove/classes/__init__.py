@@ -3,8 +3,6 @@
 Every name still resolves, with a `DeprecationWarning` naming its new home.
 """
 
-from __future__ import annotations as _annotations
-
 from typing import Any, Final
 
 from .._internal._deprecation import _moved_attribute
@@ -29,7 +27,6 @@ _MOVED: Final[dict[str, str]] = {
 }
 """Each name this module used to hold, mapped to the module that holds it now."""
 
-
 def __getattr__(name: str) -> Any:
     """Resolve a moved name from its new module, with a deprecation warning.
 
@@ -40,6 +37,5 @@ def __getattr__(name: str) -> Any:
         The attribute.
     """
     return _moved_attribute(__name__, _MOVED, name)
-
 
 __all__ = tuple(_MOVED)

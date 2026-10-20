@@ -21,13 +21,10 @@ from .conditions import CompiledConditional
 
 @dataclass(slots=True, kw_only=True)
 class CompiledLine(CompiledConditional):
-    """One line of a message.
-
-    Attributes:
-        text: A `str.format` template filled from the `format()` keyword arguments.
-    """
+    """One line of a message."""
 
     text: str
+    """A `str.format` template filled from the `format()` keyword arguments."""
 
     @classmethod
     def compile(cls, item: str | TemplateLineDict) -> Self:
@@ -52,6 +49,14 @@ class CompiledLine(CompiledConditional):
 
         Returns:
             The text, or `None` if the line's conditions are not met.
+
+        Example:
+            >>> CompiledLine.compile("Hi {name}").format({"name": "Bob"})
+            'Hi Bob'
+            >>> CompiledLine.compile({"text": "Hi {name}", "all_of": ["name"]}).format({}) is None
+            True
+            >>> CompiledLine.compile({"text": "Hi {name}", "default_keys": {"name": "you"}}).format({})
+            'Hi you'
         """
         kw = self.with_defaults(kw)
 
@@ -68,14 +73,13 @@ class CompiledEachLine(BaseDataClass):
     Only mapping elements render; each is merged over the surrounding keyword
     arguments, so `item` can reference both. Whether an element is kept is
     `item`'s own decision: this wrapper has no conditions or defaults of its own.
-
-    Attributes:
-        each: The `format()` argument holding the list.
-        item: The line rendered for every element.
     """
 
     each: str
+    """The `format()` argument holding the list."""
+
     item: CompiledLine
+    """The line rendered for every element."""
 
     @classmethod
     def compile(cls, item: TemplateEachLineDict) -> Self:
@@ -100,6 +104,12 @@ class CompiledEachLine(BaseDataClass):
 
         Returns:
             The lines joined by newlines, or `None` if none rendered.
+
+        Example:
+            >>> block = CompiledEachLine.compile({"each": "items", "item": "- {n}"})
+            >>> print(block.format({"items": [{"n": 1}, {"n": 2}]}))
+            - 1
+            - 2
         """
         each = kw.get(self.each)
 

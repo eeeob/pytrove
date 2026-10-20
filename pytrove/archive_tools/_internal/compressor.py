@@ -22,17 +22,16 @@ log = logging.getLogger(__name__)
 
 @dataclass(slots=True)
 class _Compressor:
-    """Turns a folder into an archive: iterating it walks the tree, `write` fills the archive.
-
-    Attributes:
-        root: The folder, absolute.
-        flt: What to keep; hidden files and the archive itself are ordinary exclude rules in it.
-        follow_links: Whether to archive what a link to a file inside `root` points at.
-    """
+    """Turns a folder into an archive: iterating it walks the tree, `write` fills the archive."""
 
     root: str
+    """The folder, absolute; archive names are relative to it."""
+
     flt: _Filter
+    """What to keep; hidden files and the archive itself are ordinary exclude rules in it."""
+
     follow_links: bool = False
+    """Whether to archive what a link to a file inside `root` points at; directory and outside links are skipped."""
 
     def write(
         self,

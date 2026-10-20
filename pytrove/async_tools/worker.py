@@ -31,6 +31,13 @@ class AioThreadWorker(_LoopHost):
     loop is published before "running" is set, and `submit` re-validates
     through `get_loop` right before scheduling. A submission that loses the
     race with `join` raises `RuntimeError`, never hangs.
+
+    Example:
+        >>> async def main():
+        ...     async with AioThreadWorker() as worker:
+        ...         return await worker.submit(asyncio.sleep, 0, result=1)
+        >>> asyncio.run(main())
+        1
     """
 
     async def join(self, timeout: Number | None = None) -> None:

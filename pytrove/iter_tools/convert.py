@@ -14,6 +14,14 @@ def to_list(value: MaybeContainer[_T] | None) -> list[_T]:
 
     Returns:
         The container's items, `[value]` for a single value, or `[]` for `None`.
+
+    Example:
+        >>> to_list((1, 2))
+        [1, 2]
+        >>> to_list("ab")
+        ['ab']
+        >>> to_list(None)
+        []
     """
     return list(_items(value))
 

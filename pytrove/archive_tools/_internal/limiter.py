@@ -18,24 +18,25 @@ log = logging.getLogger(__name__)
 
 
 class _Member(NamedTuple):
-    """One archive entry, in the single shape both readers produce.
-
-    Attributes:
-        name: The posix member name, without a trailing slash.
-        raw: The `ZipInfo` or `TarInfo` it came from, handed to predicate rules.
-        size: Its uncompressed size, as the header declares.
-        packed: Its compressed size; 0 in a tar, which has no per-member size.
-        kind: What it is.
-        target: A link's recorded destination; `None` for non-links, and for
-            a zip link until its data is read.
-    """
+    """One archive entry, in the single shape both readers produce."""
 
     name: str
+    """The posix member name, without a trailing slash."""
+
     raw: zipfile.ZipInfo | tarfile.TarInfo
+    """The header it came from, handed to predicate rules."""
+
     size: int
+    """Its uncompressed size, as the header declares."""
+
     packed: int
+    """Its compressed size; 0 in a tar, which has no per-member size, so `max_ratio` skips it."""
+
     kind: Literal["dir", "file", "symlink", "hardlink", "other"]
+    """What it is; `"other"` (a device, fifo, ...) is never written."""
+
     target: str | None = None
+    """A link's recorded destination; `None` for non-links, and for a zip link until its data is read."""
 
 
 @dataclass(slots=True)
@@ -45,22 +46,31 @@ class _Limiter:
     Ceilings are judged from headers before a member's bytes are written,
     then file sizes are re-weighed as bytes really arrive. Only members about
     to be written are counted.
-
-    Attributes:
-        limits: The caller's limits.
-        src: The archive, named in messages.
-        files: Files and links admitted so far.
-        total: Bytes they declare.
     """
 
     limits: ArchiveLimits
+    """The caller's limits."""
+
     src: Path
+    """The archive, named in messages."""
+
     files: int = field(init=False, default=0)
+    """Files and links admitted so far, against `max_files`."""
+
     total: int = field(init=False, default=0)
+    """Bytes the admitted files declare, against `max_total_size`."""
+
     _breadth: dict[str, int] = field(init=False, default_factory=dict)
+    """Entries registered per directory name (`""` for the root), against `max_dir_entries`/`max_root_entries`."""
+
     _counted: set[str] = field(init=False, default_factory=set)
+    """Every path already registered in `_breadth`, so an implied directory counts once."""
+
     _seen: set[str] = field(init=False, default_factory=set)
+    """Member names already admitted, for `duplicates`."""
+
     _taken: set[str] = field(init=False, default_factory=set)
+    """Case-normalised final paths already claimed, for `overwrite`; empty under `OVERWRITE`."""
 
     def count(self, m: _Member) -> None:
         """Weigh one member against every ceiling.

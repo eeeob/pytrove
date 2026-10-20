@@ -33,6 +33,10 @@ def map_deep(data: Any, func: Callable[[Any], Any]) -> Any:
 
     Returns:
         The transformed structure, or `func(data)` for a bare leaf.
+
+    Example:
+        >>> map_deep({"a": [1, (2,)]}, lambda v: v * 2)
+        {'aa': [2, (4,)]}
     """
 
     def step(value: Any) -> Any:
@@ -87,6 +91,10 @@ def map_deep_kv(data: Any, value_func: Callable[[Any], Any], key_func: Callable[
 
     Returns:
         The transformed structure, or `value_func(data)` for a bare leaf.
+
+    Example:
+        >>> map_deep_kv({"a": [1, 2]}, lambda v: v * 10, str.upper)
+        {'A': [10, 20]}
     """
 
     def key_step(key: Any) -> Any:
@@ -144,6 +152,12 @@ def enum_to_value(data: _T) -> _T:
 
     Returns:
         The structure with enum members replaced by their values.
+
+    Example:
+        >>> class Color(Enum):
+        ...     RED = 1
+        >>> enum_to_value({Color.RED: [Color.RED, "x"]})
+        {1: [1, 'x']}
     """
     # `map_deep` keeps the shape, which its overloads cannot carry from `_T` to `_T`.
     return cast(_T, map_deep(data, lambda value: value.value if isinstance(value, Enum) else value))
@@ -181,6 +195,14 @@ def value_to_enum(values: Any, enum_classes: NestedContainer[type[Enum]], map_re
 
     Raises:
         ValidationError: If `map_resolve_type` is not `"k"` or `"v"`.
+
+    Example:
+        >>> class Color(Enum):
+        ...     RED = 1
+        >>> value_to_enum({"c": [1, 2]}, Color)
+        {'c': [<Color.RED: 1>, 2]}
+        >>> value_to_enum({1: "x"}, Color, "k")
+        {<Color.RED: 1>: 'x'}
     """
     map_resolve_type = map_resolve_type.lower()
 
@@ -233,6 +255,10 @@ def clean_none_values(data: _T) -> _T:
 
     Returns:
         The structure without `None`s.
+
+    Example:
+        >>> clean_none_values({"a": None, "b": [1, None, {"c": None}]})
+        {'b': [1, {}]}
     """
     # Both rebuild `data` as its own type, which their signatures cannot carry to `_T`.
     if is_mapping(data):
@@ -254,6 +280,10 @@ def clean_none_kw(**kwargs: Any) -> dict[str, Any]:
 
     Returns:
         The arguments without `None` values, nested values cleaned too.
+
+    Example:
+        >>> clean_none_kw(limit=None, offset=3)
+        {'offset': 3}
     """
     return clean_none_values(kwargs)
 

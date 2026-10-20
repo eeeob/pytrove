@@ -32,12 +32,35 @@ class BaseDataClass:
       `enums_to_values`/`values_to_enums`.
 
     Both are computed once per subclass by `_ensure_field_meta()`.
+
+    Example:
+        >>> from dataclasses import dataclass
+        >>> @dataclass
+        ... class Point(BaseDataClass):
+        ...     x: int
+        ...     _tag: str = "p"
+        >>> p = Point(1)
+        >>> p.tag
+        'p'
+        >>> p.to_dict()
+        {'x': 1, 'tag': 'p'}
+        >>> p.to_raw_dict()
+        {'x': 1, '_tag': 'p'}
+        >>> Point.from_dict({"x": 2, "tag": "q", "extra": 0})
+        Point(x=2, _tag='q')
     """
 
     __public_field_names__: ClassVar[list[str]]
+    """Field names without a leading underscore, in definition order."""
+
     __private_field_names__: ClassVar[list[str]]
+    """The public names of underscore fields (`_foo` -> `foo`), in definition order."""
+
     __raw_private_fields__: ClassVar[frozenset[str]]
+    """The underscore fields under their raw names (`_foo`), as `from_raw_dict()` accepts them."""
+
     __enums_types__: ClassVar[frozenset[type[Enum]]]
+    """Every enum class named anywhere in a field annotation, for `values_to_enums`."""
 
     @classmethod
     def _ensure_field_meta(cls) -> None:

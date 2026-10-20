@@ -27,6 +27,17 @@ class classproperty(Generic[_T, _VT]):
     Attributes:
         call: The getter, or a per-class cache wrapping it.
         doc: The documentation; the getter's own by default.
+
+    Example:
+        >>> class Model:
+        ...     table = "models"
+        ...     @classproperty
+        ...     def key(cls):
+        ...         return cls.table.upper()
+        >>> Model.key
+        'MODELS'
+        >>> Model().key
+        'MODELS'
     """
 
     __slots__ = "call", "doc"
@@ -103,7 +114,18 @@ if TYPE_CHECKING:
 else:
 
     class hybridmethod(classmethod):
-        """A method that receives the class on `Cls.method()` and the instance on `obj.method()`."""
+        """A method that receives the class on `Cls.method()` and the instance on `obj.method()`.
+
+        Example:
+            >>> class Node:
+            ...     @hybridmethod
+            ...     def who(self_or_cls):
+            ...         return "class" if isinstance(self_or_cls, type) else "instance"
+            >>> Node.who()
+            'class'
+            >>> Node().who()
+            'instance'
+        """
 
         def __get__(self, instance: Any, owner: type | None = None, /) -> MethodType:
             """Bind to the instance when there is one, else to the class.
@@ -119,7 +141,16 @@ else:
 
 
 class FrozenClassAttrs:
-    """A base whose instances cannot shadow a class attribute."""
+    """A base whose instances cannot shadow a class attribute.
+
+    Example:
+        >>> class Config(FrozenClassAttrs):
+        ...     name = "default"
+        >>> Config().name = "other"
+        Traceback (most recent call last):
+            ...
+        AttributeError: Cannot override class attribute 'name' from instance
+    """
 
     def __setattr__(self, name: str, value: Any) -> None:
         """Set an instance attribute unless the class already defines that name.

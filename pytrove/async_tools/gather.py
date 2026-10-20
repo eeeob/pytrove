@@ -35,6 +35,10 @@ async def gather_helper(*awaitables: Any, return_exc: bool = False, log_exc: boo
 
     Returns:
         The results in order.
+
+    Example:
+        >>> asyncio.run(gather_helper(asyncio.sleep(0, result=1), [asyncio.sleep(0, result=2), None]))
+        [1, 2]
     """
     caller_stack = traceback.extract_stack()[:-1] if log_exc else None
     # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so

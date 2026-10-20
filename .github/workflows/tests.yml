@@ -82,6 +82,13 @@ jobs:
       - name: Run tests
         run: pytest
 
+      # CONTRIBUTING 5.5: every `Example` section is a doctest and must be
+      # correct, so the docstrings are executed on the full install.
+      # `typings/_core_py312.py` is PEP 695 syntax that does not parse before
+      # 3.12 (see `[tool.ty.src]` in `pyproject.toml`), so collection skips it.
+      - name: Run docstring examples
+        run: pytest --doctest-modules pytrove --ignore=pytrove/typings/_core_py312.py
+
   lint:
     runs-on: ubuntu-latest
     steps:

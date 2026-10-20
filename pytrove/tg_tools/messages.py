@@ -8,7 +8,7 @@ from ..enums import TgMessageLength
 
 
 def split_tg_message(text: str, length: int = TgMessageLength.TEXT, reverse: bool = False) -> list[str]:
-    """Split text into messages of at most `length` characters, breaking between lines.
+    r"""Split text into messages of at most `length` characters, breaking between lines.
 
     A line longer than `length` is cut hard, and a chunk that is only
     whitespace is dropped. With `reverse`, lines are packed from the end, so
@@ -22,6 +22,12 @@ def split_tg_message(text: str, length: int = TgMessageLength.TEXT, reverse: boo
     Returns:
         The messages, stripped, in the order they were packed: from the end
         of the text first when `reverse` is set.
+
+    Example:
+        >>> split_tg_message("line one\nline two\nline three", 18)
+        ['line one\nline two', 'line three']
+        >>> split_tg_message("line one\nline two\nline three", 18, reverse=True)
+        ['line three', 'line one\nline two']
     """
     text = text.strip()
 

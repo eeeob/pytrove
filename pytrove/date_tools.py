@@ -43,6 +43,14 @@ def stamp_to_date(
 
     Returns:
         The date, or its string form.
+
+    Example:
+        >>> stamp_to_date(0)
+        datetime.datetime(1970, 1, 1, 0, 0)
+        >>> stamp_to_date(0, as_str=True)
+        '1970-01-01 00:00:00'
+        >>> stamp_to_date(0.5, with_tzinfo=True)
+        datetime.datetime(1970, 1, 1, 0, 0, 0, 500000, tzinfo=datetime.timezone.utc)
     """
     date = datetime.fromtimestamp(stamp_time, tz)
 
@@ -75,6 +83,12 @@ def date_to_stamp(
 
     Raises:
         ValueError: If `date` does not match `format`.
+
+    Example:
+        >>> date_to_stamp("1 Jan 2020, 00:00")
+        1577836800
+        >>> date_to_stamp("2020-01-01", format="%Y-%m-%d", as_int=False)
+        1577836800.0
     """
     dt = datetime.strptime(date, format)
 

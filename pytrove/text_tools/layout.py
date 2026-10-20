@@ -24,6 +24,10 @@ def chunk_text(text: str, max_length: int = TgMessageLength.TEXT) -> list[str]:
 
     Returns:
         The pieces in order; `[text]` when it already fits.
+
+    Example:
+        >>> chunk_text("one two three four", 9)
+        ['one two', 'three', 'four']
     """
     if len(text) <= max_length:
         return [text]
@@ -62,6 +66,17 @@ def format_exc_tree(exc: BaseException) -> str:
 
     Returns:
         One `└─ Type: message` line per exception, each nested one level deeper.
+
+    Example:
+        >>> try:
+        ...     try:
+        ...         raise ValueError("bad value")
+        ...     except ValueError as e:
+        ...         raise RuntimeError("wrapper") from e
+        ... except RuntimeError as err:
+        ...     print(format_exc_tree(err))
+        └─ RuntimeError: wrapper
+            └─ ValueError: bad value
     """
 
     def iter_exc() -> Iterator[tuple[int, BaseException]]:
@@ -130,6 +145,15 @@ def numbering(
 
     Returns:
         The joined lines, or the list of them.
+
+    Example:
+        >>> print(numbering(["a", "b"]))
+        1. a
+        2. b
+        >>> numbering({"a": 1}, start=0)
+        '0. a - 1'
+        >>> numbering(["a", "b"], line_parser=lambda v, n: f"{n}) {v}", line_sep=None)
+        ['1) a', '2) b']
     """
     is_map = is_mapping(values)
     items = to_list(values.items() if is_map else values)

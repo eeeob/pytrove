@@ -14,6 +14,13 @@ class KeyDefaultDict(dict[_KT, _VT]):
 
     Attributes:
         default_factory: Called with a missing key; its result is stored and returned.
+
+    Example:
+        >>> d = KeyDefaultDict(str.upper)
+        >>> d["a"]
+        'A'
+        >>> d
+        {'a': 'A'}
     """
 
     def __init__(self, default_factory: Callable[[_KT], _VT]) -> None:

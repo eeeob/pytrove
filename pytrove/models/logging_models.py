@@ -13,15 +13,13 @@ from ._internal import _LoggerModel
 
 @dataclass(slots=True, kw_only=True)
 class LogHandlerOptions(_LoggerModel):
-    """A handler to attach to a logger.
-
-    Attributes:
-        handler: A `Handler`, a stream to log to, or a file path to log to.
-        formatter: The formatter to set on the handler, if any.
-    """
+    """A handler to attach to a logger."""
 
     handler: Handler | io.IOBase | Path | str
+    """A `Handler`, a stream to log to, or a file path to log to; `resolve_handler()` replaces it with the `Handler`."""
+
     formatter: Formatter | None = None
+    """The formatter to set on the handler; `None` leaves the handler's own."""
 
     def resolve_handler(self) -> Handler:
         """Replace a path or stream in `handler` with the `Handler` it implies, and return it.
@@ -49,15 +47,13 @@ class LogHandlerOptions(_LoggerModel):
 
 @dataclass(slots=True, kw_only=True)
 class LoggerOptions(_LoggerModel):
-    """Settings to apply to a logger.
-
-    Attributes:
-        propagate: The value to set on `Logger.propagate`, if any.
-        reset_level: Reset the level to `NOTSET`.
-    """
+    """Settings to apply to a logger."""
 
     propagate: bool | None = None
+    """The value to set on `Logger.propagate`; `None` leaves it alone."""
+
     reset_level: bool | None = None
+    """Whether to reset the level to `NOTSET`; falsy leaves it alone."""
 
 
 __all__ = (

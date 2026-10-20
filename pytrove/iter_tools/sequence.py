@@ -20,6 +20,12 @@ def dedupe(iterable: Iterable[_T], hashable: bool = True) -> list[_T]:
 
     Returns:
         Each distinct value once, in the order first seen.
+
+    Example:
+        >>> dedupe([3, 1, 3, 2, 1])
+        [3, 1, 2]
+        >>> dedupe([{"a": 1}, {"a": 1}], hashable=False)
+        [{'a': 1}]
     """
     if hashable:
         return list(dict.fromkeys(iterable))
@@ -44,6 +50,12 @@ def pad_list(values: list[_VT], length: int, exact: bool = False, default: _T | 
 
     Returns:
         `values` itself.
+
+    Example:
+        >>> pad_list([1, 2], 4)
+        [1, 2, None, None]
+        >>> pad_list([1, 2, 3], 2, exact=True, default=0)
+        [1, 2]
     """
     # Padded in place, so the caller's list gains `default`s of another type:
     # the return type states the widened content the input type cannot.

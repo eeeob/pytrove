@@ -70,6 +70,20 @@ def patch_into(
 
     Returns:
         The decorator.
+
+    Example:
+        >>> class Target:
+        ...     def greet(self):
+        ...         return "hi"
+        >>> @patch_into(Target)
+        ... class Patches:
+        ...     def greet(self):
+        ...         return "hello"
+        ...     greet.should_patch = True
+        ...     def ignored(self):
+        ...         return "not copied"
+        >>> Target().greet(), Target().oldgreet(), hasattr(Target, "ignored")
+        ('hello', 'hi', False)
     """
 
     def apply(current_class: _CT) -> _CT:
@@ -126,6 +140,17 @@ def patch_cls(
 
     Raises:
         TypeError: If the class does not have exactly one base besides `object`.
+
+    Example:
+        >>> class Target:
+        ...     def greet(self):
+        ...         return "hi"
+        >>> @patch_cls
+        ... class Target(Target):
+        ...     def greet(self):
+        ...         return "hello, " + self.oldgreet()
+        >>> Target().greet()
+        'hello, hi'
     """
 
     def _apply(cls: type) -> type:
@@ -171,6 +196,13 @@ def walk_subclasses(cls: type, include_base: bool = False) -> Iterator[type]:
 
     Yields:
         Each class.
+
+    Example:
+        >>> class A: ...
+        >>> class B(A): ...
+        >>> class C(B): ...
+        >>> sorted(cls.__name__ for cls in walk_subclasses(A))
+        ['B', 'C']
     """
     seen: set[type] = set()
     stack = [cls] if include_base else list(cls.__subclasses__())

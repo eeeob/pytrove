@@ -19,6 +19,12 @@ def to_str(value: _T) -> str | _T:
 
     Returns:
         `str(value)`, or `value` itself when it is `None`, a bool, a string or a container.
+
+    Example:
+        >>> to_str(5)
+        '5'
+        >>> to_str([5])
+        [5]
     """
     # Returned as `unchanged`: narrowing `value` through `is_container` would lose that it is a `_T`.
     unchanged: _T = value
@@ -29,7 +35,7 @@ def to_str(value: _T) -> str | _T:
 
 
 def clean_spaces(text: Any, with_lines: bool = True) -> str:
-    """Remove whitespace from text.
+    r"""Remove whitespace from text.
 
     Args:
         text: The text, or a value `to_str` turns into text.
@@ -37,6 +43,12 @@ def clean_spaces(text: Any, with_lines: bool = True) -> str:
 
     Returns:
         The text without whitespace.
+
+    Example:
+        >>> clean_spaces(" a b\nc ")
+        'abc'
+        >>> clean_spaces(" a b\nc ", with_lines=False)
+        'ab\nc'
     """
     text = to_str(text)
     return re.sub(r"\s+", "", text) if with_lines else re.sub(r"[^\S\n]+", "", text)
@@ -62,6 +74,14 @@ def split_part(
 
     Returns:
         The selected part, cleaned as asked.
+
+    Example:
+        >>> split_part("a, b, c", ",", 1)
+        'b'
+        >>> split_part("a,b", ",", 5)
+        'a,b'
+        >>> split_part("a,b", ",", 5, default=None) is None
+        True
     """
     try:
         selected = value.split(sep)[part]
@@ -85,6 +105,12 @@ def to_snake_case(text: str) -> str:
 
     Returns:
         The text in lowercase, with an underscore before each word that began with a capital.
+
+    Example:
+        >>> to_snake_case("userId")
+        'user_id'
+        >>> to_snake_case("HTTPServerError")
+        'http_server_error'
     """
     return _SNAKE2_PATTERN.sub(r"\1_\2", _SNAKE1_PATTERN.sub(r"\1_\2", text)).lower()
 
@@ -97,6 +123,10 @@ def to_pascal_case(text: str) -> str:
 
     Returns:
         Each word capitalised and joined with no separator.
+
+    Example:
+        >>> to_pascal_case("user_id")
+        'UserId'
     """
     return "".join(word.title() for word in to_snake_case(text).split("_") if word)
 

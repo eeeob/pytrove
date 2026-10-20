@@ -47,15 +47,23 @@ class TriggerOn(StrEnum):
     """Which outcome of a call makes a `DeferredCall` fire."""
 
     SUCCESS = auto()
+    """Fire only when the result is not an exception. The default."""
+
     ERROR = auto()
+    """Fire only when the result is an exception instance."""
+
     ALWAYS = auto()
+    """Fire whatever the result is."""
 
 
 class TgMessageLength(IntEnum):
     """Telegram's length limits, in characters."""
 
     TEXT = 4096
+    """A text message; the default length `split_tg_message` and `chunk_text` cut at."""
+
     CAPTION = 1024
+    """A media caption."""
 
 
 class ArchiveFormat(StrEnum):
@@ -146,9 +154,16 @@ class ImapEmailProvider(Enum):
     """A known IMAP provider; the value is its `(host, port)`."""
 
     GMAIL = ("imap.gmail.com", 993)
+    """Google: `gmail.com`."""
+
     OUTLOOK = ("outlook.office365.com", 993)
+    """Microsoft: `outlook.com`, `hotmail.com` and `live.com` all map here."""
+
     YAHOO = ("imap.mail.yahoo.com", 993)
+    """Yahoo: `yahoo.com`."""
+
     ZOHO = ("imap.zoho.com", 993)
+    """Zoho: `zoho.com`."""
 
     @property
     def host(self) -> str:
@@ -177,18 +192,33 @@ class PlatformDevice(StrEnum):
     """A Telegram client platform, as `rand_tg_device` draws them."""
 
     ANDROID = auto()
+    """Telegram for Android; the likeliest draw."""
+
     IOS = auto()
+    """Telegram for iOS."""
+
     DESKTOP = auto()
+    """Telegram Desktop; the only platform that draws an OS (Windows or Linux) first."""
+
     WEB = auto()
+    """Telegram Web: the model is a browser user agent, the version a `navigator.platform`."""
 
 
 class TimeUnit(IntEnum):
     """Durations in seconds."""
 
     MINUTE = 60
+    """60 seconds."""
+
     HOUR = MINUTE * 60
+    """3600 seconds."""
+
     DAY = HOUR * 24
+    """86400 seconds."""
+
     WEEK = DAY * 7
+    """Seven days."""
+
     MONTH = DAY * 30
     """A fixed 30 days, not a calendar month."""
 

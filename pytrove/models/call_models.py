@@ -23,20 +23,19 @@ from ..validate_tools import is_exception
 
 @dataclass(slots=True)
 class DeferredCall(Generic[_T]):
-    """A call kept for later, run only when a result matches `when`.
-
-    Attributes:
-        func: The sync or async callable to run.
-        args: Positional arguments stored with the call.
-        kw: Keyword arguments stored with the call.
-        when: Which results trigger the call: a success, an exception, or any.
-    """
+    """A call kept for later, run only when a result matches `when`."""
 
     func: MaybeAwaitable[..., _T]
+    """The sync or async callable to run; a sync one runs in `run()`'s executor."""
+
     args: tuple[Any, ...] | None = None
+    """Positional arguments stored with the call, placed before the ones `run()` receives."""
+
     kw: Mapping[str, Any] | None = None
+    """Keyword arguments stored with the call; the ones `run()` receives override them."""
 
     when: TriggerOn = TriggerOn.SUCCESS
+    """Which results trigger the call: a success, an exception, or any."""
 
     def should_run(self, r: Any) -> bool:
         """Return whether the result `r` triggers this call.
@@ -77,30 +76,31 @@ class DeferredCall(Generic[_T]):
 
 @dataclass(slots=True)
 class DelayedCallback(Generic[_T]):
-    """A callback run once `delay` seconds pass, unless it is cancelled first.
-
-    Attributes:
-        delay: Seconds to wait before running `callback`.
-        callback: The sync or async callable to run.
-        args: Positional arguments for `callback`.
-        kw: Keyword arguments for `callback`.
-        on_finished: Called with this instance once the wait ends, whether
-            the callback ran, failed or was cancelled.
-        cancel_event: Set to cancel the callback before it starts.
-        callback_started: Whether the delay ran out and the callback began.
-    """
+    """A callback run once `delay` seconds pass, unless it is cancelled first."""
 
     delay: Number
+    """Seconds to wait before running `callback`."""
+
     callback: MaybeAwaitable[..., _T]
+    """The sync or async callable to run."""
 
     args: tuple[Any, ...] | None = None
+    """Positional arguments for `callback`."""
+
     kw: Mapping[str, Any] | None = None
+    """Keyword arguments for `callback`."""
 
     on_finished: MaybeCoroutineCallable[[Self], Any] | None = None
+    """Called with this instance once the wait ends, whether the callback ran, failed or was cancelled."""
+
     cancel_event: asyncio.Event = field(default_factory=asyncio.Event)
+    """Set to cancel the callback before it starts; `wait()` blocks on it for `delay`."""
 
     callback_started: bool = field(default=False, init=False)
+    """Whether the delay ran out and the callback began; a non-forced `cancel()` then lets it finish."""
+
     _task: asyncio.Task[_T | None] | None = field(default=None, init=False, repr=False)
+    """The task `start()` created, cleared by `cancel()`."""
 
     async def wait(self) -> _T | None:
         """Wait out `delay`, then run `callback`, unless `cancel_event` is set first.

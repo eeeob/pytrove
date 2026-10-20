@@ -183,8 +183,10 @@ required-imports = ["from __future__ import annotations as _annotations"]
 convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
-# 1.9: wildcard imports are allowed only in interface-aggregation files.
-"**/__init__.py" = ["F401", "F403"]
+# 1.9: wildcard imports are allowed only in interface-aggregation files, which
+# name their submodules only through those imports (F405) and, having no
+# annotations, omit the `__future__` import (I002, the exception in 4.2).
+"**/__init__.py" = ["F401", "F403", "F405", "I002"]
 # Tests assert by design, and 5.3 covers library functions, not test cases.
 "tests/**" = ["S101", "D"]
 

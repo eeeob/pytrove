@@ -24,6 +24,14 @@ async def safe_wait_task(task: asyncio.Task[_T], canceled_ok: bool = True, exc_o
         asyncio.CancelledError: If the task was cancelled and `canceled_ok` is false,
             or the caller itself is cancelled while waiting.
         Exception: Whatever the task raised, if `exc_ok` is false.
+
+    Example:
+        >>> async def main():
+        ...     task = asyncio.create_task(asyncio.sleep(10))
+        ...     task.cancel()
+        ...     return await safe_wait_task(task)
+        >>> asyncio.run(main()) is None
+        True
     """
     await _wait_done(task)
 
@@ -57,6 +65,13 @@ async def cancel_task(task: asyncio.Task, msg: str | None = None) -> bool:
         RuntimeError: If `task` is the current task.
         asyncio.CancelledError: If the caller itself is cancelled while waiting.
         Exception: Whatever the task raised instead of being cancelled.
+
+    Example:
+        >>> async def main():
+        ...     task = asyncio.create_task(asyncio.sleep(10))
+        ...     return await cancel_task(task), task.cancelled()
+        >>> asyncio.run(main())
+        (True, True)
     """
     if task is asyncio.current_task():
         msg_ = "Cannot cancel the current task"
