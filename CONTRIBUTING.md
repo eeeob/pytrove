@@ -99,6 +99,8 @@ If a group of tools, types, or models is split into subfiles within a directory,
 
 Define `__all__` at the end of the module, after defining its public interface. Wildcard imports must not be used in regular implementation modules. They are permitted only in interface-aggregation files, in accordance with the export rules above, so that internal elements are not re-exported.
 
+An interface-aggregation file (`__init__.py`) contains only its docstring, the wildcard imports of its submodules, and the `__all__` that concatenates theirs. It must not import its submodules by name, such as `from . import archive_tools, async_tools`: a wildcard import already loads each submodule and binds it as an attribute of the package, so the list only duplicates the import lines and must be updated with every new module. An aggregation file also omits `from __future__ import annotations as _annotations` (see the exception in rule 4.2), because it contains no annotations for the import to act on.
+
 ### 1.10. Handling Conflicts Between Implementation and the Rules
 
 If existing or new code violates an adopted rule, the code or design causing the conflict must be fixed so that it complies with that rule. The rule must not be changed, removed, or weakened merely to justify the noncompliant implementation or avoid fixing it.
@@ -203,6 +205,8 @@ Keep the `_annotations` alias as is, even when it is not used directly; it makes
 
 This permits deferred evaluation of annotations, including the use of types imported inside `TYPE_CHECKING` without putting annotations in quotation marks. Putting type annotations in quotation marks in project files is prohibited, and rule `UP037` must remain enabled.
 
+**Exception — interface-aggregation files:** an `__init__.py` that only aggregates (rule 1.9) has no annotations, so it omits this import.
+
 **Exception — recursive type aliases before Python 3.12:** a self-referential type alias defined by a plain assignment (`X: TypeAlias = ...`) for Python versions earlier than `3.12` may quote its own self-reference, for example `NestedContainer: TypeAlias = Container["NestedContainer[_T]"] | _T`. The right-hand side of such an assignment is evaluated when the module is imported, so `from __future__ import annotations` does not defer it, and on `3.10`/`3.11` there is no other way for the alias to refer to itself. The exception covers only that self-reference inside the pre-`3.12` definition; on `3.12` and later the same alias must be defined with a PEP 695 `type` statement, without quotation marks.
 
 ### 4.3. Constants
@@ -214,6 +218,17 @@ from typing import Final
 
 DEFAULT_TIMEOUT: Final[int] = 30
 ```
+
+A constant defined on a class follows the same format, with `ClassVar` in place of `Final`: an upper-case name and an explicit type, so that it is read as a constant and the type checker knows it is not an instance attribute. `Final` is not combined with `ClassVar`; the type checker rejects that as redundant, and the upper-case name already states that the value is not reassigned.
+
+```python
+from typing import ClassVar
+
+class Worker:
+    DEFAULT_ROW_WIDTH: ClassVar[int] = 2
+```
+
+A class attribute that subclasses are meant to override is a setting, not a constant; it keeps a lower-case name and a plain annotation.
 
 ### 4.4. Distinguishing Omission of a Parameter from Passing `None`
 
@@ -269,7 +284,20 @@ Use **Google-style Docstring** format in all documentation.
 
 Write documentation or a concise comment for every class, model, type definition, constant, or enum member that needs clarification. Explain the purpose, meaning, and important constraints, values, or units, without repeating what the name makes clear.
 
-Use the same style used for function documentation: Google-style when appropriate, adapting sections according to the element. A class or model docstring explains its purpose, its attributes or fields, and important constraints; `typings` documentation explains the shape of the type and the meaning of its fields; `enums` members and constants are documented near their definition when their meaning is not clear from the name and value alone. Maintain brevity and cleanliness.
+Use the same style used for function documentation: Google-style when appropriate, adapting sections according to the element. A class or model docstring explains its purpose and important constraints; `typings` documentation explains the shape of the type; module-level constants are documented near their definition when their meaning is not clear from the name and value alone. Maintain brevity and cleanliness.
+
+**Every member of a model-like entity is documented on its own.** In a model (`dataclass`, `TypedDict`, `NamedTuple`, or any class whose body is a list of fields) and in an `enum`, each field or member carries a short, clear docstring of its own: a string literal on the line directly after the member, in addition to the entity's main docstring. It states the meaning, unit, constraint or default that the name alone does not. The entity's docstring then does not repeat the members in an `Attributes` section (rule 5.5), so each fact has one place.
+
+```python
+class ArchiveLimits(TypedDict):
+    """Caps applied while extracting an archive."""
+
+    max_members: int
+    """Members allowed in one archive; extraction stops at the first one past it."""
+
+    max_ratio: float
+    """Highest allowed uncompressed-to-compressed ratio, as a guard against bombs."""
+```
 
 ### 5.5. Documentation Sections
 
@@ -279,8 +307,28 @@ An element's documentation includes, according to its nature:
 - `Args` for parameters, when present.
 - `Returns` for the return value, when present.
 - `Raises` for exceptions that may be raised as part of the documented behavior, when present.
+- `Example` for a function whose use is clearer shown than described: a non-obvious signature, a transformation whose output shape is not evident, or several related options.
 
 Do not add sections that do not apply, and avoid repeating information that can be understood directly from the name or signature.
+
+An `Example` is written as a doctest (`>>>` lines followed by the exact output) so that it is executable, and it must be correct: CI runs `pytest --doctest-modules pytrove`, and an example whose output does not match fails the build. Keep examples to what the function itself does, with no network, filesystem or optional-dependency requirement; a function whose use cannot be shown that way gets no `Example` rather than a skipped one.
+
+```python
+def chunk(items: Sequence[_T], size: int) -> list[list[_T]]:
+    """Split `items` into consecutive lists of at most `size` elements.
+
+    Args:
+        items: The sequence to split.
+        size: The largest chunk length; must be positive.
+
+    Returns:
+        The chunks, in order; the last one may be shorter.
+
+    Example:
+        >>> chunk([1, 2, 3, 4, 5], 2)
+        [[1, 2], [3, 4], [5]]
+    """
+```
 
 ### 5.6. Stability of Public Documentation Files
 
