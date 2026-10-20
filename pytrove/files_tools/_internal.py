@@ -49,17 +49,16 @@ log = logging.getLogger(__name__)
 
 
 class _MkdirOptions(TypedDict, total=False):
-    """What `Path.mkdir` takes, so `ensure_dir` can type its `**kwargs` key by key.
-
-    Attributes:
-        mode: Permissions for the last component only, masked by the umask; ignored on Windows.
-        parents: Whether to create missing parents.
-        exist_ok: Whether an existing directory is fine; an existing file still raises.
-    """
+    """What `Path.mkdir` takes, so `ensure_dir` can type its `**kwargs` key by key."""
 
     mode: int
+    """Permissions for the last component only, masked by the umask; ignored on Windows."""
+
     parents: bool
+    """Whether to create missing parents."""
+
     exist_ok: bool
+    """Whether an existing directory is fine; an existing file still raises."""
 
 
 def _next_part(folder: Path, stem: str) -> int:
