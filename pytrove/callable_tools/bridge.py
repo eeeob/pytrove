@@ -61,6 +61,10 @@ def run_awaitable_sync(awaitable: Awaitable[_T], loop: asyncio.AbstractEventLoop
     Raises:
         RuntimeError: If `loop` is closed or idle, if a loop runs in this thread
             and no `loop` was given, or if `loop` is this thread's own loop.
+
+    Example:
+        >>> run_awaitable_sync(asyncio.sleep(0, result=1))
+        1
     """
     if loop is not None:
         if loop.is_closed():
