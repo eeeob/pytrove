@@ -23,6 +23,12 @@ def set_func_attrs(func: Callable[..., Any] | None = None, **kw: Any) -> Any:
 
     Returns:
         The function itself, or a decorator when `func` is omitted.
+
+    Example:
+        >>> @set_func_attrs(tag="x")
+        ... def f(): ...
+        >>> f.tag
+        'x'
     """
 
     def updater(f: _FT) -> _FT:
@@ -59,6 +65,13 @@ def call_all(*funcs: Callable[[], Any], lazy: bool = False) -> Any:
 
     Returns:
         The results in order, or the lazy callable.
+
+    Example:
+        >>> call_all(lambda: 1, lambda: 2)
+        (1, 2)
+        >>> batch = call_all(lambda: 1, lazy=True)
+        >>> batch(lambda: 2)
+        (1, 2)
     """
     if lazy:
         return functools.partial(call_all, *funcs)
@@ -67,13 +80,17 @@ def call_all(*funcs: Callable[[], Any], lazy: bool = False) -> Any:
 
 
 def juxt(*funcs: Callable[_P, _T]) -> Callable[_P, tuple[_T, ...]]:
-    """Fan one call out to many functions: `juxt(str.upper, len)("ab")` is `("AB", 2)`.
+    """Fan one call out to many functions.
 
     Args:
         *funcs: The functions, all called with the same arguments.
 
     Returns:
         A callable returning their results in order.
+
+    Example:
+        >>> juxt(str.upper, len)("ab")
+        ('AB', 2)
     """
 
     def fanned(*args: _P.args, **kwargs: _P.kwargs) -> tuple[_T, ...]:
@@ -122,6 +139,11 @@ def return_constant(func: Callable[..., Any] | None = None, *, value: Any = None
 
     Returns:
         The wrapper, or a decorator when `func` is omitted.
+
+    Example:
+        >>> return_constant(print, value=True)("hi")
+        hi
+        True
     """
     if func is None:
         return functools.partial(return_constant, value=value)

@@ -45,6 +45,14 @@ def flat_cont(*containers: Any, exclude_none: bool = True) -> list[Any]:
 
     Returns:
         Every leaf, depth first, in order.
+
+    Example:
+        >>> flat_cont([1, [2, None, (3,)]], 4)
+        [1, 2, 3, 4]
+        >>> flat_cont([1, None], exclude_none=False)
+        [1, None]
+        >>> flat_cont({"a": 1})
+        ['a']
     """
     return list(iter_flat_cont(*containers, exclude_none=exclude_none))
 
@@ -103,6 +111,10 @@ def flat_map(*containers: Any, exclude_none: bool = True) -> list[Any]:
 
     Returns:
         Every key and leaf, depth first, in order.
+
+    Example:
+        >>> flat_map({"a": [1, {"b": 2}]})
+        ['a', 1, 'b', 2]
     """
     return list(iter_flat_map(*containers, exclude_none=exclude_none))
 
@@ -143,6 +155,10 @@ def flat_cont_by(
 
     Returns:
         Every leaf, depth first, in order.
+
+    Example:
+        >>> flat_cont_by((1, [2], (3, 4)), is_container=lambda x: isinstance(x, tuple))
+        [1, [2], 3, 4]
     """
     return list(iter_flat_cont_by(*containers, is_container=is_container, exclude_none=exclude_none))
 

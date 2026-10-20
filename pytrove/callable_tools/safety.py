@@ -82,6 +82,15 @@ def safe_call(
         TypeError: If `return_exc` and `raise_exc` are both set, or `exclude_exc`
             names an exception that always propagates anyway.
         BaseException: Whatever is not swallowed, or anything when `raise_exc` is set.
+
+    Example:
+        >>> safe_call(int, "x") is None
+        True
+        >>> safe_call(int, "x", return_exc=True)
+        ValueError("invalid literal for int() with base 10: 'x'")
+        >>> safe_call(int, "x", include_exc=KeyError)
+        Traceback (most recent call last):
+        ValueError: invalid literal for int() with base 10: 'x'
     """
     if return_exc and raise_exc:
         msg = "safe_call: return_exc and raise_exc cannot both be True -- raise_exc means the exception is never returned, only re-raised"
@@ -141,6 +150,16 @@ def raise_if(
 
     Raises:
         ValueError: If `always` is combined with `bool_value` or `values`.
+
+    Example:
+        >>> @raise_if(ValueError("empty"), bool_value=False)
+        ... def first(items):
+        ...     return items[:1]
+        >>> first([1, 2])
+        [1]
+        >>> first([])
+        Traceback (most recent call last):
+        ValueError: empty
     """
     if always and (bool_value is not None or values is not None):
         msg = "raise_if: can't pass bool_value or values when always=True"

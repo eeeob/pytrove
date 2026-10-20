@@ -104,6 +104,19 @@ def middleware(func: Callable[..., Any] | None = None, **kw: Any) -> Any:
 
     Raises:
         TypeError: For an unknown keyword or a hook that is not callable.
+
+    Example:
+        >>> def add(a, b):
+        ...     return a + b
+        >>> wrapped = middleware(add, before=lambda a, b: print("adding", a, b), after=lambda result, a, b: result * 10)
+        >>> wrapped(1, 2)
+        adding 1 2
+        30
+        >>> @middleware(on_error=lambda exc, a, b: float("inf"))
+        ... def div(a, b):
+        ...     return a / b
+        >>> div(1, 0)
+        inf
     """
     if func is None:
         return functools.partial(middleware, **kw)

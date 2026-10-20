@@ -58,6 +58,12 @@ async def to_thread(
 
     Raises:
         Exception: Whatever the function raised, unless `return_exc` is set.
+
+    Example:
+        >>> asyncio.run(to_thread(len, "abc"))
+        3
+        >>> asyncio.run(to_thread(int, "x", return_exc=True, log_exc=False))
+        ValueError("invalid literal for int() with base 10: 'x'")
     """
     caller_stack = traceback.extract_stack()[:-1] if log_exc else None
     loop = asyncio.get_running_loop()
@@ -85,6 +91,14 @@ async def call_sync_or_await(func: MaybeAwaitableCallable[_P, _T], *args: _P.arg
 
     Returns:
         The result, awaited when needed.
+
+    Example:
+        >>> async def double(x):
+        ...     return x * 2
+        >>> asyncio.run(call_sync_or_await(double, 2))
+        4
+        >>> asyncio.run(call_sync_or_await(len, "ab"))
+        2
     """
     result = func(*args, **kwargs)
 
