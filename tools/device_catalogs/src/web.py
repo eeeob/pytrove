@@ -35,7 +35,7 @@ and firefox and no safari. Hand-typing those numbers is the one thing this
 script does not do, so macOS is covered by Chrome, Edge and Firefox only.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import collections
 from typing import Any, ClassVar, NamedTuple
@@ -220,7 +220,6 @@ class WebBuilder(Builder):
 
     def chrome_majors(self, platform: WebPlatform) -> list[tuple[int, str]]:
         """(major, first serving date) newest first, from Google's feed."""
-
         data = self.cache.fetch_json(
             self.CHROME_FILE.format(slug=platform.chrome_slug),
             self.CHROME_URL.format(slug=platform.chrome_slug))
@@ -238,7 +237,6 @@ class WebBuilder(Builder):
 
     def firefox_majors(self) -> list[tuple[int, str]]:
         """(major, release date) newest first, from Mozilla's own history."""
-
         data = self.cache.fetch_json(self.FIREFOX_FILE, self.FIREFOX_URL)
 
         first: dict[int, str] = {}
@@ -253,7 +251,6 @@ class WebBuilder(Builder):
 
     def edge_majors(self, platform: WebPlatform) -> list[tuple[int, str]]:
         """(major, first publish date) newest first, from Microsoft's feed."""
-
         data = self.cache.fetch_json(self.EDGE_FILE, self.EDGE_URL)
         arch = self.EDGE_ARCH.get(platform.edge_platform)
 
@@ -278,17 +275,20 @@ class WebBuilder(Builder):
 
     @classmethod
     def chromium_agent(cls, platform: WebPlatform, major: int) -> str:
+        """Return a Chromium User-Agent for `platform` at version `major`."""
         return cls.CHROMIUM_TEMPLATE.format(
             token=platform.chromium,
             product=cls.CHROMIUM_PRODUCT.format(major=major))
 
     @classmethod
     def edge_agent(cls, platform: WebPlatform, major: int) -> str:
+        """Return an Edge User-Agent for `platform` at version `major`."""
         return (cls.chromium_agent(platform, major)
                 + cls.EDGE_SUFFIX.format(major=major))
 
     @classmethod
     def firefox_agent(cls, platform: WebPlatform, major: int) -> str:
+        """Return a Firefox User-Agent for `platform` at version `major`."""
         parts = [platform.firefox_platform, platform.firefox_oscpu, f"rv:{major}.0"]
         return cls.FIREFOX_TEMPLATE.format(
             comment="; ".join(part for part in parts if part),
@@ -297,6 +297,7 @@ class WebBuilder(Builder):
     # --- output -----------------------------------------------------------
 
     def build(self) -> list[Catalog]:
+        """Build the web catalog from every browser's version feed."""
         by_platform = {p.key: p for p in self.PLATFORMS}
         agents = {"Chrome": self.chromium_agent,
                   "Edge": self.edge_agent,
@@ -338,7 +339,8 @@ class WebBuilder(Builder):
         seen = collections.Counter(d["model"] for d in devices)
         duplicates = [model for model, count in seen.items() if count > 1]
         if duplicates:
-            raise SystemExit(f"duplicate User-Agent strings: {duplicates}")
+            msg = f"duplicate User-Agent strings: {duplicates}"
+            raise SystemExit(msg)
 
         return [Catalog(
             platform=self.platform,

@@ -1,5 +1,8 @@
 [build-system]
-requires = ["hatchling"]
+# Floor at the 1.27 line (2.3). Every release from 1.22 up is clean per
+# Sonatype (2026-10); the floor only rules out builds older than the
+# `pattern` form used under `[tool.hatch.version]`.
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 
@@ -25,8 +28,14 @@ classifiers = [
     "Typing :: Typed",
 ]
 
+# Rule 2.3: every dependency has a version floor and no upper bound unless a
+# real compatibility break needs one; the reason for each floor is beside it.
+# "Clean" means the floor has no known vulnerability (checked 2026-10-17).
 dependencies = [
-    "typing_extensions>=4.0; python_version<'3.13'",
+    # Backports the newer `typing` names the library imports below 3.13. 4.4 is the
+    # first release with `TypeVar(default=...)` (PEP 696); 4.1 adds `Never`/`Unpack`.
+    # Below 4.4, `import pytrove` fails on 3.10-3.12.
+    "typing_extensions>=4.4; python_version<'3.13'",
 ]
 
 
@@ -35,35 +44,89 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "hatch<=1.16.5",
-    "twine<=6.2.0",
-    "pytest>=8",
+    # The former `<=1.16.5` cap had no technical reason, so only a floor
+    # remains: the 1.16 line the cap was set on, which is clean.
+    "hatch>=1.16",
+    # Same as hatch: the former `<=6.2.0` cap had no technical reason.
+    "twine>=6.2",
+    # Earlier releases (8.x through 9.0.2) carry CVE-2025-71176.
+    "pytest>=9.0.3",
+    # Floor set when the async tests were added; clean.
     "pytest-asyncio>=0.24",
+    # Pinned exactly: ty is pre-1.0 and each release can add or change
+    # diagnostics, which would fail CI with no change in the code.
+    "ty==0.0.88",
+    # Pinned exactly for the same reason as ty: a new release can add or
+    # change lint rules, which would fail the checks with no change in the code.
+    "ruff==0.17.1",
 ]
 
 
-mongo = ["pymongo>=4.6.3"]
-country = ["pycountry>=26.2.16", "phonenumbers>=9.0.21"]
-crypto = ["cryptography>=48.0.1"]
-bs4 = ["beautifulsoup4>=4.14.3"]
-imap = ["aioimaplib>=2.0.1"]
-phone = ["phonenumbers>=9.0.21"]
-tg = ["kurigram>=2.1.35"]
-typecheck = ["typeguard>=4.3"]
-proxy = ["wrapt>=1.16"]
-locale = ["babel>=2.14"]
-jsonref = ["jsonref>=1.1"]
-fastjson = ["orjson>=3.9"]
+mongo = [
+    # Every 4.x up to 4.18.0 carries CVE-2026-96748; 4.19.0 is the first
+    # release with no known vulnerability.
+    "pymongo>=4.19.0",
+]
+country = [
+    # Floors set when the feature was added; clean.
+    "pycountry>=26.2.16",
+    "phonenumbers>=9.0.21",
+]
+crypto = [
+    # Earlier releases carry CVE-2026-69247 and CVE-2026-69249.
+    "cryptography>=50.0.0",
+]
+bs4 = [
+    # Floor set when the feature was added; clean.
+    "beautifulsoup4>=4.14.3",
+]
+imap = [
+    # Floor set when the feature was added; clean.
+    "aioimaplib>=2.0.1",
+]
+phone = [
+    # Floor set when the feature was added; clean.
+    "phonenumbers>=9.0.21",
+]
+tg = [
+    # Floor set when the feature was added; clean.
+    "kurigram>=2.1.35",
+]
+typecheck = [
+    # Floor set when the feature was added; clean.
+    "typeguard>=4.3",
+]
+proxy = [
+    # Floor set when the feature was added; clean.
+    "wrapt>=1.16",
+]
+locale = [
+    # Floor set when the feature was added; clean.
+    "babel>=2.14",
+]
+jsonref = [
+    # Floor set when the feature was added; clean.
+    "jsonref>=1.1",
+]
+fastjson = [
+    # 3.9.0 carries CVE-2024-27454 and 3.10 through 3.11.5 carry CVE-2025-67221.
+    "orjson>=3.11.7",
+]
 archive = [
+    # Floor set when the feature was added; clean. 3.14 uses the stdlib
+    # `compression.zstd` instead.
     "zstandard>=0.22; python_version < '3.14'",
     # fastzip fails to import on Windows (its _crc32_combine loads libz via
     # ctypes.util.find_library("z"), which finds nothing there), so it is
     # installed only where it actually works; compress_folder's `workers`
     # just falls back to the serial zipfile writer where it is absent.
+    # Floor set when the feature was added; clean.
     "fastzip>=0.5; sys_platform != 'win32'",
+    # Floor set when the feature was added; clean.
     "pathspec>=1.0",
 ]
 
+# Every optional group above, so `full` installs all optional features.
 full = [
     "pytrove[imap,phone,country,bs4,mongo,tg,crypto,typecheck,proxy,locale,jsonref,fastjson,archive]"
 ]
@@ -73,6 +136,8 @@ exclude = [".github/",]
 
 [tool.hatch.version]
 path = "pytrove/__meta__.py"
+# The default pattern does not allow the `Final` annotation rule 4.3 requires.
+pattern = '^__version__: Final\[str\] = "(?P<version>[^"]+)"'
 
 
 [tool.hatch.metadata]
@@ -85,3 +150,52 @@ packages = ["pytrove"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# Test files mirror the library per section, so basenames repeat across directories.
+addopts = "--import-mode=importlib"
+
+# Each selected rule enforces a CONTRIBUTING.md rule, noted beside it.
+[tool.ruff]
+target-version = "py310"
+# PEP 695 syntax, imported only on 3.12+ (see `typings/core.py`).
+per-file-target-version = { "pytrove/typings/_core_py312.py" = "py312" }
+
+[tool.ruff.lint]
+select = [
+    "F",       # 3.3: no unused imports; 1.9: no wildcard imports
+    "UP",      # 4.1: built-in generics and `|` unions; 4.2: UP037, no quoted annotations
+    "I002",    # 4.2: the `__future__` import in every module
+    "ANN",     # 4.6: complete type hints
+    "EM",      # 4.5: exception messages assigned to a variable first
+    "S101",    # 4.5: no `assert` runtime guards
+    "PGH003",  # 4.7: no bare `type: ignore`
+    "D",       # 5.3-5.5: Google-style docstrings
+]
+ignore = [
+    "ANN401",  # 4.6 forbids `Any` only as a way around a type error, not everywhere
+    "D100",    # 3.3: a module docstring is optional ("if present")
+    "D104",    # same, for a package's `__init__.py`
+]
+
+[tool.ruff.lint.isort]
+required-imports = ["from __future__ import annotations as _annotations"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# 1.9: wildcard imports are allowed only in interface-aggregation files.
+"**/__init__.py" = ["F401", "F403"]
+# Tests assert by design, and 5.3 covers library functions, not test cases.
+"tests/**" = ["S101", "D"]
+
+[tool.ty.src]
+# PEP 695 syntax, imported only on 3.12+ (see `typings/core.py`); checked on
+# its own with `ty check --python-version 3.12 pytrove/typings/_core_py312.py`.
+exclude = ["pytrove/typings/_core_py312.py"]
+
+[tool.ty.rules]
+# `safe_call`, `to_thread` and `maybe_awaitable` take their own keyword-only options
+# between `*args: _P.args` and `**kwargs: _P.kwargs`, which PEP 612 does not allow.
+# The design is kept on purpose; each call site that cascades from it carries a
+# `ty: ignore[...]` naming this. Every other rule is enforced.
+invalid-paramspec = "ignore"

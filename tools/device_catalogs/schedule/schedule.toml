@@ -3,7 +3,7 @@
 #
 #  Read by `tools/_preflight`. The same cron is written again in
 #  .github/workflows/tools-preflight.yml, because GitHub Actions cannot
-#  compute a trigger, and `tests/test_preflight.py` fails if the two drift
+#  compute a trigger, and `tests/devtools/preflight/test_preflight.py` fails if the two drift
 #  apart. This file is the declaration of record; the workflow is a trigger.
 #
 #  Nothing else about a scheduled run is declared here. Which sources to

@@ -24,7 +24,7 @@ while non-zero, so its appearance in a diff is the alarm and its
 disappearance is the recovery.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import json
 from datetime import date, datetime, timezone
@@ -94,7 +94,6 @@ class Lock:
         `changed`: eighteen false alarms on day one teach a maintainer to
         ignore the dashboard, and it never recovers from that.
         """
-
         return not self.path.is_file()
 
     def entry(self, source_id: str) -> dict[str, Any]:
@@ -103,7 +102,6 @@ class Lock:
         The caller never has to know which kind it asked about: an id belongs
         to exactly one of them, enforced where the registry is parsed.
         """
-
         for section in self.WRITTEN:
             found = self.data.get(section, {}).get(source_id)
             if found is not None:
@@ -118,7 +116,6 @@ class Lock:
         would be a claim about meaning rather than about bytes, and the whole
         point of revalidating is to be able to re-read the shape.
         """
-
         etag = self.entry(source_id).get("http", {}).get("etag", "")
         return ("", "") if etag.startswith(self.WEAK) else (etag, "")
 
@@ -144,7 +141,6 @@ class Lock:
         reached: a timeout must not erase the fingerprint we are comparing
         against, or the next run would call everything `new`.
         """
-
         today = today or date.today().isoformat()
         previous = {**self.data.get(self.CITATIONS, {}),
                     **self.data.get(self.SOURCES, {})}
@@ -221,9 +217,10 @@ class Lock:
         return rebuilt
 
     def _failing(self, verdict: Verdict, today: str) -> dict[str, Any]:
-        """The block that appears on an entry only while it is failing, so an
-        all-clear run leaves no trace and produces no diff."""
+        """Build the block that appears on an entry only while it is failing.
 
+        An all-clear run therefore leaves no trace and produces no diff.
+        """
         return {
             "state": verdict.state,
             "consecutive": verdict.consecutive,
@@ -240,7 +237,6 @@ class Lock:
         forward untouched -- the stored fingerprint is the baseline the next
         comparison is made against, and a failure is no reason to lose it.
         """
-
         entry: dict[str, Any] = {"contract": "broken"}
         if verdict.declaration:
             entry["declaration"] = verdict.declaration
@@ -255,7 +251,6 @@ class Lock:
         which it does not -- `Checker._moved` prefers the readable value and
         falls back to the hash only for bodies with no natural scalar.
         """
-
         entry: dict[str, Any] = {}
         if verdict.now is not None:
             entry["fingerprint"] = verdict.now
@@ -278,7 +273,6 @@ class Lock:
         This is the rule the whole split exists to serve: no diff unless
         something upstream actually moved.
         """
-
         text = json.dumps(rebuilt, indent=1, ensure_ascii=False, sort_keys=False) + "\n"
         if self.path.is_file() and self.path.read_text(encoding="utf-8") == text:
             return False
@@ -331,7 +325,6 @@ class RunState:
 
     def age_days(self) -> float | None:
         """Days since the last check, or None if it has never run."""
-
         stamp = self.read().get(self.LAST_CHECKED)
         if not stamp:
             return None

@@ -1,13 +1,14 @@
 """Real dmidecode records from linuxhw/DMI, for PC hardware."""
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import collections
 import re
 import subprocess
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
-from typing import ClassVar, Iterable
+from typing import ClassVar
+from collections.abc import Iterable
 
 from .cache import Cache
 
@@ -76,6 +77,7 @@ class DmiHarvest:
     )
 
     def __init__(self, cache: Cache) -> None:
+        """Compile the dmidecode patterns for every field this harvest reads."""
         self.cache = cache
         self.patterns = {
             name: (re.compile(r"^" + block + r"\n((?:\t.*\n)+)", re.M),
@@ -93,7 +95,6 @@ class DmiHarvest:
         trees, which silently starved whole vendors. `--filter=blob:none`
         fetches the trees only: a few megabytes for ~160k paths.
         """
-
         if self.cache.has(self.PATHS_FILE):
             return self.cache.read_lines(self.PATHS_FILE)
         if self.cache.offline:
@@ -117,15 +118,18 @@ class DmiHarvest:
 
     @staticmethod
     def git(*args: str) -> str:
+        """Run `git` with `args` and return its decoded standard output."""
         done = subprocess.run(["git", *args], check=True, capture_output=True)
         return done.stdout.decode("utf-8", "replace")
 
     # --- step 2: which probes to read ------------------------------------
 
     def sample(self, paths: Iterable[str]) -> list[tuple[str, str]]:
-        """One probe per distinct (vendor, model) folder, spread evenly across
-        each vendor's models rather than taking the first N alphabetically."""
+        """Pick one probe per distinct (vendor, model) folder.
 
+        Probes are spread evenly across each vendor's models rather than
+        taking the first N alphabetically.
+        """
         seen: set[tuple[str, str]] = set()
         per_folder: dict[str, list[str]] = collections.defaultdict(list)
 
@@ -150,6 +154,7 @@ class DmiHarvest:
     # --- step 3: read them -----------------------------------------------
 
     def read_probe(self, item: tuple[str, str]) -> dict[str, str] | None:
+        """Read one probe's DMI fields, or None when it cannot be fetched."""
         vendor, path = item
         try:
             text = self.cache.download(self.RAW + urllib.parse.quote(path), timeout=90)
@@ -166,7 +171,6 @@ class DmiHarvest:
 
     def records(self) -> list[dict[str, str]]:
         """The DMI fields the client actually reads, from real machines."""
-
         if self.cache.has(self.RECORDS_FILE):
             return self.cache.read_json(self.RECORDS_FILE)
         if self.cache.offline:
@@ -181,10 +185,12 @@ class DmiHarvest:
         print(f"  read {len(records)} of {len(wanted)} probes"
               + (f" ({lost} unreachable)" if lost else ""))
         if wanted and len(records) < len(wanted) * self.MIN_READ:
-            raise SystemExit(
+            msg = (
                 f"only {len(records)} of {len(wanted)} DMI probes could be read "
                 f"({len(records) / len(wanted):.0%}, floor "
                 f"{self.MIN_READ:.0%}).\nraw.githubusercontent is rate limiting "
-                f"this run; nothing was written. retry later.")
+                f"this run; nothing was written. retry later."
+            )
+            raise SystemExit(msg)
         self.cache.write_json(self.RECORDS_FILE, records)
         return records

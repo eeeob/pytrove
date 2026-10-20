@@ -33,19 +33,7 @@ pip install pytrove
 
 ### Install specific features
 
-| Extra | Installs | Use for |
-|-------|----------|---------|
-| `crypto` | `cryptography` | Encryption & key derivation |
-| `mongo` | `pymongo` | MongoDB utilities |
-| `phone` | `phonenumbers` | Phone number parsing |
-| `country` | `pycountry`, `phonenumbers` | Country info & region codes |
-| `tg` | `kurigram` | Telegram automation |
-| `imap` | `aioimaplib` | IMAP email fetching |
-| `bs4` | `beautifulsoup4` | HTML email parsing |
-| `typecheck` | `typeguard` | Runtime type validation (`validate_type`) |
-| `proxy` | `wrapt` | Restricted object proxies (`RestrictedProxy`, `WeakRestrictedProxy`, `AioThreadWorker.get_loop`) |
-| `locale` | `babel` | Native-language country/language names (`get_cname_native`, `get_clanguage_code`, `get_clanguage_name`) |
-| `full` | everything above | All features |
+Each feature has its own extra; `full` installs all of them. The list of extras and the packages each one installs is defined in [`[project.optional-dependencies]` in `pyproject.toml`](pyproject.toml), which is the single source for it.
 
 ```bash
 # Single feature

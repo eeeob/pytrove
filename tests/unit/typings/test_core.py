@@ -1,0 +1,85 @@
+from __future__ import annotations as _annotations
+
+import os
+import threading
+from collections.abc import Awaitable, Callable, Collection, Hashable, Iterator, Reversible, Sequence, Set
+from enum import Enum
+from typing import Any, Literal, ParamSpec, TypeVar, get_args, get_origin, get_type_hints
+
+import pytest
+
+from pytrove.typings import (
+    Container,
+    ContainerWithoutMapping,
+    CountryInfo,
+    JsonValue,
+    LockProtocol,
+    MaybeList,
+    NestedContainer,
+    NotContainer,
+    PathLike,
+    _CT,
+    _EnumT,
+    _ExcT,
+    _False,
+    _FT,
+    _KT,
+    _P,
+    _T,
+    _True,
+    _VT,
+)
+
+CONTAINER_ORIGINS = [Sequence, Set, Collection, Reversible, Iterator]
+
+
+def _value(alias: Any) -> Any:
+    """Unwrap a PEP 695 alias (3.12+) to the union it stands for."""
+    return getattr(alias, "__value__", alias)
+
+
+@pytest.mark.parametrize("alias", [Container, ContainerWithoutMapping])
+def test_container_aliases_keep_the_member_order(alias: Any) -> None:
+    assert [get_origin(a) or a for a in get_args(_value(alias))] == CONTAINER_ORIGINS
+
+
+def test_not_container_lists_the_iterables_read_as_single_values() -> None:
+    assert set(get_args(NotContainer)) == {bytearray, bytes, str, memoryview, type(Enum), Awaitable}
+
+
+def test_recursive_aliases_can_be_subscripted() -> None:
+    assert MaybeList[int] is not None
+    assert NestedContainer[int] is not None
+
+
+def test_json_value_covers_the_json_types() -> None:
+    members = [get_origin(a) or a for a in get_args(_value(JsonValue))]
+    assert {str, bool, int, float, type(None), list, dict} <= set(members)
+
+
+def test_path_like_accepts_strings_bytes_and_os_paths() -> None:
+    assert set(get_args(PathLike)) == {str, bytes, os.PathLike[str], os.PathLike[bytes]}
+
+
+def test_type_variables_carry_their_bounds() -> None:
+    assert isinstance(_P, ParamSpec)
+    bounds = {_T: None, _VT: None, _KT: Hashable, _CT: type, _FT: Callable[..., Any], _ExcT: BaseException, _EnumT: Enum}
+    for var, bound in bounds.items():
+        assert isinstance(var, TypeVar)
+        assert var.__bound__ == bound
+
+
+def test_boolean_literals() -> None:
+    assert _True == Literal[True]
+    assert _False == Literal[False]
+
+
+def test_a_threading_lock_satisfies_lock_protocol() -> None:
+    lock: LockProtocol = threading.Lock()
+    assert lock.acquire() is True
+    lock.release()
+    assert {"acquire", "release"} <= set(dir(LockProtocol))
+
+
+def test_country_info_fields() -> None:
+    assert get_type_hints(CountryInfo) == {"cc": int, "rc": str, "flag": str, "name": str}

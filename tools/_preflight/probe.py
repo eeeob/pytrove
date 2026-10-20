@@ -17,7 +17,7 @@ only one of them is the source's fault:
                        for surgery on working code.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import hashlib
 import socket
@@ -80,7 +80,6 @@ class Prober:
         last_modified: str = "",
     ) -> tuple[int, bytes, dict[str, str]]:
         """Status, body and the headers worth keeping. Raises on failure."""
-
         headers = {"User-Agent": self.USER_AGENT, "Accept-Encoding": "identity"}
         if etag:
             headers["If-None-Match"] = etag
@@ -108,7 +107,6 @@ class Prober:
         then moved on to the next source, so the run could not be stopped at
         all without fifty-four keypresses.
         """
-
         if isinstance(exc, (KeyboardInterrupt, SystemExit)):
             raise exc
 
@@ -145,10 +143,12 @@ class Prober:
         etag: str = "",
         last_modified: str = "",
     ) -> Verdict:
-        """Reach one source. The verdict carries no comparison yet -- the
-        state here is only OK (reached, or 304) or a failure; deciding
-        `changed` needs the lock, and that is the checker's job."""
+        """Reach one source.
 
+        The verdict carries no comparison yet -- the state here is only OK
+        (reached, or 304) or a failure; deciding `changed` needs the lock,
+        and that is the checker's job.
+        """
         url = source.target
         if source.contract and source.contract.kind is ContractKind.GIT_REFS:
             url = url.removesuffix("/") + self.GIT_REFS

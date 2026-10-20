@@ -1,12 +1,13 @@
 """A port of desktop-app/lib_base's own device-model rules.
 
-Imports nothing from the package on purpose: `tests/test_devices_data.py`
+Imports nothing from the package on purpose: `tests/tools/tg/test_devices_data.py`
 loads this file by path to check the stored models against it.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
-from typing import ClassVar, Iterable
+from typing import ClassVar
+from collections.abc import Iterable
 
 # ========================== lib_base model rules ==========================
 
@@ -30,27 +31,31 @@ class LibBase:
 
     @staticmethod
     def clean_and_simplify(value: str) -> str:
-        """base::CleanAndSimplify: every control character becomes a space,
-        then QString::simplified() trims and collapses whitespace runs."""
+        """Port of `base::CleanAndSimplify`.
 
+        Every control character becomes a space, then
+        `QString::simplified()` trims and collapses whitespace runs.
+        """
         return " ".join(
             "".join(" " if ch < " " else ch for ch in value).split())
 
     @classmethod
     def simplify_device_model(cls, value: str) -> str:
         """SimplifyDeviceModel: drop underscores, collapse whitespace."""
-
         return cls.clean_and_simplify(value.replace("_", ""))
 
     @classmethod
     def is_device_model_ok(cls, model: str) -> bool:
+        """Return whether `model` is a usable device model."""
         return bool(model) and len(model) <= cls.MAX_MODEL
 
     @classmethod
     def simplify_good_device_model(cls, model: str, remove: Iterable[str]) -> str:
-        """SimplifyGoodDeviceModel: drop filler words, then take whole words
-        while they still fit in MAX_GOOD_MODEL -- never a mid-word cut."""
+        """Port of `SimplifyGoodDeviceModel`.
 
+        Drop filler words, then take whole words while they still fit in
+        `MAX_GOOD_MODEL` -- never a mid-word cut.
+        """
         remove = set(remove)
         result = ""
         for word in model.split(" "):
@@ -66,23 +71,25 @@ class LibBase:
 
     @classmethod
     def product_name_to_device_model(cls, product: str) -> str:
-        """ProductNameToDeviceModel: HP names get the long treatment because
-        HP puts its own name in the product string; everything else is taken
-        verbatim or not at all."""
+        """Port of `ProductNameToDeviceModel`.
 
+        HP names get the long treatment because HP puts its own name in the
+        product string; everything else is taken verbatim or not at all.
+        """
         if product.startswith("HP "):
             return cls.simplify_good_device_model(product, cls.HP_FILLER)
         return product if cls.is_device_model_ok(product) else ""
 
     @classmethod
     def device_model_from_dmi(cls, product: str, family: str, board: str) -> str:
-        """DeviceModelPretty for Windows and Linux, which share one order:
-        product name, then family + board, then board, then family.
+        """Port of `DeviceModelPretty` for Windows and Linux.
+
+        Both share one order: product name, then family + board, then board,
+        then family.
 
         Returns "" when the firmware offers nothing the client would report;
         the caller decides whether that becomes the "Desktop" fallback.
         """
-
         product, family, board = (cls.simplify_device_model(v)
                                   for v in (product, family, board))
 

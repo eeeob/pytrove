@@ -17,7 +17,7 @@ available, so without something cleaning from the outside a changed source is
 never noticed.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 from .check import Checker
 from .janitor import Janitor
@@ -48,13 +48,11 @@ class Preflight:
 
     def clean(self, report: Report) -> list[Action]:
         """Runs before the lock is saved, deliberately. See the module docstring."""
-
         return Janitor(self.registry, dry_run=self.dry_run).run(report)
 
     def record(self, report: Report, actions: list[Action],
                duration_s: float) -> bool:
         """Persist both files. Returns whether the tracked lock changed."""
-
         if self.dry_run:
             return False
         wrote = self.lock.save(self.lock.rebuild(self.registry, list(report.verdicts)))

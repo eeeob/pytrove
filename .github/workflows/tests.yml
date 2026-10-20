@@ -33,6 +33,34 @@ jobs:
       - name: Import smoke test
         run: python -c "import pytrove; print(len(pytrove.__all__), 'symbols exported OK')"
 
+  # CONTRIBUTING 0.3: the whole suite must also pass with none of the optional
+  # extras installed, so that the base import and the extra-independent tools
+  # stay valid, and every extra-dependent test skips cleanly without its extra.
+  # Only the test runner is added on top of the bare package; the floors match
+  # the `dev` extra in `pyproject.toml` (which is not installed here because
+  # it would pull `ty`/`ruff`/`hatch`/`twine`, and installing it is not the
+  # scenario under test).
+  test-minimal-install:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install core package only (no extras) + test runner
+        run: |
+          python -m pip install --upgrade pip
+          pip install . "pytest>=9.0.3" "pytest-asyncio>=0.24"
+
+      - name: Run tests without optional extras
+        run: pytest
+
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -53,3 +81,47 @@ jobs:
 
       - name: Run tests
         run: pytest
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+
+      - name: Install package with dev tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      # `tests` and `tools` are linted too: CONTRIBUTING applies to them
+      # (see 4.2 in `.claude/rules/known-deviations.md`).
+      - name: Run ruff
+        run: ruff check pytrove tests tools
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # `ty` runs on 3.10 because `ty` 0.0.88 overflows its stack when
+      # checking against the 3.14 interpreter.
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+
+      - name: Install package with all extras + dev tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[full,dev]"
+
+      - name: Run ty
+        run: ty check pytrove
+
+      # `pytrove/typings/_core_py312.py` uses PEP 695 syntax and is excluded
+      # from `[tool.ty.src]` in `pyproject.toml`; it is checked on its own
+      # against a 3.12 target, as that comment describes.
+      - name: Run ty on the 3.12-only typings module
+        run: ty check --python-version 3.12 pytrove/typings/_core_py312.py

@@ -1,79 +1,110 @@
+"""Reading emails: provider detection, IMAP fetching and text extraction."""
+
 from __future__ import annotations as _annotations
+
+import html
+from collections.abc import AsyncIterator
+from email import message_from_bytes
 
 try:
     from aioimaplib import aioimaplib
 except ImportError:
     pass
 
-from .enums import ImapEmailProvider
-from .errors import ValidationError
-
-from .validate_tools import is_email
-from .async_tools import to_thread, safe_await
-
-from ._optional import _optional_import
-
-from email import message_from_bytes
-import html
-
 try:
     import bs4
 except ImportError:
     pass
 
+from ._internal._optional import _optional_import
+from .async_tools import safe_await, to_thread
+from .enums import ImapEmailProvider
+from .errors import ValidationError
+from .validate_tools import is_email
+
 
 @_optional_import(("beautifulsoup4", "bs4"))
 def parse_email_bytes(bytes_msg: bytes | bytearray, multi_part_sep: str = "\n") -> str:
+    """Extract the readable text of a raw email, HTML parts converted to plain text.
+
+    Args:
+        bytes_msg: The raw message.
+        multi_part_sep: Placed after each text part.
+
+    Returns:
+        The text of every non-empty text part, stripped.
+    """
     msg = message_from_bytes(bytes_msg)
     text = ""
 
     for part in msg.walk():
-        if part.get_content_maintype().lower() != "text":
+        payload = part.get_payload(decode=True)
+
+        if part.get_content_maintype().lower() != "text" or not isinstance(payload, bytes) or not payload:
             continue
 
-        if payload := part.get_payload(decode=True):
-        
-            charset = part.get_content_charset() or "utf-8"
+        charset = part.get_content_charset() or "utf-8"
 
-            try:
-                content = payload.decode(charset, errors="ignore")
-            except LookupError:
-                content = payload.decode(errors="ignore")
+        try:
+            content = payload.decode(charset, errors="ignore")
+        except LookupError:
+            content = payload.decode(errors="ignore")
 
-            sub_content_type = part.get_content_subtype().lower()
+        if part.get_content_subtype().lower() == "html":
+            content = html.unescape(bs4.BeautifulSoup(content, "html.parser").get_text(separator="\n")).strip()
+        else:
+            content = content.strip()
 
-            if sub_content_type == "html":
-                soup = bs4.BeautifulSoup(content, "html.parser")
-                content = html.unescape(soup.get_text(separator="\n")).strip()
-            else:
-                content = content.strip()
-            
+        if content:
+            text += content + multi_part_sep
 
-            if content:
-                text += content + multi_part_sep
-
-                
     return text.strip()
 
 
 def detect_email_provider(email: str) -> ImapEmailProvider | None:
+    """Find the IMAP provider serving an address.
+
+    Args:
+        email: The address.
+
+    Returns:
+        The provider, or `None` for an unknown domain.
+
+    Raises:
+        ValidationError: If `email` is not an address.
+    """
     if not is_email(email):
-        raise ValidationError(f"{email} is not valid email")
+        msg = f"{email} is not valid email"
+        raise ValidationError(msg)
 
     return ImapEmailProvider.from_domain(email.split("@")[-1].lower())
 
 
 @_optional_import(("aioimaplib", "imap"), ("beautifulsoup4", "bs4"))
 async def fetch_emails_from(
-    email: str, 
-    password: str, 
-    provider: ImapEmailProvider, 
-    sender: str = "noreply@telegram.org", 
-    limit: int = 10, 
-    from_old: bool = False, 
-    ):
+    email: str,
+    password: str,
+    provider: ImapEmailProvider,
+    sender: str = "noreply@telegram.org",
+    limit: int = 10,
+    from_old: bool = False,
+) -> AsyncIterator[str]:
+    """Yield the text of the latest emails from one sender in the inbox.
 
+    Args:
+        email: The address to log in with.
+        password: The password or app password.
+        provider: The IMAP server.
+        sender: The sender to search for.
+        limit: How many of the newest matches to read; 0 or less reads none.
+        from_old: Whether to yield oldest first instead of newest first.
 
+    Yields:
+        Each message's text.
+
+    Raises:
+        ValidationError: If the server answers a search or fetch with an error.
+    """
     client = aioimaplib.IMAP4_SSL(host=provider.host, port=provider.port)
 
     try:
@@ -84,10 +115,12 @@ async def fetch_emails_from(
         status, data = await client.search(f'FROM "{sender}"')
 
         if status != "OK":
-            raise ValidationError("Invalid Email Status %s" % status)
-        
+            msg = f"Invalid Email Status {status}"
+            raise ValidationError(msg)
+
         if not data or not data[0]:
-            raise ValidationError("Invalid Email data %s" % data)
+            msg = f"Invalid Email data {data}"
+            raise ValidationError(msg)
 
         ids = data[0].decode().split()[-limit:] if limit > 0 else []
 
@@ -97,33 +130,28 @@ async def fetch_emails_from(
         status, messages = await client.fetch(",".join(ids), "BODY.PEEK[TEXT]")
 
         if status != "OK":
-            raise ValidationError("Invalid Fetch Email Status %s" % status)
+            msg = f"Invalid Fetch Email Status {status}"
+            raise ValidationError(msg)
 
         if not isinstance(messages, list):
-            raise ValidationError("Invalid Fetch Email data %s" % data)
+            msg = f"Invalid Fetch Email data {messages}"
+            raise ValidationError(msg)
     finally:
         await safe_await(client.logout())
-    
-    messages = sorted(
-        (
-            (int(messages[i].split(b' ')[0].decode()), messages[i+1])
-            for i in range(0, len(messages) - 1, 3)
-        ), 
-        key=lambda item: item[0], 
-        reverse=not from_old
+
+    # The server returns a header line, the body, and a closing line per message.
+    ordered = sorted(
+        ((int(messages[i].split(b" ")[0].decode()), messages[i + 1]) for i in range(0, len(messages) - 1, 3)),
+        key=lambda item: item[0],
+        reverse=not from_old,
     )
 
-    for _, message in messages:
-        yield await to_thread(
-            parse_email_bytes, 
-            message, 
-        )
+    for _, message in ordered:
+        yield await to_thread(parse_email_bytes, message)
 
 
 __all__ = (
-    "parse_email_bytes", 
-    "detect_email_provider", 
-    "fetch_emails_from", 
-
+    "parse_email_bytes",
+    "detect_email_provider",
+    "fetch_emails_from",
 )
-

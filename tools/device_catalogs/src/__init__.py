@@ -62,6 +62,7 @@ One module per responsibility, each owning the constants only it needs
 
     cli.py        which builders exist, and the argument parsing
 """
+from __future__ import annotations as _annotations
 
 from .cli import BUILDERS, main
 

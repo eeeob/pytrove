@@ -18,12 +18,13 @@ import, no call, no awareness: when no `.prev` file exists, nothing
 accumulates and nothing breaks.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import os
 import shutil
 import stat
 import time
+from collections.abc import Callable
 from datetime import date
 from pathlib import Path
 from typing import ClassVar
@@ -61,7 +62,6 @@ class Janitor:
         the entire interface between a tool and this package, so it is
         defined once, beside every other path in the folder contract.
         """
-
         aside = Layout.aside(path)
         if not self.dry_run:
             self._delete(aside)                   # a stale .prev from a crash
@@ -69,14 +69,14 @@ class Janitor:
         return aside
 
     @staticmethod
-    def _drop_readonly(func, path, _exc):         # noqa: ANN001
-        """git marks its objects read-only, which makes rmtree fail on Windows.
+    def _drop_readonly(func: Callable[[str], object], path: str,
+                       _exc: object) -> None:
+        """Git marks its objects read-only, which makes rmtree fail on Windows.
 
         `onerror` rather than `onexc`: the latter arrived in 3.12 and tools/
         still has to run on 3.10. It is soft-deprecated, not removed, and
         emits no warning as late as 3.14.
         """
-
         os.chmod(path, stat.S_IWRITE)
         func(path)
 
@@ -110,7 +110,6 @@ class Janitor:
 
     def _sources(self, report: Report) -> list[Action]:
         """Cached downloads whose upstream moved."""
-
         actions: list[Action] = []
         for verdict in report.verdicts:
             source = self.registry.source(verdict.source_id)
@@ -140,7 +139,6 @@ class Janitor:
         source. Whole days, matching the lock's own granularity, so a body
         refetched on the day of the change is kept.
         """
-
         actions: list[Action] = []
         for verdict in report.verdicts:
             source = self.registry.source(verdict.source_id)
@@ -170,7 +168,6 @@ class Janitor:
         5,700 requests -- so the only honest signals are "a source it was
         built from changed" and "it is simply old".
         """
-
         changed = {v.source_id for v in report.verdicts
                    if v.state is State.CHANGED}
         actions: list[Action] = []
@@ -199,7 +196,6 @@ class Janitor:
         is done; a run interrupted in between leaves it behind, and it is
         megabytes of git objects nothing will ever read again.
         """
-
         actions: list[Action] = []
         for name in self.registry.scratch:
             path = self.registry.cache_dir / name
@@ -219,7 +215,6 @@ class Janitor:
         Orphans are reported, never deleted. Guessing that an unknown file is
         rubbish is how a 20 MB cache disappears.
         """
-
         if not self.registry.cache_dir.is_dir():
             return []
 
@@ -242,7 +237,6 @@ class Janitor:
 
     def run(self, report: Report) -> list[Action]:
         """Clean up after one check. Order matters only for readability."""
-
         return [
             *self._scratch(),
             *self._sources(report),
@@ -254,5 +248,4 @@ class Janitor:
     @staticmethod
     def removed(actions: list[Action]) -> list[str]:
         """What actually left the cache, for the run state file."""
-
         return [a.cache for a in actions if a.verb.removes]

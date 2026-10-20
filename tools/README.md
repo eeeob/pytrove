@@ -233,7 +233,7 @@ a weight, a ceiling, a hand-estimated share.
 id = "glibc_versions"
 url = "https://example.org/glibc.json"
 value = 43                           # what the decision currently assumes
-used_by = "pytrove/_devices.py :: LIBC"
+used_by = "pytrove/tg_tools/_internal/catalog.py :: LIBC"
 decision = """
 Why this value, and what changing it would mean."""
 
@@ -281,7 +281,7 @@ behind it.
 
 The cadence is declared **twice** — in the workflow's `cron` and in
 `tools/<tool>/schedule/schedule.toml`, which is the declaration of record —
-because a trigger cannot be computed in Actions. `tests/test_preflight.py`
+because a trigger cannot be computed in Actions. `tests/devtools/preflight/test_preflight.py`
 fails in both directions if the two drift apart, and the report derives
 "about N days" from the cron rather than from a second hand-written number.
 
@@ -315,12 +315,12 @@ or `gone`; the last two are fatal, `flaky` is transient, the rest are clear.
 ## Tests
 
 ```sh
-pytest tests/test_preflight.py          # the machinery and the folder contract
-pytest tests/test_device_catalogs.py    # the catalogs tool's own logic
-pytest tests/test_devices_data.py       # the generated data, against its sources
+pytest tests/devtools/preflight/test_preflight.py          # the machinery and the folder contract
+pytest tests/devtools/device_catalogs/test_device_catalogs.py    # the catalogs tool's own logic
+pytest tests/tools/tg/test_devices_data.py       # the generated data, against its sources
 ```
 
-`tests/test_preflight.py` also guards the structure itself: the layering above,
+`tests/devtools/preflight/test_preflight.py` also guards the structure itself: the layering above,
 the one-door rule, the cron duplication, and that every tool carries a
 `docs/DEVELOPING.md`. None of them need a network.
 

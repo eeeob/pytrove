@@ -1,110 +1,76 @@
+"""The dataclass base every serialisable model builds on."""
+
 from __future__ import annotations as _annotations
 
-from typing import (
-    Any, ClassVar,
-    get_args, get_type_hints, get_origin
-)
+import json
+import sys
+from collections.abc import Iterator, Mapping
+from dataclasses import asdict, dataclass, fields, is_dataclass
+from enum import Enum
+from typing import Any, ClassVar, get_args, get_origin
 
-try:
+if sys.version_info >= (3, 11):
     from typing import Self
-except ImportError:  # Python < 3.11
+else:
     from typing_extensions import Self
 
-from enum import EnumMeta as EnumType  # EnumType is only an alias for EnumMeta added in 3.11
-from dataclasses import dataclass, fields, asdict, is_dataclass
-
 from ..data_tools import clean_none_values, enum_to_value, value_to_enum
-from ..iter_tools import to_frozenset, iter_flat_cont
-
-
-import inspect
-import json
-
-
-def _resolved_hints(cls: type) -> list[Any]:
-    """Every annotation on `cls` and its bases, each resolved on its own.
-
-    get_type_hints(cls) resolves all of them together, so one annotation
-    naming a type that is not importable here (an optional extra's class,
-    or one only imported under TYPE_CHECKING) fails the whole class. Those
-    are skipped instead: such a field has no enum type this can find, which
-    is the same as not having one, and the rest of the class still works.
-    """
-
-    hints = []
-
-    for klass in reversed(cls.__mro__):
-        for name, annotation in inspect.get_annotations(klass).items():
-            holder = type("_AnnotationHolder", (), {"__annotations__": {name: annotation}, "__module__": klass.__module__})
-
-            try:
-                hints.append(get_type_hints(holder)[name])
-            except NameError:
-                continue
-
-    return hints
+from ._internal import _resolved_hints
 
 
 @dataclass
 class BaseDataClass:
-    """Dataclass base providing dict (de)serialization with two conventions:
+    """A dataclass base that converts to and from a dict.
 
-      - a leading underscore on a field name (`_foo`) makes it "private": a
-        `foo` property proxying to `_foo` is auto-generated, and to_dict()/
-        from_dict() (but not the *_raw_dict variants) expose/accept it under
-        the public `foo` name instead of `_foo`;
-      - enum-typed fields (found anywhere in a field's type hint, including
-        nested inside Optional/List/etc.) can be round-tripped between enum
-        members and their raw values via `enums_to_values`/`values_to_enums`.
+    Two conventions apply to every subclass:
 
-    All of this is computed once per subclass and cached as class attributes
-    by _ensure_field_meta() -- see there for how fields/enums are discovered.
+    - A field named with a leading underscore (`_foo`) is private: a `foo`
+      property proxying to it is generated, and `to_dict()`/`from_dict()`
+      (but not the `*_raw_dict` variants) use the public name `foo`.
+    - Enum types found anywhere in a field's annotation, nested ones included,
+      can be converted between members and raw values with
+      `enums_to_values`/`values_to_enums`.
+
+    Both are computed once per subclass by `_ensure_field_meta()`.
     """
 
     __public_field_names__: ClassVar[list[str]]
     __private_field_names__: ClassVar[list[str]]
     __raw_private_fields__: ClassVar[frozenset[str]]
-    __enums_types__: ClassVar[frozenset[EnumType]]
+    __enums_types__: ClassVar[frozenset[type[Enum]]]
 
     @classmethod
     def _ensure_field_meta(cls) -> None:
-        """Compute and cache, once per subclass, which fields are public vs.
-        private and which enum classes appear anywhere in the field
-        annotations -- both to_dict()/from_dict() and the enum conversion in
-        data_tools.value_to_enum()/enum_to_value() rely on this.
+        """Compute and cache which fields are public or private, and which enums the annotations name.
 
-        Cached on `cls` itself via `"__public_field_names__" in vars(cls)`
-        (not `hasattr`, which would also see an inherited base's cache) so
-        each subclass gets its own metadata instead of silently reusing a
-        parent's.
+        The cache is checked with `"__public_field_names__" in vars(cls)`, not
+        `hasattr`, which would also see a base class's cache: each subclass
+        gets its own.
 
-        `_deep_extract` walks a field's type hint recursively via
-        get_origin()/get_args() to find every Enum class inside it -- so
-        `SomeEnum | None`, `list[SomeEnum]`, `dict[str, SomeEnum]` etc. are
-        all detected, not just a bare `SomeEnum` annotation.
+        Raises:
+            TypeError: If `cls` is not a dataclass.
         """
-
         if "__public_field_names__" in vars(cls):
             return
 
         if not is_dataclass(cls):
-            raise TypeError(
-                f"{cls.__name__} must be dataclass"
-            )
+            msg = f"{cls.__name__} must be dataclass"
+            raise TypeError(msg)
 
         public = []
         private = []
 
-        def _deep_extract(value):
-            if isinstance(value, EnumType):
+        def _deep_extract(value: Any) -> Iterator[type[Enum]]:
+            """Yield every enum class inside a type hint, walking `get_origin()`/`get_args()`."""
+            if isinstance(value, type) and issubclass(value, Enum):
                 yield value
             elif (origin := get_origin(value)) is not None:
-                for a in (*(get_args(value) or ()), origin):
-                    yield from _deep_extract(a)
+                for arg in (*(get_args(value) or ()), origin):
+                    yield from _deep_extract(arg)
 
-        cls.__enums_types__ = to_frozenset(
-            iter_flat_cont(_deep_extract(t) for t in _resolved_hints(cls))
-        )
+        names = {f.name for f in fields(cls)}
+        hints = _resolved_hints(cls)
+        cls.__enums_types__ = frozenset(enum for name in names if name in hints for enum in _deep_extract(hints[name]))
 
         for f in fields(cls):
             name = f.name
@@ -130,18 +96,23 @@ class BaseDataClass:
         cls.__private_field_names__ = private
 
     def __post_init__(self) -> None:
-        # Guarantees the private-field property proxies (e.g. `.b` for `_b`) exist
-        # as soon as an instance is created, without requiring to_dict/from_dict
-        # to be called first. Subclasses that define their own __post_init__ must
-        # call super().__post_init__() to keep this guarantee.
+        """Create the private-field properties as soon as an instance exists.
+
+        A subclass that defines its own `__post_init__` must call
+        `super().__post_init__()` to keep this.
+        """
         self.__class__._ensure_field_meta()
 
-    def to_raw_dict(
-        self, 
-        without_none_values: bool = False, 
-        enums_to_values: bool = False, 
-        ) -> dict[str, Any]:
+    def to_raw_dict(self, without_none_values: bool = False, enums_to_values: bool = False) -> dict[str, Any]:
+        """Return the fields under their raw names, as `dataclasses.asdict()` does.
 
+        Args:
+            without_none_values: Drop `None` values.
+            enums_to_values: Replace enum members with their values.
+
+        Returns:
+            The fields, private ones keeping their leading underscore.
+        """
         dct = asdict(self)
 
         if without_none_values:
@@ -151,18 +122,21 @@ class BaseDataClass:
 
         return dct
 
-    def to_dict(
-        self,
-        without_none_values: bool = False,
-        enums_to_values: bool = False,
-        ) -> dict[str, Any]:
+    def to_dict(self, without_none_values: bool = False, enums_to_values: bool = False) -> dict[str, Any]:
+        """Return the fields under their public names.
 
+        Args:
+            without_none_values: Drop `None` values.
+            enums_to_values: Replace enum members with their values.
+
+        Returns:
+            The fields, private ones without their leading underscore.
+        """
         self.__class__._ensure_field_meta()
 
-        dct = (
-            {name: getattr(self, name) for name in self.__class__.__public_field_names__} | 
-            {name: getattr(self, name) for name in self.__class__.__private_field_names__}
-        )
+        dct = {name: getattr(self, name) for name in self.__class__.__public_field_names__} | {
+            name: getattr(self, name) for name in self.__class__.__private_field_names__
+        }
 
         if without_none_values:
             dct = clean_none_values(dct)
@@ -170,73 +144,89 @@ class BaseDataClass:
             dct = enum_to_value(dct)
 
         return dct
-        
+
     @classmethod
     def from_raw_dict(
-        cls, 
-        data: dict, 
+        cls,
+        data: Mapping[str, Any],
         without_none_values: bool = False,
         values_to_enums: bool = False,
-        ) -> Self:
+    ) -> Self:
+        """Build an instance from fields under their raw names; unknown keys are ignored.
 
+        Args:
+            data: The fields, private ones with their leading underscore.
+            without_none_values: Drop `None` values first, so their fields take their defaults.
+            values_to_enums: Turn raw values back into the enum members the annotations name.
+
+        Returns:
+            The new instance.
+        """
         cls._ensure_field_meta()
 
-        _private = cls.__raw_private_fields__
-        _public = cls.__public_field_names__
-        data = {
-            k: v for k, v in data.items() 
-            if k in _private or k in _public
-            }
+        private = cls.__raw_private_fields__
+        public = cls.__public_field_names__
+        kept: Mapping[str, Any] = {k: v for k, v in data.items() if k in private or k in public}
 
         if without_none_values:
-            data = clean_none_values(data)
-        
+            kept = clean_none_values(kept)
+
         if values_to_enums and cls.__enums_types__:
-            data = value_to_enum(data, cls.__enums_types__, "v")
-        
-        return cls(**data)
-    
+            kept = value_to_enum(kept, cls.__enums_types__, "v")
+
+        return cls(**kept)
+
     @classmethod
     def from_dict(
-        cls, 
-        data: dict, 
+        cls,
+        data: Mapping[str, Any],
         without_none_values: bool = False,
         values_to_enums: bool = False,
-        ) -> Self:
+    ) -> Self:
+        """Build an instance from fields under their public names; unknown keys are ignored.
 
+        Args:
+            data: The fields, private ones without their leading underscore.
+            without_none_values: Drop `None` values first, so their fields take their defaults.
+            values_to_enums: Turn raw values back into the enum members the annotations name.
+
+        Returns:
+            The new instance.
+        """
         cls._ensure_field_meta()
 
-        _private = cls.__private_field_names__
-        _public = cls.__public_field_names__
+        private = cls.__private_field_names__
+        public = cls.__public_field_names__
+        renamed = {k: v for k, v in data.items() if k in private or k in public}
 
-        data = {
-            k: v for k, v in data.items() 
-            if k in _private or k in _public
-            }
+        for name in private:
+            if name in renamed:
+                renamed[f"_{name}"] = renamed.pop(name)
 
-        for name in cls.__private_field_names__:
-            if name in data:
-                data[f"_{name}"] = data.pop(name)
-
+        kept: Mapping[str, Any] = renamed
 
         if without_none_values:
-            data = clean_none_values(data)
+            kept = clean_none_values(kept)
 
         if values_to_enums and cls.__enums_types__:
-            data = value_to_enum(data, cls.__enums_types__, "v")
+            kept = value_to_enum(kept, cls.__enums_types__, "v")
 
-        
-        return cls(**data)
-    
+        return cls(**kept)
+
     def copy(self) -> Self:
-        """Deep copy, rebuilt through to_raw_dict(): a field that cannot be deep-copied (a lock, say) raises TypeError."""
+        """Return a deep copy, rebuilt through `to_raw_dict()`.
+
+        Returns:
+            The copy.
+
+        Raises:
+            TypeError: If a field cannot be deep-copied (a lock, say).
+        """
         return self.__class__.from_raw_dict(self.to_raw_dict())
-    
-    def __str__(self):
+
+    def __str__(self) -> str:
+        """Return the public fields as indented JSON, enums as values and `None` dropped."""
         return json.dumps(self.to_dict(True, True), indent=4, ensure_ascii=False, default=str)
 
 
-
-__all__ = (
-    "BaseDataClass", 
-)
+__all__ = ("BaseDataClass",)

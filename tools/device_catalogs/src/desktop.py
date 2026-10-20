@@ -1,10 +1,11 @@
 """Windows and Linux, which Telegram reports as one desktop platform."""
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 import collections
 import re
-from typing import Any, ClassVar, Iterable
+from typing import Any, ClassVar
+from collections.abc import Iterable
 
 from .builder import Builder
 from .catalog import Catalog
@@ -15,8 +16,10 @@ from .shared import Share
 # ----------------------------- desktop builder -----------------------------
 
 class DesktopBuilder(Builder):
-    """One catalog for every desktop OS, because that is the one platform
-    Telegram's clients present: `PlatformDevice.DESKTOP`.
+    """One catalog for every desktop OS.
+
+    That is the one platform Telegram's clients present:
+    `PlatformDevice.DESKTOP`.
 
     Windows and Linux share the hardware pool outright -- the same PC reports
     either, and both clients derive the model from the same firmware fields
@@ -218,17 +221,15 @@ class DesktopBuilder(Builder):
 
     @staticmethod
     def bios_date(record: dict[str, str]) -> str:
-        """dmidecode prints MM/DD/YYYY; reorder so a string compare sorts it.
+        """Dmidecode prints MM/DD/YYYY; reorder so a string compare sorts it.
 
         This stands in for a release date, which DMI does not carry.
         """
-
         parts = record.get("bios", "").split("/")
         return f"{parts[2]}-{parts[0]}-{parts[1]}" if len(parts) == 3 else ""
 
     def models_by_vendor(self, records: Iterable[dict[str, str]]) -> dict[str, dict[str, str]]:
-        """vendor -> {model string: newest BIOS date that produced it}."""
-
+        """Vendor -> {model string: newest BIOS date that produced it}."""
         by_vendor: dict[str, dict[str, str]] = collections.defaultdict(dict)
         for record in records:
             if record.get("family", "").startswith(self.CHROME_OS_FAMILY):
@@ -243,9 +244,11 @@ class DesktopBuilder(Builder):
         return by_vendor
 
     def pc_pool(self, records: Iterable[dict[str, str]]) -> list[dict[str, Any]]:
-        """The newest PER_VENDOR models per vendor, plus the no-firmware
-        fallback, all reportable under both Windows and Linux."""
+        """Return the newest `PER_VENDOR` models per vendor, plus a fallback.
 
+        The fallback covers firmware that reports nothing; every entry is
+        reportable under both Windows and Linux.
+        """
         by_vendor = self.models_by_vendor(records)
         devices: list[dict[str, Any]] = [
             {"model": self.FALLBACK_MODEL, "os": self.PC_OS, "vendor": "Other",
@@ -280,7 +283,6 @@ class DesktopBuilder(Builder):
     @classmethod
     def linux_only_models(cls) -> list[dict[str, Any]]:
         """Fallback names no Windows machine can report."""
-
         return [
             {"model": share.name, "os": ["linux"], "vendor": "Other",
              "weight": share.weight, "source": source}
@@ -301,7 +303,6 @@ class DesktopBuilder(Builder):
         and it drops the desktop identifiers no BSD can report, which would
         otherwise pair a FreeBSD release with Ubuntu's own session name.
         """
-
         out: list[dict[str, Any]] = []
         for kernel in cls.KERNELS:
             linux = kernel.name == "Linux"
@@ -324,6 +325,7 @@ class DesktopBuilder(Builder):
     # --- output -----------------------------------------------------------
 
     def build(self) -> list[Catalog]:
+        """Build the desktop catalog from the DMI pool and Linux-only models."""
         devices = self.pc_pool(DmiHarvest(self.cache).records())
         devices += self.linux_only_models()
 

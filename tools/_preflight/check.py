@@ -17,7 +17,7 @@ watch is compared against its own declaration, which is what a human decided
 instead of going quiet the moment it is recorded.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
 from dataclasses import replace
 from typing import Any, ClassVar
@@ -112,14 +112,12 @@ class Checker:
         no natural scalar -- otherwise a reformatted feed with an identical
         newest version would be reported as a change nobody can act on.
         """
-
         if now is not None or was is not None:
             return was != now
         return bool(sha_was) and sha_was != sha_now
 
     def _failed(self, source: Source, verdict: Verdict) -> Verdict:
         """Attach the consecutive-failure count a dead/unreachable source carries."""
-
         return self._replace(
             verdict, consecutive=self.lock.consecutive(source.id) + 1)
 
@@ -138,7 +136,6 @@ class Checker:
         until somebody does, rather than being quietly re-recorded -- which is
         the whole difference between watching a decision and tracking a feed.
         """
-
         probe = watch.as_source()
         verdict = self.prober.probe(probe)
 
@@ -159,7 +156,6 @@ class Checker:
         Eighteen sources do not die in the same minute, so past a point the
         honest answer is that the network went, and nothing is accused.
         """
-
         if not verdicts:
             return Health.OK
         flaky = sum(1 for v in verdicts if v.is_transient)
