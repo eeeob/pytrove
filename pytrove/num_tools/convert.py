@@ -33,6 +33,16 @@ def to_int(value: Any, as_int: bool = True) -> Any:
 
     Returns:
         The number, or `value` unchanged when it is not a numeric string.
+
+    Example:
+        >>> to_int("3")
+        3
+        >>> to_int("3.5")
+        '3.5'
+        >>> to_int("3.5", as_int=False)
+        3.5
+        >>> to_int("+966")
+        '+966'
     """
     if not isinstance(value, str) or value.startswith("+"):
         return value
@@ -52,6 +62,10 @@ def to_int_deep(data: NestedContainer[_T], as_int: bool = False) -> NestedContai
 
     Returns:
         The structure with numeric strings converted.
+
+    Example:
+        >>> to_int_deep({"a": ["1", "2.5"]})
+        {'a': [1, 2.5]}
     """
     return map_deep(data, lambda value: to_int(value, as_int))
 
@@ -74,6 +88,16 @@ def calc(value: Any, as_int: bool = False) -> Any:
 
     Returns:
         The result, or `value` itself when it cannot be evaluated.
+
+    Example:
+        >>> calc("2 + 3 * 4")
+        14
+        >>> calc("7 / 2")
+        3.5
+        >>> calc("7 / 2", as_int=True)
+        3
+        >>> calc("abc")
+        'abc'
     """
     if not isinstance(value, str):
         return value
