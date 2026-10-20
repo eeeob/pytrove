@@ -28,6 +28,16 @@ class WeakRegistry(Generic[_WeakRegistryKT], ABC):
     Attributes:
         __allow_duplicate_keys__: Whether registering a live key replaces it; inherited.
         __instances__: The live instances by key.
+
+    Example:
+        >>> class Widget(WeakRegistry[str]):
+        ...     pass
+        >>> w = Widget("main")
+        >>> Widget.__instances__["main"] is w
+        True
+        >>> del w
+        >>> "main" in Widget.__instances__
+        False
     """
 
     __slots__ = ("__weakref__",)

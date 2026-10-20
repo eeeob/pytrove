@@ -109,6 +109,14 @@ def smart_split(
 
     Raises:
         IndexError: If an int `indexing` is out of range or its part is filtered out.
+
+    Example:
+        >>> smart_split("1, 2, 3", separator=",")
+        ['1', ' 2', ' 3']
+        >>> smart_split("1, 2, 3", slice(1, None), strip=True, separator=",")
+        ['2', '3']
+        >>> smart_split("1, 2, 3", 0, int, separator=",")
+        1
     """
     if not isinstance(separator, str) and callable(separator):
         separator = separator()

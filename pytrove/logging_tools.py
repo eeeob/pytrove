@@ -80,6 +80,16 @@ def attach_logger_handlers(hdlrs_options: NestedContainer[LogHandlerOptions], re
 
     Returns:
         The handler (or pair) for a single description, otherwise a list of them.
+
+    Example:
+        >>> import io
+        >>> logger, handler = attach_logger_handlers(
+        ...     LogHandlerOptions(logger="pytrove.example", handler=io.StringIO(), level=logging.INFO),
+        ...     return_loggers=True,
+        ... )
+        >>> logger.name, type(handler).__name__, handler.level
+        ('pytrove.example', 'StreamHandler', 20)
+        >>> logger.removeHandler(handler)
     """
     handlers: list[Any] = []
 
@@ -112,6 +122,10 @@ def set_loggers(loggers_options: NestedContainer[LoggerOptions]) -> logging.Logg
 
     Returns:
         The logger for a single description, otherwise a list of them.
+
+    Example:
+        >>> set_loggers(LoggerOptions(logger="pytrove.example", level=logging.DEBUG, propagate=False)).level
+        10
     """
     loggers = []
 

@@ -72,6 +72,12 @@ def detect_email_provider(email: str) -> ImapEmailProvider | None:
 
     Raises:
         ValidationError: If `email` is not an address.
+
+    Example:
+        >>> detect_email_provider("user@gmail.com")
+        <ImapEmailProvider.GMAIL: ('imap.gmail.com', 993)>
+        >>> detect_email_provider("user@example.com") is None
+        True
     """
     if not is_email(email):
         msg = f"{email} is not valid email"

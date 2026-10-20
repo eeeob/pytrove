@@ -28,6 +28,12 @@ def generate_secret(
     Raises:
         ValueError: If `length` is not positive, no set is enabled, or `length`
             is shorter than the number of enabled sets.
+
+    Example:
+        >>> len(generate_secret(12))
+        12
+        >>> generate_secret(6, use_upper=False, use_lower=False, use_symbols=False).isdigit()
+        True
     """
     if length <= 0:
         msg = "Password length must be greater than 0"

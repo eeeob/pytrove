@@ -104,6 +104,12 @@ def is_email(email: Any) -> TypeIs[str]:
 
     Returns:
         Whether it is a string fully matching `EMAIL_PATTERN`.
+
+    Example:
+        >>> is_email("user@example.com")
+        True
+        >>> is_email("user@localhost")
+        False
     """
     return isinstance(email, str) and bool(EMAIL_PATTERN.fullmatch(email))
 
