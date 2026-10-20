@@ -67,57 +67,59 @@ OS_SHARES: dict[str, float] = {"windows": 20.0, "linux": 3.0}
 
 @dataclass(frozen=True, slots=True)
 class _Device:
-    """One catalog device with its resolved weights.
-
-    Attributes:
-        model: The model string.
-        versions: The OS versions it can run.
-        version_weights: Their weights.
-        weight: The device's own weight.
-        oses: The OSes it reports; empty on a single-OS platform.
-        by_os: Per OS, its versions and their weights.
-    """
+    """One catalog device with its resolved weights."""
 
     model: str
+    """The model string, as the client reports it."""
+
     versions: tuple[str, ...]
+    """The OS versions it can run."""
+
     version_weights: tuple[float, ...]
+    """One weight per entry of `versions`: explicit in the data, or by recency."""
+
     weight: float
+    """The device's own weight, scaled by its group share and floored at `_MIN_WEIGHT`."""
+
     oses: tuple[str, ...] = ()
+    """The OSes it reports; empty on a single-OS platform."""
+
     by_os: dict[str, tuple[tuple[str, ...], tuple[float, ...]]] = field(default_factory=dict, compare=False)
+    """Per OS, the subset of `versions` and their weights; empty on a single-OS platform."""
 
 
 @dataclass(frozen=True, slots=True)
 class _OsView:
-    """The devices that can report one OS, with their weights.
-
-    Attributes:
-        devices: The devices.
-        weights: Their weights.
-    """
+    """The devices that can report one OS, with their weights."""
 
     devices: tuple[_Device, ...]
+    """The devices whose `by_os` holds the OS."""
+
     weights: tuple[float, ...]
+    """One weight per entry of `devices`, each device's own."""
 
 
 @dataclass(frozen=True, slots=True)
 class _Catalog:
-    """One platform's catalog, weights resolved.
-
-    Attributes:
-        platform: The platform name.
-        updated: When the data was generated.
-        devices: Every usable device.
-        weights: Their weights.
-        oses: The OSes covered; empty for a single-OS platform.
-        by_os: Per OS, the devices that can report it.
-    """
+    """One platform's catalog, weights resolved."""
 
     platform: str
+    """The platform name, also the data file's stem."""
+
     updated: str
+    """When the data was generated, as the file states it; empty if it does not."""
+
     devices: tuple[_Device, ...]
+    """Every usable device."""
+
     weights: tuple[float, ...] = field(compare=False)
+    """One weight per entry of `devices`, for a single draw across the platform."""
+
     oses: tuple[str, ...] = ()
+    """The OSes covered, in the order the data lists them; empty for a single-OS platform."""
+
     by_os: dict[str, _OsView] = field(default_factory=dict, compare=False)
+    """Per OS, the devices that can report it; only OSes with at least one device."""
 
     def version_count(self) -> int:
         """Count the distinct OS versions across all devices.

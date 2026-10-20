@@ -19,14 +19,13 @@ class SystemInfo:
     `random_device` draws a device and then an OS version it really runs,
     weighted towards current hardware and releases. A multi-OS platform draws
     the OS first, by `OS_SHARES`. A `unique_id` makes the draw reproducible.
-
-    Attributes:
-        platform: The catalog's name.
-        platform_weight: Relative likelihood when no platform is requested.
     """
 
     platform: ClassVar[str]
+    """The catalog's name; each subclass sets its own."""
+
     platform_weight: ClassVar[float] = 1.0
+    """Relative likelihood when no platform is requested."""
 
     @classmethod
     def catalog(cls) -> _Catalog:
