@@ -52,6 +52,14 @@ class CompiledLine(CompiledConditional):
 
         Returns:
             The text, or `None` if the line's conditions are not met.
+
+        Example:
+            >>> CompiledLine.compile("Hi {name}").format({"name": "Bob"})
+            'Hi Bob'
+            >>> CompiledLine.compile({"text": "Hi {name}", "all_of": ["name"]}).format({}) is None
+            True
+            >>> CompiledLine.compile({"text": "Hi {name}", "default_keys": {"name": "you"}}).format({})
+            'Hi you'
         """
         kw = self.with_defaults(kw)
 
@@ -100,6 +108,12 @@ class CompiledEachLine(BaseDataClass):
 
         Returns:
             The lines joined by newlines, or `None` if none rendered.
+
+        Example:
+            >>> block = CompiledEachLine.compile({"each": "items", "item": "- {n}"})
+            >>> print(block.format({"items": [{"n": 1}, {"n": 2}]}))
+            - 1
+            - 2
         """
         each = kw.get(self.each)
 

@@ -32,6 +32,22 @@ class BaseDataClass:
       `enums_to_values`/`values_to_enums`.
 
     Both are computed once per subclass by `_ensure_field_meta()`.
+
+    Example:
+        >>> from dataclasses import dataclass
+        >>> @dataclass
+        ... class Point(BaseDataClass):
+        ...     x: int
+        ...     _tag: str = "p"
+        >>> p = Point(1)
+        >>> p.tag
+        'p'
+        >>> p.to_dict()
+        {'x': 1, 'tag': 'p'}
+        >>> p.to_raw_dict()
+        {'x': 1, '_tag': 'p'}
+        >>> Point.from_dict({"x": 2, "tag": "q", "extra": 0})
+        Point(x=2, _tag='q')
     """
 
     __public_field_names__: ClassVar[list[str]]

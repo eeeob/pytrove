@@ -66,6 +66,12 @@ class CompiledConditional(CompiledDefaults):
 
         Returns:
             `True` if the part should render.
+
+        Example:
+            >>> CompiledConditional(all_of={"a"}).can_format({"a": 1})
+            True
+            >>> CompiledConditional(any_of={"a", "b"}).can_format({"c": 1})
+            False
         """
         return not (
             (self.all_of and not all(k in kw for k in self.all_of))
