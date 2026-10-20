@@ -94,17 +94,18 @@ def _flatten_class_info(class_info: _ClassInfo) -> tuple[type, ...]:
 
     `X | Y` (types.UnionType) is already accepted directly by isinstance()/
     issubclass() on every version this package targets (3.10+), so it isn't
-    the problem -- typing.Union[X, Y] is (see the comment above), and that's
-    what get_origin()/get_args() unwrap here. Tuples are flattened
-    recursively so a tuple mixing plain types, `X | Y`, and `Union[...]`
-    members (nested arbitrarily) all resolve the same way.
+    the problem -- typing.Union[X, Y] is, and that's what get_origin()/
+    get_args() unwrap here. Tuples are flattened recursively so a tuple
+    mixing plain types, `X | Y`, and `Union[...]` members (nested
+    arbitrarily) all resolve the same way, in first-seen order.
     """
 
     if isinstance(class_info, tuple):
-        flattened = set()
+        flattened: dict[type, None] = {}
 
         for c in class_info:
-            flattened.update(_flatten_class_info(c))
+            for t in _flatten_class_info(c):
+                flattened[t] = None
 
         return tuple(flattened)
 

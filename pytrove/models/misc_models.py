@@ -8,13 +8,13 @@ except ImportError:  # Python < 3.11
     from typing_extensions import Self
 
 from dataclasses import field, dataclass
-from threading import RLock
+
 from concurrent.futures import ThreadPoolExecutor
 
 from ..typings import (
     MaybeAwaitable, Number,
     MaybeCoroutineCallable, PathLike,
-    _T, _KT, _VT
+    _T, _KT, _VT, LockProtocol
 )
 from ..enums import TriggerOn
 
@@ -75,9 +75,9 @@ class DeferredCall(Generic[_T]):
 @dataclass(slots=True)
 class JsonContainer(Generic[_KT, _VT], BaseDataClass):
     path: PathLike
-    lock: RLock | None = None
+    lock: LockProtocol | None = None
 
-    data: dict[_KT, _VT] = field(default=_NOT_SET, init=False)
+    data: dict[_KT, _VT] | object = field(default=_NOT_SET, init=False)
 
     def is_loaded(self) -> bool:
         return self.data is not _NOT_SET
@@ -115,7 +115,9 @@ class JsonContainer(Generic[_KT, _VT], BaseDataClass):
     def delete(self, key: _KT, save_now: bool = False) -> None:
         self.load()
 
-        if self.data.pop(key, None) is not None:
+        if key in self.data:
+            del self.data[key]
+
             if save_now:
                 self.save()
     
@@ -151,7 +153,8 @@ class JsonContainer(Generic[_KT, _VT], BaseDataClass):
         if not self.is_loaded():
             await self.async_load()
 
-        if self.data.pop(key, None) is not None:
+        if key in self.data:
+            del self.data[key]
 
             if save_now:
                 await self.async_save()

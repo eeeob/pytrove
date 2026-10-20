@@ -208,9 +208,9 @@ def value_to_enum(
     ) -> Mapping[_KT, _EnumT | _VT]: ...
 @overload
 def value_to_enum(
-    values: 'Container[ _T]',
+    values: Container[_T],
     enum_classes: NestedContainer[type[_EnumT]],
-    ) -> 'Container[_EnumT | _T]': ...
+    ) -> Container[_EnumT | _T]: ...
 @overload
 def value_to_enum(
     values: _T,
@@ -333,16 +333,10 @@ def get_nested_dict_key(path_dct: NestedStrKeyDict[Literal[True, 1]], sep: str =
     that marks one path with a leaf of `True`/`1` (e.g. `{"a": {"b": True}}`),
     return that path joined by `sep` (`"a.b"`).
 
-    NOTE: the leaf-value check below (`value != 1: value = value.numerator`)
-    only rejects non-numeric leaves -- `.numerator` raises AttributeError for
-    those, but for any *other* number (e.g. a leaf of `2`) `.numerator`
-    succeeds and its result is discarded, so an invalid leaf like `2` is
-    silently accepted instead of rejected. This looks like leftover/incomplete
-    validation rather than intended behavior; flagging here rather than
-    silently treating it as correct.
+    Any other leaf (`2`, `"x"`, `False`) raises TypeError naming the path.
     """
 
-    def flatten(current_dict: NestedStrKeyDict[Literal[True, 1]], current_path: str = "") -> tuple[str, Literal[1]]:
+    def flatten(current_dict: NestedStrKeyDict[Literal[True, 1]], current_path: str = "") -> str:
         key, value = next(iter(current_dict.items()))
 
         new_path = f"{current_path}{sep}{key}" if current_path else key
@@ -350,8 +344,8 @@ def get_nested_dict_key(path_dct: NestedStrKeyDict[Literal[True, 1]], sep: str =
         if isinstance(value, dict):
             return flatten(value, new_path)
 
-        if value != 1:
-            value = value.numerator
+        if value is not True and value != 1:
+            raise TypeError(f"leaf at {new_path!r} must be True or 1, not {value!r}")
 
         return new_path
 

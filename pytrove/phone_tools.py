@@ -16,6 +16,7 @@ except ImportError:
     pass
 
 from .typings import PhoneNumber, RegionCode, _True
+from .errors import ValidationError
 from .text_tools import clean_spaces, to_str
 from .validate_tools import is_rc, validation, is_phone_number
 from .callable_tools import safe_call
@@ -63,7 +64,10 @@ def parse_phone(
     
 @_optional_import(("phonenumbers", "phone"))
 def cc_from_rc(rc: RegionCode) -> int:
-    return country_code_for_valid_region(rc.lower())
+    try:
+        return country_code_for_valid_region(rc.lower())
+    except Exception as exc:
+        raise ValidationError(f"invalid region code {rc!r}") from exc
 
 @_optional_import(("phonenumbers", "phone"))
 def cc_from_phone(phone_number: PhoneNumber | PhoneNumberObj) -> int:
@@ -92,7 +96,7 @@ def rc_from_phone(phone_number: PhoneNumber | PhoneNumberObj) -> RegionCode:
 @_optional_import(("phonenumbers", "phone"))
 def resolve_rc(value: RegionCode | PhoneNumber | PhoneNumberObj | int) -> RegionCode | None:
     if isinstance(value, int):
-        return rc_from_cc(value)
+        return safe_call(rc_from_cc, value)
     elif isinstance(value, PhoneNumberObj):
         return rc_from_phone(value)
 

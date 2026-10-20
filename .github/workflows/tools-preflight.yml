@@ -1,0 +1,120 @@
+name: Tools preflight
+
+# Checks every upstream the generators under tools/ depend on, on a cadence,
+# so a source that dies or changes shape is found by the schedule rather than
+# months later by a build failing for what looks like its own fault.
+#
+# It never runs a generator. Rebuilding a catalog changes a file that ships in
+# the wheel, and that is a decision with a human behind it; this job only
+# reports what moved, and records what it saw.
+#
+# Each cron below is declared again -- as the declaration of record -- in
+# tools/<tool>/schedule/schedule.toml, because a trigger cannot be computed
+# here. tests/test_preflight.py fails if the two drift apart.
+
+on:
+  schedule:
+    - cron: "19 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      tool:
+        description: "one tool under tools/, or empty for all of them"
+        required: false
+        default: ""
+
+# The lock is the checker's memory: the fingerprint of every source, and the
+# consecutive-failure counter the three-run escalation rule rests on. A runner
+# is new every week, so unless the lock goes back into the repository no
+# counter ever reaches three and no source is ever called dead.
+permissions:
+  contents: write
+
+# Two of these at once would both read the same lock and both try to push it.
+concurrency:
+  group: tools-preflight
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # tools/ is development-only and is not declared in pyproject.toml, so
+      # the library is deliberately not installed here: the checker reads
+      # declarations and never imports a tool. On 3.11+ this installs nothing.
+      - name: Install the tools' own requirements
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r tools/requirements.txt
+
+      # --allow-flaky: a source that could not be reached once is weather, and
+      # failing the job on it would train everyone to ignore this. The counter
+      # in the lock is what turns three weeks of weather into an exit 1.
+      - name: Check the sources
+        id: check
+        env:
+          TOOL: ${{ inputs.tool }}
+        run: |
+          target="--all"
+          if [ -n "$TOOL" ]; then target="--tool $TOOL"; fi
+          set +e
+          python -m tools._preflight $target --allow-flaky | tee preflight.txt
+          code=${PIPESTATUS[0]}
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preflight-report
+          path: preflight.txt
+          if-no-files-found: warn
+
+      # Even when the check failed, and especially then: the counter that
+      # decides when a source is believed dead only advances if it is kept.
+      - name: Record what the check saw
+        if: always()
+        run: |
+          if git diff --quiet -- 'tools/*/sources/sources.lock.json'; then
+            echo "the lock is unchanged; upstream looks exactly as it did"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- 'tools/*/sources/sources.lock.json'
+          git commit -m "chore(tools): record what the weekly source check saw"
+          # The branch is checked out detached-ish, with no upstream set, so
+          # both ends are named explicitly rather than inferred.
+          git pull --rebase --autostash origin "$GITHUB_REF_NAME"
+          git push origin "HEAD:$GITHUB_REF_NAME"
+
+      # The exit code is the whole verdict, which is why nothing here parses a
+      # report to second-guess it.
+      - name: What the exit code means
+        if: always()
+        env:
+          CODE: ${{ steps.check.outputs.code }}
+        run: |
+          case "$CODE" in
+            0)
+              echo "no source moved and nothing needs a developer" ;;
+            2)
+              echo "::notice::a source moved -- see the report; a rebuild is worthwhile" ;;
+            1)
+              echo "::error::a source is gone, has changed shape, or has failed every run for three weeks"
+              exit 1 ;;
+            4)
+              echo "::error::a source registry or schedule is malformed"
+              exit 1 ;;
+            *)
+              echo "::error::the check exited $CODE, which it should not with --allow-flaky"
+              exit 1 ;;
+          esac

@@ -110,9 +110,13 @@ def test_map_deep_kv_applies_key_func_to_a_bare_leaf_key():
 def test_map_deep_kv_uses_value_func_for_a_container_key_not_key_func():
     # A tuple key has no "keys" of its own to offer key_func -- it is
     # rebuilt the same way any other container is, through value_func.
-    result = map_deep_kv({(1, 2): "x"}, str.upper, key_func=lambda k: "should not run")
+    result = map_deep_kv(
+        {(1, 2): "x"},
+        lambda v: v * 10 if isinstance(v, int) else v.upper(),
+        key_func=lambda k: "should not run",
+    )
 
-    assert result == {(1, 2): "X"}
+    assert result == {(10, 20): "X"}
 
 
 def test_map_deep_kv_recurses_into_a_nested_mapping_with_both_funcs():

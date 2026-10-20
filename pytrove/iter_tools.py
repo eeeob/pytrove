@@ -131,11 +131,9 @@ def dedupe(iterable: Iterable[_T], hashable: bool = True) -> list[_T]:
     """Remove duplicate elements from `iterable`, always keeping first-seen
     order.
 
-    `hashable=True` (default) uses `dict.fromkeys()` directly on `iterable`
-    -- the fastest order-preserving dedup available in pure Python (one
-    hash-based pass at the C level, close to plain `set()` speed, and ~35%
-    faster than pre-materializing to a list first since it can consume any
-    iterable as-is).
+    `hashable=True` (default) uses `dict.fromkeys()` directly on `iterable`:
+    one hash-based pass at the C level, and it consumes any iterable as-is
+    without first materializing a list.
 
     `hashable=False` switches to an equality-based scan (`O(n^2)`) for
     elements that can't be hashed (e.g. dicts/lists) -- pass it explicitly
@@ -154,7 +152,7 @@ def dedupe(iterable: Iterable[_T], hashable: bool = True) -> list[_T]:
 
     return result
 
-def pad_list(values: list[_VT], length: int, exact: bool = False, default: _T = None) -> list[_VT | _T]:
+def pad_list(values: list[_VT], length: int, exact: bool = False, default: _T | None = None) -> list[_VT | _T | None]:
     """Pad `values` in place to `length`, filling missing positions with
     `default` -- mutates the list itself rather than building a new one, and
     returns it back for convenience.

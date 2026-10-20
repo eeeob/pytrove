@@ -5,49 +5,25 @@ import logging
 import os
 import pickle
 import stat
-import sys
 
 
-try:
-    _version = sys.version_info[:2]
+if hasattr(os.stat_result, "st_file_attributes"):
+    def _is_link(path):
+        try:
+            st = os.lstat(path)
+        except OSError:
+            return False
 
-    if (3, 10) <= _version <= (3, 12):
-        from shutil import _rmtree_islink as _is_link
-
-    elif (3, 13) <= _version <= (3, 14):
-        from shutil import _rmtree_islink as _islink_st
-
-        def _is_link(path, _islink_st=_islink_st):
-            try:
-                st = os.lstat(path)
-            except OSError:
-                return False
-
-            return _islink_st(st)
-
-        del _islink_st
-    else:
-        raise ImportError
-    
-    del _version
-except ImportError as e:
-    if hasattr(os.stat_result, "st_file_attributes"):
-        def _is_link(path):
-            try:
-                st = os.lstat(path)
-            except OSError:
-                return False
-
-            return (
-                stat.S_ISLNK(st.st_mode)
-                or (
-                    st.st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT
-                    and st.st_reparse_tag == stat.IO_REPARSE_TAG_MOUNT_POINT
-                )
+        return (
+            stat.S_ISLNK(st.st_mode)
+            or (
+                st.st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT
+                and st.st_reparse_tag == stat.IO_REPARSE_TAG_MOUNT_POINT
             )
+        )
 
-    else:
-        _is_link = os.path.islink
+else:
+    _is_link = os.path.islink
 
 
 from pathlib import Path

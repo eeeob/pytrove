@@ -1,0 +1,10 @@
+# Dependencies for running the generators under tools/. Nothing here reaches
+# the pytrove package or its wheel: tools/ is development-only and is not
+# declared in pyproject.toml, deliberately, so installing the library never
+# pulls any of this in.
+#
+#     pip install -r tools/requirements.txt
+#
+# TOML reading only. Python 3.11 ships `tomllib` in the standard library, so
+# on 3.11 and newer this installs nothing at all.
+tomli>=2.0 ; python_version < "3.11"

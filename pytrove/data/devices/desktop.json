@@ -1,0 +1,10151 @@
+{
+ "schema": 1,
+ "platform": "desktop",
+ "updated": "2026-10-14",
+ "os": {
+  "windows": {
+   "model_format": "DeviceModelPretty of real DMI records: SystemProductName, else SystemFamily + BaseBoardProduct; 15 chars, HP names up to 32",
+   "version_format": "marketing name + native architecture",
+   "sources": [
+    "https://github.com/linuxhw/DMI -- real dmidecode output collected from Linux machines",
+    "https://github.com/desktop-app/lib_base/blob/master/base/platform/base_platform_info.cpp -- model string rules",
+    "https://github.com/desktop-app/lib_base/blob/master/base/platform/win/base_info_win.cpp",
+    "https://endoflife.date/api/windows.json -- release and support dates behind the version weights (read by hand, not fetched)"
+   ],
+   "notes": [
+    "Version weights approximate the installed base after Windows 10 went end of support on 2025-10-14.",
+    "Hardware era is not matched against the Windows version; the pool is limited to current hardware instead.",
+    "No arm64 version is listed. SystemVersionPretty writes arm64 only on an ARM machine and every model in this pool is x86, so the string would have to be paired with hardware that cannot run it.",
+    "Model strings are produced by running lib_base's own DeviceModelPretty over real dmidecode records, so a machine whose product name the client would reject appears as its family + board or not at all. This is why most Lenovo entries are machine type codes and HP entries keep their 'HP ' prefix: that is what the firmware reports."
+   ]
+  },
+  "linux": {
+   "model_format": "DeviceModelPretty of real DMI records: product_name, else product_family + board_name; 15 chars, HP names up to 32",
+   "version_format": "uname sysname (plus the release off Linux) + XDG_CURRENT_DESKTOP parts + session type + libc",
+   "sources": [
+    "https://github.com/linuxhw/DMI -- real dmidecode output collected from Linux machines",
+    "https://github.com/desktop-app/lib_base/blob/master/base/platform/base_platform_info.cpp -- model string rules",
+    "https://github.com/desktop-app/lib_base/blob/master/base/platform/linux/base_info_linux.cpp",
+    "https://repology.org/api/v1/project/glibc -- glibc versions behind the LIBC table (read by hand, not fetched)"
+   ],
+   "notes": [
+    "Version strings are every combination of kernel, desktop environment, session type and libc.",
+    "Weights are popularity estimates, not measurements; desktop and session shares follow common distro defaults.",
+    "A non-glibc system carries no libc part at all, because GetLibcVersion returns nothing outside glibc and the whole clause is then skipped. FreeBSD additionally carries uname's release, which lib_base appends everywhere except Linux.",
+    "The model pool adds what Windows has no equivalent for: systemd-detect-virt names (uppercased, for virtual machines) and SMBIOS chassis types, which base_info_linux.cpp falls back to when DMI exposes no usable product name.",
+    "Model strings are produced by running lib_base's own DeviceModelPretty over real dmidecode records, so a machine whose product name the client would reject appears as its family + board or not at all. This is why most Lenovo entries are machine type codes and HP entries keep their 'HP ' prefix: that is what the firmware reports."
+   ]
+  }
+ },
+ "versions": [
+  {
+   "os": "windows",
+   "version": "Windows 11 x64",
+   "released": "2021-10-04",
+   "weight": 72
+  },
+  {
+   "os": "windows",
+   "version": "Windows 10 x64",
+   "released": "2015-07-29",
+   "weight": 27
+  },
+  {
+   "os": "windows",
+   "version": "Windows 10",
+   "released": "2015-07-29",
+   "weight": 1
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME Wayland glibc 2.35",
+   "weight": 2020.704
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME Wayland glibc 2.36",
+   "weight": 1154.688
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME Wayland glibc 2.37",
+   "weight": 577.344
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME Wayland glibc 2.38",
+   "weight": 866.016
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME Wayland glibc 2.39",
+   "weight": 3175.392
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME Wayland glibc 2.40",
+   "weight": 1154.688
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME Wayland glibc 2.41",
+   "weight": 1732.032
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME Wayland glibc 2.42",
+   "weight": 2020.704
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME Wayland glibc 2.43",
+   "weight": 1732.032
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME Wayland",
+   "weight": 433.008
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME X11 glibc 2.35",
+   "weight": 1075.536
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME X11 glibc 2.36",
+   "weight": 614.592
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME X11 glibc 2.37",
+   "weight": 307.296
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME X11 glibc 2.38",
+   "weight": 460.944
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME X11 glibc 2.39",
+   "weight": 1690.128
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME X11 glibc 2.40",
+   "weight": 614.592
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME X11 glibc 2.41",
+   "weight": 921.888
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME X11 glibc 2.42",
+   "weight": 1075.536
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME X11 glibc 2.43",
+   "weight": 921.888
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME X11",
+   "weight": 230.472
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME Xwayland glibc 2.35",
+   "weight": 162.96
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME Xwayland glibc 2.36",
+   "weight": 93.12
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME Xwayland glibc 2.37",
+   "weight": 46.56
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME Xwayland glibc 2.38",
+   "weight": 69.84
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME Xwayland glibc 2.39",
+   "weight": 256.08
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME Xwayland glibc 2.40",
+   "weight": 93.12
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME Xwayland glibc 2.41",
+   "weight": 139.68
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME Xwayland glibc 2.42",
+   "weight": 162.96
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME Xwayland glibc 2.43",
+   "weight": 139.68
+  },
+  {
+   "os": "linux",
+   "version": "Linux ubuntu GNOME Xwayland",
+   "weight": 34.92
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME Wayland glibc 2.35",
+   "weight": 1599.724
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME Wayland glibc 2.36",
+   "weight": 914.128
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME Wayland glibc 2.37",
+   "weight": 457.064
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME Wayland glibc 2.38",
+   "weight": 685.596
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME Wayland glibc 2.39",
+   "weight": 2513.852
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME Wayland glibc 2.40",
+   "weight": 914.128
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME Wayland glibc 2.41",
+   "weight": 1371.192
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME Wayland glibc 2.42",
+   "weight": 1599.724
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME Wayland glibc 2.43",
+   "weight": 1371.192
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME Wayland",
+   "weight": 342.798
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME X11 glibc 2.35",
+   "weight": 851.466
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME X11 glibc 2.36",
+   "weight": 486.552
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME X11 glibc 2.37",
+   "weight": 243.276
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME X11 glibc 2.38",
+   "weight": 364.914
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME X11 glibc 2.39",
+   "weight": 1338.018
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME X11 glibc 2.40",
+   "weight": 486.552
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME X11 glibc 2.41",
+   "weight": 729.828
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME X11 glibc 2.42",
+   "weight": 851.466
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME X11 glibc 2.43",
+   "weight": 729.828
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME X11",
+   "weight": 182.457
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME Xwayland glibc 2.35",
+   "weight": 129.01
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME Xwayland glibc 2.36",
+   "weight": 73.72
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME Xwayland glibc 2.37",
+   "weight": 36.86
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME Xwayland glibc 2.38",
+   "weight": 55.29
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME Xwayland glibc 2.39",
+   "weight": 202.73
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME Xwayland glibc 2.40",
+   "weight": 73.72
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME Xwayland glibc 2.41",
+   "weight": 110.58
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME Xwayland glibc 2.42",
+   "weight": 129.01
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME Xwayland glibc 2.43",
+   "weight": 110.58
+  },
+  {
+   "os": "linux",
+   "version": "Linux GNOME Xwayland",
+   "weight": 27.645
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE Wayland glibc 2.35",
+   "weight": 1768.116
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE Wayland glibc 2.36",
+   "weight": 1010.352
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE Wayland glibc 2.37",
+   "weight": 505.176
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE Wayland glibc 2.38",
+   "weight": 757.764
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE Wayland glibc 2.39",
+   "weight": 2778.468
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE Wayland glibc 2.40",
+   "weight": 1010.352
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE Wayland glibc 2.41",
+   "weight": 1515.528
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE Wayland glibc 2.42",
+   "weight": 1768.116
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE Wayland glibc 2.43",
+   "weight": 1515.528
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE Wayland",
+   "weight": 378.882
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE X11 glibc 2.35",
+   "weight": 941.094
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE X11 glibc 2.36",
+   "weight": 537.768
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE X11 glibc 2.37",
+   "weight": 268.884
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE X11 glibc 2.38",
+   "weight": 403.326
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE X11 glibc 2.39",
+   "weight": 1478.862
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE X11 glibc 2.40",
+   "weight": 537.768
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE X11 glibc 2.41",
+   "weight": 806.652
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE X11 glibc 2.42",
+   "weight": 941.094
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE X11 glibc 2.43",
+   "weight": 806.652
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE X11",
+   "weight": 201.663
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE Xwayland glibc 2.35",
+   "weight": 142.59
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE Xwayland glibc 2.36",
+   "weight": 81.48
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE Xwayland glibc 2.37",
+   "weight": 40.74
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE Xwayland glibc 2.38",
+   "weight": 61.11
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE Xwayland glibc 2.39",
+   "weight": 224.07
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE Xwayland glibc 2.40",
+   "weight": 81.48
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE Xwayland glibc 2.41",
+   "weight": 122.22
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE Xwayland glibc 2.42",
+   "weight": 142.59
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE Xwayland glibc 2.43",
+   "weight": 122.22
+  },
+  {
+   "os": "linux",
+   "version": "Linux KDE Xwayland",
+   "weight": 30.555
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon Wayland glibc 2.35",
+   "weight": 673.568
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon Wayland glibc 2.36",
+   "weight": 384.896
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon Wayland glibc 2.37",
+   "weight": 192.448
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon Wayland glibc 2.38",
+   "weight": 288.672
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon Wayland glibc 2.39",
+   "weight": 1058.464
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon Wayland glibc 2.40",
+   "weight": 384.896
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon Wayland glibc 2.41",
+   "weight": 577.344
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon Wayland glibc 2.42",
+   "weight": 673.568
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon Wayland glibc 2.43",
+   "weight": 577.344
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon Wayland",
+   "weight": 144.336
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon X11 glibc 2.35",
+   "weight": 358.512
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon X11 glibc 2.36",
+   "weight": 204.864
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon X11 glibc 2.37",
+   "weight": 102.432
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon X11 glibc 2.38",
+   "weight": 153.648
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon X11 glibc 2.39",
+   "weight": 563.376
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon X11 glibc 2.40",
+   "weight": 204.864
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon X11 glibc 2.41",
+   "weight": 307.296
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon X11 glibc 2.42",
+   "weight": 358.512
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon X11 glibc 2.43",
+   "weight": 307.296
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon X11",
+   "weight": 76.824
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon Xwayland glibc 2.35",
+   "weight": 54.32
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon Xwayland glibc 2.36",
+   "weight": 31.04
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon Xwayland glibc 2.37",
+   "weight": 15.52
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon Xwayland glibc 2.38",
+   "weight": 23.28
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon Xwayland glibc 2.39",
+   "weight": 85.36
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon Xwayland glibc 2.40",
+   "weight": 31.04
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon Xwayland glibc 2.41",
+   "weight": 46.56
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon Xwayland glibc 2.42",
+   "weight": 54.32
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon Xwayland glibc 2.43",
+   "weight": 46.56
+  },
+  {
+   "os": "linux",
+   "version": "Linux X-Cinnamon Xwayland",
+   "weight": 11.64
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE Wayland glibc 2.35",
+   "weight": 589.372
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE Wayland glibc 2.36",
+   "weight": 336.784
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE Wayland glibc 2.37",
+   "weight": 168.392
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE Wayland glibc 2.38",
+   "weight": 252.588
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE Wayland glibc 2.39",
+   "weight": 926.156
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE Wayland glibc 2.40",
+   "weight": 336.784
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE Wayland glibc 2.41",
+   "weight": 505.176
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE Wayland glibc 2.42",
+   "weight": 589.372
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE Wayland glibc 2.43",
+   "weight": 505.176
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE Wayland",
+   "weight": 126.294
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE X11 glibc 2.35",
+   "weight": 313.698
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE X11 glibc 2.36",
+   "weight": 179.256
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE X11 glibc 2.37",
+   "weight": 89.628
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE X11 glibc 2.38",
+   "weight": 134.442
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE X11 glibc 2.39",
+   "weight": 492.954
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE X11 glibc 2.40",
+   "weight": 179.256
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE X11 glibc 2.41",
+   "weight": 268.884
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE X11 glibc 2.42",
+   "weight": 313.698
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE X11 glibc 2.43",
+   "weight": 268.884
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE X11",
+   "weight": 67.221
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE Xwayland glibc 2.35",
+   "weight": 47.53
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE Xwayland glibc 2.36",
+   "weight": 27.16
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE Xwayland glibc 2.37",
+   "weight": 13.58
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE Xwayland glibc 2.38",
+   "weight": 20.37
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE Xwayland glibc 2.39",
+   "weight": 74.69
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE Xwayland glibc 2.40",
+   "weight": 27.16
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE Xwayland glibc 2.41",
+   "weight": 40.74
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE Xwayland glibc 2.42",
+   "weight": 47.53
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE Xwayland glibc 2.43",
+   "weight": 40.74
+  },
+  {
+   "os": "linux",
+   "version": "Linux XFCE Xwayland",
+   "weight": 10.185
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE Wayland glibc 2.35",
+   "weight": 336.784
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE Wayland glibc 2.36",
+   "weight": 192.448
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE Wayland glibc 2.37",
+   "weight": 96.224
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE Wayland glibc 2.38",
+   "weight": 144.336
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE Wayland glibc 2.39",
+   "weight": 529.232
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE Wayland glibc 2.40",
+   "weight": 192.448
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE Wayland glibc 2.41",
+   "weight": 288.672
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE Wayland glibc 2.42",
+   "weight": 336.784
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE Wayland glibc 2.43",
+   "weight": 288.672
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE Wayland",
+   "weight": 72.168
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE X11 glibc 2.35",
+   "weight": 179.256
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE X11 glibc 2.36",
+   "weight": 102.432
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE X11 glibc 2.37",
+   "weight": 51.216
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE X11 glibc 2.38",
+   "weight": 76.824
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE X11 glibc 2.39",
+   "weight": 281.688
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE X11 glibc 2.40",
+   "weight": 102.432
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE X11 glibc 2.41",
+   "weight": 153.648
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE X11 glibc 2.42",
+   "weight": 179.256
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE X11 glibc 2.43",
+   "weight": 153.648
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE X11",
+   "weight": 38.412
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE Xwayland glibc 2.35",
+   "weight": 27.16
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE Xwayland glibc 2.36",
+   "weight": 15.52
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE Xwayland glibc 2.37",
+   "weight": 7.76
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE Xwayland glibc 2.38",
+   "weight": 11.64
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE Xwayland glibc 2.39",
+   "weight": 42.68
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE Xwayland glibc 2.40",
+   "weight": 15.52
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE Xwayland glibc 2.41",
+   "weight": 23.28
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE Xwayland glibc 2.42",
+   "weight": 27.16
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE Xwayland glibc 2.43",
+   "weight": 23.28
+  },
+  {
+   "os": "linux",
+   "version": "Linux MATE Xwayland",
+   "weight": 5.82
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt Wayland glibc 2.35",
+   "weight": 168.392
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt Wayland glibc 2.36",
+   "weight": 96.224
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt Wayland glibc 2.37",
+   "weight": 48.112
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt Wayland glibc 2.38",
+   "weight": 72.168
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt Wayland glibc 2.39",
+   "weight": 264.616
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt Wayland glibc 2.40",
+   "weight": 96.224
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt Wayland glibc 2.41",
+   "weight": 144.336
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt Wayland glibc 2.42",
+   "weight": 168.392
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt Wayland glibc 2.43",
+   "weight": 144.336
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt Wayland",
+   "weight": 36.084
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt X11 glibc 2.35",
+   "weight": 89.628
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt X11 glibc 2.36",
+   "weight": 51.216
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt X11 glibc 2.37",
+   "weight": 25.608
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt X11 glibc 2.38",
+   "weight": 38.412
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt X11 glibc 2.39",
+   "weight": 140.844
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt X11 glibc 2.40",
+   "weight": 51.216
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt X11 glibc 2.41",
+   "weight": 76.824
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt X11 glibc 2.42",
+   "weight": 89.628
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt X11 glibc 2.43",
+   "weight": 76.824
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt X11",
+   "weight": 19.206
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt Xwayland glibc 2.35",
+   "weight": 13.58
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt Xwayland glibc 2.36",
+   "weight": 7.76
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt Xwayland glibc 2.37",
+   "weight": 3.88
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt Xwayland glibc 2.38",
+   "weight": 5.82
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt Xwayland glibc 2.39",
+   "weight": 21.34
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt Xwayland glibc 2.40",
+   "weight": 7.76
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt Xwayland glibc 2.41",
+   "weight": 11.64
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt Xwayland glibc 2.42",
+   "weight": 13.58
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt Xwayland glibc 2.43",
+   "weight": 11.64
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXQt Xwayland",
+   "weight": 2.91
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME Wayland glibc 2.35",
+   "weight": 252.588
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME Wayland glibc 2.36",
+   "weight": 144.336
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME Wayland glibc 2.37",
+   "weight": 72.168
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME Wayland glibc 2.38",
+   "weight": 108.252
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME Wayland glibc 2.39",
+   "weight": 396.924
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME Wayland glibc 2.40",
+   "weight": 144.336
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME Wayland glibc 2.41",
+   "weight": 216.504
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME Wayland glibc 2.42",
+   "weight": 252.588
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME Wayland glibc 2.43",
+   "weight": 216.504
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME Wayland",
+   "weight": 54.126
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME X11 glibc 2.35",
+   "weight": 134.442
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME X11 glibc 2.36",
+   "weight": 76.824
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME X11 glibc 2.37",
+   "weight": 38.412
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME X11 glibc 2.38",
+   "weight": 57.618
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME X11 glibc 2.39",
+   "weight": 211.266
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME X11 glibc 2.40",
+   "weight": 76.824
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME X11 glibc 2.41",
+   "weight": 115.236
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME X11 glibc 2.42",
+   "weight": 134.442
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME X11 glibc 2.43",
+   "weight": 115.236
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME X11",
+   "weight": 28.809
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME Xwayland glibc 2.35",
+   "weight": 20.37
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME Xwayland glibc 2.36",
+   "weight": 11.64
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME Xwayland glibc 2.37",
+   "weight": 5.82
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME Xwayland glibc 2.38",
+   "weight": 8.73
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME Xwayland glibc 2.39",
+   "weight": 32.01
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME Xwayland glibc 2.40",
+   "weight": 11.64
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME Xwayland glibc 2.41",
+   "weight": 17.46
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME Xwayland glibc 2.42",
+   "weight": 20.37
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME Xwayland glibc 2.43",
+   "weight": 17.46
+  },
+  {
+   "os": "linux",
+   "version": "Linux pop GNOME Xwayland",
+   "weight": 4.365
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME Wayland glibc 2.35",
+   "weight": 168.392
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME Wayland glibc 2.36",
+   "weight": 96.224
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME Wayland glibc 2.37",
+   "weight": 48.112
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME Wayland glibc 2.38",
+   "weight": 72.168
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME Wayland glibc 2.39",
+   "weight": 264.616
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME Wayland glibc 2.40",
+   "weight": 96.224
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME Wayland glibc 2.41",
+   "weight": 144.336
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME Wayland glibc 2.42",
+   "weight": 168.392
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME Wayland glibc 2.43",
+   "weight": 144.336
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME Wayland",
+   "weight": 36.084
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME X11 glibc 2.35",
+   "weight": 89.628
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME X11 glibc 2.36",
+   "weight": 51.216
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME X11 glibc 2.37",
+   "weight": 25.608
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME X11 glibc 2.38",
+   "weight": 38.412
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME X11 glibc 2.39",
+   "weight": 140.844
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME X11 glibc 2.40",
+   "weight": 51.216
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME X11 glibc 2.41",
+   "weight": 76.824
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME X11 glibc 2.42",
+   "weight": 89.628
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME X11 glibc 2.43",
+   "weight": 76.824
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME X11",
+   "weight": 19.206
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME Xwayland glibc 2.35",
+   "weight": 13.58
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME Xwayland glibc 2.36",
+   "weight": 7.76
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME Xwayland glibc 2.37",
+   "weight": 3.88
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME Xwayland glibc 2.38",
+   "weight": 5.82
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME Xwayland glibc 2.39",
+   "weight": 21.34
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME Xwayland glibc 2.40",
+   "weight": 7.76
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME Xwayland glibc 2.41",
+   "weight": 11.64
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME Xwayland glibc 2.42",
+   "weight": 13.58
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME Xwayland glibc 2.43",
+   "weight": 11.64
+  },
+  {
+   "os": "linux",
+   "version": "Linux Budgie GNOME Xwayland",
+   "weight": 2.91
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland Wayland glibc 2.35",
+   "weight": 252.588
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland Wayland glibc 2.36",
+   "weight": 144.336
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland Wayland glibc 2.37",
+   "weight": 72.168
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland Wayland glibc 2.38",
+   "weight": 108.252
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland Wayland glibc 2.39",
+   "weight": 396.924
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland Wayland glibc 2.40",
+   "weight": 144.336
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland Wayland glibc 2.41",
+   "weight": 216.504
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland Wayland glibc 2.42",
+   "weight": 252.588
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland Wayland glibc 2.43",
+   "weight": 216.504
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland Wayland",
+   "weight": 54.126
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland X11 glibc 2.35",
+   "weight": 134.442
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland X11 glibc 2.36",
+   "weight": 76.824
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland X11 glibc 2.37",
+   "weight": 38.412
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland X11 glibc 2.38",
+   "weight": 57.618
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland X11 glibc 2.39",
+   "weight": 211.266
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland X11 glibc 2.40",
+   "weight": 76.824
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland X11 glibc 2.41",
+   "weight": 115.236
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland X11 glibc 2.42",
+   "weight": 134.442
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland X11 glibc 2.43",
+   "weight": 115.236
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland X11",
+   "weight": 28.809
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland Xwayland glibc 2.35",
+   "weight": 20.37
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland Xwayland glibc 2.36",
+   "weight": 11.64
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland Xwayland glibc 2.37",
+   "weight": 5.82
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland Xwayland glibc 2.38",
+   "weight": 8.73
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland Xwayland glibc 2.39",
+   "weight": 32.01
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland Xwayland glibc 2.40",
+   "weight": 11.64
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland Xwayland glibc 2.41",
+   "weight": 17.46
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland Xwayland glibc 2.42",
+   "weight": 20.37
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland Xwayland glibc 2.43",
+   "weight": 17.46
+  },
+  {
+   "os": "linux",
+   "version": "Linux Hyprland Xwayland",
+   "weight": 4.365
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway Wayland glibc 2.35",
+   "weight": 84.196
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway Wayland glibc 2.36",
+   "weight": 48.112
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway Wayland glibc 2.37",
+   "weight": 24.056
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway Wayland glibc 2.38",
+   "weight": 36.084
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway Wayland glibc 2.39",
+   "weight": 132.308
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway Wayland glibc 2.40",
+   "weight": 48.112
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway Wayland glibc 2.41",
+   "weight": 72.168
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway Wayland glibc 2.42",
+   "weight": 84.196
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway Wayland glibc 2.43",
+   "weight": 72.168
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway Wayland",
+   "weight": 18.042
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway X11 glibc 2.35",
+   "weight": 44.814
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway X11 glibc 2.36",
+   "weight": 25.608
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway X11 glibc 2.37",
+   "weight": 12.804
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway X11 glibc 2.38",
+   "weight": 19.206
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway X11 glibc 2.39",
+   "weight": 70.422
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway X11 glibc 2.40",
+   "weight": 25.608
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway X11 glibc 2.41",
+   "weight": 38.412
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway X11 glibc 2.42",
+   "weight": 44.814
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway X11 glibc 2.43",
+   "weight": 38.412
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway X11",
+   "weight": 9.603
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway Xwayland glibc 2.35",
+   "weight": 6.79
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway Xwayland glibc 2.36",
+   "weight": 3.88
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway Xwayland glibc 2.37",
+   "weight": 1.94
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway Xwayland glibc 2.38",
+   "weight": 2.91
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway Xwayland glibc 2.39",
+   "weight": 10.67
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway Xwayland glibc 2.40",
+   "weight": 3.88
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway Xwayland glibc 2.41",
+   "weight": 5.82
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway Xwayland glibc 2.42",
+   "weight": 6.79
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway Xwayland glibc 2.43",
+   "weight": 5.82
+  },
+  {
+   "os": "linux",
+   "version": "Linux sway Xwayland",
+   "weight": 1.455
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity Wayland glibc 2.35",
+   "weight": 84.196
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity Wayland glibc 2.36",
+   "weight": 48.112
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity Wayland glibc 2.37",
+   "weight": 24.056
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity Wayland glibc 2.38",
+   "weight": 36.084
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity Wayland glibc 2.39",
+   "weight": 132.308
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity Wayland glibc 2.40",
+   "weight": 48.112
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity Wayland glibc 2.41",
+   "weight": 72.168
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity Wayland glibc 2.42",
+   "weight": 84.196
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity Wayland glibc 2.43",
+   "weight": 72.168
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity Wayland",
+   "weight": 18.042
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity X11 glibc 2.35",
+   "weight": 44.814
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity X11 glibc 2.36",
+   "weight": 25.608
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity X11 glibc 2.37",
+   "weight": 12.804
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity X11 glibc 2.38",
+   "weight": 19.206
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity X11 glibc 2.39",
+   "weight": 70.422
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity X11 glibc 2.40",
+   "weight": 25.608
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity X11 glibc 2.41",
+   "weight": 38.412
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity X11 glibc 2.42",
+   "weight": 44.814
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity X11 glibc 2.43",
+   "weight": 38.412
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity X11",
+   "weight": 9.603
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity Xwayland glibc 2.35",
+   "weight": 6.79
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity Xwayland glibc 2.36",
+   "weight": 3.88
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity Xwayland glibc 2.37",
+   "weight": 1.94
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity Xwayland glibc 2.38",
+   "weight": 2.91
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity Xwayland glibc 2.39",
+   "weight": 10.67
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity Xwayland glibc 2.40",
+   "weight": 3.88
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity Xwayland glibc 2.41",
+   "weight": 5.82
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity Xwayland glibc 2.42",
+   "weight": 6.79
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity Xwayland glibc 2.43",
+   "weight": 5.82
+  },
+  {
+   "os": "linux",
+   "version": "Linux Unity Xwayland",
+   "weight": 1.455
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin Wayland glibc 2.35",
+   "weight": 168.392
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin Wayland glibc 2.36",
+   "weight": 96.224
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin Wayland glibc 2.37",
+   "weight": 48.112
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin Wayland glibc 2.38",
+   "weight": 72.168
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin Wayland glibc 2.39",
+   "weight": 264.616
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin Wayland glibc 2.40",
+   "weight": 96.224
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin Wayland glibc 2.41",
+   "weight": 144.336
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin Wayland glibc 2.42",
+   "weight": 168.392
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin Wayland glibc 2.43",
+   "weight": 144.336
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin Wayland",
+   "weight": 36.084
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin X11 glibc 2.35",
+   "weight": 89.628
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin X11 glibc 2.36",
+   "weight": 51.216
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin X11 glibc 2.37",
+   "weight": 25.608
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin X11 glibc 2.38",
+   "weight": 38.412
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin X11 glibc 2.39",
+   "weight": 140.844
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin X11 glibc 2.40",
+   "weight": 51.216
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin X11 glibc 2.41",
+   "weight": 76.824
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin X11 glibc 2.42",
+   "weight": 89.628
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin X11 glibc 2.43",
+   "weight": 76.824
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin X11",
+   "weight": 19.206
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin Xwayland glibc 2.35",
+   "weight": 13.58
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin Xwayland glibc 2.36",
+   "weight": 7.76
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin Xwayland glibc 2.37",
+   "weight": 3.88
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin Xwayland glibc 2.38",
+   "weight": 5.82
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin Xwayland glibc 2.39",
+   "weight": 21.34
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin Xwayland glibc 2.40",
+   "weight": 7.76
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin Xwayland glibc 2.41",
+   "weight": 11.64
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin Xwayland glibc 2.42",
+   "weight": 13.58
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin Xwayland glibc 2.43",
+   "weight": 11.64
+  },
+  {
+   "os": "linux",
+   "version": "Linux Deepin Xwayland",
+   "weight": 2.91
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon Wayland glibc 2.35",
+   "weight": 84.196
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon Wayland glibc 2.36",
+   "weight": 48.112
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon Wayland glibc 2.37",
+   "weight": 24.056
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon Wayland glibc 2.38",
+   "weight": 36.084
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon Wayland glibc 2.39",
+   "weight": 132.308
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon Wayland glibc 2.40",
+   "weight": 48.112
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon Wayland glibc 2.41",
+   "weight": 72.168
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon Wayland glibc 2.42",
+   "weight": 84.196
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon Wayland glibc 2.43",
+   "weight": 72.168
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon Wayland",
+   "weight": 18.042
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon X11 glibc 2.35",
+   "weight": 44.814
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon X11 glibc 2.36",
+   "weight": 25.608
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon X11 glibc 2.37",
+   "weight": 12.804
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon X11 glibc 2.38",
+   "weight": 19.206
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon X11 glibc 2.39",
+   "weight": 70.422
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon X11 glibc 2.40",
+   "weight": 25.608
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon X11 glibc 2.41",
+   "weight": 38.412
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon X11 glibc 2.42",
+   "weight": 44.814
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon X11 glibc 2.43",
+   "weight": 38.412
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon X11",
+   "weight": 9.603
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon Xwayland glibc 2.35",
+   "weight": 6.79
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon Xwayland glibc 2.36",
+   "weight": 3.88
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon Xwayland glibc 2.37",
+   "weight": 1.94
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon Xwayland glibc 2.38",
+   "weight": 2.91
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon Xwayland glibc 2.39",
+   "weight": 10.67
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon Xwayland glibc 2.40",
+   "weight": 3.88
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon Xwayland glibc 2.41",
+   "weight": 5.82
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon Xwayland glibc 2.42",
+   "weight": 6.79
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon Xwayland glibc 2.43",
+   "weight": 5.82
+  },
+  {
+   "os": "linux",
+   "version": "Linux Pantheon Xwayland",
+   "weight": 1.455
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC Wayland glibc 2.35",
+   "weight": 84.196
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC Wayland glibc 2.36",
+   "weight": 48.112
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC Wayland glibc 2.37",
+   "weight": 24.056
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC Wayland glibc 2.38",
+   "weight": 36.084
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC Wayland glibc 2.39",
+   "weight": 132.308
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC Wayland glibc 2.40",
+   "weight": 48.112
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC Wayland glibc 2.41",
+   "weight": 72.168
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC Wayland glibc 2.42",
+   "weight": 84.196
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC Wayland glibc 2.43",
+   "weight": 72.168
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC Wayland",
+   "weight": 18.042
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC X11 glibc 2.35",
+   "weight": 44.814
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC X11 glibc 2.36",
+   "weight": 25.608
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC X11 glibc 2.37",
+   "weight": 12.804
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC X11 glibc 2.38",
+   "weight": 19.206
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC X11 glibc 2.39",
+   "weight": 70.422
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC X11 glibc 2.40",
+   "weight": 25.608
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC X11 glibc 2.41",
+   "weight": 38.412
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC X11 glibc 2.42",
+   "weight": 44.814
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC X11 glibc 2.43",
+   "weight": 38.412
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC X11",
+   "weight": 9.603
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC Xwayland glibc 2.35",
+   "weight": 6.79
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC Xwayland glibc 2.36",
+   "weight": 3.88
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC Xwayland glibc 2.37",
+   "weight": 1.94
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC Xwayland glibc 2.38",
+   "weight": 2.91
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC Xwayland glibc 2.39",
+   "weight": 10.67
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC Xwayland glibc 2.40",
+   "weight": 3.88
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC Xwayland glibc 2.41",
+   "weight": 5.82
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC Xwayland glibc 2.42",
+   "weight": 6.79
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC Xwayland glibc 2.43",
+   "weight": 5.82
+  },
+  {
+   "os": "linux",
+   "version": "Linux COSMIC Xwayland",
+   "weight": 1.455
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE Wayland glibc 2.35",
+   "weight": 84.196
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE Wayland glibc 2.36",
+   "weight": 48.112
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE Wayland glibc 2.37",
+   "weight": 24.056
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE Wayland glibc 2.38",
+   "weight": 36.084
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE Wayland glibc 2.39",
+   "weight": 132.308
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE Wayland glibc 2.40",
+   "weight": 48.112
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE Wayland glibc 2.41",
+   "weight": 72.168
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE Wayland glibc 2.42",
+   "weight": 84.196
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE Wayland glibc 2.43",
+   "weight": 72.168
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE Wayland",
+   "weight": 18.042
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE X11 glibc 2.35",
+   "weight": 44.814
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE X11 glibc 2.36",
+   "weight": 25.608
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE X11 glibc 2.37",
+   "weight": 12.804
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE X11 glibc 2.38",
+   "weight": 19.206
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE X11 glibc 2.39",
+   "weight": 70.422
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE X11 glibc 2.40",
+   "weight": 25.608
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE X11 glibc 2.41",
+   "weight": 38.412
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE X11 glibc 2.42",
+   "weight": 44.814
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE X11 glibc 2.43",
+   "weight": 38.412
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE X11",
+   "weight": 9.603
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE Xwayland glibc 2.35",
+   "weight": 6.79
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE Xwayland glibc 2.36",
+   "weight": 3.88
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE Xwayland glibc 2.37",
+   "weight": 1.94
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE Xwayland glibc 2.38",
+   "weight": 2.91
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE Xwayland glibc 2.39",
+   "weight": 10.67
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE Xwayland glibc 2.40",
+   "weight": 3.88
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE Xwayland glibc 2.41",
+   "weight": 5.82
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE Xwayland glibc 2.42",
+   "weight": 6.79
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE Xwayland glibc 2.43",
+   "weight": 5.82
+  },
+  {
+   "os": "linux",
+   "version": "Linux LXDE Xwayland",
+   "weight": 1.455
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE GNOME Wayland",
+   "weight": 23.56
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE GNOME X11",
+   "weight": 12.54
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE GNOME Xwayland",
+   "weight": 1.9
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE KDE Wayland",
+   "weight": 26.04
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE KDE X11",
+   "weight": 13.86
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE KDE Xwayland",
+   "weight": 2.1
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE X-Cinnamon Wayland",
+   "weight": 9.92
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE X-Cinnamon X11",
+   "weight": 5.28
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE X-Cinnamon Xwayland",
+   "weight": 0.8
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE XFCE Wayland",
+   "weight": 8.68
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE XFCE X11",
+   "weight": 4.62
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE XFCE Xwayland",
+   "weight": 0.7
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE MATE Wayland",
+   "weight": 4.96
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE MATE X11",
+   "weight": 2.64
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE MATE Xwayland",
+   "weight": 0.4
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE LXQt Wayland",
+   "weight": 2.48
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE LXQt X11",
+   "weight": 1.32
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE LXQt Xwayland",
+   "weight": 0.2
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE Hyprland Wayland",
+   "weight": 3.72
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE Hyprland X11",
+   "weight": 1.98
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE Hyprland Xwayland",
+   "weight": 0.3
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE sway Wayland",
+   "weight": 1.24
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE sway X11",
+   "weight": 0.66
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE sway Xwayland",
+   "weight": 0.1
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE COSMIC Wayland",
+   "weight": 1.24
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE COSMIC X11",
+   "weight": 0.66
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE COSMIC Xwayland",
+   "weight": 0.1
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE LXDE Wayland",
+   "weight": 1.24
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE LXDE X11",
+   "weight": 0.66
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 14.3-RELEASE LXDE Xwayland",
+   "weight": 0.1
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE GNOME Wayland",
+   "weight": 11.78
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE GNOME X11",
+   "weight": 6.27
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE GNOME Xwayland",
+   "weight": 0.95
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE KDE Wayland",
+   "weight": 13.02
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE KDE X11",
+   "weight": 6.93
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE KDE Xwayland",
+   "weight": 1.05
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE X-Cinnamon Wayland",
+   "weight": 4.96
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE X-Cinnamon X11",
+   "weight": 2.64
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE X-Cinnamon Xwayland",
+   "weight": 0.4
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE XFCE Wayland",
+   "weight": 4.34
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE XFCE X11",
+   "weight": 2.31
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE XFCE Xwayland",
+   "weight": 0.35
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE MATE Wayland",
+   "weight": 2.48
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE MATE X11",
+   "weight": 1.32
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE MATE Xwayland",
+   "weight": 0.2
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE LXQt Wayland",
+   "weight": 1.24
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE LXQt X11",
+   "weight": 0.66
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE LXQt Xwayland",
+   "weight": 0.1
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE Hyprland Wayland",
+   "weight": 1.86
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE Hyprland X11",
+   "weight": 0.99
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE Hyprland Xwayland",
+   "weight": 0.15
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE sway Wayland",
+   "weight": 0.62
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE sway X11",
+   "weight": 0.33
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE sway Xwayland",
+   "weight": 0.05
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE COSMIC Wayland",
+   "weight": 0.62
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE COSMIC X11",
+   "weight": 0.33
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE COSMIC Xwayland",
+   "weight": 0.05
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE LXDE Wayland",
+   "weight": 0.62
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE LXDE X11",
+   "weight": 0.33
+  },
+  {
+   "os": "linux",
+   "version": "FreeBSD 15.0-RELEASE LXDE Xwayland",
+   "weight": 0.05
+  }
+ ],
+ "devices": [
+  {
+   "model": "Desktop",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "lib_base FinalizeDeviceModel fallback"
+  },
+  {
+   "model": "4X4 BOX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "4X4 BOX-8640U",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "4X4-7040 Series",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "4X4-V1000",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "A300M-STX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "A320M Pro4-F",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "A320M-HD R4.0",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "A320M-HDV R4.0",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "A320M/ac",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "A520M Pro4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "A520M-HDVP/DASH",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "A520M-ITX/ac",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "A620M-HDV/M.2+",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "AQH410T",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B365 Pro4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B450 Pro4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B450M Pro4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B460M Pro4/ac",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B460M Pro4S/ac",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B460M-HDV",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B550 Extreme4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B550 Pro4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B550M Pro4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B550M-C",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B550M-HDV",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B550M-HVS SE",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B550M/ac",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B560 Pro4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B560M Pro4/ac",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B560M-C",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B560M-ITX/ac",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B650E Taichi",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B650M Pro RS",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B650M-H/M.2+",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B660-ITX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B660M Pro RS",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B660M-HDV",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B660M-STX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B760 Pro RS/D4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B760M Pro RS",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B760M-C",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "FP6D4-P1",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H310CM-DVS",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H310CM-HDV",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H310CM-ITX/ac",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H410D4-P1",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H410M-HDV",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H410M-HDV R2.0",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H410M-ITX/ac",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H470M-HDV/M.2",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H470M-HVS",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H470M-STX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H510 Pro BTC+",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H510M-HDV",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H510M-HDV R2.0",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H510M-ITX/ac",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H570M Pro4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H610D4-P1",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H610M-HDV",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H610M-ITX/ac",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H670M Pro RS",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "IMB-1223",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "IMB-195",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "IMB-X1316",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "J4125B-ITX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "J5040-ITX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "N100DC-ITX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "NUC-1220P",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "QC6000M",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "TRX40 Taichi",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X299 Taichi CLX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X300-ITX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X300TM-ITX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X370 Killer Sli",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X370M-HDV R4.0",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X399 Taichi",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X570 Extreme4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X570M Pro4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X600M-STX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X670E Pro RS",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X870E Taichi",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z370 Pro4-IB",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z390M-ITX/ac",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z490 Taichi",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z490M Pro4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z590 Pro4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z590 Taichi",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z690 PG Riptide",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z690 Pro RS",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z690M-ITX/ax",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B1402CBA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B2502CBA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B3402FEA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B5602CBA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "D500MD",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "E1504FA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "E210MAB",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "EX-B760M-V5 D4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "FA506NC",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "FA507RE",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "FA507XV",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "FA617XT",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "FA706QE",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "FA707XI",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "FX506HEB",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "FX506LH",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "FX506LU",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "FX507ZE",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "FX516PM",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "FX517ZM",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "FX706HCB",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "FX706HM",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "FX707ZR",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "G513IE",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "G614JZ",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "G713QE",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "G733PY",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "G733ZX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GA401IHR",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GA401QE",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GA402XI",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GA503RW",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GU603HE",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GU603ZX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GU605MV",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GV302XU",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HN7306WV",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "I1403ZA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "K3402ZA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "K3504VA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "K3605VV",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "K5504VA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "K6502VJ",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "K6502VJQ",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "K6604JI",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "L1500CDAY",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "M1502IA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "M1605XA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "M3504YA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "M5406NA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "M6500QC",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "M6500XU",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "M7600QE",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MINIPC PN42",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MINIPC PN53",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "NUC14RVH-B",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "NZXT",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "P11C-I Series",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "P5405CSA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "PRIME A520M-R",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "PRIME B760M-K",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "PRIME H510M-A",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "PRIME H610M-K",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "PRIME Z690-P D4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "ROG STRIX G15CF",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "ROG Strix G35CG",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "S5602ZA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "S5606MA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "TP3402VA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "TP3402ZA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "UP5401ZA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "UX363JA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "UX562UG",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "VivoBook X512DK",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "VivoBook X513EQ",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "VivoBook X571GD",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "VivoBook X712EA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "VivoBook X712JA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "W680/MB DC",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X1502VA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X1504VA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X1603ZA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X1605VA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X3500PH",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X415UA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X421EAYB",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X421UAY",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X513EAN",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X515EA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X515JA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "A Power T200",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "A515-44G",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A314-23P",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A314-35",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A315-22G",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A315-24P",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A315-35",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A315-42",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A315-44P",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A315-54K",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A315-56",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A315-58G",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A317-32",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A317-51G",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A317-53",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A325-51",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A514-52K",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A514-54",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A515-44G",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A515-46",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A515-53G",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A515-55",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A515-56G",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A515-57T",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A517-52G",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A715-41G",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A715-51G",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A715-76",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire AV14-51",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire AV15-53P",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire C24-1651",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire C27-1655",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire S27-1755",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire TC-1760",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire TC-390",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire TC-885",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire XC-1660",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire XC-840",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire XC-895",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "CivicTLS",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "ClubmanTLM",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "CompassRTX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "CoviniCFS",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "EvoqueADH",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Extensa 215-23",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Extensa 215-33",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Extensa 215-51K",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Extensa 215-54G",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "FluteADP",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "FreedCFS",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H610 H610MHP-E",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "JypsiereGRTU",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "KonaRN",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Mandolin",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MaracasGL",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Nitro AN16-51",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Nitro AN515-43",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Nitro AN515-46",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Nitro AN515-52",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Nitro AN515-55",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Nitro AN515-58",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Nitro AN517-51",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Nitro AN517-55",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Nitro ANV15-41",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Nitro N50-600",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Nitro N50-640",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "PidgeyCCFS",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Predator Orion",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "SF714-52T",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Spin SP111-33",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Spin SP314-21",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Spin SP314-54N",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Spin SP513-54N",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "SpyderCMS",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Swift 5 TigerTL",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Swift SF114-32",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Swift SF14-71T",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Swift SF313-52G",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Swift SF314-41G",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Swift SF314-44",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Swift SF314-511",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Swift SF314-58",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Swift SF314-71",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Swift SF514-54G",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "ULTRONTL",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "VellfireCMS",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Veriton ES2740G",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Veriton N4680GT",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z2-493 AMD Dali",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "eTronRTX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "02TH5P",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "0D4MD1",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "0W3F1J",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "0YF5H8",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Dell G15 5511",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Dell G15 5520",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Dell G15 5530",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Dell G16 7630",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "G5 5000",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 047R6Y",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 063KWG",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 07GYG7",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 0829N3",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 08XV4W",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 0C566Y",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 0C7J35",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 0CKJRK",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 0DHTCW",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 0FD3D2",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 0FW6F0",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 0MN8KR",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 0MTH72",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 0N1NMX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 0R9JV9",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 0TGWG4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 0TPG56",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 0XKD8M",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 0YHHMT",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 3020 S",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 3481",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 3585",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 3593",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 3793",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 3881",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 3910",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 5402",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 5502",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 5585",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 7570",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Inspiron 7590",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 048FN9",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 06F881",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 0HYJ4Y",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 0R79PX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 0VKGFH",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 3140",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 3189",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 3520",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 3580",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 5280",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 5300",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 5320",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 5350",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 5411",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 5431",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 5450",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 5490",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 5495",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 5521",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 5531",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 5550",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 7275",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 7285",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 7330",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 7380",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 7390",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 7430",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 7440",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 7520",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 7640",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 9430",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude 9510",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Latitude E5470",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "OptiPlex 02N9VV",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "OptiPlex 033C7N",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "OptiPlex 04G47W",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "OptiPlex 07HXY6",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "OptiPlex 0CXR46",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "OptiPlex 0KYWH7",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "OptiPlex 0TKWC4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "OptiPlex 3060",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "OptiPlex XE3",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Precision 3440",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Precision 3460",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Precision 3660",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Vostro 3710",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Vostro 3910",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Wyse 5470 AIO",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "XPS 04KP9J",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "XPS 8960",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "A320M-H",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "A520 MB",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "A520M DS3H AC",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "A520M H",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "A520M S2H",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "A620M DS3H",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "A620M S2H",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "AB350M-D3H",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "AX370-Gaming 5",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "AX370-Gaming K7",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "AX370M-Gaming 3",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B360M-D3H",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B365M D3H",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B365M GAMING HD",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B450 MB",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B450M DS3H WIFI",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B450M H",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B450M S2H",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B460M GAMING HD",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B460MAORUSPRO",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B460MDS3HV2",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B550 AORUS PRO",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B550 MB",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B550 UD AC-Y1",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B550 VISION D",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B550M DS3H",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B550M S2H",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B560 HD3",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B560M AORUS PRO",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B560M DS3H V2",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B560M GAMING HD",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B650 MB",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B650I AX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B660 MB",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B760 MB",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B760M DS3H",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "BRIX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "BRi3(H)-10110",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GB-BMCE-5105",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GB-BRR5H-4500",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GB-BSi5-1135G7",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H310 D3 2.0",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H310M D3H",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H310M DS2V 2.0",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H310M M.2 2.0",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H310M S2",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H310N 2.0",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H370M-DS3H",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H410M H V2",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H410M S2 V2",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H410M S2H V2",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H470 HD3",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H510M DS2V",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H510M S2 V2",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H510M S2H V3",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H610I DDR4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H610M H V3 DDR4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H610M S2H DDR4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "IMB1900N",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MC12-LE0-00",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Q170TN-T20",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "QBiX-ADNAN97",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "TRX40 DESIGNARE",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "W480 VISION W",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X470 MB",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X570 AORUS PRO",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X570 GAMING X",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X570 MB",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X570S AERO G",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X670 MB",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X870 MB",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "X870E AORUS PRO",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z370 HD3",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z390 D",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z390 GAMING X",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z390 M",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z490 MB",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z490 UD AC",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z490 VISION G",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z490M GAMING X",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z590 D",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z590 MB",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z590 UD",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z590M",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z590M GAMING X",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z690 MB",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z690 UD",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z690 UD AX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z790 MB",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z790 UD",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Gigabyte",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "103C53311M 8437",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "103C53311M 84EF",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "510-p010",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "84FA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "84FD",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "89B5",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "8A44",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "8BAD",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "8C75",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP 240 G8",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP 245 G8",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP 247 G8",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP 255 15.6 inch G9",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP 260 G3 DM",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP 340S G7",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP 470 G8",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP All-in-One 22-df0xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP All-in-One 27-cb0xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP ENVY Laptop 13-ba0xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP ENVY Laptop 15t-ep000",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP ENVY Laptop 17-ch2xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP ENVY x360 2-in-1 Laptop",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP ENVY x360 Convertible",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Elite Dragonfly",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Elite Dragonfly 13.5 inch G3",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP EliteBook 640 14 inch G10",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP EliteBook 645 14 inch G9",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP EliteBook 660 16 inch G11",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP EliteBook 725 G4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP EliteBook 830 G7",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP EliteBook 840 14 inch G10",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP EliteBook 840 G3",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP EliteBook 840 G7",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP EliteBook 845 14 inch G9",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP EliteBook 850 G5",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP EliteBook 865 16 inch G11",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP EliteBook x360 1030 G3",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP EliteBook x360 1040 G7",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP EliteDesk 705 G4 MT",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP EliteDesk 800 G4 Mini",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP EliteDesk 800 G5 SFF",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Laptop 14",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Laptop 14-dq4xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Laptop 14s-cf2xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Laptop 14s-dq0xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Laptop 14s-dy5xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Laptop 14z-em000",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Laptop 15-dy0xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Laptop 15-e3000",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Laptop 15-ef0xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Laptop 15-gw0xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Laptop 15s-du2xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Laptop 15s-eq3xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Laptop 15s-fq5xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Laptop 15z-ef1xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Laptop 17-cn2xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP OmniBook Ultra Laptop",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Pavilion Aero Laptop",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Pavilion All-in-One 24-ca0xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Pavilion All-in-One 24-r0xx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Pavilion Gaming 690-0xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Pavilion Gaming TG01-1xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Pavilion Laptop 14-ce3xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Pavilion Laptop 15-ck0xx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Pavilion Laptop 15-eh0xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Pavilion Laptop 15t-eg300",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Pavilion Plus Laptop",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Pavilion TP01-4xxx",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Pavilion x360 15 Convertible",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Pavilion x360 Convertible",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Pro A G2",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Pro Mini 260 G9",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Pro SFF 400 G9",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP ProBook 450 15.6 inch G10",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP ProBook 450 G4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP ProBook 640 G8",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP ProBook x360 435 G8",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP ProDesk 400 G7 Small Form",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP ProDesk 600 G4 DM (TAA)",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP ProDesk 600 G6 Small Form",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP ProOne 400 G2 20-in Non-Touch",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Spectre",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Spectre x360 2-in-1 Laptop",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Spectre x360 Convertible",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Z2 G8 SFF",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Z2 Tower G5",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Z4 G4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP Z840",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP mt42 Thin Client",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "ProLiant",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "10MUS1212H",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "10T8S47629",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "11DUSBVM00",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "11JN000GCK",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "11SE00QFFM",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20EQS0LQ00",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20FRS01V00",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20HGS0AY00",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20HJS0RE02",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20HQS02A00",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20HR002MGE",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20J7S25C00",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20JNS5R100",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20JTS0X906",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20KES1X314",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20KESAC100",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20KGS0MM02",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20KGS6DU00",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20KH0035GE",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20L5CTO1WW",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20L6S0CG0G",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20L6S3C100",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20L6SE6900",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20L8S2B500",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20L8S5LK0M",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20L8SAKD00",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20LDCTO1WW",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20MAS1720G",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20MVS08500",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20N20023US",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20N3S4N906",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20N4S1T200",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20N6S00B00",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20NE0002US",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20NYS3NT00",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20Q1SCU200",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20QD003AMC",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20QFS1A600",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20QT000LMZ",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20QVCT01WW",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20T3S24C3L",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20TJS1QF00",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20U90044UK",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20UB0068US",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20UD0012RT",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20UES00L00",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20UES67005",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20VKCTO1WW",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20VMA015CD",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20W0003KUS",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20W6004XGE",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20XGS19400",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20XH0076IG",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20XW007YPB",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20Y30066US",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20YG003VGE",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "20YQ003WUS",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21A1S04W00",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21AH008LRI",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21AJS2C81A",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21BR003CTX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21CB005RAU",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21CCS43W00",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21CGS06G0L",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21CK001MUS",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21D2002CFR",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21DN0018CD",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21E60059MX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21ED004JGE",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21FCCTO1WW",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21FV002RMH",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21HH003DMX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21HNS3HP00",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21J5002FGE",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21J8",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21JG",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21JR0009RT",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21JT001AUS",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21LW0012GE",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21ME001MUS",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "21MLCTO1WW",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "30DF001KUS",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "30FNS4J100",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "30GSCTO1WW",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "82R9",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "82S2",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "82TL",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "82XL",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "82XT",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "83E0",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "AIO MS-AE061",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "AIO MS-AF82",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Alpha 17 C7VF",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Bravo 15 B5ED",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Bravo 15 C7VE",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Bravo 15 C7VF",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Bravo 17 C7VF",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Creator MS-1571",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Creator MS-1572",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Creator MS-1585",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Creator MS-15G1",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Creator MS-16V4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Creator MS-16W1",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Creator MS-17M1",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Creator MS-17N1",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Cyborg 15 A12VE",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Cyborg 15 A13VE",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Delta 15 A5EFK",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GE MS-1542",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GE MS-1543",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GE MS-17K2",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GE MS-17K3",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GF63 Thin 10UC",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GF63 Thin 11UC",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GF75 Thin 10SC",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GF75 Thin 10UEK",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GL MS-1585",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GP MS-1542",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GP MS-1543",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GP MS-17K2",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "GP MS-17K3",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7A32",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7A40",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7A93",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7B23",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7B29",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7B98",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7C02",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7C37",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7C56",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7C71",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7C75",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7C83",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7C90",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D06",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D08",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D11",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D14",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D16",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D18",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D20",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D23",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D25",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D29",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D31",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D33",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D36",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D38",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D41",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D43",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D46",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D50",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D53",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D59",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D69",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D73",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D75",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D77",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D82",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D86",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D89",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D91",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D95",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D97",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7D99",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7E02",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7E05",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7E07",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7E10",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7E13",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7E24",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7E26",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7E28",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7E47",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-7E51",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-B0A21",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-B0A41",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-B0A91",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MS-B9221",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Summit MS-13P2",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "14T90Q-K.AAB6U1",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "14T90R-K.AA77A1",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "15Z90R-G.AP55B",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "15ZD90S-GX56K",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "16T90R-K.ADB9U1",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "16Z90S-H.ADB9U1",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "17Z90R-G.AD79F",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "17Z90R-G.AP78D",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "17Z90R-H.ADC8U1",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "17Z90S-G.AD7BA1",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "17ZD90R-G.AX75B",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "22V30R-L.BY31P2",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "550XED",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "730QCJ/730QCR",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "730QED",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "730QFG",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "750QFG",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "750QGK",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "750XED",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "750XFG",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "750XFH",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "750XGK",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "930QED",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "935QDC",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "940XFG",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "940XGK",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "950QED",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "960QFG",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "960QGK",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "960QHA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "960XFG",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "960XFH",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "960XGK",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "960XGL",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "AS -4125GS-TNRT",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "AS -8125GS-TNHR",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "AvenueCityM",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B250",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B560-AIO T5V",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "B75",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "BOX-J4105A",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "BQM5",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "CELSIUS H7510",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "CELSIUS W5012",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "ESPRIMO Q558",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "ESPRIMO Q957",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "FMVU14003",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "FMVU20004",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "FRANMDCP07",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "FRANMZCP07",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "H13DSG-O-CPU",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "LIFEBOOK E449",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "LIFEBOOK E4512",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "LIFEBOOK E5412",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "LIFEBOOK E5512A",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "LIFEBOOK E558",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "LIFEBOOK S937",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "LIFEBOOK T938",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "LIFEBOOK U729",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "LIFEBOOK U7311",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "LIFEBOOK U7313",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "LIFEBOOK U7410",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "LIFEBOOK U7413",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "LIFEBOOK U7510",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "LIFEBOOK U7512",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "LIFEBOOK U758",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "LIFEBOOK U7613",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "LIFEBOOK U9312X",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MacBookAir8,1",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MacBookAir8,2",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MacBookPro13,1",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MacBookPro13,2",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MacBookPro15,1",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MacBookPro15,2",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MacBookPro15,3",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MacBookPro15,4",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MacBookPro16,3",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "MacPro6,1",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "NP930XDB-KF6IT",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "NT930SBE-K716",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "NT950XDC-XD71S",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "SYS-111R-M",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "SYS-121H-TNR",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "gram PC 15Z90RT",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "gram PC 15Z90ST",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "iMac16,1",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "iMac18,1",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "iMac18,2",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "iMac18,3",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "iMac19,1",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "KVM",
+   "os": [
+    "linux"
+   ],
+   "vendor": "Other",
+   "weight": 7,
+   "source": "lib_base systemd-detect-virt fallback"
+  },
+  {
+   "model": "ORACLE",
+   "os": [
+    "linux"
+   ],
+   "vendor": "Other",
+   "weight": 3,
+   "source": "lib_base systemd-detect-virt fallback"
+  },
+  {
+   "model": "VMWARE",
+   "os": [
+    "linux"
+   ],
+   "vendor": "Other",
+   "weight": 3,
+   "source": "lib_base systemd-detect-virt fallback"
+  },
+  {
+   "model": "QEMU",
+   "os": [
+    "linux"
+   ],
+   "vendor": "Other",
+   "weight": 2,
+   "source": "lib_base systemd-detect-virt fallback"
+  },
+  {
+   "model": "MICROSOFT",
+   "os": [
+    "linux"
+   ],
+   "vendor": "Other",
+   "weight": 2,
+   "source": "lib_base systemd-detect-virt fallback"
+  },
+  {
+   "model": "Laptop",
+   "os": [
+    "linux"
+   ],
+   "vendor": "Other",
+   "weight": 12,
+   "source": "lib_base ChassisTypeToString fallback"
+  },
+  {
+   "model": "Server",
+   "os": [
+    "linux"
+   ],
+   "vendor": "Other",
+   "weight": 2,
+   "source": "lib_base ChassisTypeToString fallback"
+  },
+  {
+   "model": "Tablet",
+   "os": [
+    "linux"
+   ],
+   "vendor": "Other",
+   "weight": 1,
+   "source": "lib_base ChassisTypeToString fallback"
+  },
+  {
+   "model": "Convertible",
+   "os": [
+    "linux"
+   ],
+   "vendor": "Other",
+   "weight": 1,
+   "source": "lib_base ChassisTypeToString fallback"
+  },
+  {
+   "model": "Handset",
+   "os": [
+    "linux"
+   ],
+   "vendor": "Other",
+   "weight": 1,
+   "source": "lib_base ChassisTypeToString fallback"
+  }
+ ]
+}

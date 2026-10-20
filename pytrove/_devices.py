@@ -1,17 +1,63 @@
 from __future__ import annotations as _annotations
 
-from .typings import _T
+from dataclasses import dataclass, field
+from datetime import date
+from functools import cache
+from pathlib import Path
+from typing import Any, ClassVar, Final, Iterable
 
 import hashlib
-import os
-import json
+import os as _os
+import random
+
+from .files_tools import load_json
 
 
+# One file per platform under data/devices, so a catalog can be refreshed
+# without touching code. Bump _SCHEMA only when the layout changes.
+_DATA_DIR: Final = Path(__file__).parent / "data" / "devices"
+_SCHEMA: Final = 1
 
+# Recency decay. A device or OS version loses half its weight every
+# `_HALF_LIFE_DAYS`, which is what keeps a freshly released phone far more
+# likely than a six-year-old one without ever excluding the old one.
+_HALF_LIFE_DAYS: Final[float] = 730.0
+_MIN_WEIGHT: Final[float] = 1e-4
+
+# Shares used to balance groups that the catalogs over- or under-represent:
+# Google lists every regional variant of a Samsung phone and only one of a
+# Pixel, so counting rows would make Samsung dominate far beyond its real
+# share. Each group's share is split across its own devices instead.
+#
+# These are approximate installed-base shares, not measurements. Override
+# `GROUP_SHARES` to change the mix.
+GROUP_SHARES: dict[str, float] = {
+    # Android retail brands
+    "samsung": 34.0, "xiaomi": 12.0, "redmi": 8.0, "poco": 4.0,
+    "motorola": 8.0, "oneplus": 4.0, "google": 4.0,
+    "oppo": 11.0, "vivo": 9.0, "realme": 5.0,
+    # Desktop vendors
+    "Lenovo": 25.0, "HP": 22.0, "Dell": 17.0, "ASUS": 9.0, "Acer": 7.0,
+    "MSI": 4.0, "Gigabyte": 3.0, "ASRock": 2.0, "Other": 11.0,
+    # Web: the browser and the operating system together, because a browser's
+    # share on Windows says nothing about its share on Linux. Safari is absent
+    # from the catalog, so macOS is under-weighted here by exactly its share.
+    "Chrome on Windows": 50.0, "Chrome on macOS": 7.0, "Chrome on Linux": 4.0,
+    "Edge on Windows": 14.0, "Edge on macOS": 1.0, "Edge on Linux": 1.0,
+    "Firefox on Windows": 5.0, "Firefox on macOS": 1.0, "Firefox on Linux": 2.0,
+}
+
+# Telegram reports every desktop OS as one platform, so `DesktopDevice` holds
+# them and the OS is drawn here. Shares are relative within a platform.
+OS_SHARES: dict[str, float] = {"windows": 20.0, "linux": 3.0}
+
+
+@dataclass(frozen=True, slots=True)
 class DeviceInfo:
-    def __init__(self, model, version) -> None:
-        self.model = model
-        self.version = version
+    """One plausible device: the model string and an OS version it can run."""
+
+    model: str
+    version: str
 
     def __str__(self) -> str:
         return f"{self.model} {self.version}"
@@ -19,741 +65,371 @@ class DeviceInfo:
     def to_dict(self) -> dict[str, str]:
         return {"device_model": self.model, "system_version": self.version}
 
-    @classmethod
-    def from_dict(cls, data: dict[str, str]):
-        if not isinstance(data, dict):
-            return None
-        model = data.get("device_model") or data.get("model")
-        version = data.get("system_version") or data.get("version")
-        if not model or not version:
-            return None
-        return cls(model, version)
 
-class SystemInfo:
-    """Base for the per-platform device-spoofing catalogs below.
+@dataclass(frozen=True, slots=True)
+class _Device:
+    model: str
+    versions: tuple[str, ...]
+    version_weights: tuple[float, ...]
+    weight: float
+    #: The operating systems this model can report, empty on single-OS
+    #: platforms where the question does not arise.
+    oses: tuple[str, ...] = ()
+    #: os -> (versions of that os, their weights). Only filled when the
+    #: platform has more than one.
+    by_os: dict[str, tuple[tuple[str, ...], tuple[float, ...]]] = field(
+        default_factory=dict, compare=False)
 
-    RandomDevice() picks a device deterministically from `unique_id`: the same
-    `unique_id` always maps to the same device (via SHA-1 -> int -> index), so
-    repeated calls for the same identity keep returning consistent, believable
-    "hardware" instead of a fresh random device every time. Passing no
-    `unique_id` falls back to os.urandom(), which is why it's still called
-    "Random"Device -- deterministic is the opt-in case, not the default.
+
+@dataclass(frozen=True, slots=True)
+class _OsView:
+    """The devices that can report one OS, with their weights."""
+
+    devices: tuple[_Device, ...]
+    weights: tuple[float, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class _Catalog:
+    platform: str
+    updated: str
+    devices: tuple[_Device, ...]
+    weights: tuple[float, ...] = field(compare=False)
+    #: Every OS this platform covers, empty when it covers one.
+    oses: tuple[str, ...] = ()
+    by_os: dict[str, _OsView] = field(default_factory=dict, compare=False)
+
+    def version_count(self) -> int:
+        return len({v for d in self.devices for v in d.versions})
+
+
+def _age_weight(released: str | None, today: date) -> float:
+    """Recency weight for an ISO date: 1.0 when brand new, halving every
+    `_HALF_LIFE_DAYS`. An unknown date is treated as neutral."""
+
+    if not released:
+        return 1.0
+
+    try:
+        age = (today - date.fromisoformat(released[:10])).days
+    except ValueError:
+        return 1.0
+
+    return max(_MIN_WEIGHT, 0.5 ** (max(age, 0) / _HALF_LIFE_DAYS))
+
+
+def _load(platform: str) -> dict[str, Any]:
+    path = _DATA_DIR / f"{platform}.json"
+
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"no device catalog for {platform!r}: {path} is missing"
+        )
+
+    data = load_json(path)
+
+    if data.get("schema") != _SCHEMA:
+        raise ValueError(
+            f"{platform}.json: unsupported schema {data.get('schema')!r}, expected {_SCHEMA}"
+        )
+
+    return data
+
+
+@cache
+def _catalog(platform: str) -> _Catalog:
+    """Load a platform's catalog and resolve every weight once.
+
+    Each device ends up with the versions it can actually run: the explicit
+    list from the data when it has one (iOS firmwares, Android SDK ranges),
+    or every version belonging to an OS the device reports
+    (any PC runs any Windows build), or the whole platform list when the data
+    draws no such distinction.
     """
 
-    deviceList: list[DeviceInfo] = []
-    system_versions: list[str] = []
+    data = _load(platform)
+    today = date.today()
 
-    def __init__(self) -> None:
-        pass
+    versions = {v["version"]: v for v in data["versions"]}
+    all_versions = tuple(versions)
+    os_of = {name: entry.get("os") for name, entry in versions.items()}
+    oses = tuple(dict.fromkeys(o for o in os_of.values() if o))
+
+    def version_weight(name: str) -> float:
+        entry = versions.get(name, {})
+        weight = entry.get("weight")
+        return (float(weight) if weight is not None
+                else _age_weight(entry.get("released"), today))
+
+    def device_versions(raw: dict[str, Any], device_oses: tuple[str, ...]) -> tuple[str, ...]:
+        explicit = raw.get("versions")
+        if explicit:
+            return tuple(explicit)
+        if device_oses:
+            return tuple(n for n in all_versions if os_of.get(n) in device_oses)
+        return all_versions
+
+    def group_of(raw: dict[str, Any]) -> str | None:
+        return raw.get("brand") or raw.get("vendor")
+
+    # Recency totals per group, so a group's share can be split across its own
+    # devices by how recent each one is. Without this, a brand that happens to
+    # list more new variants would drift past the share it was given.
+    group_totals: dict[str, float] = {}
+    for raw in data["devices"]:
+        group = group_of(raw)
+        if group:
+            group_totals[group] = group_totals.get(group, 0.0) + _age_weight(
+                raw.get("released"), today
+            )
+
+    devices, weights = [], []
+    for raw in data["devices"]:
+        device_oses = tuple(sorted(raw.get("os") or ()))
+        names = device_versions(raw, device_oses)
+        if not names:
+            continue
+
+        weight = raw.get("weight")
+        if weight is None:
+            weight = _age_weight(raw.get("released"), today)
+            group = group_of(raw)
+            if group and group_totals.get(group):
+                # The group keeps exactly its share; inside it, newer devices
+                # take more of that share than older ones.
+                weight *= GROUP_SHARES.get(group, 1.0) / group_totals[group]
+        weight = max(float(weight), _MIN_WEIGHT)
+
+        version_weights = tuple(version_weight(n) for n in names)
+
+        # Split the device's versions by OS, so a draw can pick the OS first
+        # and keep each one's share exact instead of letting the per-device
+        # version mix decide it.
+        by_os: dict[str, tuple[tuple[str, ...], tuple[float, ...]]] = {}
+        if oses:
+            for name, w in zip(names, version_weights):
+                system = os_of.get(name)
+                if not system:
+                    continue
+                current = by_os.get(system, ((), ()))
+                by_os[system] = (current[0] + (name,), current[1] + (w,))
+
+        devices.append(_Device(
+            model=raw["model"],
+            versions=names,
+            version_weights=version_weights,
+            weight=weight,
+            oses=device_oses or tuple(sorted(by_os)),
+            by_os=by_os,
+        ))
+        weights.append(weight)
+
+    if not devices:
+        raise ValueError(f"{platform}.json lists no usable devices")
+
+    by_os_view: dict[str, _OsView] = {}
+    for system in oses:
+        members = [d for d in devices if system in d.by_os]
+        if members:
+            by_os_view[system] = _OsView(
+                tuple(members), tuple(d.weight for d in members))
+
+    return _Catalog(platform, data.get("updated", ""), tuple(devices), tuple(weights),
+                    tuple(by_os_view), by_os_view)
+
+
+def _rng(unique_id: Any = None) -> random.Random:
+    """A generator seeded from `unique_id`, or from system entropy without one.
+
+    The same id always yields the same stream, so one identity keeps getting
+    the same device while the weighting below still applies.
+    """
+
+    if unique_id is None:
+        return random.Random(_os.urandom(32))
+
+    if not isinstance(unique_id, (str, bytes, bytearray)):
+        unique_id = str(unique_id)
+    if isinstance(unique_id, str):
+        unique_id = unique_id.encode("utf-8")
+
+    return random.Random(int(hashlib.sha256(unique_id).hexdigest(), 16))
+
+
+class SystemInfo:
+    """Base for the per-platform device catalogs below.
+
+    random_device() draws a device and then an OS version that device can
+    really run, both weighted towards what is actually in use: newer hardware
+    and newer releases come up more often, and a brand's regional variants
+    share one slice instead of multiplying it.
+
+    A platform that covers several operating systems (`DesktopDevice`) draws
+    the OS first, by `OS_SHARES`, then a device that can report it. Pass `os`
+    to pin that choice.
+
+    Passing `unique_id` makes the draw deterministic -- the same id always maps
+    to the same device -- which is why it is still called random_device: the
+    deterministic case is the opt-in one.
+    """
+
+    platform: ClassVar[str]
+    #: Relative likelihood of this platform when no platform is requested.
+    #: Approximate Telegram-client mix, mobile-heavy; override to change it.
+    platform_weight: ClassVar[float] = 1.0
 
     @classmethod
-    def RandomDevice(cls, unique_id: str = None) -> DeviceInfo:
-        hash_id = cls._strtohashid(unique_id)
-        return cls._RandomDevice(hash_id)
+    def catalog(cls) -> _Catalog:
+        return _catalog(cls.platform)
 
     @classmethod
-    def _RandomDevice(cls, hash_id: int):
-        cls.__gen__()
-        return cls._hashtovalue(hash_id, cls.deviceList)
+    def oses(cls) -> tuple[str, ...]:
+        """Every OS this platform covers, empty when it covers only one."""
+
+        return cls.catalog().oses
 
     @classmethod
-    def __gen__(cls):
-        raise NotImplementedError(
-            f"{cls.__name__} device not supported for randomize yet"
+    def _devices_for(cls, os: str | None) -> tuple[_Device, ...]:
+        catalog = cls.catalog()
+        if os is None:
+            return catalog.devices
+
+        view = catalog.by_os.get(os)
+        if view is None:
+            raise ValueError(
+                f"{cls.platform} has no {os!r} devices; known: {catalog.oses or '()'}"
+            )
+        return view.devices
+
+    @classmethod
+    def devices(cls, os: str | None = None) -> tuple[DeviceInfo, ...]:
+        """Every (model, version) pair this platform can report."""
+
+        return tuple(
+            DeviceInfo(device.model, version)
+            for device in cls._devices_for(os)
+            for version in (device.by_os[os][0] if os else device.versions)
         )
 
     @classmethod
-    def _strtohashid(cls, unique_id: str = None):
-
-        if unique_id != None and not isinstance(unique_id, str):
-            unique_id = str(unique_id)
-
-        byteid = os.urandom(32) if unique_id == None else unique_id.encode("utf-8")
-
-        return int(hashlib.sha1(byteid).hexdigest(), 16) % (10 ** 12)
+    def models(cls, os: str | None = None) -> tuple[str, ...]:
+        return tuple(device.model for device in cls._devices_for(os))
 
     @classmethod
-    def _hashtorange(cls, hash_id: int, max, min=0):
-        return hash_id % (max - min) + min
+    def versions(cls, os: str | None = None) -> tuple[str, ...]:
+        seen = dict.fromkeys(
+            version
+            for device in cls._devices_for(os)
+            for version in (device.by_os[os][0] if os else device.versions)
+        )
+        return tuple(seen)
 
     @classmethod
-    def _hashtovalue(cls, hash_id: int, values: list[_T]) -> _T:
-        return values[hash_id % len(values)]
-
-    @classmethod
-    def _CleanAndSimplify(cls, text: str) -> str:
-        return " ".join(word for word in text.split(" ") if word)
-
-
-class GeneralDesktopDevice(SystemInfo):
-
-    # Total: 794 devices, update Jan 10th 2022
-    # Real device models that I crawled myself from the internet
-    #
-    # This is the values in HKEY_LOCAL_MACHINE\HARDWARE\DESCRIPTION\System\BIOS
-    # including SystemFamily, SystemProductName, BaseBoardProduct
-    #
-    # Filtered any models that exceed 15 characters
-    # just like tdesktop does in lib_base https://github.com/desktop-app/lib_base/blob/master/base/platform/win/base_info_win.cpp#L173
-    #
-    # Feel free to use
-    #
-    # Sources: https://answers.microsoft.com/, https://www.techsupportforum.com/ and https://www.bleepingcomputer.com/
-
-    device_models = [
-        "VPCEB27FD",
-        "VPCEE31FX",
-        "VPCF11QFX",
-        "VPCF1290X",
-        "VPCF22C5E",
-        "VPCF22J1E",
-        "VPCS111FM",
-        "Veriton E430",
-        "VivoBook",
-        "Vostro",
-        "Vostro 1520",
-        "Vostro 1720",
-        "Vostro1510",
-        "W35xSS_370SS",
-        "W55xEU",
-        "X421JQ",
-        "X510UNR",
-        "X550CA",
-        "X550JX",
-        "X555LAB",
-        "X556UB",
-        "X556UF",
-        "X570 GAMING X",
-        "X570 MB",
-        "X58-USB3",
-        "X58A-UD3R",
-        "X58A-UD5",
-        "X58A-UD7",
-        "XPS",
-        "XPS 13 9305",
-        "XPS 13 9370",
-        "XPS 15 9550",
-        "XPS 15 9560",
-        "XPS 630i",
-        "XPS 730",
-        "XPS 730X",
-        "XPS 8300",
-        "XPS 8700",
-        "XPS 8940",
-        "XPS A2420",
-        "XPS L501X",
-        "XPS L701X",
-        "XPS M1530",
-        "YOGA 530-14ARR",
-        "YOGA 920-13IKB",
-        "YOGATablet2",
-        "Yoga2",
-        "Z10PE-D8 WS",
-        "Z170 PRO GAMING",
-        "Z170-E",
-        "Z170X-Gaming 5",
-        "Z170X-UD3",
-        "Z170X-UD3-CF",
-        "Z370P D3",
-        "Z370P D3-CF",
-        "Z68 Pro3",
-        "Z68A-D3-B3",
-        "Z68A-D3H-B3",
-        "Z68AP-D3",
-        "Z68MA-D2H-B3",
-        "Z68X-UD3H-B3",
-        "Z68XP-UD3",
-        "Z68XP-UD4",
-        "Z77 Pro4",
-        "Z77X-D3H",
-        "Z87 Extreme6",
-        "Z87-D3HP",
-        "Z87-D3HP-CF",
-        "Z87M Extreme4",
-        "Z87N-WIFI",
-        "Z87X-OC",
-        "Z87X-OC-CF",
-        "Z87X-UD4H",
-        "Z97-A",
-        "Z97-A-USB31",
-        "Z97-AR",
-        "Z97-C",
-        "Z97-PRO GAMER",
-        "Z97X-Gaming 7",
-        "eMachines E725",
-        "h8-1070t",
-        "h8-1534",
-        "imedia S3720",
-        "ixtreme M5800",
-        "p6654y",
-        "p6710f",
-    ]
-
-
-class WindowsDevice(GeneralDesktopDevice):
-    system_versions = ["Windows 10", "Windows 8", "Windows 8.1", "Windows 7"]
-
-    deviceList: list[DeviceInfo] = []
-
-    @classmethod
-    def __gen__(cls) -> None:
-
-        if len(cls.deviceList) == 0:
-
-            results: list[DeviceInfo] = []
-
-            for model in cls.device_models:
-                model = cls._CleanAndSimplify(model.replace("_", ""))
-                for version in cls.system_versions:
-                    results.append(DeviceInfo(model, version))
-
-            cls.deviceList = results
-
-
-class LinuxDevice(GeneralDesktopDevice):
-
-    system_versions: list[str] = []
-    deviceList: list[DeviceInfo] = []
-
-    @classmethod
-    def __gen__(cls) -> None:
-
-        if len(cls.system_versions) == 0:
-            # https://github.com/desktop-app/lib_base/blob/master/base/platform/linux/base_info_linux.cpp#L129
-
-            # ? Purposely reduce the amount of devices parameter to generate deviceList more quickly
-            enviroments = [
-                "GNOME",
-                "MATE",
-                "XFCE",
-                "Cinnamon",
-                "Unity",
-                "ubuntu",
-                "LXDE",
-            ]
-
-            wayland = ["Wayland", "XWayland", "X11"]
-
-            libcNames = ["glibc"]
-            libcVers = ["2.31", "2.32", "2.33", "2.34"]
-
-            # enviroments = [
-            #     "GNOME", "MATE", "XFCE", "Cinnamon", "X-Cinnamon",
-            #     "Unity", "ubuntu", "GNOME-Classic", "LXDE"
-            # ]
-
-            # wayland = ["Wayland", "XWayland", "X11"]
-
-            # libcNames = ["glibc", "libc"]
-            # libcVers = [
-            #     "2.20", "2.21", "2.22", "2.23", "2.24", "2.25", "2.26", "2.27",
-            #     "2.28", "2.29", "2.30", "2.31", "2.32", "2.33", "2.34"
-            # ]
-
-            def getitem(group: list[list[str]], prefix: str = "") -> list[str]:
-
-                prefix = "" if prefix == "" else prefix + " "
-                results = []
-                if len(group) == 1:
-                    for item in group[0]:
-                        results.append(prefix + item)
-                    return results
-
-                for item in group[0]:
-                    results.extend(getitem(group[1:], prefix + item))
-
-                return results
-
-            libcFullNames = getitem([libcNames, libcVers], "")
-
-            cls.system_versions = getitem(
-                [enviroments, wayland, libcFullNames], "Linux"
-            )
-
-            results: list[DeviceInfo] = []
-
-            for version in cls.system_versions:
-                for model in cls.device_models:
-                    results.append(DeviceInfo(model, version))
-
-            cls.deviceList = results
-
-
-class macOSDevice(GeneralDesktopDevice):
-
-    deviceList: list[DeviceInfo] = []
-
-    # Total: 54 device models, update Jan 10th 2022
-    # Only list device models since 2013
-    #
-    # Sources:
-    # Thanks to: https://mrmacintosh.com/list-of-mac-boardid-deviceid-model-identifiers-machine-models/
-    #       and: https://github.com/brunerd/jamfTools/blob/main/EAs/macOSCompatibility.sh
-    #
-    # Remark: https://www.innerfence.com/howto/apple-ios-devices-dates-versions-instruction-sets
-
-    device_models = [
-        "MacBookPro16,4",
-        "MacBookPro16,3",
-        "MacBookPro16,2",
-        "MacBookPro16,1",
-        "MacBookPro15,4",
-        "MacBookPro15,3",
-        "MacBookPro15,2",
-        "MacBookPro15,1",
-        "MacBookPro14,3",
-        "MacBookPro14,2",
-        "MacBookPro14,1",
-        "MacBookPro13,3",
-        "MacBookPro13,2",
-        "MacBookPro13,1",
-        "MacBookPro12,1",
-        "MacBookPro11,5",
-        "MacBookPro11,4",
-        "MacBookPro11,3",
-        "MacBookPro11,2",
-        "MacBookPro11,1",
-        "MacBookPro10,2",
-        "MacBookPro10,1",
-        "MacBookAir9,1",
-        "MacBookAir8,2",
-        "MacBookAir8,1",
-        "MacBookAir7,2",
-        "MacBookAir7,2",
-        "MacBookAir7,1",
-        "MacBookAir6,2",
-        "MacBookAir6,1",
-        "MacBookAir6,2",
-        "MacBook10,1",
-        "MacBook9,1",
-        "MacBook8,2",
-        "MacBook8,1",
-        "MacPro7,1",
-        "MacPro6,1",
-        "iMac20,2",
-        "iMac20,1",
-        "iMac19,1",
-        "iMac18,3",
-        "iMac18,2",
-        "iMac18,1",
-        "iMac17,1",
-        "iMac17,1",
-        "iMac17,1",
-        "iMac16,2",
-        "iMac16,1",
-        "iMac15,2",
-        "iMac15,1",
-        "iMac14,4",
-        "iMac14,3",
-        "iMac14,2",
-        "iMac14,1",
-        "iMacPro1,1",
-    ]
-
-    # Source: https://support.apple.com/en-us/HT201222
-    system_versions = [
-        "macOS 10.12",
-        "macOS 10.12.1",
-        "macOS 10.12.2",
-        "macOS 10.12.3",
-        "macOS 10.12.4",
-        "macOS 10.12.5",
-        "macOS 10.12.6",
-        "macOS 10.13",
-        "macOS 10.13.1",
-        "macOS 10.13.2",
-        "macOS 10.13.3",
-        "macOS 10.13.4",
-        "macOS 10.13.5",
-        "macOS 10.13.6",
-        "macOS 10.14",
-        "macOS 10.14.1",
-        "macOS 10.14.2",
-        "macOS 10.14.3",
-        "macOS 10.14.4",
-        "macOS 10.14.5",
-        "macOS 10.14.6",
-        "macOS 10.15",
-        "macOS 10.15.1",
-        "macOS 10.15.2",
-        "macOS 10.15.3",
-        "macOS 10.15.4",
-        "macOS 10.15.5",
-        "macOS 10.15.6",
-        "macOS 10.15.7",
-        "macOS 11.0",
-        "macOS 11.0.1",
-        "macOS 11.1",
-        "macOS 11.2",
-        "macOS 11.2.1",
-        "macOS 11.2.2",
-        "macOS 11.2.3",
-        "macOS 11.3",
-        "macOS 11.3.1",
-        "macOS 11.4",
-        "macOS 11.5",
-        "macOS 11.5.1",
-        "macOS 11.5.2",
-        "macOS 11.6",
-        "macOS 11.6.1",
-        "macOS 11.6.2",
-        "macOS 12.0",
-        "macOS 12.0.1",
-        "macOS 12.1",
-    ]
-
-    deviceList: list[DeviceInfo] = []
-
-    @classmethod
-    def __gen__(cls) -> None:
-
-        if len(cls.deviceList) == 0:
-
-            # https://github.com/desktop-app/lib_base/blob/master/base/platform/mac/base_info_mac.mm#L42
-
-            def FromIdentifier(model: str):
-                words = []
-                word = ""
-
-                for ch in model:
-                    if not ch.isalpha():
-                        continue
-                    if ch.isupper():
-                        if word != "":
-                            words.append(word)
-                            word = ""
-                    word += ch
-
-                if word != "":
-                    words.append(word)
-                result = ""
-                for word in words:
-                    if result != "" and word != "Mac" and word != "Book":
-                        result += " "
-                    result += word
-
-                return result
-
-            new_devices_models = []
-            for model in cls.device_models:
-                model = cls._CleanAndSimplify(FromIdentifier(model))
-                if not model in new_devices_models:
-                    new_devices_models.append(model)
-
-            cls.device_models = new_devices_models
-
-            results: list[DeviceInfo] = []
-
-            for model in cls.device_models:
-                for version in cls.system_versions:
-                    results.append(DeviceInfo(model, version))
-
-            cls.deviceList = results
-
-
-class AndroidDevice(SystemInfo):
-
-    system_versions = ["SDK 33", "SDK 34", "SDK 35"]
-
-    device_models_by_sdk = {
-        "SDK 33": [
-            "Samsung SM-A536B",  # Galaxy A53 5G
-            "Samsung SM-A736B",  # Galaxy A73 5G
-            "Samsung SM-G991B",  # Galaxy S21
-            "Samsung SM-G998B",  # Galaxy S21 Ultra
-            "Samsung SM-G990B",  # Galaxy S21 FE
-            "Samsung SM-A336B",  # Galaxy A33 5G
-            "Samsung SM-A137F",  # Galaxy A13
-            "Samsung SM-M336B",  # Galaxy M33 5G
-            "Xiaomi 2107113SG",  # Xiaomi 11T
-            "Xiaomi 21081111RG", # Xiaomi 11T Pro
-            "Xiaomi 2112123AG",  # Xiaomi 12
-            "Redmi 2201116SG",   # Redmi Note 11 Pro+
-            "Redmi 2201117TG",   # Redmi Note 11S
-            "Redmi 2201116PG",   # Redmi Note 11 Pro 5G
-            "POCO M2102J20SG",   # POCO X3 Pro
-            "POCO 21091116AG",   # POCO M4 Pro 5G
-            "POCO 2201116PG",    # POCO X4 Pro 5G
-            "OPPO CPH2449",      # OPPO Find X5 Pro
-            "OPPO CPH2525",      # OPPO Reno10
-            "OPPO CPH2371",      # OPPO Reno7 5G
-        ],
-        "SDK 34": [
-            "Samsung SM-A045F",  # Galaxy A04
-            "Samsung SM-A135F",  # Galaxy A13
-            "Samsung SM-A235F",  # Galaxy A23
-            "Samsung SM-A245F",  # Galaxy A24
-            "Samsung SM-A336B",  # Galaxy A33 5G
-            "Samsung SM-A346B",  # Galaxy A34 5G
-            "Samsung SM-A525F",  # Galaxy A52
-            "Samsung SM-A526B",  # Galaxy A52 5G
-            "Samsung SM-A528B",  # Galaxy A52s 5G
-            "Samsung SM-A536B",  # Galaxy A53 5G
-            "Samsung SM-A546B",  # Galaxy A54 5G
-            "Samsung SM-A725F",  # Galaxy A72
-            "Xiaomi 2211133G",   # Xiaomi 13
-            "Xiaomi 2304FPN6DC", # Xiaomi 13 Ultra
-            "Xiaomi 2210132G",   # Xiaomi 12T Pro
-            "Xiaomi 23127PN0CG", # Xiaomi 14
-            "Redmi 23090RA98G",  # Redmi Note 13 Pro 5G
-            "Redmi 2312DRA50G",  # Redmi Note 13 Pro (4G)
-            "Redmi 23117RA68G",  # Redmi Note 13 5G
-            "Redmi 23124RA7EO",  # Redmi Note 13 (4G)
-            "POCO 22021211RG",   # POCO F4
-            "POCO 22101320G",    # POCO X5 Pro 5G
-            "POCO 23049PCD8G",   # POCO F5
-            "POCO 23013PC75G",   # POCO F5 Pro
-            "OPPO CPH2607",      # OPPO Reno11 Pro
-            "OPPO CPH2599",      # OPPO Find N3 Flip
-            "OPPO CPH2581",      # OPPO Reno11
-            "Motorola moto g13",
-            "Motorola moto g23",
-            "Motorola moto g53 5G",
-            "Motorola moto g73 5G",
-        ],
-        "SDK 35": [
-            "Xiaomi 24030PN60G", # Xiaomi 14 (Update)
-            "Xiaomi 23113RKC6G", # Xiaomi 14 Pro
-            "Xiaomi 2407FPN8EG", # Xiaomi 14T Pro
-            "Redmi 24094RAD4G",  # Redmi Note 14 Pro
-            "Redmi 24053PY09I",  # Redmi Note 13 Pro+ (HyperOS 2)
-            "POCO 2311DRK48G",   # POCO X6 Pro
-            "POCO 2407FPN8EG",   # POCO F6 Pro
-            "POCO 24069PC21G",   # POCO F6
-            "OPPO CPH2621",      # OPPO Reno12 Pro
-            "OPPO CPH2631",      # OPPO Reno12
-            "OPPO CPH2651",      # OPPO Find X7 Ultra
-            "Motorola moto g34 5G", # Moto Edge 50 Fusion
-            "Motorola moto g85 5G", # Moto G85 5G
-            "Motorola moto g55 5G", # Moto G55 5G
-            "Motorola moto g45 5G", # Moto G45 5G
-            "Motorola moto g86 5G",
-            "Samsung SM-S928B",  # Galaxy S24 Ultra
-            "Samsung SM-S926B",  # Galaxy S24+
-            "Samsung SM-S921B",  # Galaxy S24
-            "Samsung SM-S918B",  # Galaxy S23 Ultra
-            "Samsung SM-S916B",  # Galaxy S23+
-            "Samsung SM-S911B",  # Galaxy S23
-            "Samsung SM-S711B",  # Galaxy S23 FE
-            "Samsung SM-S908B",  # Galaxy S22 Ultra
-            "Samsung SM-S906B",  # Galaxy S22+
-            "Samsung SM-S901B",  # Galaxy S22
-            "Samsung SM-G998B",  # Galaxy S21 Ultra
-            "Samsung SM-G996B",  # Galaxy S21+
-            "Samsung SM-G991B",  # Galaxy S21
-            "Samsung SM-G990B",  # Galaxy S21 FE
-            "Samsung SM-A736B",  # Galaxy A73 5G
-            "Samsung SM-A725F",  # Galaxy A72
-            "Samsung SM-A556B",  # Galaxy A55 5G
-            "Samsung SM-A546B",  # Galaxy A54 5G
-            "Samsung SM-A536B",  # Galaxy A53 5G
-            "Samsung SM-A356B",  # Galaxy A35 5G
-            "Samsung SM-A346B",  # Galaxy A34 5G
-            "Samsung SM-A336B",  # Galaxy A33 5G
-            "Samsung SM-A256B",  # Galaxy A25 5G
-            "Samsung SM-A245F",  # Galaxy A24
-            "Samsung SM-A156B",  # Galaxy A15 5G
-        ],
-    }
-
-    device_models = []
-    deviceList: list[DeviceInfo] = []
-    deviceList_by_sdk: dict[str, list[DeviceInfo]] = {}
-
-    @classmethod
-    def _RandomDevice(cls, hash_id: int):
-        cls.__gen__()
-
-        # Two-stage pick instead of the flat _hashtovalue() the other
-        # platforms use, because devices are grouped by SDK here: first
-        # `hash_id` selects an SDK, then a second derived index (the same
-        # `hash_id` with the SDK's own contribution divided out) selects a
-        # device within that SDK's list. Both stages are pure functions of
-        # `hash_id`, so the same unique_id -> same SDK -> same device.
-        sdk_order = [sdk for sdk in cls.system_versions if cls.deviceList_by_sdk.get(sdk)]
-        sdk_version = cls._hashtovalue(hash_id, sdk_order)
-        sdk_devices = cls.deviceList_by_sdk[sdk_version]
-
-        device_index = (hash_id // max(1, len(sdk_order))) % len(sdk_devices)
-        return sdk_devices[device_index]
-
-    @classmethod
-    def __gen__(cls) -> None:
-
-        if len(cls.deviceList) == 0:
-            cls.device_models = []
-            cls.deviceList = []
-            cls.deviceList_by_sdk = {}
-
-            for version in cls.system_versions:
-                modelos = cls.device_models_by_sdk.get(version, [])
-                sdk_list: list[DeviceInfo] = []
-
-                for model in modelos:
-                    cls.device_models.append(model)
-                    info = DeviceInfo(model, version)
-                    sdk_list.append(info)
-                    cls.deviceList.append(info)
-
-                cls.deviceList_by_sdk[version] = sdk_list
-
-
-    @classmethod
-    def GetDevices(cls) -> list[DeviceInfo]:
-        cls.__gen__()
-        return cls.deviceList.copy()
-
-    @classmethod
-    def GetDevicesBySdk(cls) -> dict[str, list[DeviceInfo]]:
-        cls.__gen__()
-        return {sdk: devices.copy() for sdk, devices in cls.deviceList_by_sdk.items()}
-
-    @classmethod
-    def FindDevice(cls, device_model: str, system_version: str = None):
-        cls.__gen__()
-        if not device_model:
-            return None
-
-        for item in cls.deviceList:
-            if item.model == device_model and (system_version is None or item.version == system_version):
-                return item
+    def find_device(cls, model: str, version: str | None = None) -> DeviceInfo | None:
+        for device in cls.catalog().devices:
+            if device.model != model:
+                continue
+            if version is None:
+                return DeviceInfo(device.model, device.versions[0])
+            if version in device.versions:
+                return DeviceInfo(device.model, version)
 
         return None
 
     @classmethod
-    def _device_config_path(cls, unique_id: str = None):
-        if unique_id is None:
-            return None
-        if not isinstance(unique_id, str):
-            unique_id = str(unique_id)
-        return f"{unique_id}.device.json"
+    def random_device(cls, unique_id: Any = None, os: str | None = None) -> DeviceInfo:
+        catalog = cls.catalog()
+        rng = _rng(unique_id)
 
-    @classmethod
-    def LoadDeviceConfig(cls, unique_id: str = None):
-        path = cls._device_config_path(unique_id)
-        if not path or not os.path.exists(path):
-            return None
+        if os is None and catalog.oses:
+            # Pick the OS by share first: letting device weights decide
+            # would tie the OS mix to how many models each OS happens to
+            # list, and a Linux-only board would then drag it around.
+            os = rng.choices(
+                catalog.oses,
+                weights=[OS_SHARES.get(system, 1.0) for system in catalog.oses],
+                k=1,
+            )[0]
 
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception:
-            return None
+        if os is None:
+            device = rng.choices(catalog.devices, weights=catalog.weights, k=1)[0]
+            names, version_weights = device.versions, device.version_weights
+        else:
+            view = catalog.by_os.get(os)
+            if view is None:
+                raise ValueError(
+                    f"{cls.platform} has no {os!r} devices; known: {catalog.oses or '()'}"
+                )
+            device = rng.choices(view.devices, weights=view.weights, k=1)[0]
+            names, version_weights = device.by_os[os]
 
-        info = DeviceInfo.from_dict(data)
-        if info is None:
-            return None
+        version = rng.choices(names, weights=version_weights, k=1)[0]
 
-        return cls.FindDevice(info.model, info.version)
-
-    @classmethod
-    def SaveDeviceConfig(cls, unique_id: str, device_info: DeviceInfo):
-        path = cls._device_config_path(unique_id)
-        if not path or device_info is None:
-            return None
-
-        folder = os.path.dirname(path)
-        if folder:
-            os.makedirs(folder, exist_ok=True)
-
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(device_info.to_dict(), f, ensure_ascii=False, indent=4)
-
-        return path
-
-    @classmethod
-    def ResolveDevice(cls, unique_id: str = None, device_info: DeviceInfo = None):
-        if device_info is not None:
-            if not isinstance(device_info, DeviceInfo):
-                if isinstance(device_info, dict):
-                    device_info = DeviceInfo.from_dict(device_info)
-                elif isinstance(device_info, (tuple, list)) and len(device_info) >= 2:
-                    device_info = DeviceInfo(device_info[0], device_info[1])
-                else:
-                    device_info = None
-
-            if device_info is not None:
-                found = cls.FindDevice(device_info.model, device_info.version)
-                if found is not None:
-                    if unique_id is not None:
-                        cls.SaveDeviceConfig(unique_id, found)
-                    return found
-
-        stored = cls.LoadDeviceConfig(unique_id)
-        if stored is not None:
-            return stored
-
-        return cls.RandomDevice(unique_id)
+        return DeviceInfo(device.model, version)
 
 
-class iOSDeivce(SystemInfo):
+class DesktopDevice(SystemInfo):
+    """Windows and Linux, which Telegram reports as one platform.
 
-    device_models = {
-        5: ["S"],
-        6: [" Plus", "", "S", "S Plus"],
-        7: ["", " Plus"],
-        8: ["", " Plus"],
-        10: ["", "S", "S Max", "R"],
-        11: ["", " Pro", " Pro Max"],
-        12: [" mini", "", " Pro", " Pro Max"],
-        13: [" Pro", " Pro Max", " Mini", ""],
-    }
+    The same PC appears once and can report either, so the hardware pool is
+    stored once and tagged with both.
 
-    system_versions: dict[int, dict[int, list[int]]] = {
-        15: {2: [], 1: [1], 0: [2, 1]},
-        14: {8: [1], 7: [1], 6: [], 5: [1], 4: [2, 1], 3: [], 2: [1], 1: [], 0: [1]},
-        13: {7: [], 6: [1], 5: [1], 4: [1], 3: [1], 2: [3, 2], 1: [3, 2, 1]},
-        12: {
-            5: [5, 4, 3, 2, 1],
-            4: [9, 8, 7, 6, 5, 4, 3, 2, 1],
-            3: [2, 1],
-            11: [0],
-            2: [],
-            1: [4, 3, 2, 1],
-            0: [1],
-        },
-    }
+    Every string follows Telegram Desktop, which is the reference client here:
+    its `lib_base` rules decide what a machine may report, and
+    `tests/test_devices_data.py` checks each stored model against a port of
+    them. Unigram is not modelled -- it reports the raw product name and a bare
+    "Windows 11" -- and macOS is left out because its two official clients send
+    different version strings, the native one's bare "26.1" matching no
+    client's icon rules.
+    """
 
-    deviceList: list[DeviceInfo] = []
+    platform = "desktop"
+    platform_weight = 26.0
 
-    @classmethod
-    def __gen__(cls) -> None:
 
-        if len(cls.deviceList) == 0:
-            results: list[DeviceInfo] = []
+class WebDevice(SystemInfo):
+    """A browser running Telegram Web, which Telegram reports as its own
+    platform (`PlatformDevice.WEB`).
 
-            # ! SHITTY CODE BECAUSE I HAD TO CHECK FOR THE RIGHT VERSION
-            for id_model in cls.device_models:
-                if id_model == 13:
-                    available_versions = [15]
-                elif id_model == 12:
-                    available_versions = [14, 15]
-                elif id_model == 11:
-                    available_versions = [13, 14, 15]
-                elif id_model == 5:
-                    available_versions = [12]
-                else:
-                    available_versions = [12, 13, 14, 15]
+    The model is the whole `navigator.userAgent` and the version is
+    `navigator.platform`, because a browser has no device name to give -- both
+    official web clients send those two values verbatim. Each user agent lists
+    exactly one version: the two describe the same machine, so a UA claiming
+    Windows cannot report "MacIntel".
+    """
 
-                for model_name in cls.device_models[id_model]:
+    platform = "web"
+    platform_weight = 5.0
 
-                    if id_model == 10:
-                        id_model = "X"
-                    device_model = f"iPhone {id_model}{model_name}"
 
-                    for major in available_versions:
-                        for minor, patches in cls.system_versions[major].items():
+class AndroidDevice(SystemInfo):
+    platform = "android"
+    platform_weight = 50.0
 
-                            if len(patches) == 0:
-                                results.append(
-                                    DeviceInfo(device_model, f"{major}.{minor}")
-                                )
-                            else:
-                                for patch in patches:
-                                    results.append(
-                                        DeviceInfo(
-                                            device_model, f"{major}.{minor}.{patch}"
-                                        )
-                                    )
 
-            cls.deviceList = results
+class iOSDevice(SystemInfo):
+    platform = "ios"
+    platform_weight = 19.0
+
+
+def random_family(
+    families: Iterable[type[SystemInfo]],
+    unique_id: Any = None,
+) -> type[SystemInfo]:
+    """Pick one platform out of `families`, weighted by `platform_weight`."""
+
+    families = tuple(families)
+    rng = _rng(unique_id)
+
+    return rng.choices(families, weights=[f.platform_weight for f in families], k=1)[0]
+
+
+__all__ = (
+    "DeviceInfo",
+    "SystemInfo",
+    "DesktopDevice",
+    "WebDevice",
+    "AndroidDevice",
+    "iOSDevice",
+    "random_family",
+)

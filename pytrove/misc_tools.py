@@ -51,8 +51,9 @@ def generate_secret(
         guaranteed.append(secrets.choice(string.digits))
 
     if use_symbols:
-        pools.append("!@#$%^&*()-_=+[]{};:,.<>?/")
-        guaranteed.append(secrets.choice("!@#$%^&*()-_=+[]{};:,.<>?/"))
+        symbols = "!@#$%^&*()-_=+[]{};:,.<>?/"
+        pools.append(symbols)
+        guaranteed.append(secrets.choice(symbols))
 
     if not pools:
         raise ValueError("At least one character set must be enabled")
@@ -77,16 +78,17 @@ def unwrap(obj: Any, with_prop: bool = True) -> Any:
     `functools.partialmethod`, and `__wrapped__`-chain wrappers (decorators
     using functools.wraps).
 
-    `functools._unwrap_partialmethod` is a private helper (no public
-    equivalent exists) that partialmethod itself uses internally to resolve
-    `__wrapped__` on a partialmethod object; reused here so `unwrap()`
-    handles partialmethod the same way stdlib introspection does.
+    A partialmethod is peeled through its `.func` attribute, its public
+    accessor, before the `__wrapped__` chain is followed.
     """
 
     if with_prop and isinstance(obj, property):
         obj = obj.fget
 
-    return functools._unwrap_partialmethod(inspect.unwrap(obj))
+    while isinstance(obj, functools.partialmethod):
+        obj = obj.func
+
+    return inspect.unwrap(obj)
         
     
 def patch_into(
@@ -188,11 +190,18 @@ def patch_cls(
 
 
 def walk_subclasses(cls: type, include_base: bool = False) -> Iterator[type]:
-    if include_base:
-        yield cls
+    seen: set[type] = set()
+    stack = [cls] if include_base else list(cls.__subclasses__())
 
-    for sub in cls.__subclasses__():
-        yield from walk_subclasses(sub, include_base=True)
+    while stack:
+        current = stack.pop()
+
+        if current in seen:
+            continue
+
+        seen.add(current)
+        yield current
+        stack.extend(current.__subclasses__())
 
 
 __all__ = (

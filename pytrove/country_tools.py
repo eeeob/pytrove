@@ -18,7 +18,7 @@ except ImportError:
 from ._optional import _optional_import
 
 _COUNTRIES: dict[str, CountryInfo] | None = None
-_COUNTRIES_BY_CC: dict[int, CountryInfo] | None = None
+_COUNTRIES_BY_CC: dict[int, tuple[CountryInfo, ...]] | None = None
 
 @_optional_import((("pycountry", "phonenumbers"), "country"))
 def _build_countries():
@@ -28,28 +28,40 @@ def _build_countries():
         return
 
     _COUNTRIES = {
-        c._fields["alpha_2"].lower(): dict(
-            cc=cc_from_rc(c._fields["alpha_2"].lower()),
-            rc=c._fields["alpha_2"].lower(),
-            flag=c._fields["flag"],
-            name=c._fields["name"]
+        c.alpha_2.lower(): dict(
+            cc=cc_from_rc(c.alpha_2.lower()),
+            rc=c.alpha_2.lower(),
+            flag=c.flag,
+            name=c.name
         )
         for c in list(countries)
-        if is_rc(c._fields["alpha_2"])
+        if is_rc(c.alpha_2)
     }
 
+    by_cc: dict[int, list[CountryInfo]] = {}
+
+    for ci in _COUNTRIES.values():
+        by_cc.setdefault(ci["cc"], []).append(ci)
+
     _COUNTRIES_BY_CC = {
-        ci["cc"]: ci
-        for ci in _COUNTRIES.values()
+        cc: tuple(sorted(group, key=lambda ci: ci["rc"]))
+        for cc, group in by_cc.items()
     }
 
 
 @_optional_import((("pycountry", "phonenumbers"), "country"))
 def get_cinfo(rc_or_cc: StrInt) -> CountryInfo:
+    """Look up one country by region code, or by calling code.
+
+    Several regions can share a calling code (+1 covers the US, Canada and
+    others). A calling code gives the first of them by region code, in
+    alphabetical order; get_countries_by_cc lists all of them.
+    """
+
     _build_countries()
     if isinstance(rc_or_cc, str):
         return _COUNTRIES[rc_or_cc.lower()]
-    return _COUNTRIES_BY_CC[rc_or_cc]
+    return _COUNTRIES_BY_CC[rc_or_cc][0]
 
 
 @_optional_import((("pycountry", "phonenumbers"), "country"))
@@ -163,7 +175,7 @@ def get_countries() -> dict[str, CountryInfo]:
     return _COUNTRIES
 
 @_optional_import((("pycountry", "phonenumbers"), "country"))
-def get_countries_by_cc() -> dict[int, CountryInfo]:
+def get_countries_by_cc() -> dict[int, tuple[CountryInfo, ...]]:
     _build_countries()
     return _COUNTRIES_BY_CC
 

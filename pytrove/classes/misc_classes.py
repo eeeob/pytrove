@@ -3,7 +3,7 @@ from __future__ import annotations as _annotations
 from typing import (
     Any, Awaitable, Callable, TYPE_CHECKING,
     Generic,
-    overload, Hashable, ClassVar, TypeVar
+    overload, Hashable, ClassVar,
 )
 
 try:
@@ -15,6 +15,8 @@ import sys
 
 if sys.version_info < (3, 13):
     from typing_extensions import TypeVar
+else:
+    from typing import TypeVar
 
 from abc import ABC
 from types import MethodType
@@ -88,7 +90,7 @@ class classproperty(Generic[_T, _VT]):
         doc: str | None = None,
         cached: bool = False
     ) -> Callable[
-        [Callable[[type[_T]], _VT]], "classproperty[_T, _VT]"
+        [Callable[[type[_T]], _VT]], classproperty[_T, _VT]
         ]: ...
     def __new__(cls, fget = None, *, doc = None, cached = False):
         if fget is None:
@@ -351,6 +353,7 @@ class AioThreadWorker:
         # Created in run(), not here, so nothing is spawned until the worker is
         # actually started. Assigned exactly once and never reset to None.
         self.__thread: threading.Thread | None = None
+        self.__thread_ready = threading.Event()
         self.__loop: asyncio.AbstractEventLoop | None = None
 
         # All three are asyncio primitives bound to the worker's own loop, so
@@ -406,8 +409,7 @@ class AioThreadWorker:
         # thread can arrive before the assignment lands. Waiting for it is what
         # makes the identity check below meaningful -- reading __thread too
         # early would see None and reject a perfectly valid worker thread.
-        while self.__thread is None:
-            time.sleep(0.005)
+        self.__thread_ready.wait()
 
         if threading.current_thread() is not self.__thread:
             raise RuntimeError("Bootstrap must be called from the worker thread")
@@ -594,6 +596,7 @@ class AioThreadWorker:
                 # that assignment rather than racing it (see its comment).
                 thread.start()
                 self.__thread = thread
+                self.__thread_ready.set()
 
                 del self.__name
             elif not self.__thread.is_alive():
@@ -857,7 +860,7 @@ if HAS_PYMONGO:
 
         def __eq__(self, other):
             if not isinstance(other, MongoIndex):
-                raise NotImplementedError
+                return NotImplemented
             return repr(self) == repr(other)
 else:
     MongoIndex = _unavailable_class("MongoIndex", ("pymongo", "mongo"))
@@ -882,27 +885,29 @@ class KeyDefaultWeakValueDict(weakref.WeakValueDictionary[_KT, _VT]):
 
     __call__ = __getitem__
 
-class DefaultWeakValueDict(KeyDefaultWeakValueDict[_KT, _VT]):
-    """KeyDefaultWeakValueDict whose factory is called with no arguments.
+def _no_arg_factory(default_factory: Callable[[], _VT]) -> Callable[[Any], _VT]:
+    """Adapt a zero-argument factory to the one-argument form the parent takes.
 
-    The key is what the parent hands its factory; this is for the common case
-    where the default does not depend on it. Wrapped with callable_tools'
-    ignore_arguments, whose functools.wraps leaves `__wrapped__` pointing at
-    the original -- that is what makes the unwrap below possible.
+    Unwraps first: this may be one of our own ignore_arguments adapters
+    coming back, from a caller rebuilding the mapping out of
+    `default_factory`. Wrapping it again would call the unwrapped factory
+    with no arguments through a second layer that also takes none, raising
+    TypeError on every miss.
     """
 
+    default_factory = getattr(default_factory, "__wrapped__", default_factory)
+
+    if not callable(default_factory):
+        raise TypeError("default_factory must be callable")
+
+    return ignore_arguments(default_factory)
+
+
+class DefaultWeakValueDict(KeyDefaultWeakValueDict[_KT, _VT]):
+    """KeyDefaultWeakValueDict whose factory is called with no arguments."""
+
     def __init__(self, default_factory: Callable[[], _VT]) -> None:
-        # Unwrap first: this may be one of our own ignore_arguments adapters
-        # coming back, from a caller rebuilding the mapping out of
-        # `default_factory`. Wrapping it again would call the unwrapped
-        # factory with no arguments through a second layer that also takes
-        # none, raising TypeError on every miss.
-        default_factory = getattr(default_factory, "__wrapped__", default_factory)
-
-        if not callable(default_factory):
-            raise TypeError("default_factory must be callable")
-
-        super().__init__(ignore_arguments(default_factory))
+        super().__init__(_no_arg_factory(default_factory))
 
 
 class KeyDefaultWeakKeyDict(weakref.WeakKeyDictionary[_KT, _VT]):
@@ -924,26 +929,10 @@ class KeyDefaultWeakKeyDict(weakref.WeakKeyDictionary[_KT, _VT]):
     __call__ = __getitem__
 
 class DefaultWeakKeyDict(KeyDefaultWeakKeyDict[_KT, _VT]):
-    """KeyDefaultWeakKeyDict whose factory is called with no arguments.
-
-    The key is what the parent hands its factory; this is for the common case
-    where the default does not depend on it. Wrapped with callable_tools'
-    ignore_arguments, whose functools.wraps leaves `__wrapped__` pointing at
-    the original -- that is what makes the unwrap below possible.
-    """
+    """KeyDefaultWeakKeyDict whose factory is called with no arguments."""
 
     def __init__(self, default_factory: Callable[[], _VT]) -> None:
-        # Unwrap first: this may be one of our own ignore_arguments adapters
-        # coming back, from a caller rebuilding the mapping out of
-        # `default_factory`. Wrapping it again would call the unwrapped
-        # factory with no arguments through a second layer that also takes
-        # none, raising TypeError on every miss.
-        default_factory = getattr(default_factory, "__wrapped__", default_factory)
-
-        if not callable(default_factory):
-            raise TypeError("default_factory must be callable")
-
-        super().__init__(ignore_arguments(default_factory))
+        super().__init__(_no_arg_factory(default_factory))
 
 
 _WeakRegistryKT = TypeVar("_WeakRegistryKT", bound=Hashable, default=int)
@@ -1262,6 +1251,12 @@ class SyncAwaitableRunner:
         `stopping` being None means the thread already finished on its own
         (or never got far enough to publish them) -- nothing left to signal.
         """
+
+        if self.__thread is not None and threading.current_thread() is self.__thread:
+            raise RuntimeError(
+                "cannot close from inside the runner's own thread -- waiting for "
+                "that thread to finish here would deadlock it"
+            )
 
         with self.__lock:
             if self.__closed:

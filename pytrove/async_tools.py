@@ -27,7 +27,7 @@ import inspect
 import traceback
 
 
-log = logging.getLogger(__file__)
+log = logging.getLogger(__name__)
 
 
 
@@ -79,7 +79,7 @@ async def to_thread(
     return_exc = False, 
     **kwargs,
     ):
-    caller_stack = traceback.extract_stack()[:-1]
+    caller_stack = traceback.extract_stack()[:-1] if log_exc else None
 
     loop = asyncio.get_running_loop()
     ctx = contextvars.copy_context()
@@ -115,7 +115,7 @@ async def gather_helper(
     log_exc = True,
     ):
 
-    caller_stack = traceback.extract_stack()[:-1]
+    caller_stack = traceback.extract_stack()[:-1] if log_exc else None
 
     results = await asyncio.gather(*iter_flat_cont(awaitables), return_exceptions=return_exc)
 
@@ -144,7 +144,7 @@ async def gather_abort(
     log_exc = True, 
     ):
 
-    caller_stack = traceback.extract_stack()[:-1]
+    caller_stack = traceback.extract_stack()[:-1] if log_exc else None
 
     results = await _gather_cancel_on_error(*iter_flat_cont(awaitables), return_exceptions=return_exc)
 
@@ -200,7 +200,7 @@ async def safe_await(
     ):
 
     is_not_cont_first = not is_container(awaitables[0]) if awaitables else True
-    caller_stack = traceback.extract_stack()[:-1]
+    caller_stack = traceback.extract_stack()[:-1] if log_exc else None
 
     results = []
     is_multi = False
@@ -302,8 +302,8 @@ async def asafe_call(
     `log_exc`'s callable form may itself be sync or async -- if calling it
     returns an awaitable, that awaitable is awaited too before continuing.
     An exception raised either by the call itself or by awaiting its result
-    is not caught; it propagates out of asafe_call, chained via `from`
-    onto the original error.
+    is not caught; it propagates out of asafe_call, with the original error
+    attached as its __context__.
 
     `raise_exc=True` has no sync equivalent: after `log_exc` runs (if it
     fires), the exception is always re-raised via a bare `raise` (preserving
@@ -345,7 +345,7 @@ async def asafe_call(
             if callable(log_exc):
                 await call_sync_or_await(log_exc, e)
             else:
-                log.error("error in asafe_call(%r)" % (awaitable,), exc_info=e)
+                log.error("error in asafe_call(%r)", awaitable, exc_info=e)
 
         if raise_exc:
             raise e

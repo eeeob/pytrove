@@ -1,0 +1,262 @@
+{
+ "lock_schema": 1,
+ "tool": "device_catalogs",
+ "sources": {
+  "appledb_devices": {
+   "fingerprint": 67,
+   "http": {
+    "etag": "W/\"6acd9f5c-ac267\"",
+    "last_modified": "Tue, 13 Oct 2026 03:02:52 GMT"
+   },
+   "contract": "ok",
+   "declaration": "e9acd1551706",
+   "first_seen": "2026-10-13"
+  },
+  "chrome_releases_linux": {
+   "fingerprint": 155,
+   "contract": "ok",
+   "declaration": "c8a1cb37a2ee",
+   "first_seen": "2026-10-13"
+  },
+  "chrome_releases_mac": {
+   "fingerprint": 156,
+   "contract": "ok",
+   "declaration": "c8a1cb37a2ee",
+   "first_seen": "2026-10-13"
+  },
+  "chrome_releases_win": {
+   "fingerprint": 156,
+   "contract": "ok",
+   "declaration": "c8a1cb37a2ee",
+   "first_seen": "2026-10-13"
+  },
+  "dumps_gitlab_api": {
+   "sha256": "12b2c0638e53e6791048c1d8088623d05f12cd7d7774c8d9940c12f35deb21a3",
+   "bytes": 18635,
+   "http": {
+    "etag": "W/\"12b2c0638e53e6791048c1d8088623d0\""
+   },
+   "contract": "ok",
+   "declaration": "356eeeb0d839",
+   "first_seen": "2026-10-13"
+  },
+  "edge_releases": {
+   "fingerprint": 157,
+   "contract": "ok",
+   "declaration": "9b8d96841949",
+   "first_seen": "2026-10-13"
+  },
+  "eol_motorola_mobility": {
+   "fingerprint": 155,
+   "http": {
+    "etag": "\"725f28a5c711376a966c79cd6d930883-ssl\""
+   },
+   "contract": "ok",
+   "declaration": "79d1d483f321",
+   "first_seen": "2026-10-13"
+  },
+  "eol_oneplus": {
+   "fingerprint": 12,
+   "http": {
+    "etag": "\"e56ac663ba984eb46d841bfb55f6688e-ssl\""
+   },
+   "contract": "ok",
+   "declaration": "79d1d483f321",
+   "first_seen": "2026-10-13"
+  },
+  "eol_pixel": {
+   "fingerprint": 39,
+   "http": {
+    "etag": "\"4447089ac1113d77ea775a1c34d0e4e3-ssl\""
+   },
+   "contract": "ok",
+   "declaration": "79d1d483f321",
+   "first_seen": "2026-10-13"
+  },
+  "eol_samsung_mobile": {
+   "fingerprint": 441,
+   "http": {
+    "etag": "\"ccf1685df92dee2e4f584c3048cb6063-ssl\""
+   },
+   "contract": "ok",
+   "declaration": "79d1d483f321",
+   "first_seen": "2026-10-13"
+  },
+  "firefox_releases": {
+   "fingerprint": 158,
+   "http": {
+    "etag": "\"9e87e47c86c79fd4e3bc93344947631e\"",
+    "last_modified": "Tue, 13 Oct 2026 18:12:50 GMT"
+   },
+   "contract": "ok",
+   "declaration": "2c360e26500b",
+   "first_seen": "2026-10-13",
+   "last_changed": "2026-10-14"
+  },
+  "ipsw_device_api": {
+   "fingerprint": 27,
+   "http": {
+    "last_modified": "Tue, 13 Oct 2026 04:34:46 GMT"
+   },
+   "contract": "ok",
+   "declaration": "114877ed1d57",
+   "first_seen": "2026-10-13"
+  },
+  "linuxhw_dmi_raw": {
+   "fingerprint": 105607,
+   "http": {
+    "etag": "\"f0c18b769ea5dc10148bc365998f3e2ac583e616f4267e8e3ce540accdaa7a2a\""
+   },
+   "contract": "ok",
+   "declaration": "6840f378bd63",
+   "first_seen": "2026-10-13"
+  },
+  "linuxhw_dmi_repo": {
+   "fingerprint": "57b21bc6fdd863380e99c228c22aafcd1509528c",
+   "contract": "ok",
+   "declaration": "f3a02ffbd714",
+   "first_seen": "2026-10-13"
+  },
+  "mtapi_environment": {
+   "fingerprint": 55,
+   "http": {
+    "etag": "\"7905a6c907ca18a5d1c1b6e04c79cc5655a0f58b0d545ee3dee610a4becddafb\""
+   },
+   "contract": "ok",
+   "declaration": "e37c5eff9fcf",
+   "first_seen": "2026-10-13"
+  },
+  "play_catalog": {
+   "fingerprint": 54157,
+   "http": {
+    "etag": "\"43af4be8c94c6443e10b73078f4c3383\"",
+    "last_modified": "Wed, 14 Oct 2026 12:05:51 GMT"
+   },
+   "contract": "ok",
+   "declaration": "b8fa63c3f3f0",
+   "first_seen": "2026-10-13",
+   "last_changed": "2026-10-14"
+  },
+  "xiaomi_devices": {
+   "fingerprint": 1441,
+   "http": {
+    "etag": "\"14a01f747f9eb7373b3b4a49dd66fb8ad913f68c0007246c9b304fe0bbaf4638\""
+   },
+   "contract": "ok",
+   "declaration": "af694553cf23",
+   "first_seen": "2026-10-13"
+  },
+  "xiaomi_latest": {
+   "fingerprint": 3672,
+   "http": {
+    "etag": "\"14ba90c7c4117b0a7306b8ee005570b8db92a9e9a8b9b2b528e5477abb2a4d6f\""
+   },
+   "contract": "ok",
+   "declaration": "2c98d014106e",
+   "first_seen": "2026-10-13",
+   "last_changed": "2026-10-14"
+  }
+ },
+ "citations": {
+  "aosp_property_source_order": {
+   "sha256": "a48eee58722f41c717323e853f1777c1e3d1ed264fdff45dad6796ada03e39e7",
+   "bytes": 59806,
+   "http": {
+    "etag": "\"c282334e7417eaf49b1c303df259d616580c0c3095cd306d7f0128311a0d87bf\""
+   },
+   "contract": "ok",
+   "declaration": "05c5ebb1e674",
+   "first_seen": "2026-10-14"
+  },
+  "chromium_user_agent": {
+   "sha256": "ef18c93ab393e38414b35bf860af05aa07bf16499690de330706963202aead94",
+   "bytes": 32618,
+   "http": {
+    "etag": "\"04fb390d9954b4281befb93217963df65f1b2f750d17e1320234f57306a6a94c\""
+   },
+   "contract": "ok",
+   "declaration": "1128ccee612e",
+   "first_seen": "2026-10-14"
+  },
+  "gecko_user_agent": {
+   "sha256": "320c2e106d44dd86fe778a5fa3ffb67d2f18090149a6d2d54606cdb71bc9b6b4",
+   "bytes": 100195,
+   "http": {
+    "etag": "\"d9505e5060c34da230b5e8b32c7b916ae5b765d6ac29f05d7d7a2c1e082a8963\""
+   },
+   "contract": "ok",
+   "declaration": "5bdbf2157d69",
+   "first_seen": "2026-10-14"
+  },
+  "libbase_clean_and_simplify": {
+   "sha256": "7676e2d90e89d2103975160bef24fda786e9e6acda1f3ec69597aadde7404891",
+   "bytes": 1079,
+   "http": {
+    "etag": "\"9aced7506d7f3a0d737718271452efe670c97b8981e059a07f1b300631b0eea1\""
+   },
+   "contract": "ok",
+   "declaration": "7fc518f640c5",
+   "first_seen": "2026-10-14"
+  },
+  "libbase_linux": {
+   "sha256": "b3ad520d3ddf183180c438797015d1550f9f961d7785ec0acd18586dc183c023",
+   "bytes": 8826,
+   "http": {
+    "etag": "\"ea4c7fdc21b66b401cba0f4f4c254582cfe40fffec46b195dae3a3d606181832\""
+   },
+   "contract": "ok",
+   "declaration": "d7dfaa860fde",
+   "first_seen": "2026-10-14"
+  },
+  "libbase_model_rules": {
+   "sha256": "25298b69fad60e6bae0e2eae39ee449bc789a9e40e423557984184fe7adf6dc2",
+   "bytes": 1715,
+   "http": {
+    "etag": "\"2ef2ab80c7b665da9dddaa0121a4035e40a7aa07ca5a37342e34bfd12381491a\""
+   },
+   "contract": "ok",
+   "declaration": "ace3bdd76a6a",
+   "first_seen": "2026-10-14"
+  },
+  "libbase_windows": {
+   "sha256": "19eab37a9bb28e6ed98198917205f5b890a7b22c458b73841f99dd4074799865",
+   "bytes": 9681,
+   "http": {
+    "etag": "\"f91cf817a35a2523c9c309419968fff4c44d1ed0914f682c91a6f6912cabd342\""
+   },
+   "contract": "ok",
+   "declaration": "ca8ea46d4977",
+   "first_seen": "2026-10-14"
+  },
+  "telegram_android_identity": {
+   "sha256": "46648797b9bca72a7983e127b86f86a2d736c8eba3f7743ceb489dce8584eab1",
+   "bytes": 75208,
+   "http": {
+    "etag": "\"b860f6ba114b1b9ee0bb5777531a911d01f08dc9154a88f646520c2948ec9d65\""
+   },
+   "contract": "ok",
+   "declaration": "f08ae650a4e7",
+   "first_seen": "2026-10-14"
+  },
+  "telegram_ios_model_source": {
+   "sha256": "dbeaf0f708fbf7c40d35f706ba7b45d85c4596b612adf931e707f81f3ee0f241",
+   "bytes": 174966,
+   "http": {
+    "etag": "\"59dce24c712b8ee72bed100b4643868504c81ac8e712b988aee15a31d7ecef83\""
+   },
+   "contract": "ok",
+   "declaration": "c9833f84ad89",
+   "first_seen": "2026-10-14"
+  },
+  "webkit_navigator_platform": {
+   "sha256": "b5592bcd151f70136a13e5db8317f3bcc735a4f4bcc1be9d0939521c11e4a5d9",
+   "bytes": 6266,
+   "http": {
+    "etag": "\"9b55fc3350db4985da07bca7018aea1e8677282aaa963e549e8b65884bfacc36\""
+   },
+   "contract": "ok",
+   "declaration": "92b918274c6f",
+   "first_seen": "2026-10-14"
+  }
+ }
+}

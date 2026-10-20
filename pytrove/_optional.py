@@ -2,6 +2,7 @@ from __future__ import annotations as _annotations
 
 import importlib.util
 import functools
+import inspect
 import operator
 import re
 
@@ -136,6 +137,23 @@ def _optional_import(*packages: tuple[str | tuple[str, ...], str]) -> Callable[[
     error_msg = _build_error_msg(packages, missing) if missing else None
 
     def decorator(func: Callable[_P, _T]) -> Callable[_P, _T]:
+        if inspect.isasyncgenfunction(func):
+            @functools.wraps(func)
+            async def agen_wrapper(*args: Any, **kwargs: Any):
+                if error_msg is not None:
+                    raise ImportError(error_msg)
+                async for item in func(*args, **kwargs):
+                    yield item
+            return agen_wrapper
+
+        if inspect.iscoroutinefunction(func):
+            @functools.wraps(func)
+            async def coro_wrapper(*args: Any, **kwargs: Any):
+                if error_msg is not None:
+                    raise ImportError(error_msg)
+                return await func(*args, **kwargs)
+            return coro_wrapper
+
         @functools.wraps(func)
         def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:
             if error_msg is not None:
