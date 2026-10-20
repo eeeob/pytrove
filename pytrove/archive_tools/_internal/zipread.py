@@ -21,18 +21,22 @@ log = logging.getLogger(__name__)
 
 @dataclass(slots=True)
 class _ZipReaders:
-    """One open `ZipFile` per thread, since two threads seeking one handle read each other's bytes.
-
-    Attributes:
-        src: The archive.
-        pwd: The password for encrypted members.
-    """
+    """One open `ZipFile` per thread, since two threads seeking one handle read each other's bytes."""
 
     src: Path
+    """The archive each handle opens."""
+
     pwd: bytes | None
+    """The password set on every handle; `None` sets none."""
+
     _local: threading.local = field(init=False, default_factory=threading.local)
+    """Holds the calling thread's handle as `zf`."""
+
     _all: list[zipfile.ZipFile] = field(init=False, default_factory=list)
+    """Every handle any thread opened, for `close()`."""
+
     _lock: threading.Lock = field(init=False, default_factory=threading.Lock)
+    """Guards `_all`."""
 
     def get(self) -> zipfile.ZipFile:
         """Return the calling thread's handle, opening it on first use.

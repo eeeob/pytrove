@@ -31,18 +31,19 @@ class CompiledRichMessage(CompiledDefaults):
     It carries its own lines rather than reusing the template's `message`.
     The format a block is written under is the format Telegram reads it as,
     so no parse mode is involved; the first block that renders is used.
-
-    Attributes:
-        html: Lines read as HTML.
-        markdown: Lines read as Markdown.
-        is_rtl: Passed to `InputRichMessage`.
-        skip_entity_detection: Passed to `InputRichMessage`.
     """
 
     html: list[CompiledLine | CompiledEachLine] | None = None
+    """Lines read as HTML; tried first."""
+
     markdown: list[CompiledLine | CompiledEachLine] | None = None
+    """Lines read as Markdown; used only if no `html` line rendered."""
+
     is_rtl: bool | None = None
+    """Passed to `InputRichMessage` as is."""
+
     skip_entity_detection: bool | None = None
+    """Passed to `InputRichMessage` as is."""
 
     @classmethod
     def compile(cls, item: TemplateRichMessageDict) -> Self:

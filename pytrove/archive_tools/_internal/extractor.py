@@ -32,26 +32,40 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
     """Extracts one archive, refusing what must not be written; build one per call.
 
     Both formats are read into `_Member` and pass the same gate, `_place`.
-
-    Attributes:
-        src: The archive.
-        dest: The destination directory.
-        flt: What to keep.
-        limits: Ceilings and policies.
-        password: For encrypted zip members.
     """
 
     src: Path
+    """The archive, named in log and error messages."""
+
     dest: Path
+    """The destination directory; created if missing, must be a directory if present."""
+
     flt: _Filter
+    """What to keep."""
+
     limits: ArchiveLimits = ArchiveLimits()
+    """Ceilings and policies, answered through `_limiter`."""
+
     password: bytes | None = None
+    """For encrypted zip members; `None` makes such a member an error."""
+
     _root: Path = field(init=False)
+    """Where members are written: the staging directory when staged, else `dest`."""
+
     _limiter: _Limiter = field(init=False)
+    """The tallies for `limits`, built per `run()`."""
+
     _cleared: dict[str, Path | None] = field(init=False, default_factory=dict)
+    """Per parent directory name, its resolved on-disk path, or `None` if it leaves the root; memoises `_under`."""
+
     _ancestry: dict[str, bool] = field(init=False, default_factory=dict)
+    """Per directory name, whether `flt.enter` lets members below it in; memoised."""
+
     _made: set[Path] = field(init=False, default_factory=set)
+    """Directories `_mkdir` has already seen present or created, so it does not stat them again."""
+
     _built: list[Path] | None = field(init=False, default=None)
+    """Every path this run created, to undo on failure; `None` unless `cleanup_on_error` without staging."""
 
     def run(
         self,

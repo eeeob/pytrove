@@ -35,9 +35,16 @@ class BaseDataClass:
     """
 
     __public_field_names__: ClassVar[list[str]]
+    """Field names without a leading underscore, in definition order."""
+
     __private_field_names__: ClassVar[list[str]]
+    """The public names of underscore fields (`_foo` -> `foo`), in definition order."""
+
     __raw_private_fields__: ClassVar[frozenset[str]]
+    """The underscore fields under their raw names (`_foo`), as `from_raw_dict()` accepts them."""
+
     __enums_types__: ClassVar[frozenset[type[Enum]]]
+    """Every enum class named anywhere in a field annotation, for `values_to_enums`."""
 
     @classmethod
     def _ensure_field_meta(cls) -> None:

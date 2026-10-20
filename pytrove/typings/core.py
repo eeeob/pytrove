@@ -150,19 +150,19 @@ class LockProtocol(Protocol):
 
 
 class CountryInfo(TypedDict):
-    """One country, as `country_tools.get_cinfo` returns it.
-
-    Attributes:
-        cc: The international calling code, such as `966`.
-        rc: The ISO 3166 region code, such as `"SA"`.
-        flag: The flag emoji.
-        name: The English name.
-    """
+    """One country, as `country_tools.get_cinfo` returns it."""
 
     cc: int
+    """The international calling code, such as `966`."""
+
     rc: str
+    """The ISO 3166 region code, such as `"SA"`."""
+
     flag: str
+    """The flag emoji."""
+
     name: str
+    """The English name."""
 
 
 __all__ = (

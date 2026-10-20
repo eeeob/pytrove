@@ -27,34 +27,34 @@ class Jitter:
 
     Every field is a plain attribute: reassign `value` between calls to move
     the window.
-
-    Attributes:
-        value: The centre the window is built around.
-        decrease: The window's low end is `value * (1 - decrease)`.
-        increase: The window's high end is `value * (1 + increase)`.
-        bias: Where the triangular peak sits, from `0.0` (low end) to `1.0`
-            (high end); `0.5` is symmetric. Clamped to `[0, 1]`.
-        wobble: How much random noise rides on the golden step, from `0`
-            (rigid, predictable spread) to `1` (as loose as the no-cluster
-            guarantee allows). Clamped to `[0, 1]`.
-        min_distance: A hard floor on the gap from `last`. A step landing
-            closer is snapped just past the near edge of that band and the
-            walk resynced there; if the window is narrower than the floor,
-            the furthest reachable end is returned.
-        rng: The `random.Random` to draw from, for a reproducible stream.
-        last: The most recent value, `None` before the first call.
     """
 
     value: float
+    """The centre the window is built around."""
+
     decrease: float = 0.1
+    """The window's low end is `value * (1 - decrease)`."""
+
     increase: float = 0.1
+    """The window's high end is `value * (1 + increase)`."""
+
     bias: float = 0.5
+    """Where the triangular peak sits, from `0.0` (low end) to `1.0` (high end); `0.5` is symmetric. Clamped."""
+
     wobble: float = 1.0
+    """Random noise on the golden step, from `0` (rigid spread) to `1` (as loose as no-cluster allows). Clamped."""
+
     min_distance: float = 0.0
+    """A hard floor on the gap from `last`; a closer step is snapped just past it, the walk resynced there."""
+
     rng: random.Random | None = None
+    """The `random.Random` to draw from, for a reproducible stream; `None` uses the `random` module."""
 
     last: float | None = field(default=None, init=False)
+    """The most recent value, `None` before the first call and after `reset()`."""
+
     _u: float = field(default=0.0, init=False, repr=False)
+    """The walk's position in CDF space, in `[0, 1)`; starts at a random phase."""
 
     def __post_init__(self) -> None:
         """Start the walk at a random phase, so two instances differ."""

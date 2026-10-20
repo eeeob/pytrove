@@ -14,13 +14,10 @@ from ._internal import _chain_mappings
 
 @dataclass(slots=True)
 class CompiledDefaults(BaseDataClass):
-    """Base for every compiled part that can carry its own fallback values.
-
-    Attributes:
-        default_keys: Values for keys the caller did not pass to `format()`.
-    """
+    """Base for every compiled part that can carry its own fallback values."""
 
     default_keys: dict[str, JsonValue] | None = None
+    """Values for keys the caller did not pass to `format()`; a passed value always wins."""
 
     def with_defaults(self, kw: Mapping[str, Any]) -> Mapping[str, Any]:
         """Layer `default_keys` beneath `kw`, so a value the caller passed always wins.
@@ -42,14 +39,13 @@ class CompiledConditional(CompiledDefaults):
     key is present in the `format()` keyword arguments; a part setting
     neither always renders. `default_keys` is applied first, so a key it
     fills counts as present, exactly as if the caller had passed it.
-
-    Attributes:
-        any_of: Keys of which at least one must be present.
-        all_of: Keys that must all be present.
     """
 
     any_of: frozenset[str] | None = None
+    """Keys of which at least one must be present; normalised to a frozenset, `None` when empty."""
+
     all_of: frozenset[str] | None = None
+    """Keys that must all be present; normalised to a frozenset, `None` when empty."""
 
     def __post_init__(self) -> None:
         """Normalise `any_of`/`all_of` to frozensets, or `None` when empty."""

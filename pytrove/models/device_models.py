@@ -7,15 +7,13 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class DeviceInfo:
-    """One plausible device: a model string and an OS version that model runs.
-
-    Attributes:
-        model: What the client sends as `device_model`.
-        version: What the client sends as `system_version`.
-    """
+    """One plausible device: a model string and an OS version that model runs."""
 
     model: str
+    """What the client sends as `device_model`."""
+
     version: str
+    """What the client sends as `system_version`."""
 
     def __str__(self) -> str:
         """Return the model and version, separated by a space."""

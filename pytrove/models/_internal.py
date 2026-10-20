@@ -16,18 +16,16 @@ _INV_PHI: Final[float] = 0.6180339887498949
 
 @dataclass(slots=True, kw_only=True)
 class _LoggerModel:
-    """The logger fields every logging options model shares.
-
-    Attributes:
-        logger: A `Logger`, a logger name, or `None` for the root logger.
-        level: The level to set, if any.
-        filter: A filter to add, if any.
-    """
+    """The logger fields every logging options model shares."""
 
     logger: Logger | str | None = None
+    """A `Logger`, a logger name, or `None` for the root logger; `resolve_logger()` replaces it with the `Logger`."""
 
     level: int | None = None
+    """The level to set; `None` leaves it alone."""
+
     filter: Callable[[LogRecord], bool] | None = None
+    """A filter to add; `None` adds none."""
 
     def resolve_logger(self) -> Logger:
         """Replace a name or `None` in `logger` with the `Logger` it names, and return it.
