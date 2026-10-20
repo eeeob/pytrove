@@ -112,8 +112,11 @@ venv.bak/
 
 # mypy
 .mypy_cache/
-# Per-tool download caches under tools/. The bare `.cache` above (left over
-# from pytest) already matches these, but it sits under a heading about
-# coverage reports, so this states the intent where it will not be pruned by
-# mistake. A cache is rebuildable and one of them is 20 MB.
-tools/*/.cache/
+
+# Serena's project configuration, memories and index cache.
+.serena/
+
+# AI coding assistants: Claude Code's project instructions and knowledge files.
+.claude/
+CLAUDE.md
+AGENTS.md
