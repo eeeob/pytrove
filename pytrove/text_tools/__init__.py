@@ -1,8 +1,5 @@
 """Text helpers, re-exported flat from one place."""
 
-from __future__ import annotations as _annotations
-
-from . import convert, labels, layout, split
 from .convert import *
 from .labels import *
 from .layout import *

@@ -1,8 +1,5 @@
 """File helpers, re-exported flat from one place."""
 
-from __future__ import annotations as _annotations
-
-from . import paths, read, remove, serialize, write
 from .paths import *
 from .read import *
 from .remove import *
