@@ -13,18 +13,16 @@ from .base import BaseDataClass
 
 @dataclass(slots=True)
 class JsonContainer(Generic[_KT, _VT], BaseDataClass):
-    """A JSON object kept in a file, read on first access and written on `save()`.
-
-    Attributes:
-        path: The JSON file.
-        lock: A lock held while the file is read or written.
-        data: The loaded object, or `None` while nothing is loaded.
-    """
+    """A JSON object kept in a file, read on first access and written on `save()`."""
 
     path: PathLike
+    """The JSON file."""
+
     lock: LockProtocol | None = None
+    """A lock held while the file is read or written; `None` for no locking."""
 
     data: dict[_KT, _VT] | None = field(default=None, init=False)
+    """The loaded object, or `None` while nothing is loaded; `unload()` puts it back to `None`."""
 
     def is_loaded(self) -> bool:
         """Return whether the file has been read."""

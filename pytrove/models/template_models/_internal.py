@@ -28,63 +28,61 @@ if TYPE_CHECKING:
 
 
 class _CompiledEachLineDict(TypedDict):
-    """A `TemplateEachLineDict` after `CompiledEachLine.compile` rewrote it in place.
-
-    Attributes:
-        each: The `format()` argument holding the list.
-        item: The compiled line.
-    """
+    """A `TemplateEachLineDict` after `CompiledEachLine.compile` rewrote it in place."""
 
     each: str
+    """The `format()` argument holding the list."""
+
     item: CompiledLine
+    """The compiled line, in place of its definition."""
 
 
 class _CompiledEachButtonDict(TypedDict):
-    """A `TemplateEachButtonDict` after `CompiledEachButton.compile` rewrote it in place.
-
-    Attributes:
-        each: The `format()` argument holding the list.
-        item: The compiled button.
-        row_width: Buttons per keyboard row.
-    """
+    """A `TemplateEachButtonDict` after `CompiledEachButton.compile` rewrote it in place."""
 
     each: str
+    """The `format()` argument holding the list."""
+
     item: CompiledButton
+    """The compiled button, in place of its definition."""
+
     row_width: NotRequired[int]
+    """Buttons per keyboard row, untouched by compiling."""
 
 
 class _CompiledRichMessageDict(TemplateDefaultsDict):
-    """A `TemplateRichMessageDict` after `CompiledRichMessage.compile` rewrote it in place.
-
-    Attributes:
-        html: The compiled HTML lines, or `None` for an empty block.
-        markdown: The compiled Markdown lines, or `None` for an empty block.
-        is_rtl: Whether the message reads right to left.
-        skip_entity_detection: Whether Telegram should skip detecting entities.
-    """
+    """A `TemplateRichMessageDict` after `CompiledRichMessage.compile` rewrote it in place."""
 
     html: list[CompiledLine | CompiledEachLine] | None
+    """The compiled HTML lines, or `None` for an empty or missing block."""
+
     markdown: list[CompiledLine | CompiledEachLine] | None
+    """The compiled Markdown lines, or `None` for an empty or missing block."""
+
     is_rtl: NotRequired[bool]
+    """Whether the message reads right to left, untouched by compiling."""
+
     skip_entity_detection: NotRequired[bool]
+    """Whether Telegram should skip detecting entities, untouched by compiling."""
 
 
 class _CompiledTemplateDict(TemplateDefaultsDict):
-    """A `TemplateDict` after `CompiledTemplate.compile` rewrote it in place.
-
-    Attributes:
-        message: The compiled lines, or `None` for an empty block.
-        buttons: The compiled keyboard rows, or `None` for no keyboard.
-        parse_mode: The resolved parse mode.
-        rich_message: The compiled rich message, or `None` without one.
-        key_time: The resolved `key_time` key.
-    """
+    """A `TemplateDict` after `CompiledTemplate.compile` rewrote it in place."""
 
     message: list[CompiledLine | CompiledEachLine] | None
+    """The compiled lines, or `None` for an empty or missing block."""
+
     buttons: list[CompiledButtonRow | CompiledEachButton] | None
+    """The compiled keyboard rows, or `None` for no keyboard."""
+
     parse_mode: ParseMode | None
+    """The template's own parse mode or the file-wide default, as a `ParseMode` member."""
+
     rich_message: CompiledRichMessage | None
+    """The compiled rich message, or `None` without one."""
+
     key_time: str | None
+    """The template's own `key_time` or the file-wide default."""
 
 
 def _is_each_line(line: object) -> TypeIs[TemplateEachLineDict]:

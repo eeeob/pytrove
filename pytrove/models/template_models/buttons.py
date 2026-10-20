@@ -40,19 +40,19 @@ from .conditions import CompiledConditional
 
 @dataclass(slots=True, kw_only=True)
 class CompiledButton(CompiledConditional):
-    """One inline button.
-
-    Attributes:
-        text: The label, a `str.format` template.
-        type: Which `InlineKeyboardButton` argument `value` fills.
-        value: The URL or callback data, a `str.format` template.
-        meta: Extra `InlineKeyboardButton` arguments, such as its `ButtonStyle`.
-    """
+    """One inline button."""
 
     text: str
+    """The label, a `str.format` template."""
+
     type: TemplateButtonType
+    """Which `InlineKeyboardButton` argument `value` fills; one the installed pyrogram lacks raises on `format()`."""
+
     value: str
+    """The URL or callback data, a `str.format` template."""
+
     meta: dict[str, StrInt | ButtonStyle] | None = None
+    """Extra `InlineKeyboardButton` arguments, such as its `ButtonStyle`; unknown keys are dropped with a warning."""
 
     @classmethod
     def compile(cls, item: TemplateButtonDict) -> Self:
@@ -115,19 +115,19 @@ class CompiledEachButton(BaseDataClass):
     Elements are filtered and merged exactly as in `CompiledEachLine`: whether
     an element is kept is `item`'s own decision, and this wrapper has no
     conditions or defaults of its own.
-
-    Attributes:
-        each: The `format()` argument holding the list.
-        item: The button rendered for every element.
-        row_width: Buttons per row; `DEFAULT_ROW_WIDTH` when `None`.
     """
 
     DEFAULT_ROW_WIDTH: ClassVar[int] = 2
     """Buttons per row when `row_width` is not set."""
 
     each: str
+    """The `format()` argument holding the list."""
+
     item: CompiledButton
+    """The button rendered for every element."""
+
     row_width: int | None = None
+    """Buttons per row; `DEFAULT_ROW_WIDTH` when `None`."""
 
     @classmethod
     def compile(cls, item: TemplateEachButtonDict) -> Self:
@@ -183,13 +183,10 @@ class CompiledEachButton(BaseDataClass):
 
 @dataclass(slots=True)
 class CompiledButtonRow(BaseDataClass):
-    """One fixed row of the keyboard.
-
-    Attributes:
-        buttons: The row's buttons.
-    """
+    """One fixed row of the keyboard."""
 
     buttons: list[CompiledButton]
+    """The row's buttons; the ones whose conditions fail are left out when rendering."""
 
     @classmethod
     def compile(cls, item: MaybeList[TemplateButtonDict]) -> Self:

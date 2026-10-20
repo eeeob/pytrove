@@ -28,58 +28,67 @@ class ArchiveJob:
     `compress_folder()` and documented there. `delete_source=True` deletes
     `root` once the archive is written, so the next run of a periodic job
     finds nothing left to archive; it stays opt-in for that reason.
-
-    Attributes:
-        name: The job's name.
-        root: The folder to archive; resolved on construction.
-        dest_name: Called on every run for the archive's file name, without
-            its extension, so a name built from the date stays current.
-        on_archive: Awaited with the job and the archive's path once it is written.
-        on_error: Awaited instead of `on_archive` if creating the archive or
-            `on_archive` raised; left `None`, the failure is logged.
-        archive_format: The archive format.
-        include: See `compress_folder()`.
-        exclude: See `compress_folder()`.
-        exclude_hidden: See `compress_folder()`.
-        stability_retries: See `compress_folder()`.
-        level: See `compress_folder()`.
-        workers: See `compress_folder()`.
-        follow_links: See `compress_folder()`.
-        fsync: See `compress_folder()`.
-        stability_check: See `compress_folder()`.
-        delete_source: See `compress_folder()`.
-        should_run: Polled by the archiver; a truthy answer runs the job.
-            Left `None`, the job runs once `min_interval` has passed since `last_run`.
-        min_interval: Seconds between runs for the default `should_run`.
-        poll_interval: Seconds between polls.
-        last_run: When the job last ran, on the `time.monotonic()` clock. Not
-            a constructor argument: the archiver updates it in place.
     """
 
     name: str
+    """The job's name, used in log messages."""
+
     root: PathLike
+    """The folder to archive, and where the archive lands; resolved to a `Path` on construction."""
+
     dest_name: Callable[[], str]
+    """Called on every run for the archive's file name without its extension, so a dated name stays current."""
+
     on_archive: Callable[[ArchiveJob, Path], Awaitable[None]]
+    """Awaited with the job and the archive's path once it is written."""
+
     on_error: Callable[[ArchiveJob, Exception], Awaitable[None]] | None = None
+    """Awaited instead of `on_archive` if creating the archive or `on_archive` raised; `None` logs the failure."""
 
     archive_format: ArchiveFormat = ArchiveFormat.ZIP
+    """The container; a string is coerced to the member on construction."""
+
     include: NestedContainer[_Rule] | None = None
+    """Rules for what to keep, at any nesting."""
+
     exclude: NestedContainer[_Rule] | None = None
+    """Rules for what to leave out, at any nesting."""
+
     exclude_hidden: bool = True
+    """Whether dot-files and Windows hidden files are left out; an include path or predicate still wins."""
+
     stability_retries: int = 0
+    """How many times to re-read a guarded file that changed while being read; 0 only warns."""
 
     level: int | None = None
+    """The codec level; `None` takes the format's default (6 for zip and gzip, 3 for zstd)."""
+
     workers: int | Executor | None = None
+    """A thread count (`-1` for one per core) or an `Executor` for the compression."""
+
     follow_links: bool = False
+    """Whether to archive the file a link inside `root` points at; links out of `root` are always skipped."""
+
     fsync: bool = True
+    """Whether the archive must survive a power loss."""
+
     stability_check: Callable[[os.stat_result, str], bool] = _default_stability_check
+    """Which files are worth guarding, from their `stat` and path; 1 MiB and up by default."""
+
     delete_source: bool = False
+    """Whether to remove `root` once the archive is in place; leaves a periodic job nothing to archive next."""
 
     should_run: Callable[[], bool] | None = None
+    """Polled by the archiver; truthy runs the job. `None` runs it once `min_interval` has passed since `last_run`."""
+
     min_interval: float = TimeUnit.HOUR * 12
+    """Seconds between runs for the default `should_run`."""
+
     poll_interval: float = TimeUnit.MINUTE * 10
+    """Seconds between polls; the archiver wakes at the shortest one across its jobs."""
 
     last_run: float = field(init=False, repr=False, compare=False)
+    """When the job last ran, on the `time.monotonic()` clock; the archiver updates it in place."""
 
     def __post_init__(self) -> None:
         """Resolve `root` and `archive_format`, and start the clock for `last_run`."""
