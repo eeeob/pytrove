@@ -1,8 +1,5 @@
 """Object and class utilities, re-exported flat from one place."""
 
-from __future__ import annotations as _annotations
-
-from . import descriptors, patching, proxies, registry
 from .descriptors import *
 from .patching import *
 from .proxies import *
