@@ -117,3 +117,10 @@ venv.bak/
 # coverage reports, so this states the intent where it will not be pruned by
 # mistake. A cache is rebuildable and one of them is 20 MB.
 tools/*/.cache/
+
+# Local AI-assistant state: Claude Code's knowledge, plans and settings, and
+# Serena's project index. Kept on each developer's machine for now.
+.claude/
+CLAUDE.md
+AGENTS.md
+.serena/
