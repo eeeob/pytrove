@@ -77,6 +77,12 @@ def is_tg_bot_token(bot_token: Any) -> TypeIs[str]:
 
     Returns:
         Whether it is a string of exactly two `:`-separated parts, the first all digits.
+
+    Example:
+        >>> is_tg_bot_token("123456:ABC-def")
+        True
+        >>> is_tg_bot_token("abc:def")
+        False
     """
     if not isinstance(bot_token, str) or ":" not in bot_token:
         return False
@@ -109,6 +115,14 @@ def is_tg_channel_message_link(message_link: Any) -> TypeIs[str]:
 
     Returns:
         Whether it is a string matching `TG_CHANNEL_MSG_LINK_PATTERN`.
+
+    Example:
+        >>> is_tg_channel_message_link("https://t.me/durov/5")
+        True
+        >>> is_tg_channel_message_link("t.me/c/123456/7")
+        True
+        >>> is_tg_channel_message_link("https://t.me/durov")
+        False
     """
     return isinstance(message_link, str) and bool(TG_CHANNEL_MSG_LINK_PATTERN.match(message_link.lower()))
 
@@ -127,6 +141,14 @@ def is_tg_otp_code(code: Any, with_str: bool = True, remove_spaces: bool = False
 
     Returns:
         Whether it is a five-digit int, or (with `with_str`) a five-character numeric string.
+
+    Example:
+        >>> is_tg_otp_code(12345)
+        True
+        >>> is_tg_otp_code("1 2 3 4 5", remove_spaces=True)
+        True
+        >>> is_tg_otp_code("12345", with_str=False)
+        False
     """
     if isinstance(code, int):
         return len(str(code)) == _OTP_LENGTH

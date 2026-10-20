@@ -33,6 +33,13 @@ def is_instance(obj: Any, class_info: _ClassInfo) -> bool:
 
     Returns:
         Whether `obj` is an instance of any type named.
+
+    Example:
+        >>> from typing import Union
+        >>> is_instance(1, Union[int, str])
+        True
+        >>> is_instance(1.0, (Union[int, str], float))
+        True
     """
     return isinstance(obj, _flatten_class_info(class_info))
 
@@ -70,6 +77,12 @@ def is_container(obj: Container[_T] | Any) -> TypeIs[Container[_T]]:
 
     Returns:
         Whether it is a `Container` and not a `NotContainer`.
+
+    Example:
+        >>> is_container([1, 2])
+        True
+        >>> is_container("ab")
+        False
     """
     return _is_container(obj)
 
@@ -162,6 +175,17 @@ def validation(cond: bool, custom_exc: BaseException | str | None = None) -> Non
     Raises:
         BaseException: `custom_exc` itself, when it is an exception.
         ValidationError: When `cond` is false and `custom_exc` is a message or `None`.
+
+    Example:
+        >>> validation(1 < 2)
+        >>> validation(1 > 2, "expected 1 > 2")
+        Traceback (most recent call last):
+            ...
+        pytrove.errors.ValidationError: expected 1 > 2
+        >>> validation(1 > 2, KeyError("k"))
+        Traceback (most recent call last):
+            ...
+        KeyError: 'k'
     """
     if cond:
         return
@@ -207,6 +231,12 @@ def all_deep(*values: NestedContainer[Any]) -> bool:
 
     Returns:
         Whether every non-`None` leaf is truthy.
+
+    Example:
+        >>> all_deep([1, [2, None]])
+        True
+        >>> all_deep([1, [0]])
+        False
     """
     from ..iter_tools import iter_flat_cont
 
@@ -221,6 +251,10 @@ def any_deep(*values: NestedContainer[Any]) -> bool:
 
     Returns:
         Whether any non-`None` leaf is truthy.
+
+    Example:
+        >>> any_deep([0, [None, 3]])
+        True
     """
     from ..iter_tools import iter_flat_cont
 
