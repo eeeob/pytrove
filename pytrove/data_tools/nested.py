@@ -14,7 +14,7 @@ from ..typings import JsonValue, NestedStrKeyDict, _T
 
 
 def get_nested_dict_value(dct: NestedStrKeyDict[_T], path: str, sep: str = ".") -> _T:
-    """Walk a nested dict down a `sep`-joined key path: `get_nested_dict_value({"a": {"b": 1}}, "a.b")` is `1`.
+    """Walk a nested dict down a `sep`-joined key path.
 
     There is no default and no escaping: a key containing `sep` needs another separator.
 
@@ -29,6 +29,12 @@ def get_nested_dict_value(dct: NestedStrKeyDict[_T], path: str, sep: str = ".") 
     Raises:
         KeyError: If a key is missing; it names the key.
         TypeError: If the path runs into something that is not a mapping.
+
+    Example:
+        >>> get_nested_dict_value({"a": {"b": 1}}, "a.b")
+        1
+        >>> get_nested_dict_value({"a.b": {"c": 2}}, "a.b/c", sep="/")
+        2
     """
     value: Any = dct
 
@@ -39,7 +45,7 @@ def get_nested_dict_value(dct: NestedStrKeyDict[_T], path: str, sep: str = ".") 
 
 
 def get_nested_dict_key(path_dct: NestedStrKeyDict[Literal[True, 1]], sep: str = ".") -> str:
-    """Return the key path a single-branch dict marks: `{"a": {"b": True}}` gives `"a.b"`.
+    """Return the key path a single-branch dict marks.
 
     The inverse of `get_nested_dict_value`.
 
@@ -52,6 +58,10 @@ def get_nested_dict_key(path_dct: NestedStrKeyDict[Literal[True, 1]], sep: str =
 
     Raises:
         TypeError: If a level holds more than one key, or the leaf is not `True` or `1`.
+
+    Example:
+        >>> get_nested_dict_key({"a": {"b": True}})
+        'a.b'
     """
 
     def flatten(current_dict: NestedStrKeyDict[Literal[True, 1]], current_path: str = "") -> str:
