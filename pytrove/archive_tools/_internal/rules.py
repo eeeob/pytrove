@@ -20,20 +20,22 @@ class _Rules(NamedTuple):
 
     Names and whole paths sit in sets, one hash lookup each however many
     there are; only real globs reach a matcher.
-
-    Attributes:
-        paths: Whole relative paths, anchored at the root.
-        funcs: Predicates over `(relative path, entry)`.
-        names: Bare names, matched at any depth.
-        globs: Patterns for `fnmatch`, when `pathspec` is not installed.
-        spec: The same patterns compiled by `pathspec`, when it is.
     """
 
     paths: frozenset[str] = frozenset()
+    """Whole relative posix paths, anchored at the root."""
+
     funcs: tuple[Callable[[str, _RawEntry], bool], ...] = ()
+    """Predicates over `(relative path, entry)`."""
+
     names: frozenset[str] = frozenset()
+    """Bare names, matched at any depth."""
+
     globs: tuple[str, ...] = ()
+    """Patterns for `fnmatch`; empty when `spec` holds them instead."""
+
     spec: Any = None
+    """The globs compiled as a `pathspec.PathSpec` (gitignore style) when `pathspec` is installed, else `None`."""
 
     def __bool__(self) -> bool:
         """Tell whether this side has any rule at all."""
@@ -48,16 +50,16 @@ class _Filter:
     predicate, exclude predicate, include name, exclude name, exclude glob,
     include glob. With no include rule everything else is kept; with one,
     only what matches.
-
-    Attributes:
-        include_rules: The include side.
-        exclude_rules: The exclude side.
-        who: The public function's name, for error messages.
     """
 
     include_rules: _Rules
+    """The include side; empty means everything not excluded is kept."""
+
     exclude_rules: _Rules
+    """The exclude side; the only side `enter` consults."""
+
     who: str = "compress_folder"
+    """The public function's name, for error messages."""
 
     @staticmethod
     @lru_cache(maxsize=256, typed=True)
