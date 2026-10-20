@@ -25,8 +25,11 @@ class SyncAwaitableRunner:
     task before it is torn down; a submission that loses that race raises
     `RuntimeError` instead of hanging.
 
-    >>> with SyncAwaitableRunner() as runner:
-    ...     runner.run(coro_one())
+    Example:
+        >>> import asyncio
+        >>> with SyncAwaitableRunner() as runner:
+        ...     runner.run(asyncio.sleep(0, result=1))
+        1
     """
 
     def __init__(

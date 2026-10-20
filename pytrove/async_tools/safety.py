@@ -58,6 +58,15 @@ async def safe_await(*awaitables: Any, return_exc: bool = True, log_exc: bool = 
 
     Raises:
         Exception: The first failure, when `return_exc` is false.
+
+    Example:
+        >>> import asyncio
+        >>> async def fail():
+        ...     raise ValueError("boom")
+        >>> asyncio.run(safe_await(asyncio.sleep(0, result=1)))
+        1
+        >>> asyncio.run(safe_await(asyncio.sleep(0, result=1), fail(), log_exc=False))
+        [1, ValueError('boom')]
     """
     is_not_cont_first = not is_container(awaitables[0]) if awaitables else True
     caller_stack = traceback.extract_stack()[:-1] if log_exc else None
@@ -149,6 +158,18 @@ async def asafe_call(
         TypeError: If `return_exc` and `raise_exc` are both set, or `exclude_exc`
             names an exception that always propagates anyway.
         BaseException: Whatever is not swallowed, or anything when `raise_exc` is set.
+
+    Example:
+        >>> import asyncio
+        >>> async def fail():
+        ...     raise ValueError("boom")
+        >>> asyncio.run(asafe_call(fail())) is None
+        True
+        >>> asyncio.run(asafe_call(fail(), return_exc=True))
+        ValueError('boom')
+        >>> asyncio.run(asafe_call(fail(), include_exc=KeyError))
+        Traceback (most recent call last):
+        ValueError: boom
     """
     if return_exc and raise_exc:
         msg = "asafe_call: return_exc and raise_exc cannot both be True -- raise_exc means the exception is never returned, only re-raised"
@@ -267,6 +288,17 @@ async def maybe_awaitable(
 
     Raises:
         TypeError: If arguments are given with an awaitable, or the value is neither awaitable nor callable.
+
+    Example:
+        >>> import asyncio
+        >>> async def double(x):
+        ...     return x * 2
+        >>> asyncio.run(maybe_awaitable(double(2)))
+        4
+        >>> asyncio.run(maybe_awaitable(double, 3))
+        6
+        >>> asyncio.run(maybe_awaitable(len, "abcd"))
+        4
     """
     if inspect.isawaitable(awaitable_or_callable):
         if args or kwargs:
