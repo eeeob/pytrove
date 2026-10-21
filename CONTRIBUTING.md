@@ -186,7 +186,7 @@ Order the contents of Python files according to the following sequence:
 
 Consider dependencies and functional cohesion when ordering classes and functions, so that logically related elements remain grouped together.
 
-Order imports consistently, and avoid unused imports. Do not use wildcard imports in regular implementation files; they are permitted in interface-aggregation files in accordance with the `__all__` rule.
+Order imports consistently, and avoid unused imports. Do not use wildcard imports in regular implementation files; they are permitted in interface-aggregation files in accordance with the `__all__` rule. The mechanical part (unused and wildcard imports, the `__future__` line) is enforced by `F` and `I002` in `[tool.ruff.lint]`; the ordering below is not.
 
 When importing specific names from a module using `from ... import ...`, order the imported names in this sequence: classes, then functions, then constants, then ordinary variables. This order applies within the list of names imported from the module and does not change the order of module groups: the Python standard library, then external dependencies, then library imports.
 
@@ -203,14 +203,7 @@ from .source import (
 
 ### 4.1. Type Syntax
 
-Use built-in generics (`Built-in Generics`) and type unions instead of legacy aliases from the `typing` module when a corresponding built-in syntax is available.
-
-```python
-list[str]    # instead of List[str]
-int | None   # instead of Optional[int]
-```
-
-The use of legacy aliases is prohibited when the corresponding built-in syntax is available. See the [Python reference for deprecated aliases](https://docs.python.org/3/library/typing.html#deprecated-aliases).
+Use built-in generics and `|` unions instead of the [deprecated `typing` aliases](https://docs.python.org/3/library/typing.html#deprecated-aliases): `list[str]`, not `List[str]`; `int | None`, not `Optional[int]`. Enforced by `ruff`'s `UP` rules (`[tool.ruff.lint]` in `pyproject.toml`).
 
 ### 4.2. Deferred Evaluation of Annotations
 
@@ -220,9 +213,7 @@ Every Python module must contain the following import immediately after the modu
 from __future__ import annotations as _annotations
 ```
 
-Keep the `_annotations` alias as is, even when it is not used directly; it makes clear that the import is for its side effect.
-
-This permits deferred evaluation of annotations, including the use of types imported inside `TYPE_CHECKING` without putting annotations in quotation marks. Putting type annotations in quotation marks in project files is prohibited, and rule `UP037` must remain enabled.
+Keep the `_annotations` alias as is, even when it is not used directly; it makes clear that the import is for its side effect. Annotations are then evaluated lazily, so types imported under `TYPE_CHECKING` are used unquoted; a quoted annotation is prohibited. Enforced by `I002` (the import) and `UP037` (no quoted annotations) in `[tool.ruff.lint]`.
 
 **Exception — interface-aggregation files:** an `__init__.py` that only aggregates (rule 1.9) has no annotations, so it omits this import.
 
@@ -257,11 +248,7 @@ Before introducing this pattern in a function or type, check its existing uses i
 
 ### 4.5. Runtime Guards and Exceptions
 
-Using `assert` for runtime guards (`Runtime Guards`) is prohibited. Python may remove `assert` statements when run with `-O`, and `AssertionError` does not necessarily provide suitable error context for the user.
-
-Use `RuntimeError` or a more specialized exception appropriate to the situation, with a clear message.
-
-When raising an exception with a message, assign the message to a variable first, then pass the variable to `raise`; do not write the message directly inside the `raise` statement.
+Do not use `assert` as a runtime guard (`-O` removes it); raise `RuntimeError` or a more specific exception with a clear message. Assign the message to a variable first, then pass the variable to `raise`. Enforced by `S101` and `EM` in `[tool.ruff.lint]`.
 
 ```python
 msg = f"connection not open (state={self._state})"
@@ -270,13 +257,13 @@ raise RuntimeError(msg)
 
 ### 4.6. Completeness of Type Hints
 
-Complete and correct type hints must be provided for all functions and methods, including internal ones, for their parameters and return values. Add hints to attributes and variables when their type is not clear or when doing so helps static checking. Use the appropriate precise types instead of resorting to `Any` to bypass a type-checking problem.
+Every function and method, internal ones included, has complete and correct hints for its parameters and return value (`ANN` in `[tool.ruff.lint]`). Add hints to attributes and variables when their type is not clear or when doing so helps static checking. Use the precise type instead of `Any` as a way around a type-checking problem; that is why `ANN401` is not enforced, not a licence for `Any`.
 
-Hints must be compatible with supported Python versions and pass the project's adopted type checker, `ty` (pinned in the `lint` dependency group and configured under `[tool.ty]` in `pyproject.toml`; `make typecheck`), without unhandled warnings or errors.
+Hints must be compatible with the supported Python versions and pass `ty` (pinned in the `lint` dependency group, configured under `[tool.ty]`; `make typecheck`) without unhandled warnings or errors.
 
 ### 4.7. Comments on Hints and Type Warnings
 
-If a type hint needs special handling, or produces a warning that cannot be fixed correctly, a concise comment must be added next to it explaining the reason for the handling and the technical reason the warning remains. Every use of `type: ignore` or similar suppression must include the specific warning code and a clear reason; suppressing warnings without explanation is prohibited.
+If a type hint needs special handling, or produces a warning that cannot be fixed correctly, a concise comment next to it explains the handling and the technical reason the warning remains. Every `type: ignore`, `ty: ignore` or `noqa` names the specific code and carries a reason; a bare suppression is prohibited (`PGH003` in `[tool.ruff.lint]`).
 
 ## Priority 5 — Style Consistency and Documentation
 
@@ -297,7 +284,7 @@ Put every reference to code within comments between backticks, including names o
 
 Write a docstring (`Docstring`) for every function, operation, or tool in the library, regardless of its size or simplicity. The documentation must be concise and clear, and explain the purpose directly without verbosity or unnecessary details.
 
-Use **Google-style Docstring** format in all documentation.
+Use **Google-style Docstring** format in all documentation. Presence and format are enforced by the `D` rules (`[tool.ruff.lint.pydocstyle]`, `convention = "google"`); the content rules in 5.4 and 5.5 are not mechanical.
 
 ### 5.4. Documenting Classes, Models, Types, and Constants
 
