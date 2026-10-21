@@ -14,7 +14,7 @@ _DATA_DIR: Final[Path] = Path(__file__).parents[2] / "data" / "devices"
 """One JSON catalog per platform; read on first use only."""
 
 _SCHEMA: Final[int] = 1
-"""The catalog layout version; must equal `tools/device_catalogs/src/shared.py::SCHEMA`."""
+"""The catalog layout version; must equal `devtools/device_catalogs/src/shared.py::SCHEMA`."""
 
 _HALF_LIFE_DAYS: Final[float] = 730.0
 """Days over which a device's or version's recency weight halves."""

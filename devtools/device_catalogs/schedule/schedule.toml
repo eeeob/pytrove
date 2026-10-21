@@ -1,0 +1,35 @@
+#  device_catalogs -- when the sources are checked unattended
+#  ==========================================================
+#
+#  Read by `devtools/_preflight`. The same cron is written again in
+#  .github/workflows/devtools-preflight.yml, because GitHub Actions cannot
+#  compute a trigger, and `tests/devtools/preflight/test_preflight.py` fails if the two drift
+#  apart. This file is the declaration of record; the workflow is a trigger.
+#
+#  Nothing else about a scheduled run is declared here. Which sources to
+#  check is sources/sources.toml, what to clean is each entry's policy, and
+#  whether the run failed is the exit code -- declaring any of that twice
+#  would only give the two copies a chance to disagree.
+
+[schedule]
+cron = "19 4 * * 1"
+notes = """
+Weekly, early Monday, 04:19 UTC.
+
+Weekly because that is the cadence the sources themselves move at. The
+fastest is Chrome, which ships a stable major every four weeks and a point
+release weekly; endoflife.date updates when a vendor announces something;
+linuxhw/DMI takes commits daily but feeds a cache whose policy is `keep`, so
+noticing it sooner would change nothing. Nothing here is a feed where a day's
+delay costs anything, and a daily check would make 18 requests and 731 KB
+seven times over to learn the same thing.
+
+It is also what makes the escalation rule a sentence a person can act on. A
+source is only called dead after failing every run three times, and at this
+cadence that is three weeks -- long enough that no ordinary outage reaches it,
+short enough that a genuinely dead source is found inside a month.
+
+Monday so a change is on the board at the start of the week rather than
+discovered mid-Friday, and 04:19 rather than the hour because Actions queues
+every scheduled job that fires on the hour: an odd minute is served sooner.
+"""

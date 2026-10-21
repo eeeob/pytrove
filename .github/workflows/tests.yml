@@ -103,10 +103,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      # `tests` and `tools` are linted too: CONTRIBUTING applies to them
+      # `tests` and `devtools` are linted too: CONTRIBUTING applies to them
       # (see 4.2 in `.claude/rules/known-deviations.md`).
       - name: Run ruff
-        run: ruff check pytrove tests tools
+        run: ruff check pytrove tests devtools
 
   typecheck:
     runs-on: ubuntu-latest
