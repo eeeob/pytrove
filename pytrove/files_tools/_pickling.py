@@ -23,6 +23,13 @@ _SAFE_PICKLE_CLASSES: Final[frozenset[tuple[str, str]]] = frozenset(
 )
 """`(module, name)` pairs `read_pickle` always rebuilds: inert data whose construction runs no user code."""
 
+_PICKLE_MODULE_ALIASES: Final[dict[str, str]] = {"pathlib._local": "pathlib"}
+"""Private modules a newer Python pickles public classes under, mapped to the public module.
+
+3.13 defines the `pathlib` classes in `pathlib._local`, so a path pickled there
+names that module, which no other version has.
+"""
+
 _UNSAFE_PICKLE_MODULES: Final[frozenset[str]] = frozenset({
     "os", "nt", "posix", "subprocess", "sys", "shutil", "socket", "ctypes", "importlib", "multiprocessing",
     "pty", "runpy", "code", "codeop", "timeit", "webbrowser", "platform", "marshal", "pickle", "signal",
@@ -107,8 +114,9 @@ class _RestrictedUnpickler(pickle.Unpickler):
             pickle.UnpicklingError: If the level refuses it.
         """
         if self._permits(module, name):
-            return super().find_class(module, name)
+            return super().find_class(*_normalise_global(module, name))
 
+        module, name = _normalise_global(module, name)
         msg = (
             f"read_pickle: refusing to load '{module}.{name}' at safety level {self._level.name} -- pass "
             f"allow_classes=[{name}] if this file is yours and the class is safe to construct, or lower "
@@ -118,11 +126,13 @@ class _RestrictedUnpickler(pickle.Unpickler):
 
 
 def _normalise_global(module: str, name: str) -> tuple[str, str]:
-    """Map a Python 2 module/name pair to the Python 3 one pickle will import.
+    """Map a module/name pair to the public one pickle should import.
 
     Protocols 0-2 store `__builtin__.set` for `builtins.set`. Checking the
     untranslated pair would be a hole: `__builtin__.eval` would slip past the
-    blocklist entry for `builtins.eval`.
+    blocklist entry for `builtins.eval`. A private module from
+    `_PICKLE_MODULE_ALIASES` maps to its public one, so a path pickled on 3.13
+    is judged, and loaded, as `pathlib.Path` on every version.
 
     Args:
         module: The module named in the stream.
@@ -139,12 +149,16 @@ def _normalise_global(module: str, name: str) -> tuple[str, str]:
     if module in _compat_pickle.IMPORT_MAPPING:
         return _compat_pickle.IMPORT_MAPPING[module], name
 
+    if module in _PICKLE_MODULE_ALIASES:
+        return _PICKLE_MODULE_ALIASES[module], name
+
     return key
 
 
 __all__ = (
     "_RestrictedUnpickler",
     "_normalise_global",
+    "_PICKLE_MODULE_ALIASES",
     "_SAFE_PICKLE_CLASSES",
     "_UNSAFE_PICKLE_CLASSES",
     "_UNSAFE_PICKLE_MODULES",

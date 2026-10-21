@@ -4,7 +4,7 @@ from __future__ import annotations as _annotations
 
 import io
 import pickle
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 
@@ -43,6 +43,22 @@ def test_normalise_global_maps_python_2_names() -> None:
     assert _normalise_global("__builtin__", "eval") == ("builtins", "eval")  # an `IMPORT_MAPPING` module
     assert _normalise_global("copy_reg", "x") == ("copyreg", "x")
     assert _normalise_global("mine", "Thing") == ("mine", "Thing")
+
+
+def test_normalise_global_maps_the_3_13_pathlib_module() -> None:
+    # 3.13 defines the path classes in `pathlib._local` and pickles them under it.
+    assert _normalise_global("pathlib._local", "PosixPath") == ("pathlib", "PosixPath")
+    assert _normalise_global("pathlib._local", "WindowsPath") == ("pathlib", "WindowsPath")
+
+
+def test_a_3_13_path_pickle_loads_on_every_version() -> None:
+    # What 3.13 writes for `PurePosixPath("p")`, so this runs the same on every interpreter.
+    data = b"cpathlib._local\nPurePosixPath\n(Vp\ntR."
+
+    assert _load(data, PickleSafety.STRICT, _SAFE_PICKLE_CLASSES) == PurePosixPath("p")
+
+    with pytest.raises(pickle.UnpicklingError, match="pathlib.PurePosixPath"):
+        _load(data, PickleSafety.STRICT)
 
 
 def test_restricted_unpickler_levels() -> None:
