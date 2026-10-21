@@ -217,6 +217,14 @@ convention = "google"
 # Tests assert by design, and 5.3 covers library functions, not test cases.
 "tests/**" = ["S101", "D"]
 
+[tool.ty.environment]
+# Fixed, so a check gives the same verdict on every machine: the 3.10 floor's
+# syntax and `sys.version_info` branches, and Linux, where CI runs. Left to
+# the host, Windows-only `stat` fields read as resolved on Windows and as
+# errors on Linux, and their `ty: ignore` comments as unused on Windows.
+python-version = "3.10"
+python-platform = "linux"
+
 [tool.ty.src]
 # PEP 695 syntax, imported only on 3.12+ (see `typings/core.py`); checked on
 # its own with `ty check --python-version 3.12 pytrove/typings/_core_py312.py`.

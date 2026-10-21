@@ -99,7 +99,9 @@ def _is_hidden(rel: str, entry: os.DirEntry | None) -> bool:
         return False
 
     try:
-        return bool(entry.stat().st_file_attributes & stat.FILE_ATTRIBUTE_HIDDEN)
+        # Windows-only field, guarded by `_HAS_FILE_ATTRIBUTES` at runtime; `ty`
+        # cannot narrow on that flag (the tests patch it) and reports it on Linux.
+        return bool(entry.stat().st_file_attributes & stat.FILE_ATTRIBUTE_HIDDEN)  # ty: ignore[unresolved-attribute]
     except OSError:
         return False
 
