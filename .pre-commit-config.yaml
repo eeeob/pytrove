@@ -1,0 +1,21 @@
+# Optional: `pre-commit install` once, and every commit runs the same two
+# recipes the `lint` and `typecheck` jobs run, so the hooks and CI cannot
+# disagree. The rule sets live in `pyproject.toml`, not here.
+repos:
+  - repo: local
+    hooks:
+      - id: lint
+        name: ruff
+        entry: make lint
+        language: system
+        # `ruff` reads its own file list from the recipe and the whole tree
+        # takes well under a second, so the hook checks everything rather
+        # than only what is staged.
+        pass_filenames: false
+        always_run: true
+      - id: typecheck
+        name: ty
+        entry: make typecheck
+        language: system
+        pass_filenames: false
+        always_run: true

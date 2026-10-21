@@ -111,19 +111,16 @@ mention = mention_tg_user(123456789, "John")
 
 ## 🧪 Development Setup
 
+The only prerequisite is [`uv`](https://docs.astral.sh/uv/); it provisions the interpreter and the environment from `uv.lock`.
+
 ```bash
 git clone https://github.com/eeeob/pytrove.git
 cd pytrove
-pip install -e ".[full,dev]"
+make sync        # the locked environment with every extra
+make test        # the suite; also: make lint, make typecheck, make test-doctest
 ```
 
-### Running tests
-
-```bash
-pytest
-```
-
-Tests run in CI across every Python version listed in the classifiers above (3.10 through 3.14), both with the minimal (no-extras) install and with `[full,dev]`.
+`CONTRIBUTING.md` describes the workflow and every recipe; CI runs the same recipes on Python 3.10 through 3.14, with and without the optional extras.
 
 ---
 

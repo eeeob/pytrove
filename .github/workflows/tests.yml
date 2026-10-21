@@ -1,66 +1,22 @@
 name: Tests
 
 on:
+  # Branches live in this repository and are tested through their pull
+  # request, so an unfiltered `push` would run everything twice per commit.
   push:
     branches: [main]
   pull_request:
+  # Every job below installs from `uv.lock`, so a dependency release
+  # published after the last `uv lock` is exercised by nothing until somebody
+  # relocks. `test-ceil` resolves fresh and is what catches it, which only
+  # helps if something runs it without a push.
+  schedule:
+    - cron: "0 6 * * 1"
   workflow_dispatch: {}
 
+# Every step calls a `make` recipe: the Makefile is the only place the
+# commands are written down, shared with pre-commit and CONTRIBUTING.md.
 jobs:
-  # Guards the README's "minimal install" promise: `pip install pytrove`
-  # (no extras) must be importable stand-alone on every Python version the
-  # classifiers/Requires-Python claim to support. This is the exact scenario
-  # that used to break at import time (typing.Union isinstance() incompatibility
-  # pre-3.14) without ever being caught, because no CI ran on non-tag pushes.
-  minimal-install-smoke:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install core package only (no extras)
-        run: |
-          python -m pip install --upgrade pip
-          pip install .
-
-      - name: Import smoke test
-        run: python -c "import pytrove; print(len(pytrove.__all__), 'symbols exported OK')"
-
-  # CONTRIBUTING 0.3: the whole suite must also pass with none of the optional
-  # extras installed, so that the base import and the extra-independent tools
-  # stay valid, and every extra-dependent test skips cleanly without its extra.
-  # Only the test runner is added on top of the bare package; the floors match
-  # the `dev` extra in `pyproject.toml` (which is not installed here because
-  # it would pull `ty`/`ruff`/`hatch`/`twine`, and installing it is not the
-  # scenario under test).
-  test-minimal-install:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install core package only (no extras) + test runner
-        run: |
-          python -m pip install --upgrade pip
-          pip install . "pytest>=9.0.3" "pytest-asyncio>=0.24"
-
-      - name: Run tests without optional extras
-        run: pytest
-
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -70,65 +26,89 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v6
+      # `uv` supplies the interpreter as well as the packages, so there is no
+      # separate Python setup step.
+      - uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install package with all extras + dev tools
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[full,dev]"
+      - name: Install the locked environment with every extra
+        run: make sync
 
       - name: Run tests
-        run: pytest
+        run: make test
 
-      # CONTRIBUTING 5.5: every `Example` section is a doctest and must be
-      # correct, so the docstrings are executed on the full install.
-      # `typings/_core_py312.py` is PEP 695 syntax that does not parse before
-      # 3.12 (see `[tool.ty.src]` in `pyproject.toml`), so collection skips it.
       - name: Run docstring examples
-        run: pytest --doctest-modules pytrove --ignore=pytrove/typings/_core_py312.py
+        run: make test-doctest
+
+  # CONTRIBUTING 0.3: `pip install pytrove` with no extras must import and
+  # pass the whole suite, every extra-dependent test skipping on its own.
+  test-minimal:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Import and test the bare package
+        run: make test-minimal
 
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.10"
 
-      - name: Install package with dev tools
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+      - name: Install the locked environment
+        run: make sync
 
-      # `tests` and `devtools` are linted too: CONTRIBUTING applies to them
-      # (see 4.2 in `.claude/rules/known-deviations.md`).
       - name: Run ruff
-        run: ruff check pytrove tests devtools
+        run: make lint
 
+  # Its own job rather than a tail step of `lint`: a `ruff` failure would
+  # otherwise hide the `ty` verdict until the next push. 3.11 is the oldest
+  # interpreter that installs every extra (`mongo` needs 3.11); the recipe
+  # still checks against the 3.10 floor, and `ty` 0.0.88 overflows its stack
+  # against the 3.14 interpreter, so it is not the newest either.
   typecheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
-      # `ty` runs on 3.10 because `ty` 0.0.88 overflows its stack when
-      # checking against the 3.14 interpreter.
-      - uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@v7
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
-      - name: Install package with all extras + dev tools
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[full,dev]"
+      - name: Install the locked environment with every extra
+        run: make sync
 
       - name: Run ty
-        run: ty check pytrove
+        run: make typecheck
 
-      # `pytrove/typings/_core_py312.py` uses PEP 695 syntax and is excluded
-      # from `[tool.ty.src]` in `pyproject.toml`; it is checked on its own
-      # against a 3.12 target, as that comment describes.
-      - name: Run ty on the 3.12-only typings module
-        run: ty check --python-version 3.12 pytrove/typings/_core_py312.py
+  # The recipes name their interpreter and `uv` provisions it, so neither of
+  # these jobs pins one: `setup-uv`'s `python-version` would export
+  # `UV_PYTHON` over the whole job.
+  test-floor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+      - name: Test the lowest version every floor allows, on the oldest Python
+        run: make test-floor
+
+  test-ceil:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+      - name: Test the newest release of every dependency, on the newest Python
+        run: make test-ceil
