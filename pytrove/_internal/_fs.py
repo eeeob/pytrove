@@ -39,9 +39,12 @@ def _is_link(path: PathLike) -> bool:
     except OSError:
         return False
 
+    # The three names below exist only on Windows, which `_HAS_FILE_ATTRIBUTES`
+    # guards at runtime. `ty` cannot narrow on that flag (the tests patch it, so
+    # it cannot become a `sys.platform` check), and reports them on Linux.
     return stat.S_ISLNK(st.st_mode) or bool(
-        st.st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT
-        and st.st_reparse_tag == stat.IO_REPARSE_TAG_MOUNT_POINT
+        st.st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT  # ty: ignore[unresolved-attribute]
+        and st.st_reparse_tag == stat.IO_REPARSE_TAG_MOUNT_POINT  # ty: ignore[unresolved-attribute]
     )
 
 

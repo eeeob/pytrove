@@ -286,7 +286,7 @@ if HAS_PYROGRAM:
             }
 
 else:
-    CompiledTemplate = _unavailable_class("CompiledTemplate", ("kurigram", "tg"))
+    CompiledTemplate = _unavailable_class("CompiledTemplate", ("kurigram>=2.2.24", "tg"))
 
 
 __all__ = ("CompiledTemplate",)

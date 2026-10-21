@@ -72,8 +72,10 @@ phone = [
     "phonenumbers>=9.0.21",
 ]
 tg = [
-    # Floor set when the feature was added; clean.
-    "kurigram>=2.1.35",
+    # 2.2.24 is the first release with `pyrogram.types.InputRichMessage`, which
+    # `models.template_models` imports; below it the tg feature cannot load.
+    # Clean (Sonatype, 2026-10).
+    "kurigram>=2.2.24",
 ]
 typecheck = [
     # Floor set when the feature was added; clean.
@@ -214,6 +216,14 @@ convention = "google"
 "**/__init__.py" = ["F401", "F403", "F405", "I002"]
 # Tests assert by design, and 5.3 covers library functions, not test cases.
 "tests/**" = ["S101", "D"]
+
+[tool.ty.environment]
+# Fixed, so a check gives the same verdict on every machine: the 3.10 floor's
+# syntax and `sys.version_info` branches, and Linux, where CI runs. Left to
+# the host, Windows-only `stat` fields read as resolved on Windows and as
+# errors on Linux, and their `ty: ignore` comments as unused on Windows.
+python-version = "3.10"
+python-platform = "linux"
 
 [tool.ty.src]
 # PEP 695 syntax, imported only on 3.12+ (see `typings/core.py`); checked on

@@ -37,13 +37,13 @@ sync:
 lint:
 	$(RUN) ruff check pytrove tests devtools
 
-# Checked against the floor's syntax and `sys.version_info` branches, from an
-# environment that holds every extra: the `mongo` extra skips 3.10, and
+# The target version and platform are fixed in `[tool.ty.environment]`. Run it
+# from an environment that holds every extra: the `mongo` extra skips 3.10, and
 # `ty` 0.0.88 overflows its stack against a 3.14 interpreter, so CI runs this
 # on 3.11. `typings/_core_py312.py` is PEP 695 syntax, excluded in
 # `[tool.ty.src]` and checked on its own against 3.12.
 typecheck:
-	$(RUN) ty check --python-version $(PYTHON_FLOOR) pytrove
+	$(RUN) ty check pytrove
 	$(RUN) ty check --python-version 3.12 pytrove/typings/_core_py312.py
 
 test:

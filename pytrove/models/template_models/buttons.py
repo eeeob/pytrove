@@ -67,12 +67,12 @@ class CompiledButton(CompiledConditional):
         return cls.from_dict(item, True, True)
 
     @classproperty(cached=True)
-    @_optional_import(("kurigram", "tg"))
+    @_optional_import(("kurigram>=2.2.24", "tg"))
     def _buttons_params(cls: type[CompiledButton]) -> frozenset[str]:
         """The parameter names `InlineKeyboardButton` accepts."""
         return frozenset(inspect.signature(InlineKeyboardButton).parameters.keys())
 
-    @_optional_import(("kurigram", "tg"))
+    @_optional_import(("kurigram>=2.2.24", "tg"))
     def format(self, kw: Mapping[str, Any]) -> InlineKeyboardButton | None:
         """Render the button; `meta` keys the installed pyrogram does not accept are dropped with a warning.
 
@@ -144,7 +144,7 @@ class CompiledEachButton(BaseDataClass):
         compiled["item"] = CompiledButton.compile(item["item"])
         return cls.from_dict(compiled, True)
 
-    @_optional_import(("kurigram", "tg"))
+    @_optional_import(("kurigram>=2.2.24", "tg"))
     def format(self, kw: Mapping[str, Any]) -> list[list[InlineKeyboardButton]] | None:
         """Render one button per element, in rows of `row_width`.
 
@@ -205,7 +205,7 @@ class CompiledButtonRow(BaseDataClass):
 
         return cls.from_dict({"buttons": [CompiledButton.compile(button) for button in buttons]}, True)
 
-    @_optional_import(("kurigram", "tg"))
+    @_optional_import(("kurigram>=2.2.24", "tg"))
     def format(self, kw: Mapping[str, Any]) -> list[InlineKeyboardButton] | None:
         """Render the row's buttons, dropping the ones that opt out.
 
