@@ -33,13 +33,13 @@ from .models import (Citation, Contract, Derived, Fingerprint, Registry,
 
 try:                                              # 3.11+
     import tomllib                                # type: ignore[no-redef]
-except ModuleNotFoundError:                       # 3.10, via devtools/requirements.txt
+except ModuleNotFoundError:                       # 3.10, via the `devtools` dependency group
     try:
         import tomli as tomllib                   # type: ignore[no-redef]
     except ModuleNotFoundError:                   # pragma: no cover
         msg = (
             "reading a tool's .toml declarations needs tomli on Python 3.10:\n"
-            "    pip install -r devtools/requirements.txt"
+            "    uv sync --group devtools"
         )
         raise SystemExit(msg) from None
 

@@ -2,6 +2,25 @@
 
 The items are ordered from those with the greatest impact on the library's compatibility and public interface to style and documentation rules. The items below reflect your original instructions, including your adopted decision regarding import interfaces and the placement of `__all__`. Other proposals that you did not adopt are not part of these guidelines.
 
+## Development Setup and Checks
+
+The only prerequisite is [`uv`](https://docs.astral.sh/uv/). It provisions the interpreter and the environment from `uv.lock`, so nothing else has to be installed or activated. Every command below runs through `make`; the `Makefile` is the only place the commands are written down, and CI, the optional `pre-commit` hooks and this file all call the same recipes.
+
+```bash
+make sync            # the locked environment with every extra
+make lint            # ruff over pytrove, tests and devtools
+make typecheck       # ty over pytrove, against the 3.10 floor
+make test            # the suite with every extra installed
+make test-doctest    # every `Example` section (rule 5.5)
+make test-minimal    # the bare package plus the test runner (rule 0.3)
+make test-floor      # the lowest version every dependency floor allows, on 3.10
+make test-ceil       # the newest release of every dependency, on 3.14
+```
+
+Tooling lives in `[dependency-groups]` in `pyproject.toml` (`lint`, `test`, `devtools`), not in an extra, so `pip install pytrove[dev]` is not a thing. After changing a dependency, run `uv lock` and commit `uv.lock` with the change. `pre-commit install` is optional; the hooks run `make lint` and `make typecheck`.
+
+`ruff` and `ty` are configured only in `pyproject.toml`, under `[tool.ruff]` and `[tool.ty]`. That configuration is the reference for every rule in this file that a tool enforces mechanically: each selected rule set names the rule it enforces, and each ignore says why. Do not narrow the rule set or widen an ignore to make a change pass (rule 1.10).
+
 ## Priority 0 — Test Organization and Mandatory Coverage
 
 ### 0.1. Test Tree Organization
@@ -253,7 +272,7 @@ raise RuntimeError(msg)
 
 Complete and correct type hints must be provided for all functions and methods, including internal ones, for their parameters and return values. Add hints to attributes and variables when their type is not clear or when doing so helps static checking. Use the appropriate precise types instead of resorting to `Any` to bypass a type-checking problem.
 
-Hints must be compatible with supported Python versions and pass the project's adopted type checker, `ty` (pinned in the `dev` extra and configured under `[tool.ty]` in `pyproject.toml`), without unhandled warnings or errors.
+Hints must be compatible with supported Python versions and pass the project's adopted type checker, `ty` (pinned in the `lint` dependency group and configured under `[tool.ty]` in `pyproject.toml`; `make typecheck`), without unhandled warnings or errors.
 
 ### 4.7. Comments on Hints and Type Warnings
 

@@ -7,7 +7,7 @@ installing the library pulls none of it, and the only dependency is a TOML
 reader that Python 3.11 already has:
 
 ```sh
-pip install -r devtools/requirements.txt    # installs nothing on 3.11+
+uv sync --group devtools    # installs nothing on 3.11+
 ```
 
 Run everything from the repository root; `devtools` resolves as a namespace
@@ -18,7 +18,6 @@ package.
 | `device_catalogs/`  | regenerates `pytrove/data/devices/*.json` — [guide](device_catalogs/docs/DEVELOPING.md) |
 | `_preflight/`       | source checking and cache cleaning, shared by any tool |
 | `__main__.py`       | the front door                                         |
-| `requirements.txt`  | TOML reading, and only below 3.11                      |
 
 ---
 

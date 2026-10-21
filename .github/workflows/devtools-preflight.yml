@@ -42,17 +42,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.12"
-
-      # devtools/ is development-only and is not declared in pyproject.toml, so
-      # the library is deliberately not installed here: the checker reads
-      # declarations and never imports a tool. On 3.11+ this installs nothing.
-      - name: Install the tools' own requirements
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r devtools/requirements.txt
 
       # --allow-flaky: a source that could not be reached once is weather, and
       # failing the job on it would train everyone to ignore this. The counter
@@ -65,7 +57,10 @@ jobs:
           target="--all"
           if [ -n "$TOOL" ]; then target="--tool $TOOL"; fi
           set +e
-          python -m devtools._preflight $target --allow-flaky | tee preflight.txt
+          # `--only-group devtools`: the checker's own dependencies and nothing
+          # else; the library is deliberately not installed, because the checker
+          # reads declarations and never imports a tool.
+          uv run --only-group devtools python -m devtools._preflight $target --allow-flaky | tee preflight.txt
           code=${PIPESTATUS[0]}
           set -e
           echo "code=$code" >> "$GITHUB_OUTPUT"

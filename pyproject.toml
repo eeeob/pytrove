@@ -43,29 +43,12 @@ dependencies = [
 "Homepage" = "https://github.com/eeeob/pytrove"
 
 [project.optional-dependencies]
-dev = [
-    # The former `<=1.16.5` cap had no technical reason, so only a floor
-    # remains: the 1.16 line the cap was set on, which is clean.
-    "hatch>=1.16",
-    # Same as hatch: the former `<=6.2.0` cap had no technical reason.
-    "twine>=6.2",
-    # Earlier releases (8.x through 9.0.2) carry CVE-2025-71176.
-    "pytest>=9.0.3",
-    # Floor set when the async tests were added; clean.
-    "pytest-asyncio>=0.24",
-    # Pinned exactly: ty is pre-1.0 and each release can add or change
-    # diagnostics, which would fail CI with no change in the code.
-    "ty==0.0.88",
-    # Pinned exactly for the same reason as ty: a new release can add or
-    # change lint rules, which would fail the checks with no change in the code.
-    "ruff==0.17.1",
-]
-
-
 mongo = [
     # Every 4.x up to 4.18.0 carries CVE-2026-96748; 4.19.0 is the first
-    # release with no known vulnerability.
-    "pymongo>=4.19.0",
+    # release with no known vulnerability, and it requires Python 3.11, so
+    # the extra installs nothing on 3.10: `MongoIndex` raises the usual
+    # missing-extra error there rather than pulling a vulnerable release.
+    "pymongo>=4.19.0; python_version >= '3.11'",
 ]
 country = [
     # Floors set when the feature was added; clean.
@@ -131,8 +114,47 @@ full = [
     "pytrove[imap,phone,country,bs4,mongo,tg,crypto,typecheck,proxy,locale,jsonref,fastjson,archive]"
 ]
 
+# Tooling is not something a user of the library installs, so it lives in
+# dependency groups (PEP 735) rather than extras: `uv sync` takes them from
+# `uv.lock`, and `pip install pytrove[dev]` is not a thing anyone can type.
+# `make` is the only place these commands are written down (see `Makefile`
+# and the development section of `CONTRIBUTING.md`).
+[dependency-groups]
+# The aggregate `uv sync` installs by default. It lists groups, never
+# packages, so every package below sits in a group that says what it is for.
+dev = [
+    { include-group = "lint" },
+    { include-group = "test" },
+]
+lint = [
+    # Pinned exactly: ty is pre-1.0 and each release can add or change
+    # diagnostics, which would fail CI with no change in the code.
+    "ty==0.0.88",
+    # Pinned exactly for the same reason as ty: a new release can add or
+    # change lint rules, which would fail the checks with no change in the code.
+    "ruff==0.17.1",
+    # Runs `make lint` and `make typecheck` before each commit, optionally.
+    # Floor set when the hooks were added; clean.
+    "pre-commit>=4.5",
+]
+test = [
+    # Earlier releases (8.x through 9.0.2) carry CVE-2025-71176.
+    "pytest>=9.0.3",
+    # Floor set when the async tests were added; clean.
+    "pytest-asyncio>=0.24",
+]
+# What the generators under `devtools/` need and the library does not. Only
+# TOML reading, and only below 3.11, which ships `tomllib`; on 3.11 and newer
+# the group installs nothing. Nothing here reaches the wheel.
+devtools = [
+    "tomli>=2.0; python_version < '3.11'",
+]
+
 [tool.hatch.build.targets.sdist]
-exclude = [".github/",]
+# An allowlist, so a new top-level file never leaks into the archive by
+# accident. `devtools/` is included on purpose: the generators are part of
+# the source, even though they never reach the wheel.
+include = ["/pytrove", "/tests", "/devtools"]
 
 [tool.hatch.version]
 path = "pytrove/__meta__.py"
@@ -153,7 +175,10 @@ asyncio_mode = "auto"
 # Test files mirror the library per section, so basenames repeat across directories.
 addopts = "--import-mode=importlib"
 
-# Each selected rule enforces a CONTRIBUTING.md rule, noted beside it.
+# The reference for every mechanically enforced rule. `CONTRIBUTING.md` points
+# here instead of restating these: each selected rule set names the rule it
+# enforces, and each ignore says why it is not enforced. `make lint` and
+# `make typecheck` run exactly this configuration, locally and in CI.
 [tool.ruff]
 target-version = "py310"
 # PEP 695 syntax, imported only on 3.12+ (see `typings/core.py`).
