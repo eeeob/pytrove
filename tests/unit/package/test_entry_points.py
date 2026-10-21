@@ -15,8 +15,6 @@ import pytrove.errors
 import pytrove.models
 import pytrove.typings
 
-DEPRECATED = ["pytrove.classes", "pytrove.classes.misc_classes", "pytrove.classes.archiver", "pytrove.misc_tools", "pytrove.models.misc_models"]
-DEPRECATED_MODULES = {"classes", "misc_tools"}
 ENTRY_POINTS = ["pytrove", "pytrove.typings", "pytrove.errors", "pytrove.models", "pytrove.enums"]
 
 # The type variables and literals in `typings` are public by design; the underscore marks them as aliases.
@@ -43,25 +41,13 @@ def test_tools_entry_point_holds_no_type_error_model_or_enum() -> None:
     assert not set(pytrove.__all__) & others
 
 
-@pytest.mark.parametrize("module", DEPRECATED)
-def test_a_deprecated_path_still_resolves_every_name_with_a_warning(module: str) -> None:
-    shim = importlib.import_module(module)
-
-    for name in shim.__all__:
-        with pytest.warns(DeprecationWarning, match=name):
-            assert getattr(shim, name) is getattr(importlib.import_module(shim._MOVED[name]), name)
-
-    with pytest.raises(AttributeError):
-        getattr(shim, "never_existed")
-
-
 @pytest.mark.parametrize("package", [pytrove, pytrove.object_tools, pytrove.models, pytrove.typings])
 def test_an_aggregator_is_the_union_of_its_modules(package: object) -> None:
     root = Path(package.__file__).parent
     modules = [p.stem for p in root.glob("*.py") if p.stem != "__init__" and not p.stem.startswith("_")]
     modules += [p.name for p in root.iterdir() if (p / "__init__.py").is_file() and not p.name.startswith("_")]
     if package is pytrove:
-        modules = [m for m in modules if m not in {"enums", "errors", "models", "typings", *DEPRECATED_MODULES}]
+        modules = [m for m in modules if m not in {"enums", "errors", "models", "typings"}]
     expected = {n for m in modules for n in importlib.import_module(f"{package.__name__}.{m}").__all__}
     assert set(package.__all__) == expected
 
