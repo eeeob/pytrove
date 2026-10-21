@@ -1,6 +1,6 @@
-"""Tests for tools/_preflight and the tool folder contract.
+"""Tests for devtools/_preflight and the tool folder contract.
 
-`tools/` is development-only and ships in no wheel, so these tests skip
+`devtools/` is development-only and ships in no wheel, so these tests skip
 entirely when it is absent rather than failing. Nothing here touches the
 network: the probing is exercised through its classification, which is the
 part with decisions in it.
@@ -28,33 +28,33 @@ from typing import Any, NoReturn
 
 import pytest
 
-TOOLS = Path(__file__).resolve().parents[3] / "tools"
+TOOLS = Path(__file__).resolve().parents[3] / "devtools"
 PREFLIGHT = TOOLS / "_preflight"
 
 pytestmark = pytest.mark.skipif(
-    not PREFLIGHT.is_dir(), reason="tools/ is not installed")
+    not PREFLIGHT.is_dir(), reason="devtools/ is not installed")
 
 if TOOLS.parent.as_posix() not in [p.replace("\\", "/") for p in sys.path]:
     sys.path.insert(0, str(TOOLS.parent))
 
-from tools._preflight import enums as _enums                        # noqa: E402
-from tools._preflight import models as _models                      # noqa: E402
-from tools._preflight import registry as _registry                  # noqa: E402
-from tools._preflight.check import Checker                          # noqa: E402
-from tools._preflight.contract import ContractCheck                 # noqa: E402
-from tools._preflight.door import Dispatcher                        # noqa: E402
-from tools._preflight.enums import (ContractKind, Exit,              # noqa: E402
+from devtools._preflight import enums as _enums                        # noqa: E402
+from devtools._preflight import models as _models                      # noqa: E402
+from devtools._preflight import registry as _registry                  # noqa: E402
+from devtools._preflight.check import Checker                          # noqa: E402
+from devtools._preflight.contract import ContractCheck                 # noqa: E402
+from devtools._preflight.door import Dispatcher                        # noqa: E402
+from devtools._preflight.enums import (ContractKind, Exit,              # noqa: E402
                                     FingerprintKind, Health, Policy,
                                     State, Verb)
-from tools._preflight.fingerprint import FingerprintValue           # noqa: E402
-from tools._preflight.janitor import Janitor                        # noqa: E402
-from tools._preflight.layout import Layout                          # noqa: E402
-from tools._preflight.lock import Lock                              # noqa: E402
-from tools._preflight.models import (Contract, Derived,      # noqa: E402
+from devtools._preflight.fingerprint import FingerprintValue           # noqa: E402
+from devtools._preflight.janitor import Janitor                        # noqa: E402
+from devtools._preflight.layout import Layout                          # noqa: E402
+from devtools._preflight.lock import Lock                              # noqa: E402
+from devtools._preflight.models import (Contract, Derived,      # noqa: E402
                                      Fingerprint, Registry, Report,
                                      Source, Verdict)
-from tools._preflight.probe import Prober                           # noqa: E402
-from tools._preflight.report import TextReport                      # noqa: E402
+from devtools._preflight.probe import Prober                           # noqa: E402
+from devtools._preflight.report import TextReport                      # noqa: E402
 
 
 # =============================== fixtures ===============================
@@ -74,7 +74,7 @@ def loaded(tool: str) -> Registry:
 # ======================== the tool folder contract ========================
 
 def test_at_least_one_tool_declares_sources() -> None:
-    assert Layout.tools(), "no tools/*/sources/sources.toml found"
+    assert Layout.tools(), "no devtools/*/sources/sources.toml found"
 
 
 def test_preflight_is_machinery_and_not_a_tool() -> None:
@@ -86,7 +86,7 @@ def test_preflight_is_machinery_and_not_a_tool() -> None:
 
 
 def test_a_tool_has_exactly_one_way_in(tool: str) -> None:
-    # `src/__main__.py` made `python -m tools.<tool>.src` a second door, and
+    # `src/__main__.py` made `python -m devtools.<tool>.src` a second door, and
     # it bypassed the real one -- which is where the staleness nudge lives,
     # so the way in that skipped it was the way that told you nothing. One
     # door per tool, and the contract test above says where it is.
@@ -122,7 +122,7 @@ def test_every_tool_carries_its_own_guide(tool: str) -> None:
 def test_the_tools_tree_explains_itself() -> None:
     readme = TOOLS / "README.md"
 
-    assert readme.is_file(), "tools/README.md is missing"
+    assert readme.is_file(), "devtools/README.md is missing"
     assert readme.read_text(encoding="utf-8").strip()
 
 
@@ -1157,7 +1157,7 @@ def test_an_unreachable_source_records_no_verdict_at_all(tmp_path: Path) -> None
 # cron sits in the workflow as well as in the tool's own declaration, and
 # these tests are what keep the two from drifting apart.
 
-WORKFLOW = TOOLS.parent / ".github" / "workflows" / "tools-preflight.yml"
+WORKFLOW = TOOLS.parent / ".github" / "workflows" / "devtools-preflight.yml"
 
 
 def _workflow() -> str:
@@ -1204,9 +1204,9 @@ def test_the_scheduled_run_checks_sources_and_never_builds() -> None:
     # records, and runs no generator.
     text = _workflow()
 
-    assert "-m tools._preflight" in text
-    assert not re.search(r"-m tools\.(?!_preflight)", text)
-    assert "-m tools " not in text
+    assert "-m devtools._preflight" in text
+    assert not re.search(r"-m devtools\.(?!_preflight)", text)
+    assert "-m devtools " not in text
 
 
 def test_the_scheduled_run_keeps_the_counter_it_depends_on() -> None:
@@ -1345,7 +1345,7 @@ def test_the_escalation_line_says_how_long_that_actually_is(tmp_path: Path) -> N
 def _tool_classes(tool: str) -> dict[str, set[str]]:
     """Every class under the tool's src/, with its attributes and methods.
 
-    Parsed, never imported: `tools/` ships in no wheel and a src module
+    Parsed, never imported: `devtools/` ships in no wheel and a src module
     imports its siblings, so reading the text is both lighter and the only
     thing guaranteed to work from a bare checkout.
     """

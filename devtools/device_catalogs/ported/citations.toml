@@ -1,0 +1,292 @@
+#  device_catalogs -- the rules this tool did not invent
+#  =====================================================
+#
+#  Read by `devtools/_preflight`. Some of what the generator emits is not data it
+#  collected but a rule it reimplemented from somebody else's source: lib_base
+#  decides what a desktop model string looks like, Chromium freezes its own
+#  platform tokens, Telegram Android concatenates two Build fields with no
+#  separator between them. Those files were read once by a human and then
+#  quoted in a comment -- and a comment cannot notice that the rule moved, so
+#  the port goes on producing strings the client would no longer produce and
+#  nothing in a build fails.
+#
+#  So each entry names the exact lines the port rests on, and the check asks
+#  upstream whether they are still there. All of `anchors` must be present; a
+#  missing one is fatal, because it means the premise of a port is gone and
+#  the only honest response is to read the file again.
+#
+#  `anchors` are substrings, never line numbers. Line numbers drift on their
+#  own: the Android model line was cited at 224 and now sits at 228, having
+#  not changed at all. An anchor is quoted exactly as upstream writes it,
+#  including the tabs-to-spaces it uses, so it is worth copying rather than
+#  retyping.
+#
+#  These are deliberately not [[source]] entries. Nothing is fetched into the
+#  cache and nothing is generated from the body, and fingerprinting a live
+#  source file would report a change every week that nobody can act on. The
+#  one question worth asking is whether the quoted rule survives.
+#
+#  Already a [[source]] and so absent from here: MTApiEnvironment.m. The iOS
+#  model strings are not ported from it, they are parsed out of it on every
+#  build, so it carries a contract and a fingerprint instead.
+
+
+# ===========================================================================
+#  Telegram clients
+# ===========================================================================
+
+[[citation]]
+id = "telegram_android_identity"
+url = "https://raw.githubusercontent.com/DrKLO/Telegram/master/TMessagesProj/src/main/java/org/telegram/tgnet/ConnectionsManager.java"
+anchors = [
+  "deviceModel = Build.MANUFACTURER + Build.MODEL;",
+  'systemVersion = "SDK " + Build.VERSION.SDK_INT;',
+]
+ported_to = """
+src/android.py :: AndroidBuilder.MODEL_FORMAT, VERSION_FORMAT and the model
+strings themselves (manufacturer + code, no separator); the catalog's
+`model` field for every one of its 910 devices"""
+on_drift = """
+Every Android row in the catalog. The two anchors are the entire format: a
+separator appearing between the manufacturer and the model, or a different
+spelling of the SDK string, would make all 910 model strings wrong -- each
+one a value no real handset sends."""
+notes = """
+The concatenation really is unseparated, which is why it is quoted whole
+rather than as two fragments: `samsung` + `SM-S928B` is `samsungSM-S928B`.
+The server rewrites it for display, so a wrong string still *shows* as a
+plausible phone -- which is exactly why this needs checking rather than
+eyeballing."""
+
+
+[[citation]]
+id = "telegram_ios_model_source"
+url = "https://raw.githubusercontent.com/TelegramMessenger/Telegram-iOS/master/submodules/TelegramUI/Sources/AppDelegate.swift"
+anchors = ["deviceModelName: nil"]
+ported_to = """
+src/ios.py :: IOSBuilder.telegram_names(), which parses platformString out
+of MTApiEnvironment.m instead of using Apple's marketing names"""
+on_drift = """
+The premise of the whole iOS catalog. Passing nil here is what makes the
+client fall back to its own hardcoded platformString table -- so if the app
+starts passing a real device name, the catalog is reading the wrong table and
+every one of its 35 models is the wrong kind of string."""
+
+
+# ===========================================================================
+#  Telegram Desktop, through desktop-app/lib_base
+# ===========================================================================
+
+[[citation]]
+id = "libbase_model_rules"
+url = "https://raw.githubusercontent.com/desktop-app/lib_base/master/base/platform/base_platform_info.cpp"
+anchors = [
+  "constexpr auto kMaxDeviceModelLength = 15;",
+  "constexpr auto kMaxGoodDeviceModelLength = 32;",
+  "return !model.isEmpty() && (model.size() <= kMaxDeviceModelLength);",
+  'if (productName.startsWith("HP ")) {',
+  '{ "notebook", "desktop", "mobile", "workstation", "pc" });',
+  "} else if (result.size() + word.size() + 1 > limit) {",
+  'return !model.isEmpty() ? model : IsMac() ? u"Mac"_q : u"Desktop"_q;',
+]
+ported_to = """
+src/libbase.py :: LibBase.MAX_MODEL, MAX_GOOD_MODEL, HP_FILLER,
+is_device_model_ok(), simplify_good_device_model(),
+product_name_to_device_model();
+src/desktop.py :: DesktopBuilder.FALLBACK_MODEL"""
+on_drift = """
+Every one of the 821 desktop models, which are computed rather than copied:
+the builder runs this chain over a real dmidecode probe and keeps only what
+the client would emit. A changed cap silently admits or drops models, and a
+changed HP branch changes the one vendor whose names exceed the cap."""
+notes = """
+`SimplifyGoodDeviceModel` is quoted by its length test rather than by its
+signature, because the loop is the part that was ported: whole words are
+taken while they still fit, so the result is never a mid-word cut. The two
+caps are quoted with their values for the same reason -- the names alone
+would survive a change from 15 to 16."""
+
+
+[[citation]]
+id = "libbase_clean_and_simplify"
+url = "https://raw.githubusercontent.com/desktop-app/lib_base/master/base/algorithm.cpp"
+anchors = [
+  "QString CleanAndSimplify(QString text) {",
+  "if (ch.unicode() < 32) {",
+  "return text.simplified();",
+]
+ported_to = "src/libbase.py :: LibBase.clean_and_simplify()"
+on_drift = """
+The first step of every desktop model string. Control characters become
+spaces and only then is whitespace collapsed -- in that order, which is what
+turns a firmware string with an embedded newline into one clean line rather
+than into two words run together."""
+
+
+[[citation]]
+id = "libbase_windows"
+url = "https://raw.githubusercontent.com/desktop-app/lib_base/master/base/platform/win/base_info_win.cpp"
+anchors = [
+  'const auto systemProductName = value("SystemProductName");',
+  'const auto systemFamily = value("SystemFamily");',
+  'const auto baseBoardProduct = value("BaseBoardProduct");',
+  'resultList << "Windows 11";',
+  'resultList << "x64";',
+  'resultList << "arm64";',
+  "case IMAGE_FILE_MACHINE_ARM64: {",
+]
+ported_to = """
+src/libbase.py :: LibBase.device_model_from_dmi() (the four-step order);
+src/desktop.py :: DesktopBuilder.WINDOWS_VERSIONS, WINDOWS_DOC"""
+on_drift = """
+The Windows half of the desktop catalog: both the model order -- product
+name, then family + board, then board, then family -- and the version string.
+The architecture suffix is appended only for AMD64 and ARM64, which is why a
+machine that is neither carries no suffix at all; a new case here would mean
+the catalog is missing a version string that real machines now send."""
+notes = """
+arm64 is reachable in this code and is deliberately absent from the catalog:
+linuxhw/DMI contributes no ARM Windows hardware, so the string could only
+ever sit on an x86 model number. That is a data decision, not a port gap."""
+
+
+[[citation]]
+id = "libbase_linux"
+url = "https://raw.githubusercontent.com/desktop-app/lib_base/master/base/platform/linux/base_info_linux.cpp"
+anchors = [
+  'const auto productName = value("product_name");',
+  'const auto productFamily = value("product_family");',
+  'const auto boardName = value("board_name");',
+  'process.start("systemd-detect-virt", QStringList());',
+  "const auto chassisType = ChassisTypeToString(",
+  "resultList << u.sysname;",
+  "#ifndef Q_OS_LINUX",
+  "resultList << u.release;",
+  'resultList << "Xwayland";',
+  "const auto libcName = GetLibcName();",
+]
+ported_to = """
+src/libbase.py :: LibBase.device_model_from_dmi();
+src/desktop.py :: DesktopBuilder.unix_versions(), KERNELS, DESKTOPS,
+SESSIONS, LIBC, LINUX_VIRT, LINUX_CHASSIS, LINUX_DOC"""
+on_drift = """
+The Linux half of the desktop catalog -- 543 version strings and the
+virtualisation and chassis fallbacks in the model pool. The `#ifndef
+Q_OS_LINUX` guard is the reason a Linux row carries no kernel release while a
+BSD row does; losing it would make every Linux version string too short by
+one component, and nothing else in the tool would notice."""
+notes = """
+`u.release` is quoted together with the guard on purpose: the line on its own
+is unremarkable, and it is the guard around it that the port depends on.
+GetLibcName is quoted rather than the __GLIBC__ blocks, which appear six
+times for unrelated reasons; the libc clause is omitted entirely outside
+glibc, which is why a musl distribution reports a three-part string."""
+
+
+# ===========================================================================
+#  Browsers -- the frozen user agent templates
+# ===========================================================================
+
+[[citation]]
+id = "chromium_user_agent"
+url = "https://raw.githubusercontent.com/chromium/chromium/main/components/embedder_support/user_agent_utils.cc"
+anchors = [
+  'return "Windows NT 10.0; Win64; x64";',
+  'return "Macintosh; Intel Mac OS X 10_15_7";',
+  'return "X11; Linux x86_64";',
+  '"Mozilla/5.0 (%s) AppleWebKit/537.36 (KHTML, like Gecko) "',
+  '"%s Safari/537.36"',
+]
+ported_to = """
+src/web.py :: WebBuilder.CHROMIUM_TEMPLATE, CHROMIUM_PRODUCT, EDGE_SUFFIX;
+src/web.py :: WebPlatform.chromium -- together every Chrome and Edge user
+agent in the web catalog"""
+on_drift = """
+All 24 Chromium rows, which are generated from this template rather than
+collected: only the major version is fetched, from Google's own feed. A
+changed platform token or a new WebKit number would make every Chrome and
+Edge string in the catalog a value no browser sends."""
+notes = """
+The three platform strings are frozen by design -- that is what
+GetUnifiedPlatform is for -- so they are quoted as whole return statements.
+The template is quoted as its two adjacent literals because the compiler
+joins them and the file wraps the line between them."""
+
+
+[[citation]]
+id = "gecko_user_agent"
+url = "https://raw.githubusercontent.com/mozilla/gecko-dev/master/netwerk/protocol/http/nsHttpHandler.cpp"
+anchors = [
+  "#ifdef XP_WIN",
+  "#  define UA_SPARE_PLATFORM",
+  '#  define OSCPU_WINDOWS "Windows NT 10.0"',
+  '#  define OSCPU_WIN64 OSCPU_WINDOWS "; Win64; x64"',
+  'mOscpu.AssignLiteral("Intel Mac OS X 10.15");',
+  'mOscpu.AssignLiteral("Linux x86_64");',
+  'mMisc.AssignLiteral("rv:" MOZILLA_UAVERSION);',
+]
+ported_to = """
+src/web.py :: WebBuilder.FIREFOX_TEMPLATE;
+src/web.py :: WebPlatform.firefox_platform, WebPlatform.firefox_oscpu --
+the per-OS
+Gecko comment"""
+on_drift = """
+All nine Firefox user agents, and with them the only non-Chromium template in
+the catalog -- the one row that proves the generator is not simply emitting
+one shape. UA_SPARE_PLATFORM is why Firefox on Windows alone drops the
+platform token, which is the single most easily mis-ported detail here."""
+notes = """
+`#ifdef XP_WIN` is an anchor in its own right because UA_SPARE_PLATFORM being
+Windows-only is the whole point: defined unconditionally, every Firefox row
+would lose its platform token. Note also that Gecko spells macOS `10.15`
+where Chromium writes `10_15_7`, which is why both spellings sit in the
+pairing table."""
+
+
+[[citation]]
+id = "webkit_navigator_platform"
+url = "https://raw.githubusercontent.com/WebKit/WebKit/main/Source/WebCore/page/NavigatorBase.cpp"
+anchors = [
+  "String NavigatorBase::platform() const",
+  '    return "MacIntel"_s;',
+  '    return "Win32"_s;',
+  'return uname(&osname) >= 0 ? makeString(unsafeSpan(osname.sysname), " "_s, unsafeSpan(osname.machine)) : emptyString();',
+]
+ported_to = "src/web.py :: WebPlatform.navigator -- the system_version field"
+on_drift = """
+The second of the two fields a web row carries. `Win32` on 64-bit Windows and
+`MacIntel` on Apple silicon are deliberate lies the engines agree to tell,
+and the Linux value is assembled from uname -- so this is also where the
+`Linux x86_64` spelling in the catalog comes from."""
+notes = """
+WebKit is cited although Safari is not in the catalog: every engine
+implements navigator.platform the same way and this is the clearest
+statement of it. Safari stays out because its Version/x.y suffix is
+published in no machine-readable feed."""
+
+
+# ===========================================================================
+#  AOSP
+# ===========================================================================
+
+[[citation]]
+id = "aosp_property_source_order"
+url = "https://raw.githubusercontent.com/aosp-mirror/platform_system_core/main/init/property_service.cpp"
+anchors = [
+  '"ro.product.property_source_order"',
+  "product,odm,vendor,system_ext,system",
+]
+ported_to = """
+src/firmware.py :: FirmwareHarvest.SOURCE_ORDER, SOURCE_ORDER_PROP,
+PROP_PATH and resolve()"""
+on_drift = """
+Which partition's build.prop wins when a firmware dump's partitions disagree
+about the manufacturer or the model -- and so the retail identity of the 64
+OPPO, realme and vivo devices. A changed default order would make the
+harvest read a placeholder where the retail value used to be found."""
+notes = """
+A GitHub mirror of AOSP rather than android.googlesource.com, which serves
+this file only base64-encoded. The mirror lags the real tree by a little,
+which is acceptable for a question asked once a week about a line that has
+not changed in years -- but it is a mirror, and that is worth knowing before
+treating a failure here as upstream news."""

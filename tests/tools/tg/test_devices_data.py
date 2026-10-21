@@ -18,13 +18,13 @@ from pytrove.tg_tools._internal.families import (
 )
 
 #: Only present after a build; the tests that need it skip when it is absent.
-PLAY_CATALOG = (_DATA_DIR.parents[2] / "tools" / "device_catalogs"
+PLAY_CATALOG = (_DATA_DIR.parents[2] / "devtools" / "device_catalogs"
                 / ".cache" / "play_devices.csv")
 
-#: tools/ is dev-only and ships in no wheel, so importing it is best-effort.
+#: devtools/ is dev-only and ships in no wheel, so importing it is best-effort.
 #: This one module is loadable on its own: it imports nothing from its package
 #: precisely so this test can read it without building the whole thing.
-BUILDER = (_DATA_DIR.parents[2] / "tools" / "device_catalogs"
+BUILDER = (_DATA_DIR.parents[2] / "devtools" / "device_catalogs"
            / "src" / "libbase.py")
 
 
@@ -456,7 +456,7 @@ def _lib_base_linux_only() -> set[str]:
     """The builder's own list, so the data and the rule cannot drift.
 
     Read out of the source with `ast` rather than imported: `desktop.py`
-    imports its siblings, and `tools/` ships in no wheel, so parsing is the
+    imports its siblings, and `devtools/` ships in no wheel, so parsing is the
     one way to reach the constant that works wherever the data does.
     """
 
@@ -536,7 +536,7 @@ def test_macos_stays_out_of_the_desktop_catalog(desktop: dict[str, Any]) -> None
                 if re.fullmatch(r"\d+(\.\d+)*", v["version"])]
 
 
-@pytest.mark.skipif(not BUILDER.is_file(), reason="tools/ is not installed")
+@pytest.mark.skipif(not BUILDER.is_file(), reason="devtools/ is not installed")
 def test_every_desktop_model_is_a_fixed_point_of_lib_bases_own_rules() -> None:
     # The strongest statement available without a Windows registry: feed each
     # stored model back in as `product_name` and lib_base must return it

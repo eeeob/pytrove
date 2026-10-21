@@ -1,6 +1,6 @@
-"""Tests for the generator under tools/device_catalogs.
+"""Tests for the generator under devtools/device_catalogs.
 
-`tools/` is development-only and ships in no wheel, so these tests skip
+`devtools/` is development-only and ships in no wheel, so these tests skip
 entirely when it is absent. Nothing here touches the network: every harvest
 step that would is driven through a `Cache` pointed at a temporary directory,
 which is the same thing `--offline` does.
@@ -24,21 +24,21 @@ from pathlib import Path
 
 import pytest
 
-TOOLS = Path(__file__).resolve().parents[3] / "tools"
+TOOLS = Path(__file__).resolve().parents[3] / "devtools"
 CATALOGS = TOOLS / "device_catalogs"
 
 pytestmark = pytest.mark.skipif(
-    not CATALOGS.is_dir(), reason="tools/ is not installed")
+    not CATALOGS.is_dir(), reason="devtools/ is not installed")
 
 if TOOLS.parent.as_posix() not in [p.replace("\\", "/") for p in sys.path]:
     sys.path.insert(0, str(TOOLS.parent))
 
-from tools._preflight import registry as _registry                 # noqa: E402
-from tools._preflight.enums import Policy                          # noqa: E402
-from tools._preflight.layout import Layout                         # noqa: E402
-from tools.device_catalogs.src.cache import Cache                  # noqa: E402
-from tools.device_catalogs.src.firmware import FirmwareHarvest     # noqa: E402
-from tools.device_catalogs.src.shared import TODAY                 # noqa: E402
+from devtools._preflight import registry as _registry                 # noqa: E402
+from devtools._preflight.enums import Policy                          # noqa: E402
+from devtools._preflight.layout import Layout                         # noqa: E402
+from devtools.device_catalogs.src.cache import Cache                  # noqa: E402
+from devtools.device_catalogs.src.firmware import FirmwareHarvest     # noqa: E402
+from devtools.device_catalogs.src.shared import TODAY                 # noqa: E402
 
 WINDOW = FirmwareHarvest.RECORD_MAX_AGE_DAYS
 

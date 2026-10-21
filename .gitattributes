@@ -7,4 +7,4 @@ pytrove/data/devices/*.json -text
 # The source lock is generated the same way and written with LF too, and its
 # whole value is that a diff in it means something upstream moved -- a newline
 # conversion showing all 157 lines as changed would destroy exactly that.
-tools/*/sources/sources.lock.json -text
+devtools/*/sources/sources.lock.json -text
