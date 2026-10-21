@@ -268,7 +268,15 @@ def _unavailable_class(name: str, *packages: _PackageGroup) -> type[Any]:
         """Makes class-level access raise too."""
 
         def __getattr__(cls, name: str) -> Never:
-            """Refuse class attribute access."""
+            """Refuse class attribute access.
+
+            A dunder lookup gets the `AttributeError` introspection expects:
+            `inspect.unwrap` probes `__wrapped__`, and `doctest` and `pydoc`
+            walk every public name of a module, so raising `ImportError` there
+            would make a bare install uninspectable rather than unusable.
+            """
+            if name.startswith("__") and name.endswith("__"):
+                raise AttributeError(name)
             raise ImportError(msg)
 
         def __instancecheck__(cls, instance: Any) -> Never:

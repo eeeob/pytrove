@@ -124,6 +124,18 @@ def test_unavailable_class_refuses_every_use() -> None:
             use()
 
 
+def test_unavailable_class_stays_inspectable() -> None:
+    stand_in = _unavailable_class("Thing", (MISSING, "nope"))
+
+    # A dunder probe gets `AttributeError`, so `inspect.unwrap` (and with it
+    # `doctest` collection over a bare install) walks past the stand-in.
+    assert getattr(stand_in, "__wrapped__", None) is None
+    assert inspect.unwrap(stand_in) is stand_in
+
+    with pytest.raises(ImportError, match=r"pytrove\[nope\]"):
+        _ = stand_in.attr
+
+
 def test_unavailable_class_refuses_instance_attribute_access() -> None:
     stand_in = _unavailable_class("Thing", (MISSING, "nope"))
     # `__new__` refuses, so build the instance past it to reach the instance `__getattr__`.
