@@ -72,8 +72,10 @@ phone = [
     "phonenumbers>=9.0.21",
 ]
 tg = [
-    # Floor set when the feature was added; clean.
-    "kurigram>=2.1.35",
+    # 2.2.24 is the first release with `pyrogram.types.InputRichMessage`, which
+    # `models.template_models` imports; below it the tg feature cannot load.
+    # Clean (Sonatype, 2026-10).
+    "kurigram>=2.2.24",
 ]
 typecheck = [
     # Floor set when the feature was added; clean.
