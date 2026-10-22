@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 
 import pytrove
-import pytrove.__meta__
 import pytrove.object_tools
 import pytrove.enums
 import pytrove.errors
@@ -54,6 +53,8 @@ def test_an_aggregator_is_the_union_of_its_modules(package: object) -> None:
 
 def test_version_is_a_release_string_hatch_can_read() -> None:
     assert re.fullmatch(r"\d+\.\d+\.\d+", pytrove.__version__)
-    assert pytrove.__meta__.__all__ == ("__version__",)
-    source = Path(pytrove.__meta__.__file__).read_text(encoding="utf-8")
-    assert re.search(r'^__version__: Final\[str\] = "(?P<version>[^"]+)"', source, re.MULTILINE)
+    source = Path(pytrove.__file__).read_text(encoding="utf-8")
+    # hatchling's default `[tool.hatch.version]` pattern.
+    match = re.search(r"""^(__version__|VERSION) *= *(['"])v?(?P<version>.+?)\2""", source, re.MULTILINE)
+    assert match
+    assert match["version"] == pytrove.__version__

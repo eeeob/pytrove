@@ -1,7 +1,7 @@
 [build-system]
-# Floor at the 1.27 line (2.3). Every release from 1.22 up is clean per
-# Sonatype (2026-10); the floor only rules out builds older than the
-# `pattern` form used under `[tool.hatch.version]`.
+# Floor at the 1.27 line (2.3), the first with PEP 639 `license` and
+# `license-files` support. Every release from 1.22 up is clean per
+# Sonatype (2026-10).
 requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
@@ -159,9 +159,7 @@ devtools = [
 include = ["/pytrove", "/tests", "/devtools"]
 
 [tool.hatch.version]
-path = "pytrove/__meta__.py"
-# The default pattern does not allow the `Final` annotation rule 4.3 requires.
-pattern = '^__version__: Final\[str\] = "(?P<version>[^"]+)"'
+path = "pytrove/__init__.py"
 
 
 [tool.hatch.metadata]
