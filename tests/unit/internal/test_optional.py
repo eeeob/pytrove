@@ -1,7 +1,7 @@
 from __future__ import annotations as _annotations
 
 import inspect
-from collections.abc import AsyncIterator
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -15,6 +15,9 @@ from pytrove._internal._optional import (
     _unavailable_class,
     _version_ok,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 MISSING = "no_such_package_for_pytrove"
 

@@ -4,9 +4,7 @@ import asyncio
 import logging
 import time
 import zipfile
-from collections.abc import Awaitable, Callable
-from pathlib import Path
-from typing import Any, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn
 
 import pytest
 
@@ -16,6 +14,10 @@ from pytrove.archive_tools import PeriodicArchiver
 from pytrove.data_tools import DefaultWeakValueDict
 from pytrove.enums import ArchiveFormat
 from pytrove.models import ArchiveJob
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+    from pathlib import Path
 
 
 def _names(archive: Path) -> set[str]:

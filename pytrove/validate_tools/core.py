@@ -5,7 +5,7 @@ from __future__ import annotations as _annotations
 import inspect
 import sys
 from collections.abc import Callable, Mapping
-from typing import Any, overload
+from typing import TYPE_CHECKING, Any, overload
 
 if sys.version_info >= (3, 13):
     from typing import TypeIs
@@ -18,8 +18,10 @@ else:
     from typing_extensions import Never
 
 from ..errors import ValidationError
-from ..typings import Container, NestedContainer, _False, _KT, _T, _True, _VT
 from ._internal import _ClassInfo, _flatten_class_info, _is_container, _CONTAINER, _NOT_CONTAINER
+
+if TYPE_CHECKING:
+    from ..typings import Container, NestedContainer, _False, _KT, _T, _True, _VT
 
 
 def is_instance(obj: Any, class_info: _ClassInfo) -> bool:

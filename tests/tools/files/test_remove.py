@@ -5,9 +5,7 @@ from __future__ import annotations as _annotations
 import os
 import subprocess
 import sys
-from collections.abc import Callable
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -19,6 +17,10 @@ from pytrove.files_tools import (
     remove_path,
     remove_paths,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from pathlib import Path
 
 
 def _dir_link(link: Path, target: Path) -> str | None:

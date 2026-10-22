@@ -3,10 +3,9 @@
 from __future__ import annotations as _annotations
 
 import sys
-from collections.abc import Callable
 from enum import Enum, EnumMeta as EnumType  # `EnumType` became the name of `EnumMeta` only in 3.11.
 from types import UnionType
-from typing import Any, Final, TypeAlias, Union, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Final, TypeAlias, Union, get_args, get_origin
 
 try:
     from typeguard import TypeCheckError, TypeCheckMemo, check_type_internal
@@ -17,6 +16,9 @@ else:
 
 from .._internal._optional import _optional_import
 from ..typings import Container, ContainerWithoutMapping, NotContainer
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 _CONTAINER: Final[tuple[type, ...]] = tuple(
     get_origin(arg) or arg for arg in get_args(getattr(Container, "__value__", Container))

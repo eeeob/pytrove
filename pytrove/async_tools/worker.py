@@ -5,19 +5,22 @@ from __future__ import annotations as _annotations
 import asyncio
 import sys
 import threading
-from collections.abc import Awaitable, Callable, Generator
 from functools import partial
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
 
-from ..typings import Number, _P, _T
 from ._loop_host import _LoopHost
 from ._threads import _run_tracked
 from .run import to_thread
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable, Generator
+
+    from ..typings import Number, _P, _T
 
 
 class AioThreadWorker(_LoopHost):

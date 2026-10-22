@@ -5,13 +5,16 @@ from __future__ import annotations as _annotations
 import logging
 import ntpath
 from functools import partial
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ...callable_tools import safe_call
 from .common import _NT
-from .limiter import _Limiter, _Member
-from .rules import _Filter
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from .limiter import _Limiter, _Member
+    from .rules import _Filter
 
 log = logging.getLogger(__name__)
 

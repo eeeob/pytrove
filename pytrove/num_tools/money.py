@@ -2,8 +2,12 @@
 
 from __future__ import annotations as _annotations
 
-from ..typings import Number
+from typing import TYPE_CHECKING
+
 from ..validate_tools import validation
+
+if TYPE_CHECKING:
+    from ..typings import Number
 
 
 def apply_discount(price: Number, discount_percent: Number, ndigits: int | None = 4) -> float:

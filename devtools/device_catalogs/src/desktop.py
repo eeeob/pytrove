@@ -4,14 +4,16 @@ from __future__ import annotations as _annotations
 
 import collections
 import re
-from typing import Any, ClassVar
-from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from .builder import Builder
 from .catalog import Catalog
 from .dmi import DmiHarvest
 from .libbase import LibBase
 from .shared import Share
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 # ----------------------------- desktop builder -----------------------------
 

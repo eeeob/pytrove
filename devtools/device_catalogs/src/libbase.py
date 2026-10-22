@@ -6,8 +6,10 @@ loads this file by path to check the stored models against it.
 
 from __future__ import annotations as _annotations
 
-from typing import ClassVar
-from collections.abc import Iterable
+from typing import TYPE_CHECKING, ClassVar
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 # ========================== lib_base model rules ==========================
 

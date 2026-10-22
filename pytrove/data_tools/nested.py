@@ -2,7 +2,7 @@
 
 from __future__ import annotations as _annotations
 
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 try:
     import jsonref
@@ -10,7 +10,9 @@ except ImportError:
     pass
 
 from .._internal._optional import _optional_import
-from ..typings import JsonValue, NestedStrKeyDict, _T
+
+if TYPE_CHECKING:
+    from ..typings import JsonValue, NestedStrKeyDict, _T
 
 
 def get_nested_dict_value(dct: NestedStrKeyDict[_T], path: str, sep: str = ".") -> _T:

@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from pyrogram.enums import ParseMode as PyroParseMode
     from pyrogram.types import InlineKeyboardMarkup, InputRichMessage
 
-from .core import JsonValue, MaybeList, StrInt
+    from .core import JsonValue, MaybeList, StrInt
 
 TemplateButtonType: TypeAlias = Literal["url", "callback_data"]
 """Which `InlineKeyboardButton` argument a button's `value` fills."""

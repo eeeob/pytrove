@@ -5,14 +5,16 @@ from __future__ import annotations as _annotations
 import os
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 if sys.version_info >= (3, 11):
     from typing import Unpack
 else:
     from typing_extensions import Unpack
 
-from ..typings import PathLike
-from ._internal import _MkdirOptions
+if TYPE_CHECKING:
+    from ..typings import PathLike
+    from ._internal import _MkdirOptions
 
 
 def ensure_path(path: PathLike) -> Path:

@@ -7,10 +7,12 @@ import re
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
-from .cache import Cache
 from .shared import TODAY
+
+if TYPE_CHECKING:
+    from .cache import Cache
 
 # ------------------- firmware harvest (Chinese OEM phones) -------------------
 

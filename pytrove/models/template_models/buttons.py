@@ -5,7 +5,6 @@ from __future__ import annotations as _annotations
 import inspect
 import sys
 import warnings
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
@@ -36,6 +35,9 @@ from ...validate_tools import is_container, is_mapping
 from ..base import BaseDataClass
 from ._internal import _chain_mappings, _CompiledEachButtonDict
 from .conditions import CompiledConditional
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 @dataclass(slots=True, kw_only=True)

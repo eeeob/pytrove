@@ -7,7 +7,6 @@ import logging
 import time
 from collections.abc import Iterator
 from functools import partial
-from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from ..async_tools import gather_helper, safe_wait_task, to_thread
@@ -15,11 +14,13 @@ from ..data_tools.mappings import DefaultWeakValueDict
 from ..enums import TimeUnit
 from ..files_tools import remove_file
 from ..iter_tools import iter_flat_cont
-from ..typings import NestedContainer
 from .compress import compress_folder
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from ..models.archive_models import ArchiveJob
+    from ..typings import NestedContainer
 
 log = logging.getLogger(__name__)
 

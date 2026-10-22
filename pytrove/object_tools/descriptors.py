@@ -3,7 +3,6 @@
 from __future__ import annotations as _annotations
 
 import sys
-from collections.abc import Callable
 from functools import partial
 from types import MethodType
 from typing import TYPE_CHECKING, Any, Generic, overload
@@ -15,6 +14,9 @@ else:
 
 from ..typings import _T, _VT
 from ..data_tools.mappings import KeyDefaultWeakKeyDict
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class classproperty(Generic[_T, _VT]):

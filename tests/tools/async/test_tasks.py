@@ -1,12 +1,14 @@
 from __future__ import annotations as _annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
 from pytrove.async_tools import cancel_task, safe_wait_task
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 
 async def _slow_to_unwind() -> None:

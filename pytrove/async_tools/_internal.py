@@ -6,11 +6,13 @@ import asyncio
 import logging
 import sys
 import traceback
-from collections.abc import Awaitable
-from typing import Any, Final, TypeAlias, overload
+from typing import TYPE_CHECKING, Any, Final, TypeAlias, overload
 
 from .._internal._asyncio import _get_running_loop
 from ..typings import MaybeAwaitableCallable, _False, _T
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable
 
 _PY314: Final[bool] = sys.version_info >= (3, 14)
 """Whether the awaited-by introspection API of Python 3.14 is available."""

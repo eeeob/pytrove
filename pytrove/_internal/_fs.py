@@ -4,9 +4,10 @@ from __future__ import annotations as _annotations
 
 import os
 import stat
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
-from ..typings import PathLike
+if TYPE_CHECKING:
+    from ..typings import PathLike
 
 _COPY_BUF: Final[int] = 1 << 20
 """Bytes held in memory per copy step, so copying a large file costs this and not its size."""

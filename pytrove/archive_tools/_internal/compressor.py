@@ -4,11 +4,9 @@ from __future__ import annotations as _annotations
 
 import logging
 import os
-from collections.abc import Callable, Iterator
-from concurrent.futures import Executor
 from dataclasses import dataclass
 from pathlib import Path
-from typing import IO
+from typing import IO, TYPE_CHECKING
 
 from ..._internal._fs import _is_link
 from ..._internal._stability import _default_stability_check
@@ -16,6 +14,10 @@ from ...enums import ArchiveFormat
 from .common import _split_workers, _WalkEntry
 from .rules import _Filter
 from .writers import _write_tar, _write_zip
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+    from concurrent.futures import Executor
 
 log = logging.getLogger(__name__)
 

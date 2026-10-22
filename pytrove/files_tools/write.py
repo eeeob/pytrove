@@ -4,20 +4,23 @@ from __future__ import annotations as _annotations
 
 import os
 import tempfile
-from collections.abc import Generator
 from contextlib import contextmanager
 from functools import partial
-from pathlib import Path
-from typing import IO, Any, overload
+from typing import IO, TYPE_CHECKING, Any, overload
 
 from .._internal._fs import _COPY_BUF
 from ..callable_tools import safe_call
 from ..enums import TruncateSide
 from ..errors import ValidationError
-from ..typings import LockProtocol, PathLike, _False, _True
 from ._internal import _spill_parts
 from .paths import resolve_path
 from .remove import remove_file
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+    from pathlib import Path
+
+    from ..typings import LockProtocol, PathLike, _False, _True
 
 
 @contextmanager

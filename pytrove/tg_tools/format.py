@@ -3,7 +3,7 @@
 from __future__ import annotations as _annotations
 
 import re
-from typing import Any, Final, overload
+from typing import TYPE_CHECKING, Any, Final, overload
 
 try:
     from pyrogram.enums import ParseMode
@@ -17,9 +17,11 @@ from .._internal._optional import _optional_import
 from ..errors import ValidationError
 from ..num_tools import to_int
 from ..text_tools import clean_spaces
-from ..typings import StrInt, _T
 from ..validate_tools import is_tg_user_id
 from ._internal.links import _HIDDEN_PADDING, _PRIVATE_CHAT_LINK_PATTERN, _SHORT_LINK_TEXT
+
+if TYPE_CHECKING:
+    from ..typings import StrInt, _T
 
 CHAT_LINK_PATTERN: Final[re.Pattern[str]] = re.compile(
     r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:c/)?)([\w]+)(?:.+)?$"

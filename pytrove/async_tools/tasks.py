@@ -3,10 +3,13 @@
 from __future__ import annotations as _annotations
 
 import asyncio
+from typing import TYPE_CHECKING
 
-from ..typings import _T
 from ._internal import _wait_done
 from .safety import asafe_call
+
+if TYPE_CHECKING:
+    from ..typings import _T
 
 
 async def safe_wait_task(task: asyncio.Task[_T], canceled_ok: bool = True, exc_ok: bool = False) -> _T | None:

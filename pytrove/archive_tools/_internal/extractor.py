@@ -6,9 +6,9 @@ import logging
 import os
 import tempfile
 from collections import deque
-from concurrent.futures import Executor
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from ..._internal._fs import _is_dir, _is_link
 from ...enums import ArchiveFormat
@@ -23,6 +23,9 @@ from .placement import _PlaceMixin
 from .rules import _Filter
 from .tarread import _TarMixin
 from .zipread import _ZipMixin
+
+if TYPE_CHECKING:
+    from concurrent.futures import Executor
 
 log = logging.getLogger(__name__)
 

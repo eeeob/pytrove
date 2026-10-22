@@ -3,20 +3,23 @@
 from __future__ import annotations as _annotations
 
 import sys
-from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
 
-from ...typings import TemplateEachLineDict, TemplateLineDict
 from ...validate_tools import is_container, is_mapping
 from ..base import BaseDataClass
 from ._internal import _chain_mappings, _CompiledEachLineDict
 from .conditions import CompiledConditional
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from ...typings import TemplateEachLineDict, TemplateLineDict
 
 
 @dataclass(slots=True, kw_only=True)

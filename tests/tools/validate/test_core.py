@@ -2,8 +2,7 @@ from __future__ import annotations as _annotations
 
 import functools
 from collections import OrderedDict
-from collections.abc import Callable
-from typing import Any, Union
+from typing import TYPE_CHECKING, Any, Union
 
 import pytest
 
@@ -23,6 +22,9 @@ from pytrove.validate_tools.core import (
     iscoroutinefunction_wrapped,
     validation,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 @pytest.mark.parametrize(("obj", "class_info", "expected"), [

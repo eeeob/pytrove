@@ -16,11 +16,14 @@ import csv
 import io
 import json
 import re
-from typing import Any, ClassVar
-from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from .enums import ContractKind
-from .models import Contract
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from .models import Contract
 
 # ============================== the checker ==============================
 

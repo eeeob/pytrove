@@ -5,10 +5,9 @@ from __future__ import annotations as _annotations
 import asyncio
 import sys
 from collections.abc import Mapping
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Any, Generic
+from typing import TYPE_CHECKING, Any, Generic
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -19,6 +18,9 @@ from ..async_tools import maybe_awaitable, safe_wait_task
 from ..enums import TriggerOn
 from ..typings import MaybeAwaitable, MaybeCoroutineCallable, Number, _T
 from ..validate_tools import is_exception
+
+if TYPE_CHECKING:
+    from concurrent.futures import ThreadPoolExecutor
 
 
 @dataclass(slots=True)

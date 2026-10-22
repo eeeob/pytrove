@@ -1,8 +1,11 @@
 from __future__ import annotations as _annotations
 
-import pytest
+from typing import TYPE_CHECKING
 
 from pytrove.num_tools import calc, to_int, to_int_deep, CALC_ALLOWED_CHARS
+
+if TYPE_CHECKING:
+    import pytest
 
 
 def test_to_int_basic() -> None:

@@ -2,12 +2,14 @@
 
 from __future__ import annotations as _annotations
 
-from typing import overload
+from typing import TYPE_CHECKING, overload
 
-from ..enums import PlatformDevice
-from ..models.device_models import DeviceInfo
-from ..typings import _False, _True
 from ._internal.families import _DEVICES, random_family
+
+if TYPE_CHECKING:
+    from ..enums import PlatformDevice
+    from ..models.device_models import DeviceInfo
+    from ..typings import _False, _True
 
 
 @overload

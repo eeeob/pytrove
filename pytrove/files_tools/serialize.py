@@ -5,7 +5,7 @@ from __future__ import annotations as _annotations
 import io
 import pickle
 from collections.abc import Iterator
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 try:
     import jsonref
@@ -16,12 +16,14 @@ from .._internal._optional import _optional_import
 from .._internal._sentinel import _is_given
 from ..enums import PickleSafety
 from ..iter_tools import iter_flat_cont
-from ..typings import JsonValue, LockProtocol, NestedContainer, PathLike, _T
 from ._internal import _json_dumps, _json_loads
 from ._pickling import _RestrictedUnpickler, _SAFE_PICKLE_CLASSES
 from .paths import resolve_path
 from .read import read_file
 from .write import write_file
+
+if TYPE_CHECKING:
+    from ..typings import JsonValue, LockProtocol, NestedContainer, PathLike, _T
 
 
 def read_json(path: PathLike, default: _T | type[object] = object, lock: LockProtocol | None = None, **kw: Any) -> JsonValue | _T:

@@ -2,14 +2,16 @@
 
 from __future__ import annotations as _annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ...iter_tools import to_frozenset
 from ...typings import JsonValue
 from ..base import BaseDataClass
 from ._internal import _chain_mappings
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 @dataclass(slots=True)

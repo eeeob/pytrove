@@ -4,10 +4,12 @@ from __future__ import annotations as _annotations
 
 import functools
 import inspect
-from collections.abc import Callable, Iterator
-from typing import Any, overload
+from typing import TYPE_CHECKING, Any, overload
 
-from ..typings import _CT
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+
+    from ..typings import _CT
 
 
 def unwrap_cls(cls: type) -> int:

@@ -2,17 +2,20 @@
 
 from __future__ import annotations as _annotations
 
-from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from fnmatch import fnmatchcase
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple
 
-from ..._internal._types import _RawEntry, _Rule
 from ...errors import ValidationError
 from ...iter_tools import dedupe
 from . import backends
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+
+    from ..._internal._types import _RawEntry, _Rule
 
 
 class _Rules(NamedTuple):

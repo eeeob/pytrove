@@ -2,13 +2,16 @@
 
 from __future__ import annotations as _annotations
 
-from collections.abc import Callable, Iterator, Mapping
-from typing import Any, overload
+from typing import TYPE_CHECKING, Any, overload
 
 from ..enums import TgMessageLength
 from ..iter_tools import to_list
-from ..typings import Container, ContainerWithoutMapping, _KT, _T, _VT
 from ..validate_tools import is_mapping
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator, Mapping
+
+    from ..typings import Container, ContainerWithoutMapping, _KT, _T, _VT
 
 
 def chunk_text(text: str, max_length: int = TgMessageLength.TEXT) -> list[str]:

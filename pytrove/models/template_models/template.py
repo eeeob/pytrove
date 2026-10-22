@@ -3,9 +3,8 @@
 from __future__ import annotations as _annotations
 
 import sys
-from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, cast, overload
+from typing import TYPE_CHECKING, Any, cast, overload
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -30,6 +29,9 @@ from .buttons import CompiledButtonRow, CompiledEachButton
 from .conditions import CompiledDefaults
 from .lines import CompiledEachLine, CompiledLine
 from .rich import CompiledRichMessage
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 if HAS_PYROGRAM:
 

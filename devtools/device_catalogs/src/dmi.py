@@ -7,10 +7,12 @@ import re
 import subprocess
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
-from typing import ClassVar
-from collections.abc import Iterable
+from typing import TYPE_CHECKING, ClassVar
 
-from .cache import Cache
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from .cache import Cache
 
 # ------------------------- DMI harvest (PC hardware) -------------------------
 

@@ -5,12 +5,14 @@ from __future__ import annotations as _annotations
 import hashlib
 import os as _os
 import random
-from collections.abc import Iterable
-from typing import Any, ClassVar, Final
+from typing import TYPE_CHECKING, Any, ClassVar, Final
 
 from ...enums import PlatformDevice
 from ...models.device_models import DeviceInfo
 from .catalog import _catalog, _Catalog, _Device, OS_SHARES
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 class SystemInfo:

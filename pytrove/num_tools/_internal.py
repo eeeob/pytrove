@@ -4,8 +4,10 @@ from __future__ import annotations as _annotations
 
 import ast
 import operator
-from collections.abc import Callable
-from typing import Any, Final
+from typing import TYPE_CHECKING, Any, Final
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 _CALC_BINOPS: Final[dict[type[ast.operator], Callable[[Any, Any], Any]]] = {
     ast.Add: operator.add,

@@ -18,10 +18,12 @@ registry, so the person reading it does not have to go looking.
 from __future__ import annotations as _annotations
 
 import json
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from .enums import STATE_ORDER, Health, State
-from .models import Action, Registry, Report, Schedule, Verdict
+
+if TYPE_CHECKING:
+    from .models import Action, Registry, Report, Schedule, Verdict
 
 # ============================== text output ==============================
 

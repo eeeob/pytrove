@@ -6,10 +6,12 @@ import asyncio
 import inspect
 import sys
 import warnings
-from collections.abc import Awaitable, Callable, Coroutine
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from ..typings import _T
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable, Coroutine
+
+    from ..typings import _T
 
 def _check_loop_factory(loop_factory: Callable[[], asyncio.AbstractEventLoop] | None) -> None:
     """Validate a `loop_factory`, warning that Python before 3.12 ignores it.

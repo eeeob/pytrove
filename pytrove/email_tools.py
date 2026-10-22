@@ -3,8 +3,8 @@
 from __future__ import annotations as _annotations
 
 import html
-from collections.abc import AsyncIterator
 from email import message_from_bytes
+from typing import TYPE_CHECKING
 
 try:
     from aioimaplib import aioimaplib
@@ -21,6 +21,9 @@ from .async_tools import safe_await, to_thread
 from .enums import ImapEmailProvider
 from .errors import ValidationError
 from .validate_tools import is_email
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 
 @_optional_import(("beautifulsoup4", "bs4"))

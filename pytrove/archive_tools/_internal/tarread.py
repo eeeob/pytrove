@@ -5,13 +5,15 @@ from __future__ import annotations as _annotations
 import gzip
 import logging
 import tarfile
-from concurrent.futures import Executor
-from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any
 
 from ...enums import ArchiveFormat
 from . import backends
 from .limiter import _Member
+
+if TYPE_CHECKING:
+    from concurrent.futures import Executor
+    from pathlib import Path
 
 log = logging.getLogger(__name__)
 

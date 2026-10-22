@@ -3,8 +3,7 @@
 from __future__ import annotations as _annotations
 
 import os
-from collections.abc import Callable
-from typing import Any, overload
+from typing import TYPE_CHECKING, Any, overload
 
 try:
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM, AESSIV
@@ -13,8 +12,12 @@ except ImportError:
 
 from .._internal._optional import _optional_import
 from ..errors import ValidationError
-from ..typings import _T
 from ._internal import _derive_deterministic_key, _derive_key, _NONCE_LEN, _SALT_LEN, _TAG_LEN
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from ..typings import _T
 
 
 @_optional_import(("cryptography", "crypto"))

@@ -2,12 +2,15 @@
 
 from __future__ import annotations as _annotations
 
-from collections.abc import Callable
-from typing import Any, overload
+from typing import TYPE_CHECKING, Any, overload
 
 from ..iter_tools import flat_cont, to_list
-from ..typings import NestedContainer, _T
 from ._internal import _smart_split_part
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from ..typings import NestedContainer, _T
 
 
 @overload

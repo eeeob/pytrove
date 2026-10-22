@@ -227,9 +227,11 @@ select = [
     "T10",     # no leftover debugger calls
     "W",       # no trailing whitespace
     "YTT",     # 1.1: correct `sys.version_info` comparisons
+    "TC",      # 4.2: imports used only in annotations go under `if TYPE_CHECKING:`
 ]
 ignore = [
     "ANN401",  # 4.6 forbids `Any` only as a way around a type error, not everywhere
+    "TC006",   # 4.2 forbids quoted annotations, so a `cast` target stays a real name
 ]
 
 [tool.ruff.lint.flake8-bugbear]
@@ -238,6 +240,15 @@ extend-immutable-calls = ["pytrove.typings.ArchiveLimits"]
 
 [tool.ruff.lint.isort]
 required-imports = ["from __future__ import annotations as _annotations"]
+
+[tool.ruff.lint.flake8-type-checking]
+# Dataclass annotations stay real imports: `BaseDataClass` resolves its
+# fields' hints at runtime to find enums (`_resolved_hints` in
+# `models/_internal.py`), and `dataclasses` reads `ClassVar` on class creation.
+runtime-evaluated-decorators = ["dataclasses.dataclass"]
+runtime-evaluated-base-classes = ["pytrove.models.base.BaseDataClass"]
+# The backport of `typing`, imported in the same `sys.version_info` branches.
+exempt-modules = ["typing", "typing_extensions"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

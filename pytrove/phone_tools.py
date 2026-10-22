@@ -3,7 +3,7 @@
 from __future__ import annotations as _annotations
 
 from functools import partial
-from typing import Any, overload
+from typing import TYPE_CHECKING, Any, overload
 
 try:
     from phonenumbers import (
@@ -24,8 +24,10 @@ from ._internal._optional import _optional_import
 from .callable_tools import safe_call
 from .errors import ValidationError
 from .text_tools import clean_spaces, to_str
-from .typings import PhoneNumber, RegionCode, _True
 from .validate_tools import is_phone_number, is_rc, validation
+
+if TYPE_CHECKING:
+    from .typings import PhoneNumber, RegionCode, _True
 
 
 @overload

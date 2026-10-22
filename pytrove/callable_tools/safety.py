@@ -4,15 +4,18 @@ from __future__ import annotations as _annotations
 
 import functools
 import logging
-from collections.abc import Callable, Hashable
-from typing import Any, overload
+from typing import TYPE_CHECKING, Any, overload
 
 from .._internal._exceptions import _HARD_PROPAGATE
-from .._internal._types import _ExcFilter
 from ..iter_tools import iter_flat_cont, to_frozenset
-from ..typings import NestedContainer, _ExcT, _False, _P, _T, _True
 from ..validate_tools import iscoroutinefunction_wrapped
-from ._internal import _ExcLogger
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Hashable
+
+    from .._internal._types import _ExcFilter
+    from ..typings import NestedContainer, _ExcT, _False, _P, _T, _True
+    from ._internal import _ExcLogger
 
 log = logging.getLogger(__name__)
 

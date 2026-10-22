@@ -2,8 +2,12 @@
 
 from __future__ import annotations as _annotations
 
-from ..typings import MaybeContainer, _T
+from typing import TYPE_CHECKING
+
 from ._internal import _items
+
+if TYPE_CHECKING:
+    from ..typings import MaybeContainer, _T
 
 
 def to_list(value: MaybeContainer[_T] | None) -> list[_T]:

@@ -13,7 +13,9 @@ from typing import IO, TYPE_CHECKING, Any
 from ..._internal._fs import _is_dir, _COPY_BUF
 from ...errors import ValidationError
 from ...files_tools import ensure_dir, remove_file
-from .limiter import _Limiter, _Member
+
+if TYPE_CHECKING:
+    from .limiter import _Limiter, _Member
 
 log = logging.getLogger(__name__)
 

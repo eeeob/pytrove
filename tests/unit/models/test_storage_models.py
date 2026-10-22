@@ -1,11 +1,14 @@
 from __future__ import annotations as _annotations
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from pytrove.models import JsonContainer
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_json_container_delete_saves_removing_a_none_value(tmp_path: Path) -> None:

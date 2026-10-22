@@ -5,7 +5,7 @@ from __future__ import annotations as _annotations
 import logging
 import re
 import sys
-from typing import Any, Final, overload
+from typing import TYPE_CHECKING, Any, Final, overload
 
 if sys.version_info >= (3, 13):
     from typing import TypeIs
@@ -21,7 +21,9 @@ except ImportError:
     pass
 
 from .._internal._optional import _optional_import
-from ..typings import StrInt, _False, _True
+
+if TYPE_CHECKING:
+    from ..typings import StrInt, _False, _True
 
 TG_CHANNEL_MSG_LINK_PATTERN: Final[re.Pattern[str]] = re.compile(
     r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:c/)?)([\w]+)(?:/\d+)*/(\d+)/?$"

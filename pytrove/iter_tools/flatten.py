@@ -2,11 +2,14 @@
 
 from __future__ import annotations as _annotations
 
-from collections.abc import Callable, Generator, Mapping
-from typing import Any, overload
+from typing import TYPE_CHECKING, Any, overload
 
-from ..typings import NestedContainer, NestedContainerMappingValue, _False, _KT, _T, _True, _VT
 from ..validate_tools import is_container, is_mapping
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Generator, Mapping
+
+    from ..typings import NestedContainer, NestedContainerMappingValue, _False, _KT, _T, _True, _VT
 
 
 @overload

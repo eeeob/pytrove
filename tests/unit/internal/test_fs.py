@@ -5,12 +5,15 @@ import shutil
 import stat
 import subprocess
 import sys
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from pytrove import remove_path
 from pytrove._internal import _fs
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _own_islink(path: str | os.PathLike[str]) -> bool:

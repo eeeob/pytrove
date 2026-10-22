@@ -3,8 +3,10 @@
 from __future__ import annotations as _annotations
 
 import re
-from collections.abc import Callable
-from typing import Any, Final
+from typing import TYPE_CHECKING, Any, Final
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 _SNAKE1_PATTERN: Final[re.Pattern[str]] = re.compile(r"(.)([A-Z][a-z]+)")
 """A capitalised word that follows any character, as in `getHTTPResponse` -> `getHTTP_Response`."""

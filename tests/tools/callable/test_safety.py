@@ -1,10 +1,13 @@
 from __future__ import annotations as _annotations
 
-from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import pytest
 
 from pytrove.callable_tools import raise_if, safe_call
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def _raise(exc: BaseException) -> Callable[[], None]:

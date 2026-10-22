@@ -7,14 +7,17 @@ import csv
 from datetime import date
 import io
 import re
-from typing import Any, ClassVar, NamedTuple
-from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple
 
 from .builder import Builder
-from .cache import Cache
 from .catalog import Catalog
 from .firmware import FirmwareHarvest
 from .shared import TODAY, normalize
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from .cache import Cache
 
 # -------------------------------- Android --------------------------------
 

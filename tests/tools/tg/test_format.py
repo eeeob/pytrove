@@ -1,7 +1,7 @@
 from __future__ import annotations as _annotations
 
 import importlib.util
-from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -17,6 +17,9 @@ from pytrove.tg_tools import (
     INVITE_LINK_PATTERN,
 )
 from pytrove.tg_tools._internal import links
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 HAS_TG = importlib.util.find_spec("pyrogram") is not None
 

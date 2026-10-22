@@ -7,15 +7,18 @@ import logging
 import os
 import tarfile
 import zipfile
-from collections.abc import Callable, Iterable
-from concurrent.futures import Executor
 from pathlib import Path
-from typing import IO, Any
+from typing import IO, TYPE_CHECKING, Any
 
 from ...enums import ArchiveFormat
 from ...files_tools import ensure_path, remove_file, remove_files
 from . import backends, stable
-from .common import _WalkEntry
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+    from concurrent.futures import Executor
+
+    from .common import _WalkEntry
 
 log = logging.getLogger(__name__)
 
