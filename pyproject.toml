@@ -9,22 +9,31 @@ build-backend = "hatchling.build"
 [project]
 name = "pytrove"
 dynamic = ["version"]
-description = "Python Tools library for some services"
+description = "Utilities for async applications, data handling, files, archives and Telegram"
 requires-python = ">=3.10"
 authors = [{ name = "Abdullah", email = "aldheeb01@gmail.com" }]
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["utilities", "asyncio", "archive", "telegram", "validation", "json"]
 
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
     "Operating System :: OS Independent",
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
+    "Framework :: AsyncIO",
     "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+    "Topic :: System :: Archiving :: Compression",
+    "Topic :: Communications :: Chat",
     "Typing :: Typed",
 ]
 
@@ -41,6 +50,9 @@ dependencies = [
 
 [project.urls]
 "Homepage" = "https://github.com/eeeob/pytrove"
+"Source" = "https://github.com/eeeob/pytrove"
+"Issues" = "https://github.com/eeeob/pytrove/issues"
+"Releases" = "https://github.com/eeeob/pytrove/releases"
 
 [project.optional-dependencies]
 mongo = [
