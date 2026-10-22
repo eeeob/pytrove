@@ -27,18 +27,17 @@ import pytest
 TOOLS = Path(__file__).resolve().parents[3] / "devtools"
 CATALOGS = TOOLS / "device_catalogs"
 
-pytestmark = pytest.mark.skipif(
-    not CATALOGS.is_dir(), reason="devtools/ is not installed")
+pytestmark = pytest.mark.skipif(not CATALOGS.is_dir(), reason="devtools/ is not installed")
 
 if TOOLS.parent.as_posix() not in [p.replace("\\", "/") for p in sys.path]:
     sys.path.insert(0, str(TOOLS.parent))
 
-from devtools._preflight import registry as _registry                 # noqa: E402
-from devtools._preflight.enums import Policy                          # noqa: E402
-from devtools._preflight.layout import Layout                         # noqa: E402
-from devtools.device_catalogs.src.cache import Cache                  # noqa: E402
-from devtools.device_catalogs.src.firmware import FirmwareHarvest     # noqa: E402
-from devtools.device_catalogs.src.shared import TODAY                 # noqa: E402
+from devtools._preflight import registry as _registry  # noqa: E402
+from devtools._preflight.enums import Policy  # noqa: E402
+from devtools._preflight.layout import Layout  # noqa: E402
+from devtools.device_catalogs.src.cache import Cache  # noqa: E402
+from devtools.device_catalogs.src.firmware import FirmwareHarvest  # noqa: E402
+from devtools.device_catalogs.src.shared import TODAY  # noqa: E402
 
 WINDOW = FirmwareHarvest.RECORD_MAX_AGE_DAYS
 
@@ -47,15 +46,23 @@ def _days_ago(days: int) -> str:
     return (date.today() - timedelta(days=days)).isoformat()
 
 
-def _record(code: str, *, brand: str = "vivo", android: int = 15,
-            seen: str = TODAY) -> dict[str, object]:
-    return {"brand": brand, "manufacturer": brand, "code": code,
-            "android": android, "date": "2025-06-01", "project": 1,
-            "last_seen": seen}
+def _record(
+    code: str, *, brand: str = "vivo", android: int = 15, seen: str = TODAY
+) -> dict[str, object]:
+    return {
+        "brand": brand,
+        "manufacturer": brand,
+        "code": code,
+        "android": android,
+        "date": "2025-06-01",
+        "project": 1,
+        "last_seen": seen,
+    }
 
 
-def _harvest(tmp_path: Path, *, offline: bool = False,
-             aside: list[dict[str, object]] | None = None) -> FirmwareHarvest:
+def _harvest(
+    tmp_path: Path, *, offline: bool = False, aside: list[dict[str, object]] | None = None
+) -> FirmwareHarvest:
     cache = Cache(directory=tmp_path, offline=offline)
     if aside is not None:
         cache.write_json(FirmwareHarvest.PREV_FILE, aside)
@@ -63,6 +70,7 @@ def _harvest(tmp_path: Path, *, offline: bool = False,
 
 
 # ------------------------- the filename contract --------------------------
+
 
 def test_the_set_aside_name_is_the_one_the_janitor_produces() -> None:
     # The two sides never import each other: the janitor renames a `merge`
@@ -80,8 +88,7 @@ def test_the_record_window_matches_what_the_registry_declares() -> None:
     # RECORD_MAX_AGE_DAYS is what actually expires a record. Only the second
     # one does anything, so they have to be checked against each other.
     registry = _registry.load("device_catalogs")
-    entry = next(d for d in registry.derived
-                 if d.cache == FirmwareHarvest.RECORDS_FILE)
+    entry = next(d for d in registry.derived if d.cache == FirmwareHarvest.RECORDS_FILE)
 
     assert entry.on_change is Policy.MERGE
     assert entry.record_max_age_days == WINDOW
@@ -89,11 +96,11 @@ def test_the_record_window_matches_what_the_registry_declares() -> None:
 
 # ----------------------------- the merge ----------------------------------
 
+
 def test_a_device_the_dump_window_scrolled_past_stays_in_the_catalog(tmp_path: Path) -> None:
     # The case the whole mechanism exists for: OPPOCPH2579 left one run and
     # came back in the next, because four pages of dumps no longer reached it.
-    harvest = _harvest(tmp_path, aside=[_record("CPH2579", brand="oppo",
-                                                seen=_days_ago(30))])
+    harvest = _harvest(tmp_path, aside=[_record("CPH2579", brand="oppo", seen=_days_ago(30))])
 
     merged = harvest.merge([_record("V2401")])
     codes = sorted(r["code"] for r in merged)
@@ -115,10 +122,13 @@ def test_a_device_unseen_for_longer_than_the_window_is_dropped(tmp_path: Path) -
     # The other half of carrying. Without an expiry the cache would only ever
     # grow, and a model the dumps genuinely stopped carrying -- because the
     # phone is gone -- would stay in the catalog for good.
-    harvest = _harvest(tmp_path, aside=[
-        _record("OLD", seen=_days_ago(WINDOW + 1)),
-        _record("EDGE", seen=_days_ago(WINDOW - 1)),
-    ])
+    harvest = _harvest(
+        tmp_path,
+        aside=[
+            _record("OLD", seen=_days_ago(WINDOW + 1)),
+            _record("EDGE", seen=_days_ago(WINDOW - 1)),
+        ],
+    )
 
     codes = sorted(r["code"] for r in harvest.merge([]))
 
@@ -130,8 +140,7 @@ def test_a_ceiling_a_dump_proved_never_moves_back_down(tmp_path: Path) -> None:
     # AndroidBuilder turns it into the top of the device's version list. A run
     # that sees only an older regional dump of the same phone must not lower
     # it: that would take a release off a device that demonstrably shipped it.
-    harvest = _harvest(tmp_path, aside=[_record("V2401", android=16,
-                                                seen=_days_ago(30))])
+    harvest = _harvest(tmp_path, aside=[_record("V2401", android=16, seen=_days_ago(30))])
 
     merged = harvest.merge([_record("V2401", android=15)])
 
@@ -142,8 +151,7 @@ def test_a_ceiling_a_dump_proved_never_moves_back_down(tmp_path: Path) -> None:
 
 
 def test_a_fresh_dump_raising_the_ceiling_wins(tmp_path: Path) -> None:
-    harvest = _harvest(tmp_path, aside=[_record("V2401", android=15,
-                                                seen=_days_ago(30))])
+    harvest = _harvest(tmp_path, aside=[_record("V2401", android=15, seen=_days_ago(30))])
 
     merged = harvest.merge([_record("V2401", android=16)])
 
@@ -153,8 +161,7 @@ def test_a_fresh_dump_raising_the_ceiling_wins(tmp_path: Path) -> None:
 def test_the_same_code_under_two_brands_is_two_devices(tmp_path: Path) -> None:
     # The key is (brand, code), not code: OPPO and realme ship the same
     # hardware under different retail names and the catalog carries both.
-    harvest = _harvest(tmp_path, aside=[_record("RMX3999", brand="realme",
-                                                seen=_days_ago(10))])
+    harvest = _harvest(tmp_path, aside=[_record("RMX3999", brand="realme", seen=_days_ago(10))])
 
     merged = harvest.merge([_record("RMX3999", brand="oppo")])
 
@@ -172,14 +179,25 @@ def test_nothing_set_aside_means_the_harvest_behaves_as_it_always_did(tmp_path: 
 
 # --------------------------- dating a carry -------------------------------
 
+
 def test_a_harvest_from_before_the_merge_is_dated_by_its_own_file(tmp_path: Path) -> None:
     # Records written before the file accumulated carry no sighting date. They
     # cannot be dropped for that -- the first cleaning would then throw away
     # every device at once -- and they cannot be called current either, so the
     # file's own mtime stands in: that is genuinely when the harvest ran.
-    harvest = _harvest(tmp_path, aside=[{
-        "brand": "vivo", "manufacturer": "vivo", "code": "V2401",
-        "android": 15, "date": "2025-06-01", "project": 1}])
+    harvest = _harvest(
+        tmp_path,
+        aside=[
+            {
+                "brand": "vivo",
+                "manufacturer": "vivo",
+                "code": "V2401",
+                "android": 15,
+                "date": "2025-06-01",
+                "project": 1,
+            }
+        ],
+    )
     written = _days_ago(10)
     when = time.mktime(date.fromisoformat(written).timetuple())
     os.utime(harvest.cache.path(FirmwareHarvest.PREV_FILE), (when, when))
@@ -190,6 +208,7 @@ def test_a_harvest_from_before_the_merge_is_dated_by_its_own_file(tmp_path: Path
 
 
 # ------------------------------ persistence --------------------------------
+
 
 def test_the_set_aside_file_is_retired_once_it_has_been_merged(tmp_path: Path) -> None:
     # It has to go, or the next cleaning's rename would have nothing to
@@ -208,12 +227,16 @@ def test_what_is_written_is_ordered_by_brand_then_code(tmp_path: Path) -> None:
     # what keeps a rebuild from the same cache byte-identical.
     harvest = _harvest(tmp_path)
 
-    harvest.store([_record("V2401"), _record("CPH2579", brand="oppo"),
-                   _record("CPH2401", brand="oppo")])
+    harvest.store(
+        [_record("V2401"), _record("CPH2579", brand="oppo"), _record("CPH2401", brand="oppo")]
+    )
     out = harvest.cache.read_json(FirmwareHarvest.RECORDS_FILE)
 
     assert [(r["brand"], r["code"]) for r in out] == [
-        ("oppo", "CPH2401"), ("oppo", "CPH2579"), ("vivo", "V2401")]
+        ("oppo", "CPH2401"),
+        ("oppo", "CPH2579"),
+        ("vivo", "V2401"),
+    ]
 
 
 def test_an_offline_rebuild_falls_back_to_the_set_aside_file(tmp_path: Path) -> None:

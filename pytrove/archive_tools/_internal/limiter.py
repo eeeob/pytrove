@@ -110,16 +110,26 @@ class _Limiter:
 
                 if not parent:
                     if lim.max_root_entries is not None and held > lim.max_root_entries:
-                        self._fail(f"the destination holds more than the {lim.max_root_entries} root entries allowed")
+                        self._fail(
+                            f"the destination holds more than the {lim.max_root_entries} root entries allowed"
+                        )
                 elif lim.max_dir_entries is not None and held > lim.max_dir_entries:
-                    self._fail(f"directory {parent!r} holds more than the {lim.max_dir_entries} entries allowed")
+                    self._fail(
+                        f"directory {parent!r} holds more than the {lim.max_dir_entries} entries allowed"
+                    )
 
         if lim.max_file_size is not None and size > lim.max_file_size:
             self._fail(f"member {name!r} is {size} bytes, over the {lim.max_file_size} allowed")
 
-        if lim.max_ratio is not None and m.packed > 0 and (ratio := size / m.packed) > lim.max_ratio:
-            self._fail(f"member {name!r} expands {ratio:.0f}x ({m.packed} -> {size} bytes), "
-                       f"over the {lim.max_ratio:g}x allowed")
+        if (
+            lim.max_ratio is not None
+            and m.packed > 0
+            and (ratio := size / m.packed) > lim.max_ratio
+        ):
+            self._fail(
+                f"member {name!r} expands {ratio:.0f}x ({m.packed} -> {size} bytes), "
+                f"over the {lim.max_ratio:g}x allowed"
+            )
 
         if m.kind != "dir":
             self.files += 1
@@ -144,7 +154,9 @@ class _Limiter:
         lim = self.limits
 
         if lim.max_file_size is not None and member_total > lim.max_file_size:
-            self._fail(f"member {name!r} has written {member_total} bytes, over the {lim.max_file_size} allowed")
+            self._fail(
+                f"member {name!r} has written {member_total} bytes, over the {lim.max_file_size} allowed"
+            )
 
     def allows_name(self, name: str) -> bool:
         """Apply `duplicates`: the first member with a name wins.
@@ -218,7 +230,11 @@ class _Limiter:
         if verdict is None or verdict:
             return True
 
-        log.warning("extract_archive: dropped directory %r from %s, refused by dir_check", str(path), self.src.name)
+        log.warning(
+            "extract_archive: dropped directory %r from %s, refused by dir_check",
+            str(path),
+            self.src.name,
+        )
         return False
 
     def _deny(self, policy: str, why: str) -> bool:

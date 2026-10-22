@@ -29,7 +29,9 @@ def test_account_age_is_interpolated_and_capped() -> None:
 
 
 @needs_email
-async def test_fetch_tg_email_code_matches_a_six_digit_code(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_fetch_tg_email_code_matches_a_six_digit_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     _fake_inbox(monkeypatch, "Hello Ali Hassan, your code is 123456")
 
     assert await fetch_tg_email_code("a@gmail.com", "pw", "Ali Hassan", 6) == "123456"
@@ -64,25 +66,35 @@ def _fake_inbox(monkeypatch: pytest.MonkeyPatch, *messages: str) -> None:
             yield message
 
     monkeypatch.setattr("pytrove.tg_tools.accounts.fetch_emails_from", fake_fetch)
-    monkeypatch.setattr("pytrove.tg_tools.accounts.detect_email_provider", lambda email: ImapEmailProvider.GMAIL)
+    monkeypatch.setattr(
+        "pytrove.tg_tools.accounts.detect_email_provider", lambda email: ImapEmailProvider.GMAIL
+    )
 
 
 @needs_email
-async def test_fetch_tg_email_code_skips_an_email_for_someone_else(monkeypatch: pytest.MonkeyPatch) -> None:
-    _fake_inbox(monkeypatch, "Hello Omar, your code is 111111", "Hello Ali Hassan, your code is 222222")
+async def test_fetch_tg_email_code_skips_an_email_for_someone_else(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _fake_inbox(
+        monkeypatch, "Hello Omar, your code is 111111", "Hello Ali Hassan, your code is 222222"
+    )
 
     assert await fetch_tg_email_code("a@gmail.com", "pw", "Ali Hassan", 6) == "222222"
 
 
 @needs_email
-async def test_fetch_tg_email_code_only_matches_a_code_of_the_given_length(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_fetch_tg_email_code_only_matches_a_code_of_the_given_length(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     _fake_inbox(monkeypatch, "Ali Hassan: 1234567 or 1234", "Ali Hassan: 54321")
 
     assert await fetch_tg_email_code("a@gmail.com", "pw", "Ali Hassan", 5) == "54321"
 
 
 @needs_email
-async def test_fetch_tg_email_code_returns_none_when_no_email_matches(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_fetch_tg_email_code_returns_none_when_no_email_matches(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     _fake_inbox(monkeypatch, "Hello Omar, your code is 111111", "Ali Hassan, no code here")
 
     assert await fetch_tg_email_code("a@gmail.com", "pw", "Ali Hassan", 6) is None

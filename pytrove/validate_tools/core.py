@@ -122,7 +122,11 @@ def is_sub_container(obj: Any) -> TypeIs[type[Container]]:
     Returns:
         Whether it is a class deriving from a container class and from no `NotContainer` one.
     """
-    return isinstance(obj, type) and issubclass(obj, _CONTAINER) and not issubclass(obj, _NOT_CONTAINER)
+    return (
+        isinstance(obj, type)
+        and issubclass(obj, _CONTAINER)
+        and not issubclass(obj, _NOT_CONTAINER)
+    )
 
 
 def iscoroutinefunction_wrapped(f: Callable[..., Any]) -> bool:

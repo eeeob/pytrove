@@ -9,7 +9,7 @@ from pytrove.models import Jitter
 
 
 def test_Jitter_defaults_to_plus_minus_ten_percent() -> None:
-    j = Jitter(5, rng=random.Random(0))   # no decrease/increase given
+    j = Jitter(5, rng=random.Random(0))  # no decrease/increase given
     assert j.decrease == 0.1 and j.increase == 0.1
     for _ in range(1000):
         assert 4.5 <= j() <= 5.5
@@ -33,7 +33,7 @@ def test_Jitter_spreads_consecutive_values_without_min_distance() -> None:
     seq = [j() for _ in range(3000)]
 
     gaps = [abs(b - a) for a, b in pairwise(seq)]
-    assert min(gaps) > 0.3             # no near-repeats, ever
+    assert min(gaps) > 0.3  # no near-repeats, ever
     assert sum(gaps) / len(gaps) > 1.0  # and they genuinely range across [4, 7.5]
 
 
@@ -68,7 +68,7 @@ def test_Jitter_bias_survives_a_tight_min_distance() -> None:
 
     mid = (4.0 + 7.0) / 2
     assert sum(low_vals) / n < mid < sum(high_vals) / n
-    assert sum(1 for v in low_vals if v < mid) / n > 0.55   # clearly leans low
+    assert sum(1 for v in low_vals if v < mid) / n > 0.55  # clearly leans low
     # and the correction never washes the bias away toward symmetry
     assert sum(high_vals) / n - sum(low_vals) / n > 0.4
 

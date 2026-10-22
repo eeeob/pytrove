@@ -32,15 +32,17 @@ def _nudge() -> None:
     try:
         stamp = json.loads(_STATE.read_text(encoding="utf-8"))["last_checked"]
         when = dt.datetime.fromisoformat(stamp)
-    except Exception:                                 # noqa: BLE001 - advisory only
+    except Exception:  # noqa: BLE001 - advisory only
         return
 
     if when.tzinfo is None:
         when = when.replace(tzinfo=dt.timezone.utc)
     days = (dt.datetime.now(dt.timezone.utc) - when).days
     if days >= _STALE_DAYS:
-        print(f"warning: the sources have not been checked in {days} days.\n"
-              f"         run: python -m devtools device_catalogs")
+        print(
+            f"warning: the sources have not been checked in {days} days.\n"
+            f"         run: python -m devtools device_catalogs"
+        )
 
 
 _nudge()

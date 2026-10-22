@@ -75,7 +75,12 @@ class SyncAwaitableRunner:
         """Whether the loop is up and accepting work (not starting, not draining)."""
         thread = self.__thread
         stopping = self.__stopping
-        return thread is not None and thread.is_alive() and stopping is not None and not stopping.is_set()
+        return (
+            thread is not None
+            and thread.is_alive()
+            and stopping is not None
+            and not stopping.is_set()
+        )
 
     @property
     def closed(self) -> bool:
@@ -126,7 +131,11 @@ class SyncAwaitableRunner:
                 raise RuntimeError(msg)
 
             thread = threading.Thread(
-                target=safe_call, args=(_bootstrap,), kwargs={"log_exc": True}, name=self.__name, daemon=True,
+                target=safe_call,
+                args=(_bootstrap,),
+                kwargs={"log_exc": True},
+                name=self.__name,
+                daemon=True,
             )
             del self.__name
             thread.start()
@@ -181,7 +190,9 @@ class SyncAwaitableRunner:
             RuntimeError: If called from the runner's own thread.
         """
         if self.__thread is not None and threading.current_thread() is self.__thread:
-            msg = "cannot close from inside the runner's own thread -- waiting for it would deadlock"
+            msg = (
+                "cannot close from inside the runner's own thread -- waiting for it would deadlock"
+            )
             raise RuntimeError(msg)
 
         with self.__lock:

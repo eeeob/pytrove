@@ -50,7 +50,9 @@ def test_read_file_forwards_open_keywords(tmp_path: Path) -> None:
     assert read_file(target) == "a\nb"
 
 
-def test_read_file_holds_the_lock_around_the_read_and_releases_it_either_way(tmp_path: Path) -> None:
+def test_read_file_holds_the_lock_around_the_read_and_releases_it_either_way(
+    tmp_path: Path,
+) -> None:
     target = tmp_path / "f.txt"
     target.write_text("x", encoding="utf-8")
     lock = threading.Lock()

@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 
 # ============================== the door ==============================
 
+
 class Dispatcher:
     """Argument routing for the front door."""
 
@@ -55,7 +56,8 @@ class Dispatcher:
             f"  {cls.NO_PREFLIGHT}   skip the check and the cleaning\n"
             f"  {cls.ALLOW_FLAKY}    proceed past a source that could not be reached\n"
             f"  {cls.OFFLINE}        passed to the tool, and implies "
-            f"{cls.NO_PREFLIGHT}\n")
+            f"{cls.NO_PREFLIGHT}\n"
+        )
 
     @classmethod
     def main(cls, argv: Sequence[str] | None = None) -> int:
@@ -67,14 +69,15 @@ class Dispatcher:
 
         tool, rest = argv[0], argv[1:]
         if tool not in Layout.tools():
-            print(f"no tool {tool!r} with a source registry under devtools/\n\n"
-                  f"{cls.usage()}", file=sys.stderr)
+            print(
+                f"no tool {tool!r} with a source registry under devtools/\n\n{cls.usage()}",
+                file=sys.stderr,
+            )
             return Exit.REGISTRY
 
         skip = cls.NO_PREFLIGHT in rest or cls.OFFLINE in rest
         allow_flaky = cls.ALLOW_FLAKY in rest
-        tool_argv = [a for a in rest
-                     if a not in (cls.NO_PREFLIGHT, cls.ALLOW_FLAKY)]
+        tool_argv = [a for a in rest if a not in (cls.NO_PREFLIGHT, cls.ALLOW_FLAKY)]
 
         if not skip:
             code = cls._preflight(tool, allow_flaky=allow_flaky)
@@ -99,8 +102,7 @@ class Dispatcher:
         actions = flight.clean(report)
         flight.record(report, actions, time.monotonic() - started)
 
-        print(TextReport.render(report, flight.registry, actions,
-                                schedule=flight.schedule))
+        print(TextReport.render(report, flight.registry, actions, schedule=flight.schedule))
 
         if not report.may_proceed(allow_flaky=allow_flaky):
             return report.exit_code(allow_flaky=allow_flaky)
@@ -134,6 +136,6 @@ class Dispatcher:
         if code is None:
             return Exit.OK
         if isinstance(code, int):
-            return int(code)                      # bool is an int; 1, not True
+            return int(code)  # bool is an int; 1, not True
         print(code, file=sys.stderr)
         return Exit.DEAD

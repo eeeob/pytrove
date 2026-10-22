@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
 # ============================== the command ==============================
 
+
 class Cli:
     """Argument parsing and the top-level flow."""
 
@@ -35,34 +36,32 @@ class Cli:
     @classmethod
     def parser(cls) -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser(
-            prog=cls.PROG,
-            description="Check a tool's sources and clean its stale cache.")
+            prog=cls.PROG, description="Check a tool's sources and clean its stale cache."
+        )
 
         which = parser.add_mutually_exclusive_group()
         which.add_argument(
-            "--tool", metavar="NAME",
-            help="the tool directory under devtools/ to work on")
+            "--tool", metavar="NAME", help="the tool directory under devtools/ to work on"
+        )
+        which.add_argument("--all", action="store_true", help="every tool that declares sources")
         which.add_argument(
-            "--all", action="store_true",
-            help="every tool that declares sources")
-        which.add_argument(
-            "--list", action="store_true",
-            help="list the tools that declare sources, and exit")
+            "--list", action="store_true", help="list the tools that declare sources, and exit"
+        )
 
         stage = parser.add_mutually_exclusive_group()
-        stage.add_argument("--check", action="store_true",
-                           help="check only; touch no cache")
-        stage.add_argument("--janitor", action="store_true",
-                           help="check and clean, the default")
+        stage.add_argument("--check", action="store_true", help="check only; touch no cache")
+        stage.add_argument("--janitor", action="store_true", help="check and clean, the default")
 
-        parser.add_argument("--allow-flaky", action="store_true",
-                            help="treat an unreachable source as passable")
-        parser.add_argument("--dry-run", action="store_true",
-                            help="report what would be cleaned, change nothing")
-        parser.add_argument("--json", action="store_true",
-                            help="machine-readable output")
-        parser.add_argument("--quiet", action="store_true",
-                            help="print nothing; the exit code is the answer")
+        parser.add_argument(
+            "--allow-flaky", action="store_true", help="treat an unreachable source as passable"
+        )
+        parser.add_argument(
+            "--dry-run", action="store_true", help="report what would be cleaned, change nothing"
+        )
+        parser.add_argument("--json", action="store_true", help="machine-readable output")
+        parser.add_argument(
+            "--quiet", action="store_true", help="print nothing; the exit code is the answer"
+        )
         return parser
 
     # --- one tool ---------------------------------------------------------
@@ -78,15 +77,22 @@ class Cli:
 
         if not args.quiet:
             if args.json:
-                print(JsonReport.render(report, flight.registry, actions,
-                                        schedule=flight.schedule))
+                print(JsonReport.render(report, flight.registry, actions, schedule=flight.schedule))
             else:
-                print(TextReport.render(report, flight.registry, actions,
-                                        dry_run=flight.dry_run,
-                                        schedule=flight.schedule))
+                print(
+                    TextReport.render(
+                        report,
+                        flight.registry,
+                        actions,
+                        dry_run=flight.dry_run,
+                        schedule=flight.schedule,
+                    )
+                )
                 if wrote:
-                    print(f"  lock updated: "
-                          f"{Layout.lock_path(tool).relative_to(Layout.TOOLS_DIR.parent)}")
+                    print(
+                        f"  lock updated: "
+                        f"{Layout.lock_path(tool).relative_to(Layout.TOOLS_DIR.parent)}"
+                    )
 
         return report.exit_code(allow_flaky=args.allow_flaky)
 
@@ -110,7 +116,7 @@ class Cli:
             tools = [args.tool]
         else:
             cls.parser().error("name a tool with --tool, or pass --all")
-            return Exit.REGISTRY                  # unreachable; parser exits
+            return Exit.REGISTRY  # unreachable; parser exits
 
         worst: int = Exit.OK
         for index, tool in enumerate(tools):

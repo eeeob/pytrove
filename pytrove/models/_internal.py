@@ -67,7 +67,11 @@ def _resolved_hints(cls: type) -> dict[str, Any]:
 
     for klass in reversed(cls.__mro__):
         for name, annotation in inspect.get_annotations(klass).items():
-            holder = type("_AnnotationHolder", (), {"__annotations__": {name: annotation}, "__module__": klass.__module__})
+            holder = type(
+                "_AnnotationHolder",
+                (),
+                {"__annotations__": {name: annotation}, "__module__": klass.__module__},
+            )
 
             try:
                 hints[name] = get_type_hints(holder)[name]

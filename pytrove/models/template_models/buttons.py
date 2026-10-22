@@ -30,7 +30,13 @@ else:
 
 from ..._internal._optional import _optional_import
 from ...object_tools import classproperty
-from ...typings import MaybeList, StrInt, TemplateButtonDict, TemplateButtonType, TemplateEachButtonDict
+from ...typings import (
+    MaybeList,
+    StrInt,
+    TemplateButtonDict,
+    TemplateButtonType,
+    TemplateEachButtonDict,
+)
 from ...validate_tools import is_container, is_mapping
 from ..base import BaseDataClass
 from ._internal import _chain_mappings, _CompiledEachButtonDict
@@ -96,7 +102,8 @@ class CompiledButton(CompiledConditional):
         meta = self.meta or {}
         if invalid_meta := meta.keys() - parameters:
             warnings.warn(
-                "Ignoring unsupported InlineKeyboardButton meta keys: " + ", ".join(sorted(invalid_meta)),
+                "Ignoring unsupported InlineKeyboardButton meta keys: "
+                + ", ".join(sorted(invalid_meta)),
                 UserWarning,
                 stacklevel=2,
             )
@@ -105,7 +112,9 @@ class CompiledButton(CompiledConditional):
         kw = self.with_defaults(kw)
 
         if self.can_format(kw):
-            return InlineKeyboardButton(self.text.format_map(kw), **{self.type: self.value.format_map(kw)}, **meta)
+            return InlineKeyboardButton(
+                self.text.format_map(kw), **{self.type: self.value.format_map(kw)}, **meta
+            )
 
         return None
 
@@ -205,7 +214,9 @@ class CompiledButtonRow(BaseDataClass):
         # intersection in one branch and the `TypedDict` in the other.
         buttons = cast(list[TemplateButtonDict], [item] if is_mapping(item) else item)
 
-        return cls.from_dict({"buttons": [CompiledButton.compile(button) for button in buttons]}, True)
+        return cls.from_dict(
+            {"buttons": [CompiledButton.compile(button) for button in buttons]}, True
+        )
 
     @_optional_import(("kurigram>=2.2.24", "tg"))
     def format(self, kw: Mapping[str, Any]) -> list[InlineKeyboardButton] | None:

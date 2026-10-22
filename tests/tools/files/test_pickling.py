@@ -39,8 +39,14 @@ def test_safe_and_unsafe_tables() -> None:
 
 
 def test_normalise_global_maps_python_2_names() -> None:
-    assert _normalise_global("__builtin__", "xrange") == ("builtins", "range")  # a `NAME_MAPPING` pair
-    assert _normalise_global("__builtin__", "eval") == ("builtins", "eval")  # an `IMPORT_MAPPING` module
+    assert _normalise_global("__builtin__", "xrange") == (
+        "builtins",
+        "range",
+    )  # a `NAME_MAPPING` pair
+    assert _normalise_global("__builtin__", "eval") == (
+        "builtins",
+        "eval",
+    )  # an `IMPORT_MAPPING` module
     assert _normalise_global("copy_reg", "x") == ("copyreg", "x")
     assert _normalise_global("mine", "Thing") == ("mine", "Thing")
 
@@ -69,7 +75,9 @@ def test_restricted_unpickler_levels() -> None:
     with pytest.raises(pickle.UnpicklingError, match="STRICT"):
         _load(data, PickleSafety.STRICT)
 
-    assert _load(data, PickleSafety.MODULES, modules=frozenset({"pathlib", "pathlib._local"})) == Path("p")
+    assert _load(
+        data, PickleSafety.MODULES, modules=frozenset({"pathlib", "pathlib._local"})
+    ) == Path("p")
 
     with pytest.raises(pickle.UnpicklingError, match="MODULES"):
         _load(data, PickleSafety.MODULES, modules=frozenset({"other"}))
@@ -82,7 +90,10 @@ def test_blocklist_refuses_modules_and_callables_even_under_python_2_names() -> 
         with pytest.raises(pickle.UnpicklingError, match="refusing to load"):
             _load(payload, PickleSafety.BLOCKLIST)
 
-    assert _load(b"c__builtin__\neval\n.", PickleSafety.BLOCKLIST, frozenset({("builtins", "eval")})) is eval
+    assert (
+        _load(b"c__builtin__\neval\n.", PickleSafety.BLOCKLIST, frozenset({("builtins", "eval")}))
+        is eval
+    )
 
 
 def test_the_refusal_names_the_global_and_the_cure() -> None:
@@ -95,9 +106,15 @@ def test_the_refusal_names_the_global_and_the_cure() -> None:
 
 def test_unpickler_keywords_reach_the_base_class() -> None:
     buffers: list[pickle.PickleBuffer] = []
-    data = pickle.dumps({"k": pickle.PickleBuffer(bytearray(b"v"))}, protocol=5, buffer_callback=buffers.append)
+    data = pickle.dumps(
+        {"k": pickle.PickleBuffer(bytearray(b"v"))}, protocol=5, buffer_callback=buffers.append
+    )
     unpickler = _RestrictedUnpickler(
-        io.BytesIO(data), PickleSafety.STRICT, _SAFE_PICKLE_CLASSES, frozenset(), buffers=[b.raw() for b in buffers],
+        io.BytesIO(data),
+        PickleSafety.STRICT,
+        _SAFE_PICKLE_CLASSES,
+        frozenset(),
+        buffers=[b.raw() for b in buffers],
     )
 
     assert unpickler.load() == {"k": bytearray(b"v")}

@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
 # ============================== text output ==============================
 
+
 class TextReport:
     """The human form.
 
@@ -49,8 +50,7 @@ class TextReport:
 
     @classmethod
     def table(cls, report: Report, only: set[str] | None = None) -> list[str]:
-        shown = [v for v in report.sorted_verdicts()
-                 if only is None or v.source_id in only]
+        shown = [v for v in report.sorted_verdicts() if only is None or v.source_id in only]
         # Widened to the longest id present rather than fixed: a ported rule's
         # id is longer than a feed's, and a column that only usually lines up
         # is worse than one that always does.
@@ -72,8 +72,7 @@ class TextReport:
         if verdict.state is State.CONTRACT_BROKEN:
             return "; ".join(verdict.contract_errors) or verdict.error
         if verdict.state in (State.GONE, State.FLAKY):
-            runs = (f", {verdict.consecutive} consecutive run(s)"
-                    if verdict.consecutive > 1 else "")
+            runs = f", {verdict.consecutive} consecutive run(s)" if verdict.consecutive > 1 else ""
             return f"{verdict.error}{runs}"
         return ""
 
@@ -92,11 +91,13 @@ class TextReport:
         if not body:
             return []
         pad = " " * (cls.FIELD + cls.LABEL)
-        return [f"{'':>{cls.FIELD}}{label:<{cls.LABEL}}{body[0]}",
-                # A blank line is kept as a blank line: these values are
-                # written as paragraphs and running two of them together is
-                # how a careful explanation reads like a wall.
-                *(f"{pad}{line}" if line else "" for line in body[1:])]
+        return [
+            f"{'':>{cls.FIELD}}{label:<{cls.LABEL}}{body[0]}",
+            # A blank line is kept as a blank line: these values are
+            # written as paragraphs and running two of them together is
+            # how a careful explanation reads like a wall.
+            *(f"{pad}{line}" if line else "" for line in body[1:]),
+        ]
 
     @classmethod
     def failure(cls, report: Report, registry: Registry) -> list[str]:
@@ -105,8 +106,7 @@ class TextReport:
 
         for verdict in report.fatal:
             citation = registry.citation(verdict.source_id)
-            source = citation.as_source() if citation else registry.source(
-                verdict.source_id)
+            source = citation.as_source() if citation else registry.source(verdict.source_id)
             lines.append(f"  {verdict.state}  {verdict.source_id}")
             lines += cls.field("detail", cls.detail(verdict))
             if citation:
@@ -124,8 +124,7 @@ class TextReport:
                     lines += cls.field("cache", f".cache/{source.cache}")
                 lines += cls.field("consumed by", source.consumed_by)
                 lines += cls.field("on removal", source.on_removal)
-                dependents = [d.id for d in registry.derived
-                              if verdict.source_id in d.derives_from]
+                dependents = [d.id for d in registry.derived if verdict.source_id in d.derives_from]
                 if dependents:
                     lines += cls.field("derived", ", ".join(dependents))
             lines.append("")
@@ -150,8 +149,10 @@ class TextReport:
     def transient(cls, report: Report) -> list[str]:
         lines = [f"PREFLIGHT STOPPED -- {report.tool}", ""]
         for verdict in report.transient:
-            lines.append(f"  flaky  {verdict.source_id:<{cls.WIDTH}} "
-                         f"{verdict.error} after {verdict.attempts} attempt(s)")
+            lines.append(
+                f"  flaky  {verdict.source_id:<{cls.WIDTH}} "
+                f"{verdict.error} after {verdict.attempts} attempt(s)"
+            )
         lines += [
             "",
             "  these are not dead sources. the cache may well cover them.",
@@ -163,24 +164,36 @@ class TextReport:
     # --- the whole thing --------------------------------------------------
 
     @classmethod
-    def render(cls, report: Report, registry: Registry,
-               actions: list[Action] | None = None,
-               *, dry_run: bool = False,
-               schedule: Schedule | None = None) -> str:
+    def render(
+        cls,
+        report: Report,
+        registry: Registry,
+        actions: list[Action] | None = None,
+        *,
+        dry_run: bool = False,
+        schedule: Schedule | None = None,
+    ) -> str:
         lines: list[str] = []
 
         if report.first_run:
             lines += [
-                (f"baseline recorded for {report.tool}: "
-                 f"{len(report.verdicts)} source(s), nothing to compare against yet."),
+                (
+                    f"baseline recorded for {report.tool}: "
+                    f"{len(report.verdicts)} source(s), nothing to compare against yet."
+                ),
                 "",
             ]
 
         ported = {c.id for c in registry.citations}
         lines += [f"sources -- {report.tool}", ""]
-        lines += cls.table(report, only={v.source_id for v in report.verdicts
-                                         if v.source_id not in ported
-                                         and v.source_id not in report.watched})
+        lines += cls.table(
+            report,
+            only={
+                v.source_id
+                for v in report.verdicts
+                if v.source_id not in ported and v.source_id not in report.watched
+            },
+        )
         lines.append("")
 
         if ported:
@@ -218,8 +231,7 @@ class TextReport:
             # In a dry run the verbs describe what *would* happen, and
             # the heading has to say so: "deleted play_devices.csv" is
             # otherwise a plain statement that a 5 MB download is gone.
-            lines += ["cache (dry run -- nothing was changed)" if dry_run
-                      else "cache", ""]
+            lines += ["cache (dry run -- nothing was changed)" if dry_run else "cache", ""]
             lines += [f"  {action}" for action in actions]
             lines.append("")
 
@@ -231,8 +243,10 @@ class TextReport:
             # on. Without a declared schedule the count stands on its own.
             runs = f"{report.ESCALATE_AFTER}+ runs"
             if schedule is not None:
-                runs += (f", about {report.ESCALATE_AFTER * schedule.every_days}"
-                         f" days at this tool's cadence")
+                runs += (
+                    f", about {report.ESCALATE_AFTER * schedule.every_days}"
+                    f" days at this tool's cadence"
+                )
             lines += [f"  failing every run for {runs}: {named}", ""]
 
         if report.fatal:
@@ -244,6 +258,7 @@ class TextReport:
 
 
 # ============================== json output ==============================
+
 
 class JsonReport:
     """The machine form.
@@ -258,9 +273,14 @@ class JsonReport:
     SCHEMA: ClassVar[int] = 1
 
     @classmethod
-    def build(cls, report: Report, registry: Registry,
-              actions: list[Action] | None = None,
-              *, schedule: Schedule | None = None) -> dict[str, Any]:
+    def build(
+        cls,
+        report: Report,
+        registry: Registry,
+        actions: list[Action] | None = None,
+        *,
+        schedule: Schedule | None = None,
+    ) -> dict[str, Any]:
         return {
             "report_schema": cls.SCHEMA,
             "tool": report.tool,
@@ -295,8 +315,7 @@ class JsonReport:
                 for v in report.sorted_verdicts()
             ],
             "cache": [
-                {"verb": a.verb, "cache": a.cache, "reason": a.reason,
-                 "target": a.target}
+                {"verb": a.verb, "cache": a.cache, "reason": a.reason, "target": a.target}
                 for a in (actions or [])
             ],
             "watched": sorted(report.watched),
@@ -316,8 +335,12 @@ class JsonReport:
         }
 
     @classmethod
-    def render(cls, report: Report, registry: Registry,
-               actions: list[Action] | None = None,
-               *, schedule: Schedule | None = None) -> str:
-        return json.dumps(cls.build(report, registry, actions,
-                                    schedule=schedule), indent=1)
+    def render(
+        cls,
+        report: Report,
+        registry: Registry,
+        actions: list[Action] | None = None,
+        *,
+        schedule: Schedule | None = None,
+    ) -> str:
+        return json.dumps(cls.build(report, registry, actions, schedule=schedule), indent=1)

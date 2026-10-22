@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 # ------------------------- DMI harvest (PC hardware) -------------------------
 
+
 class DmiHarvest:
     """Real `dmidecode` records from linuxhw/DMI.
 
@@ -32,7 +33,8 @@ class DmiHarvest:
     #: Probe paths are <Category>/<Vendor>/<Family>/<Model>/<probe id>.
     PATH_DEPTH: ClassVar[int] = 5
     CATEGORIES: ClassVar[frozenset[str]] = frozenset(
-        {"Desktop", "Notebook", "All In One", "Mini Pc", "Convertible"})
+        {"Desktop", "Notebook", "All In One", "Mini Pc", "Convertible"}
+    )
     #: Probes read per vendor folder. One probe per distinct model folder, so
     #: this is a model count, not a machine count.
     SAMPLES: ClassVar[int] = 420
@@ -55,17 +57,30 @@ class DmiHarvest:
     #: linuxhw/DMI vendor folder -> the group weighted in _devices.GROUP_SHARES.
     #: A folder absent from here is skipped entirely.
     VENDORS: ClassVar[dict[str, str]] = {
-        "Lenovo": "Lenovo", "Lenovo Product": "Lenovo",
-        "Hewlett-Packard": "HP", "HPE": "HP",
-        "Dell": "Dell", "Dell Inc.": "Dell", "Dell System": "Dell", "DellInc.": "Dell",
+        "Lenovo": "Lenovo",
+        "Lenovo Product": "Lenovo",
+        "Hewlett-Packard": "HP",
+        "HPE": "HP",
+        "Dell": "Dell",
+        "Dell Inc.": "Dell",
+        "Dell System": "Dell",
+        "DellInc.": "Dell",
         "ASUSTek Computer": "ASUS",
         "Acer": "Acer",
         "MSI": "MSI",
         "Gigabyte Technology": "Gigabyte",
-        "ASRock": "ASRock", "ASRock Industrial": "ASRock",
-        "Microsoft": "Other", "Apple": "Other", "Framework": "Other",
-        "Intel": "Other", "Samsung Electronics": "Other", "LG Electronics": "Other",
-        "Sony": "Other", "Toshiba": "Other", "Fujitsu": "Other", "Supermicro": "Other",
+        "ASRock": "ASRock",
+        "ASRock Industrial": "ASRock",
+        "Microsoft": "Other",
+        "Apple": "Other",
+        "Framework": "Other",
+        "Intel": "Other",
+        "Samsung Electronics": "Other",
+        "LG Electronics": "Other",
+        "Sony": "Other",
+        "Toshiba": "Other",
+        "Fujitsu": "Other",
+        "Supermicro": "Other",
     }
 
     #: field name -> (dmidecode block, key inside it). `chassis` is captured
@@ -82,8 +97,10 @@ class DmiHarvest:
         """Compile the dmidecode patterns for every field this harvest reads."""
         self.cache = cache
         self.patterns = {
-            name: (re.compile(r"^" + block + r"\n((?:\t.*\n)+)", re.M),
-                   re.compile(r"^\t" + re.escape(key) + r": (.*)$", re.M))
+            name: (
+                re.compile(r"^" + block + r"\n((?:\t.*\n)+)", re.M),
+                re.compile(r"^\t" + re.escape(key) + r": (.*)$", re.M),
+            )
             for name, block, key in self.FIELDS
         }
 
@@ -100,16 +117,23 @@ class DmiHarvest:
         if self.cache.has(self.PATHS_FILE):
             return self.cache.read_lines(self.PATHS_FILE)
         if self.cache.offline:
-            self.cache.missing(
-                f"no {self.PATHS_FILE} in the cache; run once with network access")
+            self.cache.missing(f"no {self.PATHS_FILE} in the cache; run once with network access")
 
         repo = self.cache.path(self.CLONE_DIR)
         self.cache.wipe(self.CLONE_DIR)
         self.cache.directory.mkdir(parents=True, exist_ok=True)
 
         print("  cloning linuxhw/DMI (trees only)")
-        self.git("clone", "--filter=blob:none", "--no-checkout",
-                 "--depth", "1", "--single-branch", self.REPO, str(repo))
+        self.git(
+            "clone",
+            "--filter=blob:none",
+            "--no-checkout",
+            "--depth",
+            "1",
+            "--single-branch",
+            self.REPO,
+            str(repo),
+        )
         listing = self.git("-C", str(repo), "ls-tree", "-r", "--name-only", "HEAD")
         self.cache.wipe(self.CLONE_DIR)
 
@@ -148,7 +172,7 @@ class DmiHarvest:
         wanted: list[tuple[str, str]] = []
         for vendor, vendor_paths in sorted(per_folder.items()):
             step = max(1, len(vendor_paths) // self.SAMPLES)
-            wanted += [(vendor, p) for p in sorted(vendor_paths)[::step][:self.SAMPLES]]
+            wanted += [(vendor, p) for p in sorted(vendor_paths)[::step][: self.SAMPLES]]
 
         print(f"  sampling {len(wanted)} probes across {len(per_folder)} vendor folders")
         return wanted
@@ -160,7 +184,7 @@ class DmiHarvest:
         vendor, path = item
         try:
             text = self.cache.download(self.RAW + urllib.parse.quote(path), timeout=90)
-        except Exception:                                 # noqa: BLE001 - skip the probe
+        except Exception:  # noqa: BLE001 - skip the probe
             return None
 
         body = text.decode("utf-8", "replace")
@@ -176,16 +200,17 @@ class DmiHarvest:
         if self.cache.has(self.RECORDS_FILE):
             return self.cache.read_json(self.RECORDS_FILE)
         if self.cache.offline:
-            self.cache.missing(
-                f"no {self.RECORDS_FILE} in the cache; run once with network access")
+            self.cache.missing(f"no {self.RECORDS_FILE} in the cache; run once with network access")
 
         wanted = self.sample(self.paths())
         with ThreadPoolExecutor(max_workers=self.WORKERS) as pool:
             records = [r for r in pool.map(self.read_probe, wanted) if r]
 
         lost = len(wanted) - len(records)
-        print(f"  read {len(records)} of {len(wanted)} probes"
-              + (f" ({lost} unreachable)" if lost else ""))
+        print(
+            f"  read {len(records)} of {len(wanted)} probes"
+            + (f" ({lost} unreachable)" if lost else "")
+        )
         if wanted and len(records) < len(wanted) * self.MIN_READ:
             msg = (
                 f"only {len(records)} of {len(wanted)} DMI probes could be read "

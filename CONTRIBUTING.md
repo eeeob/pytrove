@@ -8,7 +8,8 @@ The only prerequisite is [`uv`](https://docs.astral.sh/uv/). It provisions the i
 
 ```bash
 make sync            # the locked environment with every extra
-make lint            # ruff over pytrove, tests and devtools
+make format          # ruff format over pytrove, tests and devtools
+make lint            # ruff check and format --check over the same tree
 make typecheck       # ty over pytrove, against the 3.10 floor
 make test            # the suite with every extra installed
 make test-doctest    # every `Example` section (rule 5.5)

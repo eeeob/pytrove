@@ -15,6 +15,7 @@ from typing import ClassVar
 
 # ============================== the contract ==============================
 
+
 class Layout:
     """A tool's root holds named sections and a single `__main__.py` door.
 

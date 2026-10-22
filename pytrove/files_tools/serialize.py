@@ -26,7 +26,9 @@ if TYPE_CHECKING:
     from ..typings import JsonValue, LockProtocol, NestedContainer, PathLike, _T
 
 
-def read_json(path: PathLike, default: _T | type[object] = object, lock: LockProtocol | None = None, **kw: Any) -> JsonValue | _T:
+def read_json(
+    path: PathLike, default: _T | type[object] = object, lock: LockProtocol | None = None, **kw: Any
+) -> JsonValue | _T:
     """Parse a JSON file, through orjson with the `json` extra and no keywords.
 
     Args:
@@ -46,7 +48,9 @@ def read_json(path: PathLike, default: _T | type[object] = object, lock: LockPro
     return _json_loads(content, kw)
 
 
-def write_json(path: PathLike, data: JsonValue, lock: LockProtocol | None = None, fsync: bool = True, **kw: Any) -> None:
+def write_json(
+    path: PathLike, data: JsonValue, lock: LockProtocol | None = None, fsync: bool = True, **kw: Any
+) -> None:
     """Serialise `data` as JSON and write it atomically.
 
     No indent unless asked (`indent=2` stays on the orjson fast path).
@@ -113,11 +117,15 @@ def read_pickle(
     # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
     classes = cast(Iterator[type], iter_flat_cont(allow_classes))
     modules = cast(Iterator[str], iter_flat_cont(allow_modules))
-    allowed = _SAFE_PICKLE_CLASSES | frozenset((cls.__module__, cls.__qualname__) for cls in classes)
+    allowed = _SAFE_PICKLE_CLASSES | frozenset(
+        (cls.__module__, cls.__qualname__) for cls in classes
+    )
     return _RestrictedUnpickler(io.BytesIO(content), safe, allowed, frozenset(modules), **kw).load()
 
 
-def write_pickle(path: PathLike, data: Any, lock: LockProtocol | None = None, fsync: bool = True, **kw: Any) -> None:
+def write_pickle(
+    path: PathLike, data: Any, lock: LockProtocol | None = None, fsync: bool = True, **kw: Any
+) -> None:
     """Pickle `data` and write it atomically.
 
     `protocol` defaults to `pickle.HIGHEST_PROTOCOL`, readable only by a
@@ -139,7 +147,10 @@ def write_pickle(path: PathLike, data: Any, lock: LockProtocol | None = None, fs
 
 @_optional_import(("jsonref", "json"))
 def load_ref_json(
-    path: PathLike, default: _T | type[object] = object, lock: LockProtocol | None = None, **kw: Any,
+    path: PathLike,
+    default: _T | type[object] = object,
+    lock: LockProtocol | None = None,
+    **kw: Any,
 ) -> JsonValue | _T:
     """Load a JSON file and resolve every `$ref`, relative ones against the file's directory.
 

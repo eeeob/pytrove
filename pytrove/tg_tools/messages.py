@@ -10,7 +10,9 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
 
-def split_tg_message(text: str, length: int = TgMessageLength.TEXT, reverse: bool = False) -> list[str]:
+def split_tg_message(
+    text: str, length: int = TgMessageLength.TEXT, reverse: bool = False
+) -> list[str]:
     r"""Split text into messages of at most `length` characters, breaking between lines.
 
     A line longer than `length` is cut hard, and a chunk that is only

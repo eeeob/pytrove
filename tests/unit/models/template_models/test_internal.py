@@ -25,8 +25,14 @@ from pytrove.models.template_models._internal import (
     [
         (_CompiledEachLineDict, {"each", "item"}),
         (_CompiledEachButtonDict, {"each", "item", "row_width"}),
-        (_CompiledRichMessageDict, {"default_keys", "html", "markdown", "is_rtl", "skip_entity_detection"}),
-        (_CompiledTemplateDict, {"default_keys", "message", "buttons", "parse_mode", "rich_message", "key_time"}),
+        (
+            _CompiledRichMessageDict,
+            {"default_keys", "html", "markdown", "is_rtl", "skip_entity_detection"},
+        ),
+        (
+            _CompiledTemplateDict,
+            {"default_keys", "message", "buttons", "parse_mode", "rich_message", "key_time"},
+        ),
     ],
 )
 def test_compiled_shapes_are_typeddicts_with_the_raw_keys(shape: type, keys: set[str]) -> None:

@@ -43,7 +43,11 @@ def parse_email_bytes(bytes_msg: bytes | bytearray, multi_part_sep: str = "\n") 
     for part in msg.walk():
         payload = part.get_payload(decode=True)
 
-        if part.get_content_maintype().lower() != "text" or not isinstance(payload, bytes) or not payload:
+        if (
+            part.get_content_maintype().lower() != "text"
+            or not isinstance(payload, bytes)
+            or not payload
+        ):
             continue
 
         charset = part.get_content_charset() or "utf-8"
@@ -54,7 +58,9 @@ def parse_email_bytes(bytes_msg: bytes | bytearray, multi_part_sep: str = "\n") 
             content = payload.decode(errors="ignore")
 
         if part.get_content_subtype().lower() == "html":
-            content = html.unescape(bs4.BeautifulSoup(content, "html.parser").get_text(separator="\n")).strip()
+            content = html.unescape(
+                bs4.BeautifulSoup(content, "html.parser").get_text(separator="\n")
+            ).strip()
         else:
             content = content.strip()
 
@@ -150,7 +156,10 @@ async def fetch_emails_from(
 
     # The server returns a header line, the body, and a closing line per message.
     ordered = sorted(
-        ((int(messages[i].split(b" ")[0].decode()), messages[i + 1]) for i in range(0, len(messages) - 1, 3)),
+        (
+            (int(messages[i].split(b" ")[0].decode()), messages[i + 1])
+            for i in range(0, len(messages) - 1, 3)
+        ),
         key=lambda item: item[0],
         reverse=not from_old,
     )

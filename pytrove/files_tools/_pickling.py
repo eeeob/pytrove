@@ -9,16 +9,42 @@ from typing import IO, Any, Final
 from ..enums import PickleSafety
 
 _SAFE_PICKLE_CLASSES: Final[frozenset[tuple[str, str]]] = frozenset(
-    {("builtins", name) for name in (
-        "bool", "bytearray", "bytes", "complex", "dict", "float", "frozenset", "int", "list", "set",
-        "slice", "str", "tuple", "range", "NoneType", "object",
-    )}
-    | {("collections", name) for name in ("OrderedDict", "defaultdict", "deque", "Counter", "namedtuple")}
+    {
+        ("builtins", name)
+        for name in (
+            "bool",
+            "bytearray",
+            "bytes",
+            "complex",
+            "dict",
+            "float",
+            "frozenset",
+            "int",
+            "list",
+            "set",
+            "slice",
+            "str",
+            "tuple",
+            "range",
+            "NoneType",
+            "object",
+        )
+    }
+    | {
+        ("collections", name)
+        for name in ("OrderedDict", "defaultdict", "deque", "Counter", "namedtuple")
+    }
     | {("datetime", name) for name in ("date", "time", "datetime", "timedelta", "timezone")}
     | {
-        ("decimal", "Decimal"), ("fractions", "Fraction"), ("uuid", "UUID"),
-        ("pathlib", "PurePath"), ("pathlib", "PurePosixPath"), ("pathlib", "PureWindowsPath"),
-        ("pathlib", "Path"), ("pathlib", "PosixPath"), ("pathlib", "WindowsPath"),
+        ("decimal", "Decimal"),
+        ("fractions", "Fraction"),
+        ("uuid", "UUID"),
+        ("pathlib", "PurePath"),
+        ("pathlib", "PurePosixPath"),
+        ("pathlib", "PureWindowsPath"),
+        ("pathlib", "Path"),
+        ("pathlib", "PosixPath"),
+        ("pathlib", "WindowsPath"),
     }
 )
 """`(module, name)` pairs `read_pickle` always rebuilds: inert data whose construction runs no user code."""
@@ -30,20 +56,72 @@ _PICKLE_MODULE_ALIASES: Final[dict[str, str]] = {"pathlib._local": "pathlib"}
 names that module, which no other version has.
 """
 
-_UNSAFE_PICKLE_MODULES: Final[frozenset[str]] = frozenset({
-    "os", "nt", "posix", "subprocess", "sys", "shutil", "socket", "ctypes", "importlib", "multiprocessing",
-    "pty", "runpy", "code", "codeop", "timeit", "webbrowser", "platform", "marshal", "pickle", "signal",
-    "atexit", "gc", "gettext", "gzip", "bdb", "pdb",
-})
+_UNSAFE_PICKLE_MODULES: Final[frozenset[str]] = frozenset(
+    {
+        "os",
+        "nt",
+        "posix",
+        "subprocess",
+        "sys",
+        "shutil",
+        "socket",
+        "ctypes",
+        "importlib",
+        "multiprocessing",
+        "pty",
+        "runpy",
+        "code",
+        "codeop",
+        "timeit",
+        "webbrowser",
+        "platform",
+        "marshal",
+        "pickle",
+        "signal",
+        "atexit",
+        "gc",
+        "gettext",
+        "gzip",
+        "bdb",
+        "pdb",
+    }
+)
 """Modules `PickleSafety.BLOCKLIST` refuses whole: ways to reach the OS, the interpreter or raw memory."""
 
 _UNSAFE_PICKLE_CLASSES: Final[frozenset[tuple[str, str]]] = frozenset(
-    {("builtins", name) for name in (
-        "eval", "exec", "compile", "open", "__import__", "input", "getattr", "setattr", "delattr", "globals",
-        "locals", "vars", "breakpoint", "memoryview", "staticmethod", "classmethod", "property", "super",
-        "type", "help", "exit", "quit",
-    )}
-    | {("operator", "attrgetter"), ("operator", "methodcaller"), ("operator", "itemgetter"), ("functools", "reduce")}
+    {
+        ("builtins", name)
+        for name in (
+            "eval",
+            "exec",
+            "compile",
+            "open",
+            "__import__",
+            "input",
+            "getattr",
+            "setattr",
+            "delattr",
+            "globals",
+            "locals",
+            "vars",
+            "breakpoint",
+            "memoryview",
+            "staticmethod",
+            "classmethod",
+            "property",
+            "super",
+            "type",
+            "help",
+            "exit",
+            "quit",
+        )
+    }
+    | {
+        ("operator", "attrgetter"),
+        ("operator", "methodcaller"),
+        ("operator", "itemgetter"),
+        ("functools", "reduce"),
+    }
 )
 """Individual callables `PickleSafety.BLOCKLIST` refuses: those that evaluate, import or reach attributes."""
 

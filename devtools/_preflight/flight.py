@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 
 # ============================== one tool ==============================
 
+
 class Preflight:
     """One tool's check and clean, in the order that keeps them meaningful."""
 
@@ -54,8 +55,7 @@ class Preflight:
         """Runs before the lock is saved, deliberately. See the module docstring."""
         return Janitor(self.registry, dry_run=self.dry_run).run(report)
 
-    def record(self, report: Report, actions: list[Action],
-               duration_s: float) -> bool:
+    def record(self, report: Report, actions: list[Action], duration_s: float) -> bool:
         """Persist both files. Returns whether the tracked lock changed."""
         if self.dry_run:
             return False

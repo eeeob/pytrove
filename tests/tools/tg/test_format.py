@@ -69,7 +69,12 @@ def test_extract_pyro_update_text() -> None:
     assert extract_pyro_update_text(Message(id=1, text="hi")) == "hi"
     assert extract_pyro_update_text(Message(id=1, caption="cap")) == "cap"
     assert extract_pyro_update_text(Message(id=1)) == ""
-    assert extract_pyro_update_text(CallbackQuery(id="1", from_user=User(id=1), chat_instance="c", data="d")) == "d"
+    assert (
+        extract_pyro_update_text(
+            CallbackQuery(id="1", from_user=User(id=1), chat_instance="c", data="d")
+        )
+        == "d"
+    )
 
     with pytest.raises(ValidationError):
         extract_pyro_update_text("text")
@@ -101,7 +106,9 @@ def test_format_tg_link() -> None:
 def test_hidden_link_and_mention() -> None:
     short = format_hidden_tg_link("https://x.y", "ab")
     assert links._HIDDEN_PADDING in short
-    assert links._HIDDEN_PADDING not in format_hidden_tg_link("https://x.y", "long text", ParseMode.MARKDOWN)
+    assert links._HIDDEN_PADDING not in format_hidden_tg_link(
+        "https://x.y", "long text", ParseMode.MARKDOWN
+    )
     assert "tg://user?id=7" in mention_tg_user(7)
     assert "Deleted Account" in mention_tg_user(7)
 
@@ -129,7 +136,10 @@ def test_parse_tg_target_reads_any_telegram_domain() -> None:
 
 @needs_tg
 def test_extract_pyro_update_text_of_a_callback_without_data_is_empty() -> None:
-    assert extract_pyro_update_text(CallbackQuery(id="1", from_user=User(id=1), chat_instance="c")) == ""
+    assert (
+        extract_pyro_update_text(CallbackQuery(id="1", from_user=User(id=1), chat_instance="c"))
+        == ""
+    )
 
 
 @needs_tg
@@ -241,7 +251,9 @@ def test_parse_tg_target_keeps_a_joinchat_link_as_it_is() -> None:
         (mention_tg_user, (7,)),
     ],
 )
-def test_tools_without_the_tg_extra_raise_a_clear_import_error(tool: Callable[..., object], args: tuple[object, ...]) -> None:
+def test_tools_without_the_tg_extra_raise_a_clear_import_error(
+    tool: Callable[..., object], args: tuple[object, ...]
+) -> None:
     with pytest.raises(ImportError, match=r"pip install 'pytrove\[tg\]'"):
         tool(*args)
 

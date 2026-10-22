@@ -84,7 +84,9 @@ async def to_thread(
         raise
 
 
-async def call_sync_or_await(func: MaybeAwaitableCallable[_P, _T], *args: _P.args, **kwargs: _P.kwargs) -> _T:
+async def call_sync_or_await(
+    func: MaybeAwaitableCallable[_P, _T], *args: _P.args, **kwargs: _P.kwargs
+) -> _T:
     """Call a function and await its result if it is awaitable.
 
     Args:

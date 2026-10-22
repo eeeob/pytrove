@@ -41,7 +41,9 @@ def dedupe(iterable: Iterable[_T], hashable: bool = True) -> list[_T]:
     return result
 
 
-def pad_list(values: list[_VT], length: int, exact: bool = False, default: _T | None = None) -> list[_VT | _T | None]:
+def pad_list(
+    values: list[_VT], length: int, exact: bool = False, default: _T | None = None
+) -> list[_VT | _T | None]:
     """Pad `values` in place up to `length`, and return it.
 
     Args:

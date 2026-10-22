@@ -30,6 +30,7 @@ SCHEMA = 1
 
 # ============================= shared helpers =============================
 
+
 def version_key(version: str) -> tuple[int, ...]:
     """Sort key for a dotted version, so 18.10 follows 18.9."""
     return tuple(int(part) for part in re.findall(r"\d+", version))

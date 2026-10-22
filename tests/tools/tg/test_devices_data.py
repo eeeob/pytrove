@@ -25,25 +25,23 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
 #: Only present after a build; the tests that need it skip when it is absent.
-PLAY_CATALOG = (_DATA_DIR.parents[2] / "devtools" / "device_catalogs"
-                / ".cache" / "play_devices.csv")
+PLAY_CATALOG = _DATA_DIR.parents[2] / "devtools" / "device_catalogs" / ".cache" / "play_devices.csv"
 
 #: devtools/ is dev-only and ships in no wheel, so importing it is best-effort.
 #: This one module is loadable on its own: it imports nothing from its package
 #: precisely so this test can read it without building the whole thing.
-BUILDER = (_DATA_DIR.parents[2] / "devtools" / "device_catalogs"
-           / "src" / "libbase.py")
+BUILDER = _DATA_DIR.parents[2] / "devtools" / "device_catalogs" / "src" / "libbase.py"
 
 
 def _lib_base() -> Any:
     """The builder's port of lib_base, loaded by path."""
 
-
     spec = importlib.util.spec_from_file_location("_libbase_for_tests", BUILDER)
     module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module          # dataclasses needs it importable
+    sys.modules[spec.name] = module  # dataclasses needs it importable
     spec.loader.exec_module(module)
     return module.LibBase
+
 
 ALL_PLATFORMS = (DesktopDevice, AndroidDevice, iOSDevice, WebDevice)
 IDS = [p.platform for p in ALL_PLATFORMS]
@@ -72,6 +70,7 @@ def desktop() -> dict[str, Any]:
 
 
 # --- data file shape -------------------------------------------------------
+
 
 def test_every_platform_has_its_own_data_file() -> None:
     files = {p.stem for p in _DATA_DIR.glob("*.json")}
@@ -118,6 +117,7 @@ def test_data_file_is_valid_json_without_duplicate_models(platform: type[SystemI
 
 # --- os tagging ------------------------------------------------------------
 
+
 def test_desktop_tags_every_device_and_version_with_a_known_os(desktop: dict[str, Any]) -> None:
     for version in desktop["versions"]:
         assert version["os"] in DESKTOP_OSES, version
@@ -151,14 +151,17 @@ def test_single_os_platforms_declare_no_os_tag() -> None:
 WEB_AGENTS = {
     "Chrome": re.compile(
         r"Mozilla/5\.0 \((?P<token>[^)]+)\) AppleWebKit/537\.36 "
-        r"\(KHTML, like Gecko\) Chrome/(?P<major>\d+)\.0\.0\.0 Safari/537\.36"),
+        r"\(KHTML, like Gecko\) Chrome/(?P<major>\d+)\.0\.0\.0 Safari/537\.36"
+    ),
     "Edge": re.compile(
         r"Mozilla/5\.0 \((?P<token>[^)]+)\) AppleWebKit/537\.36 "
         r"\(KHTML, like Gecko\) Chrome/(?P<major>\d+)\.0\.0\.0 Safari/537\.36"
-        r" Edg/\d+\.0\.0\.0"),
+        r" Edg/\d+\.0\.0\.0"
+    ),
     "Firefox": re.compile(
         r"Mozilla/5\.0 \((?P<token>[^)]+); rv:(?P<major>\d+)\.0\) "
-        r"Gecko/20100101 Firefox/\d+\.0"),
+        r"Gecko/20100101 Firefox/\d+\.0"
+    ),
 }
 
 #: What the UA claims -> what navigator.platform must say for the same machine,
@@ -207,14 +210,14 @@ def test_every_web_draw_is_a_real_browser_release() -> None:
 
     for i in range(200):
         model = WebDevice.random_device(f"web-{i}").model
-        browser = next(b for b in WEB_AGENTS
-                       if WEB_AGENTS[b].fullmatch(model))
+        browser = next(b for b in WEB_AGENTS if WEB_AGENTS[b].fullmatch(model))
         major = int(WEB_AGENTS[browser].fullmatch(model)["major"])
 
         assert (browser, major) in known, model
 
 
 # --- catalog integrity -----------------------------------------------------
+
 
 def test_catalog_has_devices_and_versions(platform: type[SystemInfo]) -> None:
     catalog = platform.catalog()
@@ -277,10 +280,11 @@ def test_no_device_lists_a_version_twice(platform: type[SystemInfo]) -> None:
 
 # --- per platform string formats ------------------------------------------
 
+
 def test_ios_versions_are_current_and_numeric() -> None:
     for version in iOSDevice.versions():
         assert re.fullmatch(r"\d+(\.\d+)*", version)
-        assert int(version.split(".")[0]) >= 18   # 12-17 dropped as obsolete
+        assert int(version.split(".")[0]) >= 18  # 12-17 dropped as obsolete
 
 
 def test_ios_devices_are_iphones_with_a_release_date() -> None:
@@ -335,8 +339,9 @@ def test_android_device_resolves_to_a_real_marketing_name() -> None:
         assert device["code"].strip(), device["model"]
 
 
-@pytest.mark.skipif(not PLAY_CATALOG.is_file(),
-                    reason="Google's device catalog is only in the build cache")
+@pytest.mark.skipif(
+    not PLAY_CATALOG.is_file(), reason="Google's device catalog is only in the build cache"
+)
 def test_every_android_code_exists_in_googles_catalog() -> None:
     # The stronger form of the test above, when the cache is there to check
     # against: the server's lookup table is this catalog, so a code missing
@@ -353,9 +358,11 @@ def test_every_catalog_group_has_an_explicit_share() -> None:
     # A group the table does not name falls back to 1.0, which is how OPPO,
     # vivo and realme would have landed at a fraction of their real share the
     # moment they were added -- silently, since nothing else would complain.
-    groups = {device.get("brand") or device.get("vendor")
-              for name in ("android", "desktop", "ios", "web")
-              for device in _load(name)["devices"]} - {None}
+    groups = {
+        device.get("brand") or device.get("vendor")
+        for name in ("android", "desktop", "ios", "web")
+        for device in _load(name)["devices"]
+    } - {None}
 
     assert groups <= set(GROUP_SHARES), sorted(groups - set(GROUP_SHARES))
 
@@ -365,8 +372,7 @@ def test_android_manufacturer_casing_is_the_measured_set() -> None:
     # ro.product.manufacturer through the device's own property source order.
     # A new spelling here means a brand was added without that check -- the
     # casing is not Google's retail branding and cannot be guessed from it.
-    measured = {"samsung", "Google", "Xiaomi", "OnePlus", "motorola",
-                "OPPO", "realme", "vivo"}
+    measured = {"samsung", "Google", "Xiaomi", "OnePlus", "motorola", "OPPO", "realme", "vivo"}
 
     assert {d["manufacturer"] for d in _load("android")["devices"]} <= measured
 
@@ -377,8 +383,11 @@ def test_no_generic_system_image_code_reaches_the_android_catalog() -> None:
     # handset reports a GSI name -- it sends its own code. Chinese-brand dumps
     # hit the same trap from the other side, where a partition still holding
     # the chip vendor's defaults resolves to "Kona for arm64".
-    leaked = [d["model"] for d in _load("android")["devices"]
-              if re.search(r"\bfor\s+arm", d["code"], re.I)]
+    leaked = [
+        d["model"]
+        for d in _load("android")["devices"]
+        if re.search(r"\bfor\s+arm", d["code"], re.I)
+    ]
 
     assert not leaked, leaked
 
@@ -404,9 +413,11 @@ def test_no_tablet_reaches_the_android_phone_catalog() -> None:
     # blind spot it was meant to guard. A word boundary does not fall between
     # a letter and a digit, so `OnePlus Pad2` and `vivo Pad2` passed both.
     # A guard written from the implementation can only confirm it.
-    slates = [f"{d['name']} ({d['model']})" for d in _load("android")["devices"]
-              if re.search(r"(?<![a-z])(pad|tab|tablet|watch|book|buds|slate)\d*\b",
-                           d["name"], re.I)]
+    slates = [
+        f"{d['name']} ({d['model']})"
+        for d in _load("android")["devices"]
+        if re.search(r"(?<![a-z])(pad|tab|tablet|watch|book|buds|slate)\d*\b", d["name"], re.I)
+    ]
 
     assert not slates, slates
 
@@ -420,21 +431,32 @@ def test_firmware_dated_brands_list_only_the_sdk_their_firmware_proves() -> None
     # gives them a real release date, so their range starts at a true launch
     # level and widening it upwards is evidenced.
     measured = ("miui-updates-tracker", "dumps.tadiphone.dev")
-    wide = [(d["model"], d["versions"]) for d in _load("android")["devices"]
-            if d["source"].startswith(measured) and len(d["versions"]) != 1]
+    wide = [
+        (d["model"], d["versions"])
+        for d in _load("android")["devices"]
+        if d["source"].startswith(measured) and len(d["versions"]) != 1
+    ]
 
     assert not wide, wide
 
 
-def test_no_desktop_version_claims_an_architecture_no_model_can_run(desktop: dict[str, Any]) -> None:
+def test_no_desktop_version_claims_an_architecture_no_model_can_run(
+    desktop: dict[str, Any],
+) -> None:
     # SystemVersionPretty writes "arm64" only on an ARM machine. linuxhw/DMI
     # contributes no ARM Windows hardware under any sampled vendor folder, so
     # the string could only ever be paired with an x86 model number -- a
     # machine that does not exist. It comes back when ARM hardware does.
-    arm = [v["version"] for v in desktop["versions"]
-           if re.search(r"\b(arm64|aarch64|armv)", v["version"], re.I)]
-    arm_models = [d["model"] for d in desktop["devices"]
-                  if re.search(r"\b(surface pro x|thinkpad x13s|snapdragon)", d["model"], re.I)]
+    arm = [
+        v["version"]
+        for v in desktop["versions"]
+        if re.search(r"\b(arm64|aarch64|armv)", v["version"], re.I)
+    ]
+    arm_models = [
+        d["model"]
+        for d in desktop["devices"]
+        if re.search(r"\b(surface pro x|thinkpad x13s|snapdragon)", d["model"], re.I)
+    ]
 
     assert bool(arm) == bool(arm_models), (arm, arm_models)
 
@@ -448,9 +470,12 @@ def test_no_bsd_version_reports_a_desktop_only_linux_ships(desktop: dict[str, An
     # three have no FreeBSD port at all. Pairing any of them with a FreeBSD
     # release describes a machine that cannot exist, which is the one thing a
     # generated identity may never do.
-    paired = [v["version"] for v in desktop["versions"]
-              if not v["version"].startswith("Linux ")
-              and any(d in v["version"] for d in _lib_base_linux_only())]
+    paired = [
+        v["version"]
+        for v in desktop["versions"]
+        if not v["version"].startswith("Linux ")
+        and any(d in v["version"] for d in _lib_base_linux_only())
+    ]
 
     assert not paired, paired
 
@@ -463,11 +488,12 @@ def _lib_base_linux_only() -> set[str]:
     one way to reach the constant that works wherever the data does.
     """
 
-
     tree = ast.parse(BUILDER.with_name("desktop.py").read_text(encoding="utf-8"))
     for node in ast.walk(tree):
-        if (isinstance(node, ast.AnnAssign)
-                and getattr(node.target, "id", "") == "LINUX_ONLY_DESKTOPS"):
+        if (
+            isinstance(node, ast.AnnAssign)
+            and getattr(node.target, "id", "") == "LINUX_ONLY_DESKTOPS"
+        ):
             return {ast.literal_eval(e) for e in node.value.args[0].elts}
     msg = "desktop.py no longer declares LINUX_ONLY_DESKTOPS"
     raise AssertionError(msg)
@@ -477,16 +503,28 @@ def test_every_bsd_desktop_pairing_is_one_a_ports_tree_can_produce(desktop: dict
     # The complement of the test above, stated positively, so a desktop added
     # to the pool without being classified shows up here rather than silently
     # reaching a BSD row.
-    bsd = {v["version"].split("RELEASE ", 1)[1].rsplit(" ", 1)[0]
-           for v in desktop["versions"]
-           if "RELEASE " in v["version"]}
+    bsd = {
+        v["version"].split("RELEASE ", 1)[1].rsplit(" ", 1)[0]
+        for v in desktop["versions"]
+        if "RELEASE " in v["version"]
+    }
 
     # Checked against the FreeBSD ports tree: x11/gnome-shell,
     # x11/plasma6-plasma-desktop, x11/cinnamon, x11/xfce4, x11/mate,
     # x11/lxqt, x11/lxde-meta, x11/budgie-desktop, x11-wm/hyprland,
     # x11-wm/sway and x11-wm/cosmic-comp all exist.
-    ported = {"GNOME", "KDE", "X-Cinnamon", "XFCE", "MATE", "LXQt",
-              "Hyprland", "sway", "COSMIC", "LXDE"}
+    ported = {
+        "GNOME",
+        "KDE",
+        "X-Cinnamon",
+        "XFCE",
+        "MATE",
+        "LXQt",
+        "Hyprland",
+        "sway",
+        "COSMIC",
+        "LXDE",
+    }
 
     assert bsd <= ported, sorted(bsd - ported)
 
@@ -503,10 +541,21 @@ def test_no_chromeos_machine_is_offered_with_a_windows_version(desktop: dict[str
     #
     # The board names are checked rather than the family, because the family
     # is what the builder filters on and a guard must not share its input.
-    boards = {"berknip", "dratini", "gumboz", "zork", "hatch", "octopus",
-              "coral", "volteer", "brya", "nissa", "trogdor", "grunt"}
-    leaked = [d["model"] for d in desktop["devices"]
-              if d["model"].lower() in boards]
+    boards = {
+        "berknip",
+        "dratini",
+        "gumboz",
+        "zork",
+        "hatch",
+        "octopus",
+        "coral",
+        "volteer",
+        "brya",
+        "nissa",
+        "trogdor",
+        "grunt",
+    }
+    leaked = [d["model"] for d in desktop["devices"] if d["model"].lower() in boards]
 
     assert not leaked, leaked
 
@@ -515,9 +564,11 @@ def test_only_hp_models_exceed_lib_bases_fifteen_character_cap(desktop: dict[str
     # IsDeviceModelOk caps a model at 15 characters and makes one exception,
     # for the HP names that are longer. A non-HP string over the cap would
     # mean the port stopped being applied somewhere.
-    over = [d["model"] for d in desktop["devices"]
-            if len(d["model"]) > MAX_MODEL
-            and not d["model"].startswith(("HP", "103C"))]
+    over = [
+        d["model"]
+        for d in desktop["devices"]
+        if len(d["model"]) > MAX_MODEL and not d["model"].startswith(("HP", "103C"))
+    ]
 
     assert not over, over
     assert all(len(d["model"]) <= MAX_HP_MODEL for d in desktop["devices"])
@@ -534,8 +585,9 @@ def test_macos_stays_out_of_the_desktop_catalog(desktop: dict[str, Any]) -> None
     assert all(v["os"] in ("windows", "linux") for v in desktop["versions"])
 
     # A bare "26.1" would be a macOS version that slipped through.
-    assert not [v["version"] for v in desktop["versions"]
-                if re.fullmatch(r"\d+(\.\d+)*", v["version"])]
+    assert not [
+        v["version"] for v in desktop["versions"] if re.fullmatch(r"\d+(\.\d+)*", v["version"])
+    ]
 
 
 @pytest.mark.skipif(not BUILDER.is_file(), reason="devtools/ is not installed")
@@ -587,9 +639,9 @@ def test_linux_versions_only_carry_glibc_on_glibc_systems() -> None:
 def test_linux_model_pool_adds_the_fallbacks_windows_has_none_of() -> None:
     models = set(DesktopDevice.models("linux"))
 
-    assert {"KVM", "QEMU", "VMWARE"} <= models      # systemd-detect-virt
+    assert {"KVM", "QEMU", "VMWARE"} <= models  # systemd-detect-virt
     assert {"Laptop", "Tablet", "Handset"} <= models  # ChassisTypeToString
-    assert "Desktop" in models                       # FinalizeDeviceModel
+    assert "Desktop" in models  # FinalizeDeviceModel
     # ChassisTypeToString maps every notebook chassis to "Laptop"
     assert "Notebook" not in models
     # none of these reach a Windows client

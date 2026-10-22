@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
 # ============================== output ==============================
 
+
 @dataclass(frozen=True, slots=True)
 class Catalog:
     """One platform's finished catalog, ready to serialize.
@@ -63,8 +64,11 @@ class Catalog:
         # platform. git hides this when core.autocrlf is on; the generator
         # should not depend on that.
         path = out_dir / f"{self.platform}.json"
-        path.write_text(json.dumps(payload, indent=1, ensure_ascii=False),
-                        encoding="utf-8", newline="\n")
-        print(f"{self.platform}: {len(self.devices)} devices, "
-              f"{len(self.versions)} versions -> {path.relative_to(ROOT)}")
+        path.write_text(
+            json.dumps(payload, indent=1, ensure_ascii=False), encoding="utf-8", newline="\n"
+        )
+        print(
+            f"{self.platform}: {len(self.devices)} devices, "
+            f"{len(self.versions)} versions -> {path.relative_to(ROOT)}"
+        )
         return path

@@ -187,6 +187,7 @@ def test_patch_cls_copies_the_listed_dunders() -> None:
 
 def test_patch_cls_requires_single_base() -> None:
     class First: ...
+
     class Second: ...
 
     with pytest.raises(TypeError, match="exactly one base"):
@@ -204,8 +205,11 @@ def test_patch_cls_requires_single_base() -> None:
 
 def test_walk_subclasses_yields_a_diamond_once() -> None:
     class Base: ...
+
     class Left(Base): ...
+
     class Right(Base): ...
+
     class Bottom(Left, Right): ...
 
     names = [c.__name__ for c in walk_subclasses(Base)]
@@ -215,6 +219,7 @@ def test_walk_subclasses_yields_a_diamond_once() -> None:
 
 def test_walk_subclasses_can_start_with_the_base() -> None:
     class Base: ...
+
     class Child(Base): ...
 
     assert list(walk_subclasses(Base, include_base=True)) == [Base, Child]

@@ -66,7 +66,9 @@ class _LazyCallAll(Protocol[_T_co]):
     """What `call_all(lazy=True)` returns: `call_all` again, with the captured functions prepended."""
 
     @overload
-    def __call__(self, *funcs: Callable[[], _VT], lazy: _False = False) -> tuple[_T_co | _VT, ...]: ...
+    def __call__(
+        self, *funcs: Callable[[], _VT], lazy: _False = False
+    ) -> tuple[_T_co | _VT, ...]: ...
     @overload
     def __call__(self, *funcs: Callable[[], _VT], lazy: _True) -> _LazyCallAll[_T_co | _VT]: ...
 

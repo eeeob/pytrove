@@ -47,7 +47,9 @@ def to_coroutine(func: Callable[_P, _T]) -> Callable[_P, _Coro[_T]]:
     return functools.wraps(func)(wrapper)
 
 
-def run_awaitable_sync(awaitable: Awaitable[_T], loop: asyncio.AbstractEventLoop | None = None) -> _T:
+def run_awaitable_sync(
+    awaitable: Awaitable[_T], loop: asyncio.AbstractEventLoop | None = None
+) -> _T:
     """Run an awaitable to completion from synchronous code.
 
     Without `loop`, a fresh loop runs it through `asyncio.run`; use

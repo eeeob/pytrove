@@ -2,7 +2,15 @@ from __future__ import annotations as _annotations
 
 import os
 import threading
-from collections.abc import Awaitable, Callable, Collection, Hashable, Iterator, Reversible, Sequence
+from collections.abc import (
+    Awaitable,
+    Callable,
+    Collection,
+    Hashable,
+    Iterator,
+    Reversible,
+    Sequence,
+)
 from collections.abc import Set as AbstractSet
 from enum import Enum
 from typing import Any, Literal, ParamSpec, TypeVar, get_args, get_origin, get_type_hints
@@ -64,7 +72,15 @@ def test_path_like_accepts_strings_bytes_and_os_paths() -> None:
 
 def test_type_variables_carry_their_bounds() -> None:
     assert isinstance(_P, ParamSpec)
-    bounds = {_T: None, _VT: None, _KT: Hashable, _CT: type, _FT: Callable[..., Any], _ExcT: BaseException, _EnumT: Enum}
+    bounds = {
+        _T: None,
+        _VT: None,
+        _KT: Hashable,
+        _CT: type,
+        _FT: Callable[..., Any],
+        _ExcT: BaseException,
+        _EnumT: Enum,
+    }
     for var, bound in bounds.items():
         assert isinstance(var, TypeVar)
         assert var.__bound__ == bound

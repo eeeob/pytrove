@@ -39,6 +39,7 @@ if TYPE_CHECKING:
 
 # ============================== the lock file ==============================
 
+
 class Lock:
     """`sources/sources.lock.json`: what upstream looked like last time."""
 
@@ -136,8 +137,9 @@ class Lock:
 
     # --- writing ----------------------------------------------------------
 
-    def rebuild(self, registry: Registry, verdicts: list[Verdict],
-                today: str | None = None) -> dict[str, Any]:
+    def rebuild(
+        self, registry: Registry, verdicts: list[Verdict], today: str | None = None
+    ) -> dict[str, Any]:
         """The lock as it should now be, without touching the file.
 
         An entry is carried forward unchanged when a source could not be
@@ -145,15 +147,15 @@ class Lock:
         against, or the next run would call everything `new`.
         """
         today = today or date.today().isoformat()
-        previous = {**self.data.get(self.CITATIONS, {}),
-                    **self.data.get(self.SOURCES, {})}
+        previous = {**self.data.get(self.CITATIONS, {}), **self.data.get(self.SOURCES, {})}
         written: dict[str, dict[str, Any]] = {s: {} for s in self.WRITTEN}
 
         for verdict in verdicts:
             if registry.watch(verdict.source_id) is not None:
                 if verdict.consecutive:
                     written[self.WATCHES][verdict.source_id] = {
-                        self.FAILING: self._failing(verdict, today)}
+                        self.FAILING: self._failing(verdict, today)
+                    }
                 continue
 
             was = previous.get(verdict.source_id, {})
@@ -162,14 +164,17 @@ class Lock:
             # A changed declaration is itself worth recording, so an
             # `ok` run writes when the digest moved -- once, not every run.
             restated = bool(
-                verdict.declaration
-                and verdict.declaration != was.get("declaration", ""))
-            learned = (verdict.state in (State.NEW, State.CHANGED) or restated)
+                verdict.declaration and verdict.declaration != was.get("declaration", "")
+            )
+            learned = verdict.state in (State.NEW, State.CHANGED) or restated
 
             if verdict.is_clear and learned and verdict.body is not None:
                 entry = self._facts(verdict)
-            elif (verdict.is_clear and verdict.body is not None
-                    and carried.get("contract", "ok") != "ok"):
+            elif (
+                verdict.is_clear
+                and verdict.body is not None
+                and carried.get("contract", "ok") != "ok"
+            ):
                 # The source recovered. Clearing the verdict is not "learning
                 # something" -- the facts are unchanged, so they are carried
                 # forward -- but leaving it would keep claiming the source is
@@ -204,9 +209,9 @@ class Lock:
             if verdict.consecutive:
                 entry[self.FAILING] = self._failing(verdict, today)
 
-            section = (self.CITATIONS
-                       if registry.citation(verdict.source_id) is not None
-                       else self.SOURCES)
+            section = (
+                self.CITATIONS if registry.citation(verdict.source_id) is not None else self.SOURCES
+            )
             written[section][verdict.source_id] = entry
 
         rebuilt: dict[str, Any] = {
@@ -261,8 +266,9 @@ class Lock:
             entry["sha256"] = verdict.sha256
             entry["bytes"] = verdict.bytes_len
 
-        http = {k: v for k, v in (("etag", verdict.etag),
-                                  ("last_modified", verdict.last_modified)) if v}
+        http = {
+            k: v for k, v in (("etag", verdict.etag), ("last_modified", verdict.last_modified)) if v
+        }
         if http:
             entry["http"] = http
         entry["contract"] = "ok" if not verdict.contract_errors else "broken"
@@ -287,6 +293,7 @@ class Lock:
 
 # ============================== the state file ==============================
 
+
 class RunState:
     """`.cache/preflight.state.json`: when the check last ran, and what it did.
 
@@ -308,8 +315,9 @@ class RunState:
         except (json.JSONDecodeError, OSError):
             return {}
 
-    def write(self, *, verdicts: list[Verdict], network: str,
-              pruned: list[str], duration_s: float) -> None:
+    def write(
+        self, *, verdicts: list[Verdict], network: str, pruned: list[str], duration_s: float
+    ) -> None:
         payload = {
             "state_schema": self.SCHEMA,
             self.LAST_CHECKED: datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -317,14 +325,12 @@ class RunState:
             "network": network,
             "pruned": pruned,
             "report": [
-                {"id": v.source_id, "state": v.state, "ms": v.elapsed_ms,
-                 "attempts": v.attempts}
+                {"id": v.source_id, "state": v.state, "ms": v.elapsed_ms, "attempts": v.attempts}
                 for v in verdicts
             ],
         }
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(
-            json.dumps(payload, indent=1) + "\n", encoding="utf-8", newline="\n")
+        self.path.write_text(json.dumps(payload, indent=1) + "\n", encoding="utf-8", newline="\n")
 
     def age_days(self) -> float | None:
         """Days since the last check, or None if it has never run."""

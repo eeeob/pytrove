@@ -8,7 +8,9 @@ import pytest
 from pytrove.num_tools._internal import _eval_calc_ast, _CALC_BINOPS, _CALC_UNARYOPS
 
 
-@pytest.mark.parametrize(("text", "expected"), [("1+2*3", 7), ("-4", -4), ("+4", 4), ("6/4", 1.5), ("2-3", -1)])
+@pytest.mark.parametrize(
+    ("text", "expected"), [("1+2*3", 7), ("-4", -4), ("+4", 4), ("6/4", 1.5), ("2-3", -1)]
+)
 def test_eval_calc_ast_evaluates_allowed_arithmetic(text: str, expected: float) -> None:
     assert _eval_calc_ast(ast.parse(text, mode="eval")) == expected
 
@@ -25,5 +27,10 @@ def test_eval_calc_ast_raises_on_a_division_by_zero() -> None:
 
 
 def test_operator_tables() -> None:
-    assert _CALC_BINOPS == {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul, ast.Div: operator.truediv}
+    assert _CALC_BINOPS == {
+        ast.Add: operator.add,
+        ast.Sub: operator.sub,
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+    }
     assert _CALC_UNARYOPS == {ast.UAdd: operator.pos, ast.USub: operator.neg}

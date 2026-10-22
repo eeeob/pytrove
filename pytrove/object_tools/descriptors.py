@@ -46,13 +46,23 @@ class classproperty(Generic[_T, _VT]):
 
     @overload
     def __new__(
-        cls, fget: Callable[[type[_T]], _VT], *, doc: str | None = None, cached: bool = False,
+        cls,
+        fget: Callable[[type[_T]], _VT],
+        *,
+        doc: str | None = None,
+        cached: bool = False,
     ) -> classproperty[_T, _VT]: ...
     @overload
     def __new__(
-        cls, fget: None = None, *, doc: str | None = None, cached: bool = False,
+        cls,
+        fget: None = None,
+        *,
+        doc: str | None = None,
+        cached: bool = False,
     ) -> Callable[[Callable[[type[_T]], _VT]], classproperty[_T, _VT]]: ...
-    def __new__(cls, fget: Callable[..., Any] | None = None, *, doc: str | None = None, cached: bool = False) -> Any:
+    def __new__(
+        cls, fget: Callable[..., Any] | None = None, *, doc: str | None = None, cached: bool = False
+    ) -> Any:
         """Create the property, or a decorator awaiting the getter when called with options only.
 
         Args:
@@ -68,7 +78,9 @@ class classproperty(Generic[_T, _VT]):
 
         return super().__new__(cls)
 
-    def __init__(self, fget: Callable[[type[_T]], _VT], *, doc: str | None = None, cached: bool = False) -> None:
+    def __init__(
+        self, fget: Callable[[type[_T]], _VT], *, doc: str | None = None, cached: bool = False
+    ) -> None:
         """Store the getter.
 
         Args:

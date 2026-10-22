@@ -26,67 +26,107 @@ if TYPE_CHECKING:
 
 @overload
 def middleware(
-    func: Callable[_P, _Coro[_T]], *, before: MaybeAwaitableCallable[_P, Any] | None = None,
-    after: None = None, on_error: None = None,
+    func: Callable[_P, _Coro[_T]],
+    *,
+    before: MaybeAwaitableCallable[_P, Any] | None = None,
+    after: None = None,
+    on_error: None = None,
 ) -> Callable[_P, _Coro[_T]]: ...
 @overload
 def middleware(
-    func: Callable[_P, _Coro[_T]], *, before: MaybeAwaitableCallable[_P, Any] | None = None,
-    after: None = None, on_error: MaybeAwaitableCallable[Concatenate[BaseException, _P], _ET_co],
+    func: Callable[_P, _Coro[_T]],
+    *,
+    before: MaybeAwaitableCallable[_P, Any] | None = None,
+    after: None = None,
+    on_error: MaybeAwaitableCallable[Concatenate[BaseException, _P], _ET_co],
 ) -> Callable[_P, _Coro[_T | _ET_co]]: ...
 @overload
 def middleware(
-    func: Callable[_P, _Coro[_T]], *, before: MaybeAwaitableCallable[_P, Any] | None = None,
-    after: MaybeAwaitableCallable[Concatenate[_T, _P], _AT_co], on_error: None = None,
+    func: Callable[_P, _Coro[_T]],
+    *,
+    before: MaybeAwaitableCallable[_P, Any] | None = None,
+    after: MaybeAwaitableCallable[Concatenate[_T, _P], _AT_co],
+    on_error: None = None,
 ) -> Callable[_P, _Coro[_AT_co]]: ...
 @overload
 def middleware(
-    func: Callable[_P, _Coro[_T]], *, before: MaybeAwaitableCallable[_P, Any] | None = None,
+    func: Callable[_P, _Coro[_T]],
+    *,
+    before: MaybeAwaitableCallable[_P, Any] | None = None,
     on_error: MaybeAwaitableCallable[Concatenate[BaseException, _P], _ET_co],
     after: MaybeAwaitableCallable[Concatenate[_T | _ET_co, _P], _AT_co],
 ) -> Callable[_P, _Coro[_AT_co]]: ...
 @overload
 def middleware(
-    func: Callable[_P, _T], *, before: Callable[_P, Any] | None = None, after: None = None, on_error: None = None,
+    func: Callable[_P, _T],
+    *,
+    before: Callable[_P, Any] | None = None,
+    after: None = None,
+    on_error: None = None,
 ) -> Callable[_P, _T]: ...
 @overload
 def middleware(
-    func: Callable[_P, _T], *, before: Callable[_P, Any] | None = None, after: None = None,
+    func: Callable[_P, _T],
+    *,
+    before: Callable[_P, Any] | None = None,
+    after: None = None,
     on_error: Callable[Concatenate[BaseException, _P], _ET_co],
 ) -> Callable[_P, _T | _ET_co]: ...
 @overload
 def middleware(
-    func: Callable[_P, _T], *, before: Callable[_P, Any] | None = None,
-    after: Callable[Concatenate[_T, _P], _AT_co], on_error: None = None,
+    func: Callable[_P, _T],
+    *,
+    before: Callable[_P, Any] | None = None,
+    after: Callable[Concatenate[_T, _P], _AT_co],
+    on_error: None = None,
 ) -> Callable[_P, _AT_co]: ...
 @overload
 def middleware(
-    func: Callable[_P, _T], *, before: Callable[_P, Any] | None = None,
-    on_error: Callable[Concatenate[BaseException, _P], _ET_co], after: Callable[Concatenate[_T | _ET_co, _P], _AT_co],
+    func: Callable[_P, _T],
+    *,
+    before: Callable[_P, Any] | None = None,
+    on_error: Callable[Concatenate[BaseException, _P], _ET_co],
+    after: Callable[Concatenate[_T | _ET_co, _P], _AT_co],
 ) -> Callable[_P, _AT_co]: ...
 @overload
 def middleware(
-    func: None = None, *, before: Callable[_P, Any] | None = None, after: None = None, on_error: None = None,
+    func: None = None,
+    *,
+    before: Callable[_P, Any] | None = None,
+    after: None = None,
+    on_error: None = None,
 ) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]: ...
 @overload
 def middleware(
-    func: None = None, *, before: Callable[_P, Any] | None = None, after: None = None,
+    func: None = None,
+    *,
+    before: Callable[_P, Any] | None = None,
+    after: None = None,
     on_error: Callable[Concatenate[BaseException, _P], Awaitable[_ET_co]],
 ) -> _AwaitOnErrorDecorator[_P, _ET_co]: ...
 @overload
 def middleware(
-    func: None = None, *, before: Callable[_P, Any] | None = None, after: None = None,
+    func: None = None,
+    *,
+    before: Callable[_P, Any] | None = None,
+    after: None = None,
     on_error: Callable[Concatenate[BaseException, _P], _ET_co],
 ) -> _WaitOnErrorDecorator[_P, _ET_co]: ...
 @overload
 def middleware(
-    func: None = None, *, before: Callable[_P, Any] | None = None,
-    after: Callable[Concatenate[_T, _P], Awaitable[_AT_co]], on_error: None = None,
+    func: None = None,
+    *,
+    before: Callable[_P, Any] | None = None,
+    after: Callable[Concatenate[_T, _P], Awaitable[_AT_co]],
+    on_error: None = None,
 ) -> _AwaitAfterDecorator[_P, _T, _AT_co]: ...
 @overload
 def middleware(
-    func: None = None, *, before: Callable[_P, Any] | None = None,
-    after: Callable[Concatenate[_T, _P], _AT_co], on_error: None = None,
+    func: None = None,
+    *,
+    before: Callable[_P, Any] | None = None,
+    after: Callable[Concatenate[_T, _P], _AT_co],
+    on_error: None = None,
 ) -> _WaitAfterDecorator[_P, _T, _AT_co]: ...
 def middleware(func: Callable[..., Any] | None = None, **kw: Any) -> Any:
     """Wrap a sync or async function with hooks, directly or as a decorator.

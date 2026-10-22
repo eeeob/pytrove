@@ -37,7 +37,9 @@ class PeriodicArchiver:
         base_exclude: Patterns left out of every archive.
     """
 
-    def __init__(self, jobs: NestedContainer[ArchiveJob], *, base_exclude: NestedContainer[str] = ()) -> None:
+    def __init__(
+        self, jobs: NestedContainer[ArchiveJob], *, base_exclude: NestedContainer[str] = ()
+    ) -> None:
         """Hold the jobs; nothing runs until `start`.
 
         Args:
@@ -66,7 +68,11 @@ class PeriodicArchiver:
         Returns:
             Their archive file names.
         """
-        return [other.archive_path().name for other in self.jobs if other is not job and other.root == job.root]
+        return [
+            other.archive_path().name
+            for other in self.jobs
+            if other is not job and other.root == job.root
+        ]
 
     def _should_run(self, job: ArchiveJob) -> bool:
         """Ask the job, or check that `min_interval` has passed since its last run.
@@ -91,21 +97,29 @@ class PeriodicArchiver:
         Returns:
             The archive's path.
         """
-        return await to_thread(partial(
-            compress_folder, job.root, job.archive_path(),
-            format=job.archive_format,
-            include=job.include,
-            # `None` stands for "no rules", which a nested rule container spells as `()`.
-            exclude=[self.base_exclude, () if job.exclude is None else job.exclude, self._siblings(job)],
-            exclude_hidden=job.exclude_hidden,
-            stability_retries=job.stability_retries,
-            level=job.level,
-            workers=job.workers,
-            follow_links=job.follow_links,
-            fsync=job.fsync,
-            stability_check=job.stability_check,
-            delete_source=job.delete_source,
-        ))
+        return await to_thread(
+            partial(
+                compress_folder,
+                job.root,
+                job.archive_path(),
+                format=job.archive_format,
+                include=job.include,
+                # `None` stands for "no rules", which a nested rule container spells as `()`.
+                exclude=[
+                    self.base_exclude,
+                    () if job.exclude is None else job.exclude,
+                    self._siblings(job),
+                ],
+                exclude_hidden=job.exclude_hidden,
+                stability_retries=job.stability_retries,
+                level=job.level,
+                workers=job.workers,
+                follow_links=job.follow_links,
+                fsync=job.fsync,
+                stability_check=job.stability_check,
+                delete_source=job.delete_source,
+            )
+        )
 
     async def run_job(self, job: ArchiveJob) -> None:
         """Create, hand off and delete one archive, under the job's own lock.

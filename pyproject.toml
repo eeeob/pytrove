@@ -194,8 +194,16 @@ addopts = "--import-mode=importlib"
 # run exactly this configuration, locally and in CI.
 [tool.ruff]
 target-version = "py310"
+# Steers only the formatter: `E501` is not selected, so no line fails for its length.
+line-length = 100
 # PEP 695 syntax, imported only on 3.12+ (see `typings/core.py`).
 per-file-target-version = { "pytrove/typings/_core_py312.py" = "py312" }
+
+[tool.ruff.format]
+# Already the default, pinned so a future `ruff` release cannot rewrite the tree by changing
+#  it. Nothing else here needs setting: preserving the quotes instead of normalizing them
+#  shrinks the reformat by 2 lines out of 6548, so the tree is double-quoted throughout.
+quote-style = "double"
 
 [tool.ruff.lint]
 select = [

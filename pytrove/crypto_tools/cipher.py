@@ -48,7 +48,9 @@ def decrypt(encrypted_data: bytes, password: str, data_resolver: None = None) ->
 @overload
 def decrypt(encrypted_data: bytes, password: str, data_resolver: Callable[[bytes], _T]) -> _T: ...
 @_optional_import(("cryptography", "crypto"))
-def decrypt(encrypted_data: bytes, password: str, data_resolver: Callable[[bytes], Any] | None = None) -> Any:
+def decrypt(
+    encrypted_data: bytes, password: str, data_resolver: Callable[[bytes], Any] | None = None
+) -> Any:
     """Decrypt what `encrypt` produced.
 
     Args:
@@ -67,8 +69,8 @@ def decrypt(encrypted_data: bytes, password: str, data_resolver: Callable[[bytes
         raise ValidationError(msg)
 
     salt = encrypted_data[:_SALT_LEN]
-    nonce = encrypted_data[_SALT_LEN:_SALT_LEN + _NONCE_LEN]
-    ciphertext = encrypted_data[_SALT_LEN + _NONCE_LEN:]
+    nonce = encrypted_data[_SALT_LEN : _SALT_LEN + _NONCE_LEN]
+    ciphertext = encrypted_data[_SALT_LEN + _NONCE_LEN :]
 
     try:
         data_bytes = AESGCM(_derive_key(password, salt)).decrypt(nonce, ciphertext, None)
@@ -104,7 +106,9 @@ def d_decrypt(encrypted_data: bytes, password: str, data_resolver: None = None) 
 @overload
 def d_decrypt(encrypted_data: bytes, password: str, data_resolver: Callable[[bytes], _T]) -> _T: ...
 @_optional_import(("cryptography", "crypto"))
-def d_decrypt(encrypted_data: bytes, password: str, data_resolver: Callable[[bytes], Any] | None = None) -> Any:
+def d_decrypt(
+    encrypted_data: bytes, password: str, data_resolver: Callable[[bytes], Any] | None = None
+) -> Any:
     """Decrypt what `d_encrypt` produced.
 
     Args:

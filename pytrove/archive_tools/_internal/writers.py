@@ -65,10 +65,20 @@ def _write_zip(
         name = getattr(out, "name", None)
         zf = wzip = backends.WZip(
             Path(name if isinstance(name, (str, os.PathLike)) else "archive.zip"),
-            fobj=out, threads=workers or None, executor=executor, force_zip64=True,
+            fobj=out,
+            threads=workers or None,
+            executor=executor,
+            force_zip64=True,
         )
     else:
-        zf = zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, allowZip64=True, compresslevel=level, strict_timestamps=False)
+        zf = zipfile.ZipFile(
+            out,
+            "w",
+            zipfile.ZIP_DEFLATED,
+            allowZip64=True,
+            compresslevel=level,
+            strict_timestamps=False,
+        )
 
     pending_tmp: list[str] = []
 
@@ -78,7 +88,9 @@ def _write_zip(
                 if is_dir:
                     continue
 
-                skip, tmp_path, before_stat = stable._stable_source(path, stability_retries, stability_check)
+                skip, tmp_path, before_stat = stable._stable_source(
+                    path, stability_retries, stability_check
+                )
 
                 if skip:
                     continue
@@ -89,7 +101,10 @@ def _write_zip(
                         if tmp_path is not None:
                             pending_tmp.append(tmp_path)
 
-                        wzip.write(ensure_path(tmp_path if tmp_path is not None else path), archive_path=ensure_path(arcname))
+                        wzip.write(
+                            ensure_path(tmp_path if tmp_path is not None else path),
+                            archive_path=ensure_path(arcname),
+                        )
                     elif tmp_path is not None:
                         zf.write(tmp_path, arcname)
                     else:
@@ -149,22 +164,32 @@ def _write_tar(
                 msg = "compress_folder: tar.zst needs a zstd backend -- `_require_zstd` must pass before `_write_tar` runs"
                 raise RuntimeError(msg)
 
-            compressor = backends.zstandard.ZstdCompressor(level=level, threads=workers).stream_writer(out, closefd=False)
+            compressor = backends.zstandard.ZstdCompressor(
+                level=level, threads=workers
+            ).stream_writer(out, closefd=False)
         else:
             zstd = backends.std_zstd
             compressor = zstd.ZstdFile(
-                out, "wb",
-                options={zstd.CompressionParameter.compression_level: level, zstd.CompressionParameter.nb_workers: workers},
+                out,
+                "wb",
+                options={
+                    zstd.CompressionParameter.compression_level: level,
+                    zstd.CompressionParameter.nb_workers: workers,
+                },
             )
     else:
-        compressor = gzip.GzipFile(fileobj=out, mode="wb", compresslevel=6 if level is None else level)
+        compressor = gzip.GzipFile(
+            fileobj=out, mode="wb", compresslevel=6 if level is None else level
+        )
 
     with compressor as stream, tarfile.open(fileobj=stream, mode="w|", dereference=True) as tf:
         for path, arcname, is_dir in entries:
             tmp_path = before_stat = None
 
             if not is_dir:
-                skip, tmp_path, before_stat = stable._stable_source(path, stability_retries, stability_check)
+                skip, tmp_path, before_stat = stable._stable_source(
+                    path, stability_retries, stability_check
+                )
 
                 if skip:
                     continue

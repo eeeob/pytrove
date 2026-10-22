@@ -12,7 +12,9 @@ if TYPE_CHECKING:
     from ..typings import _T
 
 
-async def safe_wait_task(task: asyncio.Task[_T], canceled_ok: bool = True, exc_ok: bool = False) -> _T | None:
+async def safe_wait_task(
+    task: asyncio.Task[_T], canceled_ok: bool = True, exc_ok: bool = False
+) -> _T | None:
     """Await a task, optionally tolerating its cancellation or failure.
 
     Args:
@@ -84,7 +86,9 @@ async def cancel_task(task: asyncio.Task, msg: str | None = None) -> bool:
         return False
 
     await _wait_done(task)
-    await asafe_call(task, include_exc=asyncio.CancelledError, log_exc=False)  # Done: reads the outcome at once.
+    await asafe_call(
+        task, include_exc=asyncio.CancelledError, log_exc=False
+    )  # Done: reads the outcome at once.
     return True
 
 

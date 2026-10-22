@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
 # ========================== lib_base model rules ==========================
 
+
 class LibBase:
     """Port of `base::Platform` from desktop-app/lib_base.
 
@@ -29,7 +30,8 @@ class LibBase:
 
     #: Words ProductNameToDeviceModel strips out of an HP product name.
     HP_FILLER: ClassVar[frozenset[str]] = frozenset(
-        {"notebook", "desktop", "mobile", "workstation", "pc"})
+        {"notebook", "desktop", "mobile", "workstation", "pc"}
+    )
 
     @staticmethod
     def clean_and_simplify(value: str) -> str:
@@ -38,8 +40,7 @@ class LibBase:
         Every control character becomes a space, then
         `QString::simplified()` trims and collapses whitespace runs.
         """
-        return " ".join(
-            "".join(" " if ch < " " else ch for ch in value).split())
+        return " ".join("".join(" " if ch < " " else ch for ch in value).split())
 
     @classmethod
     def simplify_device_model(cls, value: str) -> str:
@@ -92,8 +93,7 @@ class LibBase:
         Returns "" when the firmware offers nothing the client would report;
         the caller decides whether that becomes the "Desktop" fallback.
         """
-        product, family, board = (cls.simplify_device_model(v)
-                                  for v in (product, family, board))
+        product, family, board = (cls.simplify_device_model(v) for v in (product, family, board))
 
         model = cls.product_name_to_device_model(product)
         if model:

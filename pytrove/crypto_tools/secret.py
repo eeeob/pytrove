@@ -40,12 +40,14 @@ def generate_secret(
         raise ValueError(msg)
 
     sets = [
-        chars for enabled, chars in (
+        chars
+        for enabled, chars in (
             (use_lower, string.ascii_lowercase),
             (use_upper, string.ascii_uppercase),
             (use_digits, string.digits),
             (use_symbols, "!@#$%^&*()-_=+[]{};:,.<>?/"),
-        ) if enabled
+        )
+        if enabled
     ]
 
     if not sets:

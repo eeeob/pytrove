@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 # ----------------------------- desktop builder -----------------------------
 
+
 class DesktopBuilder(Builder):
     """One catalog for every desktop OS.
 
@@ -53,7 +54,9 @@ class DesktopBuilder(Builder):
     #: Firmware placeholders that are technically reportable but meaningless.
     JUNK: ClassVar[re.Pattern[str]] = re.compile(
         r"(to be filled|system product|default string|invalid|o\.e\.m|not applicable|"
-        r"not specified|^none$|^n/?a$|unknown|example|placeholder|^\d+$|^\W)", re.I)
+        r"not specified|^none$|^n/?a$|unknown|example|placeholder|^\d+$|^\W)",
+        re.I,
+    )
     HAS_LETTER: ClassVar[re.Pattern[str]] = re.compile(r"[A-Za-z]")
 
     #: ChromeOS machines name their reference platform in the DMI family, so
@@ -112,11 +115,22 @@ class DesktopBuilder(Builder):
 
     #: Every XDG_CURRENT_DESKTOP part is kept, so these are the values whole.
     DESKTOPS: ClassVar[tuple[Share, ...]] = (
-        Share("ubuntu GNOME", 24), Share("GNOME", 19), Share("KDE", 21),
-        Share("X-Cinnamon", 8), Share("XFCE", 7), Share("MATE", 4),
-        Share("LXQt", 2), Share("pop GNOME", 3), Share("Budgie GNOME", 2),
-        Share("Hyprland", 3), Share("sway", 1), Share("Unity", 1),
-        Share("Deepin", 2), Share("Pantheon", 1), Share("COSMIC", 1), Share("LXDE", 1),
+        Share("ubuntu GNOME", 24),
+        Share("GNOME", 19),
+        Share("KDE", 21),
+        Share("X-Cinnamon", 8),
+        Share("XFCE", 7),
+        Share("MATE", 4),
+        Share("LXQt", 2),
+        Share("pop GNOME", 3),
+        Share("Budgie GNOME", 2),
+        Share("Hyprland", 3),
+        Share("sway", 1),
+        Share("Unity", 1),
+        Share("Deepin", 2),
+        Share("Pantheon", 1),
+        Share("COSMIC", 1),
+        Share("LXDE", 1),
     )
 
     #: Desktop identifiers a non-Linux kernel can never report, so the kernel
@@ -130,12 +144,20 @@ class DesktopBuilder(Builder):
     #: `x11/plasma6-plasma-desktop`, `x11/xfce4`, `x11/mate`, `x11/lxqt`,
     #: `x11/lxde-meta`, `x11-wm/hyprland` and `x11-wm/sway` are all there
     #: while deepin, unity and pantheon are not.
-    LINUX_ONLY_DESKTOPS: ClassVar[frozenset[str]] = frozenset({
-        "ubuntu GNOME", "pop GNOME", "Budgie GNOME",
-        "Unity", "Deepin", "Pantheon",
-    })
+    LINUX_ONLY_DESKTOPS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "ubuntu GNOME",
+            "pop GNOME",
+            "Budgie GNOME",
+            "Unity",
+            "Deepin",
+            "Pantheon",
+        }
+    )
     SESSIONS: ClassVar[tuple[Share, ...]] = (
-        Share("Wayland", 62), Share("X11", 33), Share("Xwayland", 5),
+        Share("Wayland", 62),
+        Share("X11", 33),
+        Share("Xwayland", 5),
     )
     #: The empty name is not a gap: GetLibcVersion returns nothing outside
     #: glibc, and SystemVersionPretty then omits the libc part entirely, so a
@@ -143,9 +165,15 @@ class DesktopBuilder(Builder):
     #: fallback is unreachable -- the name is only ever empty when the version
     #: is too -- so no "libc X.Y" string is generated.
     LIBC: ClassVar[tuple[Share, ...]] = (
-        Share("glibc 2.35", 14), Share("glibc 2.36", 8), Share("glibc 2.37", 4),
-        Share("glibc 2.38", 6), Share("glibc 2.39", 22), Share("glibc 2.40", 8),
-        Share("glibc 2.41", 12), Share("glibc 2.42", 14), Share("glibc 2.43", 12),
+        Share("glibc 2.35", 14),
+        Share("glibc 2.36", 8),
+        Share("glibc 2.37", 4),
+        Share("glibc 2.38", 6),
+        Share("glibc 2.39", 22),
+        Share("glibc 2.40", 8),
+        Share("glibc 2.41", 12),
+        Share("glibc 2.42", 14),
+        Share("glibc 2.43", 12),
         Share("", 3),
     )
     #: Divides the four-factor product into readable weights.
@@ -156,15 +184,21 @@ class DesktopBuilder(Builder):
     # too. Windows has no such fallback: lib_base there ends at
     # FinalizeDeviceModel's "Desktop".
     LINUX_VIRT: ClassVar[tuple[Share, ...]] = (
-        Share("KVM", 7), Share("ORACLE", 3), Share("VMWARE", 3),
-        Share("QEMU", 2), Share("MICROSOFT", 2),
+        Share("KVM", 7),
+        Share("ORACLE", 3),
+        Share("VMWARE", 3),
+        Share("QEMU", 2),
+        Share("MICROSOFT", 2),
     )
     # The only strings ChassisTypeToString can return, minus "Desktop" which is
     # already in the pool as the FinalizeDeviceModel fallback. Notebook and
     # laptop chassis types all map to "Laptop", so "Notebook" is unreachable.
     LINUX_CHASSIS: ClassVar[tuple[Share, ...]] = (
-        Share("Laptop", 12), Share("Server", 2), Share("Tablet", 1),
-        Share("Convertible", 1), Share("Handset", 1),
+        Share("Laptop", 12),
+        Share("Server", 2),
+        Share("Tablet", 1),
+        Share("Convertible", 1),
+        Share("Handset", 1),
     )
 
     # --- per-OS documentation ---------------------------------------------
@@ -178,7 +212,8 @@ class DesktopBuilder(Builder):
         "Model strings are produced by running lib_base's own DeviceModelPretty over real "
         "dmidecode records, so a machine whose product name the client would reject appears "
         "as its family + board or not at all. This is why most Lenovo entries are machine "
-        "type codes and HP entries keep their 'HP ' prefix: that is what the firmware reports.")
+        "type codes and HP entries keep their 'HP ' prefix: that is what the firmware reports."
+    )
 
     WINDOWS_DOC: ClassVar[dict[str, Any]] = {
         "model_format": "DeviceModelPretty of real DMI records: SystemProductName, else SystemFamily + BaseBoardProduct; 15 chars, HP names up to 32",
@@ -191,9 +226,11 @@ class DesktopBuilder(Builder):
         "notes": [
             "Version weights approximate the installed base after Windows 10 went end of support on 2025-10-14.",
             "Hardware era is not matched against the Windows version; the pool is limited to current hardware instead.",
-            ("No arm64 version is listed. SystemVersionPretty writes arm64 only on an ARM "
-             "machine and every model in this pool is x86, so the string would have to be "
-             "paired with hardware that cannot run it."),
+            (
+                "No arm64 version is listed. SystemVersionPretty writes arm64 only on an ARM "
+                "machine and every model in this pool is x86, so the string would have to be "
+                "paired with hardware that cannot run it."
+            ),
             SHARED_MODEL_NOTE,
         ],
     }
@@ -209,12 +246,16 @@ class DesktopBuilder(Builder):
         "notes": [
             "Version strings are every combination of kernel, desktop environment, session type and libc.",
             "Weights are popularity estimates, not measurements; desktop and session shares follow common distro defaults.",
-            ("A non-glibc system carries no libc part at all, because GetLibcVersion returns nothing "
-             "outside glibc and the whole clause is then skipped. FreeBSD additionally carries "
-             "uname's release, which lib_base appends everywhere except Linux."),
-            ("The model pool adds what Windows has no equivalent for: systemd-detect-virt names "
-             "(uppercased, for virtual machines) and SMBIOS chassis types, which base_info_linux.cpp "
-             "falls back to when DMI exposes no usable product name."),
+            (
+                "A non-glibc system carries no libc part at all, because GetLibcVersion returns nothing "
+                "outside glibc and the whole clause is then skipped. FreeBSD additionally carries "
+                "uname's release, which lib_base appends everywhere except Linux."
+            ),
+            (
+                "The model pool adds what Windows has no equivalent for: systemd-detect-virt names "
+                "(uppercased, for virtual machines) and SMBIOS chassis types, which base_info_linux.cpp "
+                "falls back to when DMI exposes no usable product name."
+            ),
             SHARED_MODEL_NOTE,
         ],
     }
@@ -237,7 +278,8 @@ class DesktopBuilder(Builder):
             if record.get("family", "").startswith(self.CHROME_OS_FAMILY):
                 continue
             model = LibBase.device_model_from_dmi(
-                record["product"], record["family"], record["board"])
+                record["product"], record["family"], record["board"]
+            )
             if not model or self.JUNK.search(model) or not self.HAS_LETTER.search(model):
                 continue
             bucket = by_vendor[record["vendor"]]
@@ -253,8 +295,12 @@ class DesktopBuilder(Builder):
         """
         by_vendor = self.models_by_vendor(records)
         devices: list[dict[str, Any]] = [
-            {"model": self.FALLBACK_MODEL, "os": self.PC_OS, "vendor": "Other",
-             "source": "lib_base FinalizeDeviceModel fallback"}
+            {
+                "model": self.FALLBACK_MODEL,
+                "os": self.PC_OS,
+                "vendor": "Other",
+                "source": "lib_base FinalizeDeviceModel fallback",
+            }
         ]
 
         # A model string may only appear once: the same board turns up under
@@ -265,8 +311,7 @@ class DesktopBuilder(Builder):
         taken |= {share.name for share in self.LINUX_VIRT + self.LINUX_CHASSIS}
 
         for vendor in sorted(by_vendor):
-            newest = sorted(by_vendor[vendor].items(),
-                            key=lambda kv: (kv[1], kv[0]), reverse=True)
+            newest = sorted(by_vendor[vendor].items(), key=lambda kv: (kv[1], kv[0]), reverse=True)
             kept: list[str] = []
             for model, _bios in newest:
                 if len(kept) >= self.PER_VENDOR:
@@ -275,9 +320,10 @@ class DesktopBuilder(Builder):
                     taken.add(model)
                     kept.append(model)
 
-            devices += [{"model": model, "os": self.PC_OS, "vendor": vendor,
-                         "source": "linuxhw/DMI"}
-                        for model in sorted(kept)]
+            devices += [
+                {"model": model, "os": self.PC_OS, "vendor": vendor, "source": "linuxhw/DMI"}
+                for model in sorted(kept)
+            ]
             print(f"  {vendor}: {len(by_vendor[vendor])} models -> {len(kept)} kept")
 
         return devices[:1] + sorted(devices[1:], key=lambda d: (d["vendor"], d["model"]))
@@ -286,10 +332,17 @@ class DesktopBuilder(Builder):
     def linux_only_models(cls) -> list[dict[str, Any]]:
         """Fallback names no Windows machine can report."""
         return [
-            {"model": share.name, "os": ["linux"], "vendor": "Other",
-             "weight": share.weight, "source": source}
-            for shares, source in ((cls.LINUX_VIRT, "lib_base systemd-detect-virt fallback"),
-                                   (cls.LINUX_CHASSIS, "lib_base ChassisTypeToString fallback"))
+            {
+                "model": share.name,
+                "os": ["linux"],
+                "vendor": "Other",
+                "weight": share.weight,
+                "source": source,
+            }
+            for shares, source in (
+                (cls.LINUX_VIRT, "lib_base systemd-detect-virt fallback"),
+                (cls.LINUX_CHASSIS, "lib_base ChassisTypeToString fallback"),
+            )
             for share in shares
         ]
 
@@ -309,19 +362,29 @@ class DesktopBuilder(Builder):
         for kernel in cls.KERNELS:
             linux = kernel.name == "Linux"
             libcs = cls.LIBC if linux else (Share("", 100),)
-            desktops = cls.DESKTOPS if linux else tuple(
-                d for d in cls.DESKTOPS if d.name not in cls.LINUX_ONLY_DESKTOPS)
+            desktops = (
+                cls.DESKTOPS
+                if linux
+                else tuple(d for d in cls.DESKTOPS if d.name not in cls.LINUX_ONLY_DESKTOPS)
+            )
             for desktop in desktops:
                 for session in cls.SESSIONS:
                     for libc in libcs:
                         parts = (kernel.name, desktop.name, session.name, libc.name)
-                        weight = (kernel.weight * desktop.weight
-                                  * session.weight * libc.weight / cls.VERSION_SCALE)
-                        out.append({
-                            "os": "linux",
-                            "version": " ".join(part for part in parts if part),
-                            "weight": round(weight, 6),
-                        })
+                        weight = (
+                            kernel.weight
+                            * desktop.weight
+                            * session.weight
+                            * libc.weight
+                            / cls.VERSION_SCALE
+                        )
+                        out.append(
+                            {
+                                "os": "linux",
+                                "version": " ".join(part for part in parts if part),
+                                "weight": round(weight, 6),
+                            }
+                        )
         return out
 
     # --- output -----------------------------------------------------------
@@ -331,12 +394,14 @@ class DesktopBuilder(Builder):
         devices = self.pc_pool(DmiHarvest(self.cache).records())
         devices += self.linux_only_models()
 
-        return [Catalog(
-            platform=self.platform,
-            os={
-                "windows": self.WINDOWS_DOC,
-                "linux": self.LINUX_DOC,
-            },
-            versions=[*self.WINDOWS_VERSIONS, *self.unix_versions()],
-            devices=devices,
-        )]
+        return [
+            Catalog(
+                platform=self.platform,
+                os={
+                    "windows": self.WINDOWS_DOC,
+                    "linux": self.LINUX_DOC,
+                },
+                versions=[*self.WINDOWS_VERSIONS, *self.unix_versions()],
+                devices=devices,
+            )
+        ]

@@ -105,7 +105,9 @@ def test_calc_truncates_to_int_when_asked() -> None:
     assert calc(5) == 5
 
 
-def test_calc_logs_and_keeps_the_text_when_evaluation_fails(caplog: pytest.LogCaptureFixture) -> None:
+def test_calc_logs_and_keeps_the_text_when_evaluation_fails(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     assert calc("1/0") == "1/0"
     assert "Failed to evaluate" in caplog.text
 

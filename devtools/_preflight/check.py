@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 
 # ============================== the checker ==============================
 
+
 class Checker:
     """Probes every source in a registry and compares it to its baseline."""
 
@@ -40,8 +41,7 @@ class Checker:
     #: the sources, and escalate nothing.
     DEGRADED_ABOVE: ClassVar[float] = 0.5
 
-    def __init__(self, registry: Registry, lock: Lock,
-                 *, prober: Prober | None = None) -> None:
+    def __init__(self, registry: Registry, lock: Lock, *, prober: Prober | None = None) -> None:
         self.registry = registry
         self.lock = lock
         self.prober = prober or Prober()
@@ -62,17 +62,16 @@ class Checker:
         # The third condition is `Lock.validators`' own; the other two are
         # here, because only the lock entry answers them.
         was = self.lock.entry(source.id)
-        trustworthy = (
-            (not digest or digest == was.get("declaration", ""))
-            and was.get("contract", "ok") == "ok"
-        )
-        etag, last_modified = (
-            self.lock.validators(source.id) if trustworthy else ("", ""))
+        trustworthy = (not digest or digest == was.get("declaration", "")) and was.get(
+            "contract", "ok"
+        ) == "ok"
+        etag, last_modified = self.lock.validators(source.id) if trustworthy else ("", "")
 
         verdict = self._replace(
             self.prober.probe(source, etag=etag, last_modified=last_modified),
             declaration=digest,
-            recorded_change=was.get("last_changed", ""))
+            recorded_change=was.get("last_changed", ""),
+        )
 
         if not verdict.is_clear:
             return self._failed(source, verdict)
@@ -80,17 +79,21 @@ class Checker:
         # A 304 is the cheapest possible "unchanged": no body came back, so
         # there is nothing to run a contract over and nothing to compare.
         if verdict.body is None:
-            return self._replace(verdict, state=State.OK,
-                                 was=self.lock.fingerprint(source.id),
-                                 now=self.lock.fingerprint(source.id))
+            return self._replace(
+                verdict,
+                state=State.OK,
+                was=self.lock.fingerprint(source.id),
+                now=self.lock.fingerprint(source.id),
+            )
 
         errors = ContractCheck.run(source.contract, verdict.body)
         if errors:
             return self._failed(
                 source,
-                self._replace(verdict, state=State.CONTRACT_BROKEN,
-                              contract_errors=errors,
-                              error=errors[0]))
+                self._replace(
+                    verdict, state=State.CONTRACT_BROKEN, contract_errors=errors, error=errors[0]
+                ),
+            )
 
         encoding = source.contract.encoding if source.contract else "utf-8"
         now = FingerprintValue.of(source.fingerprint, verdict.body, encoding=encoding)
@@ -120,8 +123,7 @@ class Checker:
 
     def _failed(self, source: Source, verdict: Verdict) -> Verdict:
         """Attach the consecutive-failure count a dead/unreachable source carries."""
-        return self._replace(
-            verdict, consecutive=self.lock.consecutive(source.id) + 1)
+        return self._replace(verdict, consecutive=self.lock.consecutive(source.id) + 1)
 
     @staticmethod
     def _replace(verdict: Verdict, **changes: Any) -> Verdict:
@@ -142,8 +144,11 @@ class Checker:
         verdict = self.prober.probe(probe)
 
         if not verdict.is_clear or verdict.body is None:
-            return self._failed(probe, verdict) if not verdict.is_clear else (
-                self._replace(verdict, state=State.OK))
+            return (
+                self._failed(probe, verdict)
+                if not verdict.is_clear
+                else (self._replace(verdict, state=State.OK))
+            )
 
         now = FingerprintValue.of(watch.fingerprint, verdict.body)
         state = State.OK if now == watch.value else State.CHANGED
@@ -161,8 +166,7 @@ class Checker:
         if not verdicts:
             return Health.OK
         flaky = sum(1 for v in verdicts if v.is_transient)
-        return (Health.DEGRADED if flaky / len(verdicts) > cls.DEGRADED_ABOVE
-                else Health.OK)
+        return Health.DEGRADED if flaky / len(verdicts) > cls.DEGRADED_ABOVE else Health.OK
 
     def run(self) -> Report:
         verdicts = [self.check_one(probe) for probe in self.registry.probes]
@@ -173,10 +177,7 @@ class Checker:
         # verdict keeps its state for the report but its counter is reset, so
         # one bad morning cannot push a healthy source towards "dead".
         if network is Health.DEGRADED:
-            verdicts = [
-                self._replace(v, consecutive=0) if v.is_transient else v
-                for v in verdicts
-            ]
+            verdicts = [self._replace(v, consecutive=0) if v.is_transient else v for v in verdicts]
 
         return Report(
             tool=self.registry.tool,

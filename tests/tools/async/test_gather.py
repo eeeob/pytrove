@@ -26,7 +26,9 @@ async def test_gather_helper_collects_results_in_order() -> None:
 
 
 async def test_gather_helper_return_exc() -> None:
-    results = await gather_helper(_value(1), _fail(ValueError("boom")), return_exc=True, log_exc=False)
+    results = await gather_helper(
+        _value(1), _fail(ValueError("boom")), return_exc=True, log_exc=False
+    )
     assert results[0] == 1
     assert isinstance(results[1], ValueError)
 
@@ -42,7 +44,9 @@ async def test_gather_helper_returns_a_cancelled_child_as_cancelled_error() -> N
     assert isinstance(results[0], asyncio.CancelledError)
 
 
-async def test_gather_helper_flattens_skips_none_and_logs_returned_failures(caplog: pytest.LogCaptureFixture) -> None:
+async def test_gather_helper_flattens_skips_none_and_logs_returned_failures(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     results = await gather_helper([_value(1), None, (_fail(KeyError()),)], return_exc=True)
     assert results[0] == 1
     assert isinstance(results[1], KeyError)

@@ -7,13 +7,18 @@ import pytest
 from pytrove.iter_tools import to_frozenset, to_list, to_set, to_tuple
 
 
-@pytest.mark.parametrize(("convert", "single", "empty"), [
-    (to_list, [5], []),
-    (to_tuple, (5,), ()),
-    (to_set, {5}, set()),
-    (to_frozenset, frozenset({5}), frozenset()),
-])
-def test_converters_wrap_a_single_value_and_empty_none(convert: Any, single: Any, empty: Any) -> None:
+@pytest.mark.parametrize(
+    ("convert", "single", "empty"),
+    [
+        (to_list, [5], []),
+        (to_tuple, (5,), ()),
+        (to_set, {5}, set()),
+        (to_frozenset, frozenset({5}), frozenset()),
+    ],
+)
+def test_converters_wrap_a_single_value_and_empty_none(
+    convert: Any, single: Any, empty: Any
+) -> None:
     assert convert(5) == single
     assert convert(None) == empty
     assert convert("ab") == convert(["ab"])

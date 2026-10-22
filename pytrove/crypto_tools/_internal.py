@@ -37,7 +37,13 @@ def _derive_key(master_key: str, salt: bytes) -> bytes:
     Returns:
         32 key bytes.
     """
-    kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=_ITERATIONS, backend=default_backend())
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=_ITERATIONS,
+        backend=default_backend(),
+    )
     return kdf.derive(master_key.encode())
 
 
@@ -57,7 +63,13 @@ def _derive_deterministic_key(password: str) -> bytes:
     digest.update(password.encode())
     static_salt = digest.finalize()[:16]
 
-    kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=64, salt=static_salt, iterations=_ITERATIONS, backend=default_backend())
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=64,
+        salt=static_salt,
+        iterations=_ITERATIONS,
+        backend=default_backend(),
+    )
     return kdf.derive(password.encode())
 
 

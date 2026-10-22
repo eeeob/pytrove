@@ -46,8 +46,9 @@ def _make_junction(link: Path, target: Path) -> Path | None:
     if os.name != "nt":
         return None
 
-    done = subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)],
-                          capture_output=True, check=False)  # a failure is read from `returncode`
+    done = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(target)], capture_output=True, check=False
+    )  # a failure is read from `returncode`
 
     return link if done.returncode == 0 and link.exists() else None
 
@@ -101,13 +102,16 @@ def test_a_junction_is_a_link_and_is_not_a_plain_directory(tmp_path: Path) -> No
     assert (target / "inside.txt").read_text(encoding="utf-8") == "kept"
 
 
-@pytest.mark.parametrize("tag, link, plain_dir", [
-    (0, False, True),                                   # an ordinary directory
-    (0xA0000003, True, False),                          # IO_REPARSE_TAG_MOUNT_POINT
-    (0x9000001A, False, True),                          # OneDrive files-on-demand
-    (0x80000013, False, True),                          # IO_REPARSE_TAG_DEDUP
-    (0x8000001B, False, True),                          # APPEXECLINK
-])
+@pytest.mark.parametrize(
+    "tag, link, plain_dir",
+    [
+        (0, False, True),  # an ordinary directory
+        (0xA0000003, True, False),  # IO_REPARSE_TAG_MOUNT_POINT
+        (0x9000001A, False, True),  # OneDrive files-on-demand
+        (0x80000013, False, True),  # IO_REPARSE_TAG_DEDUP
+        (0x8000001B, False, True),  # APPEXECLINK
+    ],
+)
 @pytest.mark.skipif(os.name != "nt", reason="reparse tags are Windows-only")
 def test_only_a_junction_tag_counts_as_a_link(
     monkeypatch: pytest.MonkeyPatch, tag: int, link: bool, plain_dir: bool

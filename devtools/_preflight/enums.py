@@ -19,9 +19,9 @@ import sys
 from enum import IntEnum
 from typing import Final
 
-if sys.version_info >= (3, 11):                   # pragma: no cover
+if sys.version_info >= (3, 11):  # pragma: no cover
     from enum import StrEnum
-else:                                             # pragma: no cover
+else:  # pragma: no cover
     from enum import Enum
 
     class StrEnum(str, Enum):
@@ -41,6 +41,7 @@ else:                                             # pragma: no cover
 
 
 # ============================== what a check concluded ==============================
+
 
 class State(StrEnum):
     """What a single check concluded about one source.
@@ -83,17 +84,21 @@ class State(StrEnum):
 
 #: Worst first, so a report puts the thing needing action at the top.
 STATE_ORDER: Final[tuple[State, ...]] = (
-    State.CONTRACT_BROKEN, State.GONE, State.FLAKY,
-    State.CHANGED, State.NEW, State.OK)
+    State.CONTRACT_BROKEN,
+    State.GONE,
+    State.FLAKY,
+    State.CHANGED,
+    State.NEW,
+    State.OK,
+)
 
-FATAL_STATES: Final[frozenset[State]] = frozenset(
-    {State.CONTRACT_BROKEN, State.GONE})
+FATAL_STATES: Final[frozenset[State]] = frozenset({State.CONTRACT_BROKEN, State.GONE})
 TRANSIENT_STATES: Final[frozenset[State]] = frozenset({State.FLAKY})
-CLEAR_STATES: Final[frozenset[State]] = frozenset(
-    {State.NEW, State.OK, State.CHANGED})
+CLEAR_STATES: Final[frozenset[State]] = frozenset({State.NEW, State.OK, State.CHANGED})
 
 
 # ============================== what the janitor may do ==============================
+
 
 class Policy(StrEnum):
     """What the janitor does to a cache entry whose source changed.
@@ -132,11 +137,11 @@ class Verb(StrEnum):
         return self in REMOVING_VERBS
 
 
-REMOVING_VERBS: Final[frozenset[Verb]] = frozenset(
-    {Verb.DELETED, Verb.RENAMED, Verb.SCRATCH})
+REMOVING_VERBS: Final[frozenset[Verb]] = frozenset({Verb.DELETED, Verb.RENAMED, Verb.SCRATCH})
 
 
 # ============================== how a body is judged ==============================
+
 
 class ContractKind(StrEnum):
     """How a source's body is checked for still being what it claims.
@@ -170,10 +175,12 @@ class FingerprintKind(StrEnum):
 
 
 PATTERN_KINDS: Final[frozenset[FingerprintKind]] = frozenset(
-    {FingerprintKind.REGEX_COUNT, FingerprintKind.REGEX_MAX_INT})
+    {FingerprintKind.REGEX_COUNT, FingerprintKind.REGEX_MAX_INT}
+)
 
 
 # ============================== the run's own network ==============================
+
 
 class Health(StrEnum):
     """Whether a run's failures say more about us than about the sources.
@@ -192,6 +199,7 @@ class Health(StrEnum):
 
 
 # ============================== what the caller learns ==============================
+
 
 class Exit(IntEnum):
     """The exit code, which is the whole verdict a scheduler reads.
@@ -228,4 +236,9 @@ class Exit(IntEnum):
 
 #: Worst first.
 EXIT_ORDER: Final[tuple[Exit, ...]] = (
-    Exit.REGISTRY, Exit.DEAD, Exit.UNREACHABLE, Exit.CHANGED, Exit.OK)
+    Exit.REGISTRY,
+    Exit.DEAD,
+    Exit.UNREACHABLE,
+    Exit.CHANGED,
+    Exit.OK,
+)

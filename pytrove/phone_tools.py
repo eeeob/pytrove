@@ -31,10 +31,15 @@ if TYPE_CHECKING:
 
 
 @overload
-def parse_phone(phone_number: PhoneNumber | int | PhoneNumberObj, clean: bool = True) -> PhoneNumber: ...
+def parse_phone(
+    phone_number: PhoneNumber | int | PhoneNumberObj, clean: bool = True
+) -> PhoneNumber: ...
 @overload
 def parse_phone(
-    phone_number: PhoneNumber | int | PhoneNumberObj, clean: bool = True, *, return_numobj: _True,
+    phone_number: PhoneNumber | int | PhoneNumberObj,
+    clean: bool = True,
+    *,
+    return_numobj: _True,
 ) -> PhoneNumberObj: ...
 @_optional_import(("phonenumbers", "phone"))
 def parse_phone(phone_number: Any, clean: bool = True, return_numobj: bool = False) -> Any:
@@ -73,7 +78,10 @@ def parse_phone(phone_number: Any, clean: bool = True, return_numobj: bool = Fal
             msg = f"Invalid PhoneNumber - {phone_number}"
             raise ValidationError(msg) from exc
 
-    validation(is_phone_number(phone_number, remove_spaces=False, resolve=False), f"Invalid PhoneNumber - {phone_number}")
+    validation(
+        is_phone_number(phone_number, remove_spaces=False, resolve=False),
+        f"Invalid PhoneNumber - {phone_number}",
+    )
     return phone_number if return_numobj else format_number(phone_number, PhoneNumberFormat.E164)
 
 

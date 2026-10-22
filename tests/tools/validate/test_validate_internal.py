@@ -83,9 +83,13 @@ def test_checker_lookup_answers_for_a_pep_695_alias() -> None:
 @needs_typeguard
 def test_the_checkers_enforce_their_rules() -> None:
     typeguard = pytest.importorskip("typeguard")
-    memo = typeguard.TypeCheckMemo(globals(), locals(), config=typeguard.TypeCheckConfiguration(
-        collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS,
-    ))
+    memo = typeguard.TypeCheckMemo(
+        globals(),
+        locals(),
+        config=typeguard.TypeCheckConfiguration(
+            collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS,
+        ),
+    )
     validate_enum = _checker_lookup(_Level)
     validate_container = _checker_lookup(list)
 

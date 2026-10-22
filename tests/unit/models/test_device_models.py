@@ -12,7 +12,10 @@ def test_device_info_prints_the_model_then_the_version() -> None:
 
 
 def test_device_info_to_dict_uses_the_init_connection_names() -> None:
-    assert DeviceInfo("Pixel 9", "SDK 35").to_dict() == {"device_model": "Pixel 9", "system_version": "SDK 35"}
+    assert DeviceInfo("Pixel 9", "SDK 35").to_dict() == {
+        "device_model": "Pixel 9",
+        "system_version": "SDK 35",
+    }
 
 
 def test_device_info_is_frozen_and_compares_by_value() -> None:

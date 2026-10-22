@@ -23,8 +23,22 @@ from ..._internal._optional import _unavailable_class
 from ...data_tools import clean_none_values
 from ...date_tools import arabic_time
 from ...files_tools import load_ref_json, read_json
-from ...typings import JsonValue, NestedStrKeyDict, PathLike, TemplateDict, TemplatePyroMessage, _False, _True
-from ._internal import _chain_mappings, _compile_lines, _CompiledTemplateDict, _format_lines, _is_each_button
+from ...typings import (
+    JsonValue,
+    NestedStrKeyDict,
+    PathLike,
+    TemplateDict,
+    TemplatePyroMessage,
+    _False,
+    _True,
+)
+from ._internal import (
+    _chain_mappings,
+    _compile_lines,
+    _CompiledTemplateDict,
+    _format_lines,
+    _is_each_button,
+)
 from .buttons import CompiledButtonRow, CompiledEachButton
 from .conditions import CompiledDefaults
 from .lines import CompiledEachLine, CompiledLine
@@ -62,7 +76,12 @@ if HAS_PYROGRAM:
         """A `format()` key filled with `arabic_time()` when not passed; `None` fills nothing."""
 
         @classmethod
-        def compile(cls, template: TemplateDict, parse_mode: ParseMode | None = None, key_time: str | None = None) -> Self:
+        def compile(
+            cls,
+            template: TemplateDict,
+            parse_mode: ParseMode | None = None,
+            key_time: str | None = None,
+        ) -> Self:
             """Compile one template definition.
 
             The compiled parts are written back into `template`, so the same
@@ -79,12 +98,16 @@ if HAS_PYROGRAM:
             # The dict is rewritten in place into its compiled shape.
             compiled = cast(_CompiledTemplateDict, template)
             compiled["parse_mode"] = (
-                ParseMode(mode) if (mode := template.get("parse_mode", None) or parse_mode) is not None else None
+                ParseMode(mode)
+                if (mode := template.get("parse_mode", None) or parse_mode) is not None
+                else None
             )
             compiled["key_time"] = template.get("key_time", None) or key_time
             compiled["message"] = _compile_lines(template.get("message", None))
             compiled["buttons"] = [
-                CompiledEachButton.compile(button) if _is_each_button(button) else CompiledButtonRow.compile(button)
+                CompiledEachButton.compile(button)
+                if _is_each_button(button)
+                else CompiledButtonRow.compile(button)
                 for button in template.get("buttons", [])
             ] or None
             compiled["rich_message"] = (
@@ -223,7 +246,9 @@ if HAS_PYROGRAM:
 
             return cls.compile_template(
                 templates,
-                ParseMode(mode) if (mode := templates.pop("parse_mode", None) or parse_mode) is not None else None,
+                ParseMode(mode)
+                if (mode := templates.pop("parse_mode", None) or parse_mode) is not None
+                else None,
                 # The file format holds `key_time` as a string; like every other template
                 # key it is taken from the JSON unchecked.
                 cast(str | None, templates.pop("key_time", None)) or key_time,

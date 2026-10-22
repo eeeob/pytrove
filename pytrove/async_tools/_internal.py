@@ -30,7 +30,9 @@ class _GatheringFuture(asyncio.Future):
     and lets them unwind; it becomes cancelled only once they have finished.
     """
 
-    def __init__(self, children: list[asyncio.Future[Any]], *, loop: asyncio.AbstractEventLoop | None) -> None:
+    def __init__(
+        self, children: list[asyncio.Future[Any]], *, loop: asyncio.AbstractEventLoop | None
+    ) -> None:
         """Bind the future to its children.
 
         Args:
@@ -79,12 +81,17 @@ class _GatheringFuture(asyncio.Future):
 
 
 @overload
-def _gather_cancel_on_error(*awaitables: Awaitable[_T], return_exceptions: _False = False) -> asyncio.Future[list[_T]]: ...
+def _gather_cancel_on_error(
+    *awaitables: Awaitable[_T], return_exceptions: _False = False
+) -> asyncio.Future[list[_T]]: ...
 @overload
 def _gather_cancel_on_error(
-    *awaitables: Awaitable[_T], return_exceptions: bool,
+    *awaitables: Awaitable[_T],
+    return_exceptions: bool,
 ) -> asyncio.Future[list[_T | Exception | asyncio.CancelledError]]: ...
-def _gather_cancel_on_error(*awaitables: Awaitable[Any], return_exceptions: bool = False) -> asyncio.Future[list[Any]]:
+def _gather_cancel_on_error(
+    *awaitables: Awaitable[Any], return_exceptions: bool = False
+) -> asyncio.Future[list[Any]]:
     """Gather like `asyncio.gather`, but cancel every sibling as soon as one fails.
 
     A repeated awaitable is scheduled and counted once. On 3.14 each child's

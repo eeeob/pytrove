@@ -22,17 +22,20 @@ needs_aioimaplib = pytest.mark.skipif(not HAS_AIOIMAPLIB, reason="needs the imap
 
 
 @needs_phonenumbers
-@pytest.mark.parametrize(("number", "kwargs", "expected"), [
-    ("+966 50 123 4567", {}, True),
-    ("00966501234567", {}, True),
-    ("966501234567", {}, True),
-    (966501234567, {}, True),
-    ("966501234567", {"resolve": False}, False),
-    ("+966 50 123 4567", {"remove_spaces": False}, True),
-    ("123", {}, False),
-    ("not a number", {}, False),
-    (None, {}, False),
-])
+@pytest.mark.parametrize(
+    ("number", "kwargs", "expected"),
+    [
+        ("+966 50 123 4567", {}, True),
+        ("00966501234567", {}, True),
+        ("966501234567", {}, True),
+        (966501234567, {}, True),
+        ("966501234567", {"resolve": False}, False),
+        ("+966 50 123 4567", {"remove_spaces": False}, True),
+        ("123", {}, False),
+        ("not a number", {}, False),
+        (None, {}, False),
+    ],
+)
 def test_is_phone_number(number: Any, kwargs: dict[str, Any], expected: bool) -> None:
     assert is_phone_number(number, **kwargs) is expected
 
@@ -44,7 +47,9 @@ def test_is_phone_number_accepts_a_parsed_number() -> None:
 
 
 @needs_phonenumbers
-def test_is_phone_number_is_false_when_the_validity_check_itself_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_is_phone_number_is_false_when_the_validity_check_itself_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     def explode(number: Any) -> bool:
         """Fail the way a broken metadata lookup would."""
         msg = "boom"
@@ -55,14 +60,17 @@ def test_is_phone_number_is_false_when_the_validity_check_itself_fails(monkeypat
 
 
 @needs_phonenumbers
-@pytest.mark.parametrize(("rc", "expected"), [
-    ("SA", True),
-    ("sa", True),
-    ("ZZ", False),
-    ("S1", False),
-    ("SAU", False),
-    (966, False),
-])
+@pytest.mark.parametrize(
+    ("rc", "expected"),
+    [
+        ("SA", True),
+        ("sa", True),
+        ("ZZ", False),
+        ("S1", False),
+        ("SAU", False),
+        (966, False),
+    ],
+)
 def test_is_rc(rc: Any, expected: bool) -> None:
     assert is_rc(rc) is expected
 
@@ -76,16 +84,19 @@ def test_the_phone_checks_name_the_phone_extra_when_phonenumbers_is_missing() ->
         is_rc("sa")
 
 
-@pytest.mark.parametrize(("email", "expected"), [
-    ("user.name+tag@example.co", True),
-    ("user@example.com", True),
-    ("user@example", False),
-    ("not-an-email", False),
-    ("@example.com", False),
-    ("user@example.com extra", False),
-    (None, False),
-    (123, False),
-])
+@pytest.mark.parametrize(
+    ("email", "expected"),
+    [
+        ("user.name+tag@example.co", True),
+        ("user@example.com", True),
+        ("user@example", False),
+        ("not-an-email", False),
+        ("@example.com", False),
+        ("user@example.com extra", False),
+        (None, False),
+        (123, False),
+    ],
+)
 def test_is_email(email: Any, expected: bool) -> None:
     assert is_email(email) is expected
 
@@ -131,26 +142,33 @@ def fake_imap(monkeypatch: pytest.MonkeyPatch) -> type[_FakeImap]:
 
 
 @needs_aioimaplib
-async def test_is_accessible_received_email_logs_in_to_the_providers_server(fake_imap: type[_FakeImap]) -> None:
+async def test_is_accessible_received_email_logs_in_to_the_providers_server(
+    fake_imap: type[_FakeImap],
+) -> None:
     assert await is_accessible_received_email("me@gmail.com", "pw") is True
     assert fake_imap.seen == [("imap.gmail.com", 993)]
 
 
 @needs_aioimaplib
-async def test_is_accessible_received_email_is_false_on_a_failed_login(fake_imap: type[_FakeImap]) -> None:
+async def test_is_accessible_received_email_is_false_on_a_failed_login(
+    fake_imap: type[_FakeImap],
+) -> None:
     fake_imap.error = RuntimeError()
     assert await is_accessible_received_email("me@gmail.com", "pw") is False
 
 
 @needs_aioimaplib
-async def test_is_accessible_received_email_is_false_for_an_unknown_provider(fake_imap: type[_FakeImap]) -> None:
+async def test_is_accessible_received_email_is_false_for_an_unknown_provider(
+    fake_imap: type[_FakeImap],
+) -> None:
     assert await is_accessible_received_email("me@unknown.example", "pw") is False
     assert fake_imap.seen == []
 
 
 @needs_aioimaplib
 async def test_is_accessible_received_email_logs_a_failed_logout(
-    fake_imap: type[_FakeImap], caplog: pytest.LogCaptureFixture,
+    fake_imap: type[_FakeImap],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     fake_imap.logout_error = OSError()
     assert await is_accessible_received_email("me@gmail.com", "pw") is True
@@ -158,6 +176,8 @@ async def test_is_accessible_received_email_logs_a_failed_logout(
 
 
 @pytest.mark.skipif(HAS_AIOIMAPLIB, reason="the imap extra is installed")
-async def test_is_accessible_received_email_names_the_imap_extra_when_aioimaplib_is_missing() -> None:
+async def test_is_accessible_received_email_names_the_imap_extra_when_aioimaplib_is_missing() -> (
+    None
+):
     with pytest.raises(ImportError, match=r"pytrove\[imap\]"):
         await is_accessible_received_email("me@gmail.com", "pw")

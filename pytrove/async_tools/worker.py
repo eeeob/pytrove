@@ -92,7 +92,9 @@ class AioThreadWorker(_LoopHost):
         """Await the worker to `join` it."""
         return self.join().__await__()
 
-    async def submit(self, func: Callable[_P, Awaitable[_T]], /, *args: _P.args, **kwargs: _P.kwargs) -> _T:
+    async def submit(
+        self, func: Callable[_P, Awaitable[_T]], /, *args: _P.args, **kwargs: _P.kwargs
+    ) -> _T:
         """Call `func(*args, **kwargs)` on the worker's loop and await its result.
 
         Args:
@@ -127,7 +129,11 @@ class AioThreadWorker(_LoopHost):
         except asyncio.CancelledError:
             cancelling = getattr(asyncio.current_task(), "cancelling", None)
 
-            if cancelling is not None and cancelling() == 0 and (self.is_stopping() or not self.is_running()):
+            if (
+                cancelling is not None
+                and cancelling() == 0
+                and (self.is_stopping() or not self.is_running())
+            ):
                 msg = "AioThreadWorker stopped before this task completed"
                 raise RuntimeError(msg) from None
 

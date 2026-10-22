@@ -128,10 +128,14 @@ def test_from_dicts_drop_unknown_keys_and_restore_enums() -> None:
         status: Status | None = None
         _secret: str = ""
 
-    model = Model.from_dict({"status": "ok", "secret": "s", "_secret": "raw", "other": 1}, values_to_enums=True)
+    model = Model.from_dict(
+        {"status": "ok", "secret": "s", "_secret": "raw", "other": 1}, values_to_enums=True
+    )
     assert model.status is Status.OK and model.secret == "s"
 
-    raw = Model.from_raw_dict({"status": None, "_secret": "r", "secret": "x"}, without_none_values=True)
+    raw = Model.from_raw_dict(
+        {"status": None, "_secret": "r", "secret": "x"}, without_none_values=True
+    )
     assert raw.status is None and raw.secret == "r"
     assert Model.from_raw_dict({"status": "ok"}, values_to_enums=True).status is Status.OK
     assert Model.from_dict({"status": None}, without_none_values=True).status is None

@@ -37,6 +37,7 @@ if TYPE_CHECKING:
 
 # ============================== the janitor ==============================
 
+
 class Janitor:
     """Applies each cache entry's declared policy."""
 
@@ -66,13 +67,12 @@ class Janitor:
         """
         aside = Layout.aside(path)
         if not self.dry_run:
-            self._delete(aside)                   # a stale .prev from a crash
+            self._delete(aside)  # a stale .prev from a crash
             path.rename(aside)
         return aside
 
     @staticmethod
-    def _drop_readonly(func: Callable[[str], object], path: str,
-                       _exc: object) -> None:
+    def _drop_readonly(func: Callable[[str], object], path: str, _exc: object) -> None:
         """Git marks its objects read-only, which makes rmtree fail on Windows.
 
         `onerror` rather than `onexc`: the latter arrived in 3.12 and devtools/
@@ -148,8 +148,11 @@ class Janitor:
                 continue
             # A change this run found is the pass below; a failure must not
             # cost anybody a cache; a source that never moved has no date.
-            if (verdict.state is State.CHANGED or not verdict.is_clear
-                    or not verdict.recorded_change):
+            if (
+                verdict.state is State.CHANGED
+                or not verdict.is_clear
+                or not verdict.recorded_change
+            ):
                 continue
 
             path = self.registry.cache_dir / source.cache
@@ -157,10 +160,14 @@ class Janitor:
                 continue
             fetched = date.fromtimestamp(path.stat().st_mtime).isoformat()
             if fetched < verdict.recorded_change:
-                actions.append(self._apply(
-                    source.cache, source.on_change,
-                    f"cached {fetched}, but a run on "
-                    f"{verdict.recorded_change} already recorded a change"))
+                actions.append(
+                    self._apply(
+                        source.cache,
+                        source.on_change,
+                        f"cached {fetched}, but a run on "
+                        f"{verdict.recorded_change} already recorded a change",
+                    )
+                )
         return actions
 
     def _derived(self, report: Report) -> list[Action]:
@@ -170,25 +177,28 @@ class Janitor:
         5,700 requests -- so the only honest signals are "a source it was
         built from changed" and "it is simply old".
         """
-        changed = {v.source_id for v in report.verdicts
-                   if v.state is State.CHANGED}
+        changed = {v.source_id for v in report.verdicts if v.state is State.CHANGED}
         actions: list[Action] = []
 
         for entry in self.registry.derived:
             upstream = sorted(set(entry.derives_from) & changed)
             if upstream:
-                actions.append(self._apply(
-                    entry.cache, entry.on_change,
-                    f"{', '.join(upstream)} changed"))
+                actions.append(
+                    self._apply(entry.cache, entry.on_change, f"{', '.join(upstream)} changed")
+                )
                 continue
 
             if entry.max_age_days:
                 path = self.registry.cache_dir / entry.cache
                 age = self._age_days(path)
                 if path.exists() and age > entry.max_age_days:
-                    actions.append(self._apply(
-                        entry.cache, entry.on_change,
-                        f"{age:.0f} days old, limit {entry.max_age_days}"))
+                    actions.append(
+                        self._apply(
+                            entry.cache,
+                            entry.on_change,
+                            f"{age:.0f} days old, limit {entry.max_age_days}",
+                        )
+                    )
         return actions
 
     def _scratch(self) -> list[Action]:
@@ -229,10 +239,14 @@ class Janitor:
             if name in declared or name in reserved:
                 continue
             if Layout.is_aside(path):
-                continue                          # a pending merge, not an orphan
-            actions.append(Action(
-                Verb.ORPHAN, name,
-                "not declared in sources.toml -- a registered source, or stale?"))
+                continue  # a pending merge, not an orphan
+            actions.append(
+                Action(
+                    Verb.ORPHAN,
+                    name,
+                    "not declared in sources.toml -- a registered source, or stale?",
+                )
+            )
         return actions
 
     # --- entry point ------------------------------------------------------

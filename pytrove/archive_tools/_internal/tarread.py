@@ -44,12 +44,18 @@ class _TarMixin:
             workers: Ignored.
         """
         if workers is not None:
-            log.warning("extract_archive: %s is one stream read in order, so workers was ignored -- it changed "
-                        "nothing and this ran on the calling thread. Only ZIP can use it.", fmt.value)
+            log.warning(
+                "extract_archive: %s is one stream read in order, so workers was ignored -- it changed "
+                "nothing and this ran on the calling thread. Only ZIP can use it.",
+                fmt.value,
+            )
 
         if self.password is not None:
-            log.warning("extract_archive: %s has no encryption of its own, so the password given was not needed "
-                        "and was not used.", fmt.value)
+            log.warning(
+                "extract_archive: %s has no encryption of its own, so the password given was not needed "
+                "and was not used.",
+                fmt.value,
+            )
 
         raw: IO[bytes] | None = open(self.src, "rb") if fmt is ArchiveFormat.TAR_ZST else None
         stream: Any
@@ -74,10 +80,14 @@ class _TarMixin:
                         info,
                         info.size,
                         0,
-                        "dir" if info.isdir()
-                        else "file" if info.isfile()
-                        else "symlink" if info.issym()
-                        else "hardlink" if info.islnk()
+                        "dir"
+                        if info.isdir()
+                        else "file"
+                        if info.isfile()
+                        else "symlink"
+                        if info.issym()
+                        else "hardlink"
+                        if info.islnk()
                         else "other",
                         info.linkname or None,
                     )

@@ -20,7 +20,10 @@ from collections.abc import (
     Sequence,
     Set as AbstractSet,
 )
-from enum import Enum, EnumMeta as EnumType  # `EnumType` became the name of `EnumMeta` only in 3.11.
+from enum import (
+    Enum,
+    EnumMeta as EnumType,
+)  # `EnumType` became the name of `EnumMeta` only in 3.11.
 from typing import Annotated, Any, Literal, ParamSpec, Protocol, TypeAlias, TypedDict, TypeVar
 
 _P = ParamSpec("_P")
@@ -70,10 +73,14 @@ if sys.version_info >= (3, 12):
     )
 else:
     # يجب المحافظة على ترتيب الاولويات
-    ContainerWithoutMapping: TypeAlias = Sequence[_T] | AbstractSet[_T] | Collection[_T] | Reversible[_T] | Iterator[_T]
+    ContainerWithoutMapping: TypeAlias = (
+        Sequence[_T] | AbstractSet[_T] | Collection[_T] | Reversible[_T] | Iterator[_T]
+    )
     """An iterable container that is not read as a mapping."""
 
-    Container: TypeAlias = Sequence[_T] | AbstractSet[_T] | Collection[_T] | Reversible[_T] | Iterator[_T]
+    Container: TypeAlias = (
+        Sequence[_T] | AbstractSet[_T] | Collection[_T] | Reversible[_T] | Iterator[_T]
+    )
     """An iterable container; see `NotContainer` for the iterables that do not count."""
 
     MaybeList: TypeAlias = list[_T] | _T
@@ -96,7 +103,9 @@ else:
     )
     """A leaf, or a mapping or container of further such values, at any depth."""
 
-    JsonValue: TypeAlias = str | bool | int | float | None | list["JsonValue"] | dict[str, "JsonValue"]
+    JsonValue: TypeAlias = (
+        str | bool | int | float | None | list["JsonValue"] | dict[str, "JsonValue"]
+    )
     """Any value `json` can represent."""
 
     MaybeCoroutine: TypeAlias = Coroutine[Any, Any, _T] | _T

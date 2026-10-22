@@ -91,7 +91,9 @@ def _version_ok(name: str, clauses: str) -> bool:
     except PackageNotFoundError:
         return True
 
-    return all(_OPERATORS[op](installed, _parse_version(want)) for op, want in _CLAUSE_RE.findall(clauses))
+    return all(
+        _OPERATORS[op](installed, _parse_version(want)) for op, want in _CLAUSE_RE.findall(clauses)
+    )
 
 
 def _is_installed(package: str) -> bool:
@@ -117,7 +119,9 @@ def _is_installed(package: str) -> bool:
     return _version_ok(name, clauses)
 
 
-def _build_error_msg(packages: tuple[_PackageGroup, ...], missing: list[tuple[tuple[str, ...], str]]) -> str:
+def _build_error_msg(
+    packages: tuple[_PackageGroup, ...], missing: list[tuple[tuple[str, ...], str]]
+) -> str:
     """Build the message raised when a feature's packages are missing.
 
     Args:
@@ -128,7 +132,9 @@ def _build_error_msg(packages: tuple[_PackageGroup, ...], missing: list[tuple[tu
         The message, with the `pip install` command covering every extra.
     """
     all_extras = ", ".join(extra for _, extra in packages)
-    all_names = ", ".join(f"'{pkg}'" for pkgs, _ in packages for pkg in ((pkgs,) if isinstance(pkgs, str) else pkgs))
+    all_names = ", ".join(
+        f"'{pkg}'" for pkgs, _ in packages for pkg in ((pkgs,) if isinstance(pkgs, str) else pkgs)
+    )
     missing_names = ", ".join(f"'{pkg}'" for pkgs, _ in missing for pkg in pkgs)
 
     return (

@@ -95,7 +95,9 @@ class BaseDataClass:
 
         names = {f.name for f in fields(cls)}
         hints = _resolved_hints(cls)
-        cls.__enums_types__ = frozenset(enum for name in names if name in hints for enum in _deep_extract(hints[name]))
+        cls.__enums_types__ = frozenset(
+            enum for name in names if name in hints for enum in _deep_extract(hints[name])
+        )
 
         for f in fields(cls):
             name = f.name
@@ -128,7 +130,9 @@ class BaseDataClass:
         """
         self.__class__._ensure_field_meta()
 
-    def to_raw_dict(self, without_none_values: bool = False, enums_to_values: bool = False) -> dict[str, Any]:
+    def to_raw_dict(
+        self, without_none_values: bool = False, enums_to_values: bool = False
+    ) -> dict[str, Any]:
         """Return the fields under their raw names, as `dataclasses.asdict()` does.
 
         Args:
@@ -147,7 +151,9 @@ class BaseDataClass:
 
         return dct
 
-    def to_dict(self, without_none_values: bool = False, enums_to_values: bool = False) -> dict[str, Any]:
+    def to_dict(
+        self, without_none_values: bool = False, enums_to_values: bool = False
+    ) -> dict[str, Any]:
         """Return the fields under their public names.
 
         Args:

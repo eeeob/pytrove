@@ -24,39 +24,48 @@ needs_pyrogram = pytest.mark.skipif(not HAS_PYROGRAM, reason="needs the tg extra
 
 
 @needs_pyrogram
-@pytest.mark.parametrize(("value", "channel", "user"), [
-    (-1001234567890, True, False),
-    (123456789, False, True),
-    (-123456789, False, False),
-    (0, False, False),
-    ("123", False, False),
-])
+@pytest.mark.parametrize(
+    ("value", "channel", "user"),
+    [
+        (-1001234567890, True, False),
+        (123456789, False, True),
+        (-123456789, False, False),
+        (0, False, False),
+        ("123", False, False),
+    ],
+)
 def test_peer_id_checks(value: Any, channel: bool, user: bool) -> None:
     assert is_tg_channel_id(value) is channel
     assert is_tg_user_id(value) is user
 
 
-@pytest.mark.parametrize(("token", "expected"), [
-    ("123456:ABC-def", True),
-    ("123456:ABC", True),
-    ("abc:def", False),
-    ("123456", False),
-    ("1:2:3", False),
-    (123456, False),
-])
+@pytest.mark.parametrize(
+    ("token", "expected"),
+    [
+        ("123456:ABC-def", True),
+        ("123456:ABC", True),
+        ("abc:def", False),
+        ("123456", False),
+        ("1:2:3", False),
+        (123456, False),
+    ],
+)
 def test_is_tg_bot_token(token: Any, expected: bool) -> None:
     assert is_tg_bot_token(token) is expected
 
 
 @needs_pyrogram
-@pytest.mark.parametrize(("text", "expected"), [
-    ("/start", True),
-    ("/set_name2", True),
-    ("/2fa", False),
-    ("start", False),
-    ("/start now", False),
-    ("", False),
-])
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("/start", True),
+        ("/set_name2", True),
+        ("/2fa", False),
+        ("start", False),
+        ("/start now", False),
+        ("", False),
+    ],
+)
 def test_is_tg_bot_command_on_text(text: str, expected: bool) -> None:
     assert is_tg_bot_command(text) is expected
 
@@ -78,14 +87,17 @@ async def test_the_pyrogram_checks_name_the_tg_extra_when_it_is_missing() -> Non
         await is_valid_tg_app(1, "hash")
 
 
-@pytest.mark.parametrize(("link", "expected"), [
-    ("https://t.me/channel/42", True),
-    ("t.me/c/1234567/42", True),
-    ("HTTPS://TELEGRAM.ME/Channel/7/", True),
-    ("https://t.me/channel", False),
-    ("https://example.com/channel/42", False),
-    (42, False),
-])
+@pytest.mark.parametrize(
+    ("link", "expected"),
+    [
+        ("https://t.me/channel/42", True),
+        ("t.me/c/1234567/42", True),
+        ("HTTPS://TELEGRAM.ME/Channel/7/", True),
+        ("https://t.me/channel", False),
+        ("https://example.com/channel/42", False),
+        (42, False),
+    ],
+)
 def test_is_tg_channel_message_link(link: Any, expected: bool) -> None:
     assert is_tg_channel_message_link(link) is expected
 
@@ -97,16 +109,19 @@ def test_the_patterns_match_their_documented_shapes() -> None:
     assert not TG_BOT_COMMAND_PATTERN.match("/")
 
 
-@pytest.mark.parametrize(("code", "kwargs", "expected"), [
-    (12345, {}, True),
-    (1234, {}, False),
-    ("12345", {}, True),
-    ("12 345", {}, False),
-    ("12 345", {"remove_spaces": True}, True),
-    ("1234a", {}, False),
-    ("12345", {"with_str": False}, False),
-    (12345.0, {}, False),
-])
+@pytest.mark.parametrize(
+    ("code", "kwargs", "expected"),
+    [
+        (12345, {}, True),
+        (1234, {}, False),
+        ("12345", {}, True),
+        ("12 345", {}, False),
+        ("12 345", {"remove_spaces": True}, True),
+        ("1234a", {}, False),
+        ("12345", {"with_str": False}, False),
+        (12345.0, {}, False),
+    ],
+)
 def test_is_tg_otp_code(code: Any, kwargs: dict[str, Any], expected: bool) -> None:
     assert is_tg_otp_code(code, **kwargs) is expected
 
@@ -141,7 +156,9 @@ def fake_client(monkeypatch: pytest.MonkeyPatch) -> type[_FakeClient]:
 
 
 @needs_pyrogram
-async def test_is_valid_tg_app_is_true_when_telegram_accepts(fake_client: type[_FakeClient]) -> None:
+async def test_is_valid_tg_app_is_true_when_telegram_accepts(
+    fake_client: type[_FakeClient],
+) -> None:
     assert await is_valid_tg_app("12345", "hash") is True
 
 
@@ -152,12 +169,16 @@ async def test_is_valid_tg_app_is_false_on_bad_request(fake_client: type[_FakeCl
 
 
 @needs_pyrogram
-async def test_is_valid_tg_app_is_false_for_a_non_numeric_id(fake_client: type[_FakeClient]) -> None:
+async def test_is_valid_tg_app_is_false_for_a_non_numeric_id(
+    fake_client: type[_FakeClient],
+) -> None:
     assert await is_valid_tg_app("abc", "hash") is False
 
 
 @needs_pyrogram
-async def test_is_valid_tg_app_lets_other_failures_propagate(fake_client: type[_FakeClient]) -> None:
+async def test_is_valid_tg_app_lets_other_failures_propagate(
+    fake_client: type[_FakeClient],
+) -> None:
     fake_client.error = ConnectionError()
 
     with pytest.raises(ConnectionError):
@@ -166,7 +187,8 @@ async def test_is_valid_tg_app_lets_other_failures_propagate(fake_client: type[_
 
 @needs_pyrogram
 async def test_is_valid_tg_app_logs_a_failed_disconnect(
-    fake_client: type[_FakeClient], caplog: pytest.LogCaptureFixture,
+    fake_client: type[_FakeClient],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     fake_client.disconnect_error = OSError()
     assert await is_valid_tg_app(1, "hash") is True

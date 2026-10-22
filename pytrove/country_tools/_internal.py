@@ -32,7 +32,9 @@ def _country_tables() -> tuple[dict[str, CountryInfo], dict[int, tuple[CountryIn
         group sorted by region code.
     """
     by_rc: dict[str, CountryInfo] = {
-        c.alpha_2.lower(): CountryInfo(cc=cc_from_rc(c.alpha_2.lower()), rc=c.alpha_2.lower(), flag=c.flag, name=c.name)
+        c.alpha_2.lower(): CountryInfo(
+            cc=cc_from_rc(c.alpha_2.lower()), rc=c.alpha_2.lower(), flag=c.flag, name=c.name
+        )
         for c in list(countries)
         if is_rc(c.alpha_2)
     }
@@ -41,7 +43,9 @@ def _country_tables() -> tuple[dict[str, CountryInfo], dict[int, tuple[CountryIn
     for info in by_rc.values():
         grouped.setdefault(info["cc"], []).append(info)
 
-    return by_rc, {cc: tuple(sorted(group, key=lambda ci: ci["rc"])) for cc, group in grouped.items()}
+    return by_rc, {
+        cc: tuple(sorted(group, key=lambda ci: ci["rc"])) for cc, group in grouped.items()
+    }
 
 
 @_optional_import(("babel", "locale"))
@@ -57,7 +61,9 @@ def _primary_official_language(rc: RegionCode) -> str | None:
     """
     territory_languages = get_global("territory_languages").get(rc, {})
     official = [lang for lang, info in territory_languages.items() if info.get("official_status")]
-    official.sort(key=lambda lang: territory_languages[lang]["population_percent"] or 0, reverse=True)
+    official.sort(
+        key=lambda lang: territory_languages[lang]["population_percent"] or 0, reverse=True
+    )
     return official[0] if official else None
 
 

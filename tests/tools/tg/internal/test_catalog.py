@@ -44,6 +44,7 @@ def _resolve(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, **data: Any) -> _C
 
 # --- constants -------------------------------------------------------------
 
+
 def test_constants() -> None:
     assert catalog._SCHEMA == 1
     assert catalog._HALF_LIFE_DAYS == 730.0
@@ -54,6 +55,7 @@ def test_constants() -> None:
 
 
 # --- _age_weight -----------------------------------------------------------
+
 
 @pytest.mark.parametrize("released", [None, "", "not a date", "2024-13-40"])
 def test_age_weight_of_an_unknown_or_unreadable_date_is_one(released: str | None) -> None:
@@ -83,6 +85,7 @@ def test_age_weight_never_falls_below_the_floor() -> None:
 
 # --- _load -----------------------------------------------------------------
 
+
 def test_load_reads_a_bundled_catalog() -> None:
     assert catalog._load("ios")["platform"] == "ios"
 
@@ -95,7 +98,9 @@ def test_load_refuses_a_missing_file(monkeypatch: pytest.MonkeyPatch, tmp_path: 
 
 
 @pytest.mark.parametrize("schema", [None, 0, 2, "1"])
-def test_load_refuses_another_schema(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, schema: object) -> None:
+def test_load_refuses_another_schema(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, schema: object
+) -> None:
     monkeypatch.setattr(catalog, "_DATA_DIR", tmp_path)
     _write(tmp_path, "old", schema=schema, devices=[], versions=[])
 
@@ -105,13 +110,18 @@ def test_load_refuses_another_schema(monkeypatch: pytest.MonkeyPatch, tmp_path: 
 
 # --- _catalog --------------------------------------------------------------
 
+
 def test_catalog_is_cached_per_platform() -> None:
     assert catalog._catalog("ios") is catalog._catalog("ios")
 
 
-def test_catalog_offers_explicit_versions_else_every_version(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_catalog_offers_explicit_versions_else_every_version(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     resolved = _resolve(
-        monkeypatch, tmp_path, updated="2026-01-01",
+        monkeypatch,
+        tmp_path,
+        updated="2026-01-01",
         versions=[{"version": "1"}, {"version": "2"}],
         devices=[{"model": "A", "versions": ["2"]}, {"model": "B"}],
     )
@@ -123,17 +133,23 @@ def test_catalog_offers_explicit_versions_else_every_version(monkeypatch: pytest
     assert all(d.oses == () and d.by_os == {} for d in resolved.devices)
 
 
-def test_catalog_without_an_update_date_reads_as_empty(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    resolved = _resolve(monkeypatch, tmp_path, versions=[{"version": "1"}], devices=[{"model": "A"}])
+def test_catalog_without_an_update_date_reads_as_empty(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    resolved = _resolve(
+        monkeypatch, tmp_path, versions=[{"version": "1"}], devices=[{"model": "A"}]
+    )
 
     assert resolved.updated == ""
 
 
 def test_catalog_offers_a_device_the_versions_of_the_oses_it_reports(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     resolved = _resolve(
-        monkeypatch, tmp_path,
+        monkeypatch,
+        tmp_path,
         versions=[{"version": "W", "os": "windows"}, {"version": "L", "os": "linux"}],
         devices=[{"model": "PC", "os": ["windows", "linux"]}, {"model": "Box", "os": ["linux"]}],
     )
@@ -147,10 +163,12 @@ def test_catalog_offers_a_device_the_versions_of_the_oses_it_reports(
 
 
 def test_catalog_keeps_a_version_without_an_os_out_of_the_os_views(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     resolved = _resolve(
-        monkeypatch, tmp_path,
+        monkeypatch,
+        tmp_path,
         versions=[{"version": "W", "os": "windows"}, {"version": "X"}],
         devices=[{"model": "PC", "versions": ["W", "X"]}],
     )
@@ -161,9 +179,12 @@ def test_catalog_keeps_a_version_without_an_os_out_of_the_os_views(
     assert pc.oses == ("windows",)
 
 
-def test_catalog_skips_a_device_with_no_version_to_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_catalog_skips_a_device_with_no_version_to_run(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     resolved = _resolve(
-        monkeypatch, tmp_path,
+        monkeypatch,
+        tmp_path,
         versions=[{"version": "W", "os": "windows"}],
         devices=[{"model": "Mac", "os": ["macos"]}, {"model": "PC", "os": ["windows"]}],
     )
@@ -171,14 +192,24 @@ def test_catalog_skips_a_device_with_no_version_to_run(monkeypatch: pytest.Monke
     assert [d.model for d in resolved.devices] == ["PC"]
 
 
-def test_catalog_with_no_usable_device_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_catalog_with_no_usable_device_raises(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     with pytest.raises(ValueError, match="fake.json lists no usable devices"):
-        _resolve(monkeypatch, tmp_path, versions=[{"version": "W", "os": "windows"}], devices=[{"model": "Mac", "os": ["macos"]}])
+        _resolve(
+            monkeypatch,
+            tmp_path,
+            versions=[{"version": "W", "os": "windows"}],
+            devices=[{"model": "Mac", "os": ["macos"]}],
+        )
 
 
-def test_catalog_uses_explicit_weights_raised_to_the_floor(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_catalog_uses_explicit_weights_raised_to_the_floor(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     resolved = _resolve(
-        monkeypatch, tmp_path,
+        monkeypatch,
+        tmp_path,
         versions=[{"version": "1", "weight": 3}, {"version": "2", "weight": 0}],
         devices=[{"model": "A", "weight": 5}, {"model": "B", "weight": 0}],
     )
@@ -187,13 +218,19 @@ def test_catalog_uses_explicit_weights_raised_to_the_floor(monkeypatch: pytest.M
     assert resolved.devices[0].version_weights == (3.0, 0.0)
 
 
-def test_catalog_splits_a_group_share_by_recency(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_catalog_splits_a_group_share_by_recency(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     today = date.today()
     old = (today - timedelta(days=730)).isoformat()
     monkeypatch.setitem(catalog.GROUP_SHARES, "acme", 30.0)
     resolved = _resolve(
-        monkeypatch, tmp_path,
-        versions=[{"version": "1", "released": today.isoformat()}, {"version": "0", "released": old}],
+        monkeypatch,
+        tmp_path,
+        versions=[
+            {"version": "1", "released": today.isoformat()},
+            {"version": "0", "released": old},
+        ],
         devices=[
             {"model": "New", "brand": "acme", "released": today.isoformat()},
             {"model": "Old", "vendor": "acme", "released": old},

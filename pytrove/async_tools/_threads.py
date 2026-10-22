@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
     from ..typings import _T
 
+
 def _check_loop_factory(loop_factory: Callable[[], asyncio.AbstractEventLoop] | None) -> None:
     """Validate a `loop_factory`, warning that Python before 3.12 ignores it.
 
@@ -34,7 +35,9 @@ def _check_loop_factory(loop_factory: Callable[[], asyncio.AbstractEventLoop] | 
         )
 
 
-def _run_loop(coro: Coroutine[Any, Any, Any], loop_factory: Callable[[], asyncio.AbstractEventLoop] | None) -> None:
+def _run_loop(
+    coro: Coroutine[Any, Any, Any], loop_factory: Callable[[], asyncio.AbstractEventLoop] | None
+) -> None:
     """Drive a coroutine with `asyncio.run`, passing `loop_factory` where Python accepts it.
 
     Args:
@@ -75,7 +78,9 @@ async def _run_tracked(
     awaitable = func(*args, **kwargs)
 
     if not inspect.isawaitable(awaitable):
-        msg = f"func must be an awaitable function; calling it returned {type(awaitable).__name__!r}"
+        msg = (
+            f"func must be an awaitable function; calling it returned {type(awaitable).__name__!r}"
+        )
         raise TypeError(msg)
 
     task = asyncio.current_task()

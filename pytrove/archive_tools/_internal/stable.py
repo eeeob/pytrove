@@ -96,8 +96,12 @@ def _read_stable(path: str, retries: int) -> tuple[str, os.stat_result, bool]:
                 settled = True
                 break
 
-            log.info("compress_folder: %r changed while being read (attempt %d/%d), reading it again",
-                     path, attempt + 1, retries + 1)
+            log.info(
+                "compress_folder: %r changed while being read (attempt %d/%d), reading it again",
+                path,
+                attempt + 1,
+                retries + 1,
+            )
 
         if tmp_path is None or last_stat is None:
             # Only a negative `retries` skips the loop; `_stable_source` never passes one.
@@ -118,7 +122,9 @@ def _read_stable(path: str, retries: int) -> tuple[str, os.stat_result, bool]:
 
 
 def _stable_source(
-    path: str, retries: int, check: Callable[[os.stat_result, str], bool],
+    path: str,
+    retries: int,
+    check: Callable[[os.stat_result, str], bool],
 ) -> tuple[bool, str | None, os.stat_result | None]:
     """Decide what a writer archives for one file: the file itself, or a stable copy.
 
@@ -154,7 +160,8 @@ def _stable_source(
         log.warning(
             "compress_folder: %r kept changing across %d read attempt(s), archiving the last one anyway -- its "
             "content may not match any single instant",
-            path, retries + 1,
+            path,
+            retries + 1,
         )
 
     return False, tmp_path, before_stat

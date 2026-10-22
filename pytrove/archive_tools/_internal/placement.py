@@ -96,9 +96,15 @@ class _PlaceMixin:
         except KeyError:
             if parent:
                 resolved = safe_call(
-                    partial((self._root / parent).resolve, strict=False), include_exc=(ValueError, OSError), log_exc=True,
+                    partial((self._root / parent).resolve, strict=False),
+                    include_exc=(ValueError, OSError),
+                    log_exc=True,
                 )
-                computed = resolved if resolved is not None and resolved.is_relative_to(self._root) else None
+                computed = (
+                    resolved
+                    if resolved is not None and resolved.is_relative_to(self._root)
+                    else None
+                )
             else:
                 computed = self._root
 
@@ -133,7 +139,11 @@ class _PlaceMixin:
 
         if target is None:
             self._limiter._seen.discard(name)
-            log.warning("extract_archive: refused member %r in %s, it resolves outside the destination", name, self.src.name)
+            log.warning(
+                "extract_archive: refused member %r in %s, it resolves outside the destination",
+                name,
+                self.src.name,
+            )
             return None
 
         final = target if self._root == self.dest else self.dest / target.relative_to(self._root)

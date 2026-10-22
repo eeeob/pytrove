@@ -19,13 +19,19 @@ if TYPE_CHECKING:
 # that may return an exception.
 @overload
 async def gather_helper(
-    *awaitables: NestedContainer[Awaitable[_T] | None], return_exc: _False = False, log_exc: bool = True,
+    *awaitables: NestedContainer[Awaitable[_T] | None],
+    return_exc: _False = False,
+    log_exc: bool = True,
 ) -> list[_T]: ...
 @overload
 async def gather_helper(
-    *awaitables: NestedContainer[Awaitable[_T] | None], return_exc: bool, log_exc: bool = True,
+    *awaitables: NestedContainer[Awaitable[_T] | None],
+    return_exc: bool,
+    log_exc: bool = True,
 ) -> list[_T | Exception | asyncio.CancelledError]: ...
-async def gather_helper(*awaitables: Any, return_exc: bool = False, log_exc: bool = True) -> list[Any]:
+async def gather_helper(
+    *awaitables: Any, return_exc: bool = False, log_exc: bool = True
+) -> list[Any]:
     """Run awaitables concurrently like `asyncio.gather`, flattening nested containers.
 
     `None` entries are skipped.
@@ -59,13 +65,19 @@ async def gather_helper(*awaitables: Any, return_exc: bool = False, log_exc: boo
 # Same overload order as `gather_helper`.
 @overload
 async def gather_abort(
-    *awaitables: NestedContainer[Awaitable[_T] | None], return_exc: _False = False, log_exc: bool = True,
+    *awaitables: NestedContainer[Awaitable[_T] | None],
+    return_exc: _False = False,
+    log_exc: bool = True,
 ) -> list[_T]: ...
 @overload
 async def gather_abort(
-    *awaitables: NestedContainer[Awaitable[_T] | None], return_exc: bool, log_exc: bool = True,
+    *awaitables: NestedContainer[Awaitable[_T] | None],
+    return_exc: bool,
+    log_exc: bool = True,
 ) -> list[_T | Exception | asyncio.CancelledError]: ...
-async def gather_abort(*awaitables: Any, return_exc: bool = False, log_exc: bool = True) -> list[Any]:
+async def gather_abort(
+    *awaitables: Any, return_exc: bool = False, log_exc: bool = True
+) -> list[Any]:
     """Run awaitables concurrently, cancelling the rest as soon as one fails.
 
     Args:

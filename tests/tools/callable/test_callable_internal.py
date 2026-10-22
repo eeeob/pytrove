@@ -7,8 +7,11 @@ from pytrove.callable_tools import _internal
 
 def test_internal_protocols_and_type_variables() -> None:
     for proto in (
-        _internal._WaitOnErrorDecorator, _internal._AwaitOnErrorDecorator,
-        _internal._WaitAfterDecorator, _internal._AwaitAfterDecorator, _internal._LazyCallAll,
+        _internal._WaitOnErrorDecorator,
+        _internal._AwaitOnErrorDecorator,
+        _internal._WaitAfterDecorator,
+        _internal._AwaitAfterDecorator,
+        _internal._LazyCallAll,
     ):
         assert getattr(proto, "_is_protocol", False)
 

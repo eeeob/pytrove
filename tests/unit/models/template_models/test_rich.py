@@ -12,7 +12,9 @@ needs_pyrogram = pytest.mark.skipif(not HAS_PYROGRAM, reason="needs the tg extra
 
 @needs_pyrogram
 def test_rich_message_uses_the_first_block_that_renders() -> None:
-    rich = CompiledRichMessage.compile({"html": [{"text": "{a}", "any_of": ["a"]}], "markdown": ["*{b}*"], "is_rtl": True})
+    rich = CompiledRichMessage.compile(
+        {"html": [{"text": "{a}", "any_of": ["a"]}], "markdown": ["*{b}*"], "is_rtl": True}
+    )
     message = rich.format({"b": "x"})
     assert (message.html, message.markdown, message.is_rtl) == (None, "*x*", True)
     assert CompiledRichMessage().format({}) is None

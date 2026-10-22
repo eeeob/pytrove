@@ -32,6 +32,7 @@ def platform(request: pytest.FixtureRequest) -> type[SystemInfo]:
 
 # --- sampling --------------------------------------------------------------
 
+
 def test_random_device_only_returns_pairs_the_catalog_allows(platform: type[SystemInfo]) -> None:
     allowed = {(d.model, v) for d in platform.catalog().devices for v in d.versions}
 
@@ -56,9 +57,9 @@ def test_random_device_without_an_id_varies(platform: type[SystemInfo]) -> None:
 
 @pytest.mark.parametrize("os", DESKTOP_OSES)
 def test_pinning_an_os_only_draws_that_os(os: str) -> None:
-    allowed = {(d.model, v)
-               for d in DesktopDevice.catalog().by_os[os].devices
-               for v in d.by_os[os][0]}
+    allowed = {
+        (d.model, v) for d in DesktopDevice.catalog().by_os[os].devices for v in d.by_os[os][0]
+    }
 
     for i in range(120):
         device = DesktopDevice.random_device(f"pin-{i}", os=os)
@@ -66,8 +67,9 @@ def test_pinning_an_os_only_draws_that_os(os: str) -> None:
 
 
 def test_pinning_an_os_is_deterministic() -> None:
-    assert (DesktopDevice.random_device("abc", os="linux")
-            == DesktopDevice.random_device("abc", os="linux"))
+    assert DesktopDevice.random_device("abc", os="linux") == DesktopDevice.random_device(
+        "abc", os="linux"
+    )
 
 
 def test_pinning_an_unknown_os_raises() -> None:
@@ -80,8 +82,7 @@ def test_pinning_an_unknown_os_raises() -> None:
 
 def test_desktop_draws_follow_the_os_shares() -> None:
     os_of = {v["version"]: v["os"] for v in _load("desktop")["versions"]}
-    picks = collections.Counter(
-        os_of[DesktopDevice.random_device().version] for _ in range(4000))
+    picks = collections.Counter(os_of[DesktopDevice.random_device().version] for _ in range(4000))
     total = sum(OS_SHARES.values())
 
     for name, share in OS_SHARES.items():
@@ -94,12 +95,11 @@ def test_newer_releases_are_drawn_more_often_than_the_oldest() -> None:
     oldest = sum(1 for v in versions if v.startswith("18"))
 
     assert newest > 0
-    assert newest >= oldest / 2   # recency weighting, not a hard ordering
+    assert newest >= oldest / 2  # recency weighting, not a hard ordering
 
 
 def test_random_family_is_weighted_towards_mobile() -> None:
-    picks = collections.Counter(
-        random_family(ALL_PLATFORMS).platform for _ in range(3000))
+    picks = collections.Counter(random_family(ALL_PLATFORMS).platform for _ in range(3000))
 
     assert picks["android"] > picks["desktop"] > picks["ios"] / 2
     assert set(picks) == {p.platform for p in ALL_PLATFORMS}
@@ -110,6 +110,7 @@ def test_random_family_is_deterministic_with_a_unique_id() -> None:
 
 
 # --- lookup and types ------------------------------------------------------
+
 
 def test_find_device_matches_model_and_optional_version() -> None:
     device = AndroidDevice.catalog().devices[0]
@@ -125,10 +126,10 @@ def test_find_device_matches_model_and_optional_version() -> None:
 def test_models_and_versions_narrow_to_one_os() -> None:
     # Windows draws only the shared pool, Linux adds its own boards on top.
     assert set(DesktopDevice.models("windows")) < set(DesktopDevice.models())
-    assert set(DesktopDevice.versions("windows")).isdisjoint(
-        DesktopDevice.versions("linux"))
+    assert set(DesktopDevice.versions("windows")).isdisjoint(DesktopDevice.versions("linux"))
     assert sum(len(DesktopDevice.versions(os)) for os in DESKTOP_OSES) == len(
-        DesktopDevice.versions())
+        DesktopDevice.versions()
+    )
 
 
 def test_single_os_platform_reports_no_oses() -> None:
@@ -179,7 +180,9 @@ def test_catalog_is_the_cached_platform_catalog(platform: type[SystemInfo]) -> N
 def test_devices_lists_every_model_and_version_pair(platform: type[SystemInfo]) -> None:
     pairs = platform.devices()
 
-    assert pairs == tuple(DeviceInfo(d.model, v) for d in platform.catalog().devices for v in d.versions)
+    assert pairs == tuple(
+        DeviceInfo(d.model, v) for d in platform.catalog().devices for v in d.versions
+    )
     assert all(isinstance(pair, DeviceInfo) for pair in pairs)
 
 

@@ -28,15 +28,14 @@ from typing import Any, Final
 
 from .enums import ContractKind, FingerprintKind, Policy
 from .layout import Layout
-from .models import (Citation, Contract, Derived, Fingerprint, Registry,
-                     Schedule, Source, Watch)
+from .models import Citation, Contract, Derived, Fingerprint, Registry, Schedule, Source, Watch
 
-try:                                              # 3.11+
-    import tomllib                                # type: ignore[no-redef]
-except ModuleNotFoundError:                       # 3.10, via the `devtools` dependency group
+try:  # 3.11+
+    import tomllib  # type: ignore[no-redef]
+except ModuleNotFoundError:  # 3.10, via the `devtools` dependency group
     try:
-        import tomli as tomllib                   # type: ignore[no-redef]
-    except ModuleNotFoundError:                   # pragma: no cover
+        import tomli as tomllib  # type: ignore[no-redef]
+    except ModuleNotFoundError:  # pragma: no cover
         msg = (
             "reading a tool's .toml declarations needs tomli on Python 3.10:\n"
             "    uv sync --group devtools"
@@ -56,6 +55,7 @@ class RegistryError(SystemExit):
 
 # ============================== small validators ==============================
 
+
 def _require(table: dict[str, Any], key: str, where: str) -> Any:
     if key not in table:
         msg = f"{where}: missing required key {key!r}"
@@ -63,8 +63,7 @@ def _require(table: dict[str, Any], key: str, where: str) -> Any:
     return table[key]
 
 
-def _reject_unknown(table: dict[str, Any], known: frozenset[str],
-                    where: str) -> None:
+def _reject_unknown(table: dict[str, Any], known: frozenset[str], where: str) -> None:
     unknown = sorted(set(table) - known)
     if unknown:
         msg = f"{where}: unknown key(s) {unknown}"
@@ -115,9 +114,20 @@ def _duplicates(ids: list[str]) -> list[str]:
 
 # ============================== how a body is judged ==============================
 
-CONTRACT_KEYS: Final[frozenset[str]] = frozenset({
-    "kind", "encoding", "must_have_columns", "min_rows", "min_items",
-    "item_keys", "object_keys", "must_contain", "must_match", "min_matches"})
+CONTRACT_KEYS: Final[frozenset[str]] = frozenset(
+    {
+        "kind",
+        "encoding",
+        "must_have_columns",
+        "min_rows",
+        "min_items",
+        "item_keys",
+        "object_keys",
+        "must_contain",
+        "must_match",
+        "min_matches",
+    }
+)
 
 FINGERPRINT_KEYS: Final[frozenset[str]] = frozenset({"kind", "pattern"})
 
@@ -128,8 +138,7 @@ def _contract(table: dict[str, Any] | None, where: str) -> Contract | None:
     _reject_unknown(table, CONTRACT_KEYS, where)
 
     return Contract(
-        kind=_member(ContractKind, _require(table, "kind", where),
-                     "contract kind", where),
+        kind=_member(ContractKind, _require(table, "kind", where), "contract kind", where),
         encoding=table.get("encoding", "utf-8"),
         must_have_columns=_tuple(table.get("must_have_columns")),
         min_rows=int(table.get("min_rows", 0)),
@@ -147,28 +156,46 @@ def _fingerprint(table: dict[str, Any] | None, where: str) -> Fingerprint | None
         return None
     _reject_unknown(table, FINGERPRINT_KEYS, where)
 
-    kind = _member(FingerprintKind, _require(table, "kind", where),
-                   "fingerprint kind", where)
+    kind = _member(FingerprintKind, _require(table, "kind", where), "fingerprint kind", where)
     if kind.needs_pattern and not table.get("pattern"):
         msg = f"{where}: fingerprint kind {kind} needs a pattern"
         raise RegistryError(msg)
 
-    return Fingerprint(
-        kind=kind,
-        pattern=_regex(table.get("pattern", ""), "pattern", where))
+    return Fingerprint(kind=kind, pattern=_regex(table.get("pattern", ""), "pattern", where))
 
 
 # ============================== sources/sources.toml ==============================
 
 TOOL_KEYS: Final[frozenset[str]] = frozenset({"name", "scratch", "notes"})
 
-SOURCE_KEYS: Final[frozenset[str]] = frozenset({
-    "id", "url", "probe_url", "cache", "on_change", "contract",
-    "fingerprint", "consumed_by", "on_removal", "notes"})
+SOURCE_KEYS: Final[frozenset[str]] = frozenset(
+    {
+        "id",
+        "url",
+        "probe_url",
+        "cache",
+        "on_change",
+        "contract",
+        "fingerprint",
+        "consumed_by",
+        "on_removal",
+        "notes",
+    }
+)
 
-DERIVED_KEYS: Final[frozenset[str]] = frozenset({
-    "id", "cache", "derives_from", "on_change", "max_age_days",
-    "record_max_age_days", "cost", "consumed_by", "notes"})
+DERIVED_KEYS: Final[frozenset[str]] = frozenset(
+    {
+        "id",
+        "cache",
+        "derives_from",
+        "on_change",
+        "max_age_days",
+        "record_max_age_days",
+        "cost",
+        "consumed_by",
+        "notes",
+    }
+)
 
 
 def _source(table: dict[str, Any], index: int) -> Source:
@@ -180,8 +207,7 @@ def _source(table: dict[str, Any], index: int) -> Source:
         url=table.get("url", ""),
         probe_url=table.get("probe_url", ""),
         cache=table.get("cache", ""),
-        on_change=_member(Policy, table.get("on_change", Policy.DELETE),
-                          "on_change", where),
+        on_change=_member(Policy, table.get("on_change", Policy.DELETE), "on_change", where),
         contract=_contract(table.get("contract"), where),
         fingerprint=_fingerprint(table.get("fingerprint"), where),
         consumed_by=table.get("consumed_by", ""),
@@ -219,8 +245,7 @@ def _derived(table: dict[str, Any], index: int, source_ids: set[str]) -> Derived
         id=_require(table, "id", where),
         cache=_require(table, "cache", where),
         derives_from=_tuple(table.get("derives_from")),
-        on_change=_member(Policy, table.get("on_change", Policy.DELETE),
-                          "on_change", where),
+        on_change=_member(Policy, table.get("on_change", Policy.DELETE), "on_change", where),
         max_age_days=int(table.get("max_age_days", 0)),
         record_max_age_days=int(table.get("record_max_age_days", 0)),
         cost=table.get("cost", ""),
@@ -249,8 +274,9 @@ def _derived(table: dict[str, Any], index: int, source_ids: set[str]) -> Derived
 
 # ============================== ported/citations.toml ==============================
 
-CITATION_KEYS: Final[frozenset[str]] = frozenset({
-    "id", "url", "anchors", "ported_to", "on_drift", "notes"})
+CITATION_KEYS: Final[frozenset[str]] = frozenset(
+    {"id", "url", "anchors", "ported_to", "on_drift", "notes"}
+)
 
 
 def _citation(table: dict[str, Any], index: int) -> Citation:
@@ -285,8 +311,9 @@ def _citations(tool: str) -> tuple[Citation, ...]:
 
     data = _toml(path)
     _only_tables(data, frozenset({"citation"}), path)
-    found = tuple(_citation(table, index)
-                  for index, table in enumerate(data.get("citation", []), 1))
+    found = tuple(
+        _citation(table, index) for index, table in enumerate(data.get("citation", []), 1)
+    )
 
     duplicate = _duplicates([c.id for c in found])
     if duplicate:
@@ -297,8 +324,9 @@ def _citations(tool: str) -> tuple[Citation, ...]:
 
 # ============================== config/config.toml ==============================
 
-WATCH_KEYS: Final[frozenset[str]] = frozenset({
-    "id", "url", "value", "fingerprint", "used_by", "decision", "notes"})
+WATCH_KEYS: Final[frozenset[str]] = frozenset(
+    {"id", "url", "value", "fingerprint", "used_by", "decision", "notes"}
+)
 
 
 def _watch(table: dict[str, Any], index: int) -> Watch:
@@ -334,8 +362,7 @@ def _watches(tool: str) -> tuple[Watch, ...]:
 
     data = _toml(path)
     _only_tables(data, frozenset({"watch"}), path)
-    found = tuple(_watch(table, index)
-                  for index, table in enumerate(data.get("watch", []), 1))
+    found = tuple(_watch(table, index) for index, table in enumerate(data.get("watch", []), 1))
 
     duplicate = _duplicates([w.id for w in found])
     if duplicate:
@@ -375,8 +402,7 @@ def load_schedule(tool: str) -> Schedule:
         msg = f"{where}: [{SCHEDULE_SECTION}] needs cron"
         raise RegistryError(msg)
 
-    schedule = Schedule(tool=tool, cron=cron,
-                        notes=str(table.get("notes", "")).strip())
+    schedule = Schedule(tool=tool, cron=cron, notes=str(table.get("notes", "")).strip())
     if not schedule.every_days:
         msg = (
             f"{where}: cron {cron!r} is not a cadence that can be stated in "
@@ -400,6 +426,7 @@ def find_schedule(tool: str) -> Schedule | None:
 
 
 # ============================== the whole declaration ==============================
+
 
 def load(tool: str) -> Registry:
     """Parse one tool's declarations. Raises `RegistryError` on anything odd."""
@@ -427,8 +454,7 @@ def load(tool: str) -> Registry:
         msg = f"{path}: duplicate source id(s) {duplicate}"
         raise RegistryError(msg)
 
-    derived = tuple(
-        _derived(t, i, set(ids)) for i, t in enumerate(data.get("derived", []), 1))
+    derived = tuple(_derived(t, i, set(ids)) for i, t in enumerate(data.get("derived", []), 1))
 
     citations = _citations(tool)
     watches = _watches(tool)

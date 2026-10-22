@@ -34,14 +34,17 @@ def test_split_part_out_of_range_returns_the_value_or_the_default() -> None:
     assert split_part("a,b", ",", 5, default="x") == "x"
 
 
-@pytest.mark.parametrize(("text", "snake", "pascal"), [
-    ("camelCase", "camel_case", "CamelCase"),
-    ("PascalCase", "pascal_case", "PascalCase"),
-    ("getHTTPResponse", "get_http_response", "GetHttpResponse"),
-    ("already_snake", "already_snake", "AlreadySnake"),
-    ("version2Name", "version2_name", "Version2Name"),
-    ("__dunder__", "__dunder__", "Dunder"),
-])
+@pytest.mark.parametrize(
+    ("text", "snake", "pascal"),
+    [
+        ("camelCase", "camel_case", "CamelCase"),
+        ("PascalCase", "pascal_case", "PascalCase"),
+        ("getHTTPResponse", "get_http_response", "GetHttpResponse"),
+        ("already_snake", "already_snake", "AlreadySnake"),
+        ("version2Name", "version2_name", "Version2Name"),
+        ("__dunder__", "__dunder__", "Dunder"),
+    ],
+)
 def test_case_conversions(text: str, snake: str, pascal: str) -> None:
     assert to_snake_case(text) == snake
     assert to_pascal_case(text) == pascal

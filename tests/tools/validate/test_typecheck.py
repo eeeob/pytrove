@@ -65,7 +65,9 @@ def test_validate_type_checks_every_item_of_a_package_container() -> None:
 
 
 @needs_typeguard
-@pytest.mark.skipif(not _ALIAS_TYPES, reason="before 3.12 typeguard expands the aliases as plain unions")
+@pytest.mark.skipif(
+    not _ALIAS_TYPES, reason="before 3.12 typeguard expands the aliases as plain unions"
+)
 def test_validate_type_applies_the_package_container_rules_to_aliases() -> None:
     with pytest.raises(ValidationError):
         validate_type("abc", Container[str])

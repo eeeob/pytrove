@@ -83,7 +83,11 @@ def compress_folder(
             or a format that cannot be told or disagrees with `dest`.
         ImportError: For tar.zst without a zstd backend.
     """
-    if not isinstance(stability_retries, int) or isinstance(stability_retries, bool) or stability_retries < 0:
+    if (
+        not isinstance(stability_retries, int)
+        or isinstance(stability_retries, bool)
+        or stability_retries < 0
+    ):
         msg = f"compress_folder: stability_retries takes a non-negative int, not {stability_retries!r}"
         raise ValidationError(msg)
 
@@ -143,7 +147,10 @@ def compress_folder(
     # `_is_hidden` reads only a `DirEntry`, which is all a walk shows a rule.
     walk = _Compressor(
         str(src),
-        _Filter.from_rules(cast(Iterator[_Rule], iter_flat_cont(include)), cast(Iterator[_Rule], iter_flat_cont(excluded))),
+        _Filter.from_rules(
+            cast(Iterator[_Rule], iter_flat_cont(include)),
+            cast(Iterator[_Rule], iter_flat_cont(excluded)),
+        ),
         follow_links=follow_links,
     )
 

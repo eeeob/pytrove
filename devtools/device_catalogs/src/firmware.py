@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 # ------------------- firmware harvest (Chinese OEM phones) -------------------
 
+
 class FirmwareHarvest:
     """Retail device names and newest Android releases from stock firmware.
 
@@ -84,8 +85,7 @@ class FirmwareHarvest:
     #: AOSP's default `ro.product.property_source_order`; a device may override
     #: it, and the resolved value is whichever partition in this order names the
     #: property first (property_service.cpp).
-    SOURCE_ORDER: ClassVar[tuple[str, ...]] = (
-        "product", "odm", "vendor", "system_ext", "system")
+    SOURCE_ORDER: ClassVar[tuple[str, ...]] = ("product", "odm", "vendor", "system_ext", "system")
     SOURCE_ORDER_PROP: ClassVar[str] = "ro.product.property_source_order"
 
     #: Where each partition keeps its build.prop inside a dump.
@@ -108,17 +108,33 @@ class FirmwareHarvest:
     #: manufacturer=QUALCOMM with the SoC codename as the model ("Kona for
     #: arm64", "Lahaina for arm64"). Treating it as a placeholder sends the
     #: resolver on to the overlay, where the retail values are.
-    PLACEHOLDER: ClassVar[frozenset[str]] = frozenset({
-        "unknown", "alps", "oplus", "magic", "qssi", "mssi", "generic",
-        "android", "aosp", "gsi", "sys", "none", "qualcomm", "qti", "",
-    })
+    PLACEHOLDER: ClassVar[frozenset[str]] = frozenset(
+        {
+            "unknown",
+            "alps",
+            "oplus",
+            "magic",
+            "qssi",
+            "mssi",
+            "generic",
+            "android",
+            "aosp",
+            "gsi",
+            "sys",
+            "none",
+            "qualcomm",
+            "qti",
+            "",
+        }
+    )
     #: What a retail Build.MODEL looks like, so a leftover codename is dropped.
     MODEL_SHAPE: ClassVar[re.Pattern[str]] = re.compile(r"[A-Za-z0-9][A-Za-z0-9 ._+-]{2,31}")
     #: A generic-system-image model, which is never what a handset reports.
     MODEL_REJECT: ClassVar[re.Pattern[str]] = re.compile(r"\bfor\s+arm", re.I)
 
     PROP_LINE: ClassVar[re.Pattern[str]] = re.compile(
-        r"^(ro\.product(?:\.[a-z_]+)?\.(?:model|manufacturer))=(.*)$", re.M)
+        r"^(ro\.product(?:\.[a-z_]+)?\.(?:model|manufacturer))=(.*)$", re.M
+    )
 
     def __init__(self, cache: Cache) -> None:
         """Keep the cache the harvest reads and writes through."""
@@ -132,12 +148,14 @@ class FirmwareHarvest:
 
     def file(self, project: int, path: str, ref: str) -> str:
         """One file out of a dump, or "" when the dump does not carry it."""
-        url = (f"{self.BASE}/projects/{project}/repository/files/"
-               f"{urllib.parse.quote(path, safe='')}/raw"
-               f"?ref={urllib.parse.quote(ref, safe='')}")
+        url = (
+            f"{self.BASE}/projects/{project}/repository/files/"
+            f"{urllib.parse.quote(path, safe='')}/raw"
+            f"?ref={urllib.parse.quote(ref, safe='')}"
+        )
         try:
             return self.cache.download(url, timeout=90).decode("utf-8", "replace")
-        except Exception:                                 # noqa: BLE001 - skip it
+        except Exception:  # noqa: BLE001 - skip it
             return ""
 
     def tree(self, project: int, path: str, ref: str) -> list[dict[str, Any]]:
@@ -146,8 +164,9 @@ class FirmwareHarvest:
             return self.api(
                 f"/projects/{project}/repository/tree"
                 f"?path={urllib.parse.quote(path, safe='')}&per_page=100"
-                f"&ref={urllib.parse.quote(ref, safe='')}")
-        except Exception:                                 # noqa: BLE001 - skip it
+                f"&ref={urllib.parse.quote(ref, safe='')}"
+            )
+        except Exception:  # noqa: BLE001 - skip it
             return []
 
     # --- step 1: which dumps are worth reading ---------------------------
@@ -159,8 +178,9 @@ class FirmwareHarvest:
             try:
                 items = self.api(
                     f"/groups/dumps%2F{brand}/projects"
-                    f"?per_page=100&page={page}&include_subgroups=true")
-            except Exception as exc:                      # noqa: BLE001
+                    f"?per_page=100&page={page}&include_subgroups=true"
+                )
+            except Exception as exc:  # noqa: BLE001
                 print(f"  {brand}: {type(exc).__name__} {exc}")
                 break
             if not items:
@@ -171,8 +191,7 @@ class FirmwareHarvest:
                 if not release or int(release.group(1)) < self.MIN_ANDROID:
                     continue
                 stamp = self.BRANCH_STAMP.search(branch)
-                day = (date.fromtimestamp(int(stamp.group(1)) / 1000).isoformat()
-                       if stamp else "")
+                day = date.fromtimestamp(int(stamp.group(1)) / 1000).isoformat() if stamp else ""
                 found.append((item["id"], branch, int(release.group(1)), day))
         return found
 
@@ -181,8 +200,7 @@ class FirmwareHarvest:
     @classmethod
     def props(cls, text: str) -> dict[str, str]:
         """Parse a `build.prop` text into a key-to-value mapping."""
-        return {key: value.strip()
-                for key, value in cls.PROP_LINE.findall(text)}
+        return {key: value.strip() for key, value in cls.PROP_LINE.findall(text)}
 
     @classmethod
     def pick(cls, props: dict[str, str], partition: str, field: str) -> str:
@@ -199,8 +217,9 @@ class FirmwareHarvest:
         A list rather than one pair because the regional overlay files give a
         phone one model code per market, exactly as Google's catalog does.
         """
-        files = {partition: self.file(project, path, ref)
-                 for partition, path in self.PROP_PATH.items()}
+        files = {
+            partition: self.file(project, path, ref) for partition, path in self.PROP_PATH.items()
+        }
 
         # The first partition that declares the order wins. The inner `break`
         # this replaces only left the line loop, so every later partition
@@ -209,8 +228,14 @@ class FirmwareHarvest:
         # unnoticed, and the wrong one the moment they do not.
         order = self.SOURCE_ORDER
         for text in files.values():
-            declared = next((line for line in text.splitlines()
-                             if line.startswith(self.SOURCE_ORDER_PROP + "=")), None)
+            declared = next(
+                (
+                    line
+                    for line in text.splitlines()
+                    if line.startswith(self.SOURCE_ORDER_PROP + "=")
+                ),
+                None,
+            )
             if declared is not None:
                 parts = tuple(p.strip() for p in declared.split("=", 1)[1].split(","))
                 order = tuple(p for p in parts if p in self.PROP_PATH) or order
@@ -231,11 +256,13 @@ class FirmwareHarvest:
                 continue
             for leaf in self.tree(project, f"{self.OVERLAY_DIR}/{entry['name']}", ref):
                 name = leaf.get("name", "")
-                if not (name.startswith(self.OVERLAY_PREFIX)
-                        and name.endswith(self.OVERLAY_SUFFIX)):
+                if not (
+                    name.startswith(self.OVERLAY_PREFIX) and name.endswith(self.OVERLAY_SUFFIX)
+                ):
                     continue
-                props = self.props(self.file(
-                    project, f"{self.OVERLAY_DIR}/{entry['name']}/{name}", ref))
+                props = self.props(
+                    self.file(project, f"{self.OVERLAY_DIR}/{entry['name']}/{name}", ref)
+                )
                 model = self.pick(props, "odm", "model")
                 manufacturer = self.pick(props, "odm", "manufacturer")
                 if model and manufacturer:
@@ -248,12 +275,19 @@ class FirmwareHarvest:
     def read_dump(self, item: tuple[str, int, str, int, str]) -> list[dict[str, Any]]:
         """Return one record per retail model a dump proves."""
         brand, project, ref, release, day = item
-        return [{"brand": brand, "manufacturer": manufacturer, "code": code,
-                 "android": release, "date": day, "project": project,
-                 "last_seen": TODAY}
-                for manufacturer, code in self.resolve(project, ref)
-                if self.MODEL_SHAPE.fullmatch(code)
-                and not self.MODEL_REJECT.search(code)]
+        return [
+            {
+                "brand": brand,
+                "manufacturer": manufacturer,
+                "code": code,
+                "android": release,
+                "date": day,
+                "project": project,
+                "last_seen": TODAY,
+            }
+            for manufacturer, code in self.resolve(project, ref)
+            if self.MODEL_SHAPE.fullmatch(code) and not self.MODEL_REJECT.search(code)
+        ]
 
     def records(self) -> list[dict[str, Any]]:
         """One record per (brand, model code) a retail dump has ever proved."""
@@ -266,15 +300,16 @@ class FirmwareHarvest:
             # outcome of having no network.
             if not self.cache.has(self.PREV_FILE):
                 self.cache.missing(
-                    f"no {self.RECORDS_FILE} in the cache; run once with "
-                    f"network access")
+                    f"no {self.RECORDS_FILE} in the cache; run once with network access"
+                )
             return self.store(self.merge([]))
 
         wanted: list[tuple[str, int, str, int, str]] = []
         for brand in self.BRANDS:
             fresh = self.dumps(brand)
-            wanted += [(brand, project, branch, release, day)
-                       for project, branch, release, day in fresh]
+            wanted += [
+                (brand, project, branch, release, day) for project, branch, release, day in fresh
+            ]
             print(f"  {brand}: {len(fresh)} dumps on Android {self.MIN_ANDROID}+")
 
         with ThreadPoolExecutor(max_workers=self.WORKERS) as pool:
@@ -301,11 +336,9 @@ class FirmwareHarvest:
         old = self.cache.read_json(self.PREV_FILE)
         # A file written before the harvest accumulated carries no sighting
         # date, and the only honest one available is when it was written.
-        written = date.fromtimestamp(
-            self.cache.path(self.PREV_FILE).stat().st_mtime).isoformat()
+        written = date.fromtimestamp(self.cache.path(self.PREV_FILE).stat().st_mtime).isoformat()
         print(f"  carrying {len(old)} records from the previous harvest")
-        return [{**record, "last_seen": record.get("last_seen") or written}
-                for record in old]
+        return [{**record, "last_seen": record.get("last_seen") or written} for record in old]
 
     def merge(self, fresh: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Merge `fresh` with what an earlier harvest proved.
@@ -333,14 +366,12 @@ class FirmwareHarvest:
             else:
                 kept[key] = record
 
-        floor = (date.today()
-                 - timedelta(days=self.RECORD_MAX_AGE_DAYS)).isoformat()
+        floor = (date.today() - timedelta(days=self.RECORD_MAX_AGE_DAYS)).isoformat()
         current = [r for r in kept.values() if r["last_seen"] >= floor]
         if len(current) != len(kept):
             print(f"  dropping {len(kept) - len(current)} unseen since {floor}")
         if len(current) > len(fresh):
-            print(f"  carried {len(current) - len(fresh)} "
-                  f"no dump in this harvest reached")
+            print(f"  carried {len(current) - len(fresh)} no dump in this harvest reached")
         return current
 
     def store(self, records: list[dict[str, Any]]) -> list[dict[str, Any]]:

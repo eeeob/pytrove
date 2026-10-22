@@ -34,6 +34,7 @@ if TYPE_CHECKING:
 
 # ============================== extraction ==============================
 
+
 class FingerprintValue:
     """Computes one source's declared fingerprint.
 
@@ -52,15 +53,15 @@ class FingerprintValue:
     KINDS: ClassVar[dict[FingerprintKind, Callable[..., Any]]]
 
     @classmethod
-    def of(cls, fingerprint: Fingerprint | None, body: bytes,
-           *, encoding: str = DEFAULT_ENCODING) -> Any:
+    def of(
+        cls, fingerprint: Fingerprint | None, body: bytes, *, encoding: str = DEFAULT_ENCODING
+    ) -> Any:
         if fingerprint is None or body is None:
             return None
 
         try:
-            return cls.KINDS[fingerprint.kind](
-                body, fingerprint.pattern, encoding)
-        except Exception:                                 # noqa: BLE001
+            return cls.KINDS[fingerprint.kind](body, fingerprint.pattern, encoding)
+        except Exception:  # noqa: BLE001
             return None
 
     # --- the kinds --------------------------------------------------------
@@ -72,7 +73,7 @@ class FingerprintValue:
     @staticmethod
     def _csv_rows(body: bytes, _pattern: str, encoding: str) -> int:
         reader = csv.reader(io.StringIO(body.decode(encoding, "replace")))
-        next(reader, None)                                # the header
+        next(reader, None)  # the header
         return sum(1 for _ in reader)
 
     @staticmethod
@@ -86,8 +87,11 @@ class FingerprintValue:
     @staticmethod
     def _regex_max_int(body: bytes, pattern: str, encoding: str) -> int | None:
         found = re.findall(pattern, body.decode(encoding, "replace"), re.M)
-        numbers = [int(m if isinstance(m, str) else m[0]) for m in found
-                   if (m if isinstance(m, str) else m[0]).isdigit()]
+        numbers = [
+            int(m if isinstance(m, str) else m[0])
+            for m in found
+            if (m if isinstance(m, str) else m[0]).isdigit()
+        ]
         return max(numbers) if numbers else None
 
     @staticmethod

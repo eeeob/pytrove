@@ -27,15 +27,19 @@ BIN := $(if $(OS),Scripts,bin)
 # jobs read the version without syncing the project.
 VERSION = $(shell $(UV) run --no-project --with hatchling hatchling version)
 
-.PHONY: sync lint typecheck test test-doctest test-minimal test-floor test-ceil build version clean
+.PHONY: sync format lint typecheck test test-doctest test-minimal test-floor test-ceil build version clean
 
 # No other recipe needs this: they all sync on their own. It exists so CI can
 # install in a step of its own, which makes a resolution failure read as one.
 sync:
 	$(UV) sync --all-extras
 
+format:
+	$(RUN) ruff format pytrove tests devtools
+
 lint:
 	$(RUN) ruff check pytrove tests devtools
+	$(RUN) ruff format --check pytrove tests devtools
 
 # The target version and platform are fixed in `[tool.ty.environment]`. Run it
 # from an environment that holds every extra: the `mongo` extra skips 3.10, and

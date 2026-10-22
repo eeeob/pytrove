@@ -61,20 +61,27 @@ def flush_logger_handler(handler: logging.Handler | None = None) -> None:
 
 
 @overload
-def attach_logger_handlers(hdlrs_options: LogHandlerOptions, return_loggers: _False = ...) -> logging.Handler: ...
+def attach_logger_handlers(
+    hdlrs_options: LogHandlerOptions, return_loggers: _False = ...
+) -> logging.Handler: ...
 @overload
 def attach_logger_handlers(
-    hdlrs_options: LogHandlerOptions, return_loggers: _True,
+    hdlrs_options: LogHandlerOptions,
+    return_loggers: _True,
 ) -> tuple[logging.Logger, logging.Handler]: ...
 @overload
 def attach_logger_handlers(
-    hdlrs_options: Container[NestedContainer[LogHandlerOptions]], return_loggers: _False = ...,
+    hdlrs_options: Container[NestedContainer[LogHandlerOptions]],
+    return_loggers: _False = ...,
 ) -> list[logging.Handler]: ...
 @overload
 def attach_logger_handlers(
-    hdlrs_options: Container[NestedContainer[LogHandlerOptions]], return_loggers: _True,
+    hdlrs_options: Container[NestedContainer[LogHandlerOptions]],
+    return_loggers: _True,
 ) -> list[tuple[logging.Logger, logging.Handler]]: ...
-def attach_logger_handlers(hdlrs_options: NestedContainer[LogHandlerOptions], return_loggers: bool = False) -> Any:
+def attach_logger_handlers(
+    hdlrs_options: NestedContainer[LogHandlerOptions], return_loggers: bool = False
+) -> Any:
     """Build each described handler, configure it and attach it to its logger.
 
     Args:
@@ -117,7 +124,9 @@ def attach_logger_handlers(hdlrs_options: NestedContainer[LogHandlerOptions], re
     return handlers[0] if len(handlers) == 1 else handlers
 
 
-def set_loggers(loggers_options: NestedContainer[LoggerOptions]) -> logging.Logger | list[logging.Logger]:
+def set_loggers(
+    loggers_options: NestedContainer[LoggerOptions],
+) -> logging.Logger | list[logging.Logger]:
     """Configure each described logger.
 
     Args:

@@ -23,7 +23,9 @@ def test_generate_secret_draws_only_from_the_enabled_sets() -> None:
     assert len(secret) == 32
     assert set(secret) <= set(string.digits)
 
-    assert set(generate_secret(32, use_digits=False, use_symbols=False)) <= set(string.ascii_letters)
+    assert set(generate_secret(32, use_digits=False, use_symbols=False)) <= set(
+        string.ascii_letters
+    )
 
 
 def test_generate_secret_is_random() -> None:

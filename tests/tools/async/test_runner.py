@@ -144,7 +144,9 @@ def test_run_reports_a_loop_that_stopped_running() -> None:
             runner.run(asyncio.sleep(0))
     finally:
         setattr(runner, _LOOP_ATTR, real_loop)
-        idle_loop.run_until_complete(asyncio.sleep(0.01))  # Runs the scheduled coroutine, so it is not leaked.
+        idle_loop.run_until_complete(
+            asyncio.sleep(0.01)
+        )  # Runs the scheduled coroutine, so it is not leaked.
         idle_loop.close()
 
     runner.close()

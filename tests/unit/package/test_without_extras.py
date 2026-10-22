@@ -117,7 +117,12 @@ def test_the_library_works_without_any_extra() -> None:
     modules = sorted(m for names in OPTIONAL.values() for m in names)
     script = SCRIPT.format(dists=sorted(OPTIONAL), modules=modules)
     result = subprocess.run(
-        [sys.executable, "-c", script], cwd=ROOT, capture_output=True, text=True, encoding="utf-8", check=False
+        [sys.executable, "-c", script],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
     )
     assert result.returncode == 0, result.stderr or result.stdout
     assert result.stdout.strip().endswith("ok")
@@ -125,7 +130,9 @@ def test_the_library_works_without_any_extra() -> None:
 
 def test_every_optional_dependency_is_hidden_by_the_check() -> None:
     tomllib = pytest.importorskip("tomllib")
-    extras = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["optional-dependencies"]
+    extras = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"][
+        "optional-dependencies"
+    ]
     declared = {
         re.match(r"[A-Za-z0-9_.-]+", req).group()
         for name, reqs in extras.items()
