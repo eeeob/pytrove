@@ -1,0 +1,5 @@
+# Commits that only reformat the tree; `git blame` skips them with
+# `git config blame.ignoreRevsFile .git-blame-ignore-revs` (GitHub does it on its own).
+
+# style: format the tree with ruff
+ca8676618f219bdac9fb427593d3abec6149e9c4
