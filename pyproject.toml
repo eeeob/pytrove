@@ -187,10 +187,11 @@ asyncio_mode = "auto"
 # Test files mirror the library per section, so basenames repeat across directories.
 addopts = "--import-mode=importlib"
 
-# The reference for every mechanically enforced rule. `CONTRIBUTING.md` points
-# here instead of restating these: each selected rule set names the rule it
-# enforces, and each ignore says why it is not enforced. `make lint` and
-# `make typecheck` run exactly this configuration, locally and in CI.
+# The tooling half of `CONTRIBUTING.md`: each selected rule set names the rule
+# it enforces, and each ignore says why. It does not replace that file: every
+# rule there binds equally, including the ones no tool can check (ordering,
+# file layout, documentation content, tests). `make lint` and `make typecheck`
+# run exactly this configuration, locally and in CI.
 [tool.ruff]
 target-version = "py310"
 # PEP 695 syntax, imported only on 3.12+ (see `typings/core.py`).
@@ -209,8 +210,6 @@ select = [
 ]
 ignore = [
     "ANN401",  # 4.6 forbids `Any` only as a way around a type error, not everywhere
-    "D100",    # 3.3: a module docstring is optional ("if present")
-    "D104",    # same, for a package's `__init__.py`
 ]
 
 [tool.ruff.lint.isort]
