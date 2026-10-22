@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Hashable
 
     from .._internal._types import _ExcFilter
-    from ..typings import NestedContainer, _ExcT, _False, _P, _T, _True
+    from ..typings import NestedContainer, _ExcT, _False, _T, _True
     from ._internal import _ExcLogger
 
 log = logging.getLogger(__name__)
@@ -22,62 +22,62 @@ log = logging.getLogger(__name__)
 
 @overload
 def safe_call(
-    func: Callable[_P, _T],
-    *args: _P.args,
+    func: Callable[..., _T],
+    *args: Any,
     include_exc: _ExcFilter = None,
     exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
-    **kwargs: _P.kwargs,
+    **kwargs: Any,
 ) -> _T | None: ...
 @overload
 def safe_call(
-    func: Callable[_P, _T],
-    *args: _P.args,
+    func: Callable[..., _T],
+    *args: Any,
     return_exc: _False,
     include_exc: _ExcFilter = None,
     exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
-    **kwargs: _P.kwargs,
+    **kwargs: Any,
 ) -> _T | None: ...
 @overload
 def safe_call(
-    func: Callable[_P, _T],
-    *args: _P.args,
+    func: Callable[..., _T],
+    *args: Any,
     return_exc: _True,
     include_exc: type[_ExcT],
     exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
-    **kwargs: _P.kwargs,
+    **kwargs: Any,
 ) -> _T | _ExcT: ...
 @overload
 def safe_call(
-    func: Callable[_P, _T],
-    *args: _P.args,
+    func: Callable[..., _T],
+    *args: Any,
     return_exc: _True,
     include_exc: tuple[type[_ExcT], ...],
     exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
-    **kwargs: _P.kwargs,
+    **kwargs: Any,
 ) -> _T | _ExcT: ...
 @overload
 def safe_call(
-    func: Callable[_P, _T],
-    *args: _P.args,
+    func: Callable[..., _T],
+    *args: Any,
     return_exc: _True,
     include_exc: _ExcFilter = None,
     exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
-    **kwargs: _P.kwargs,
+    **kwargs: Any,
 ) -> _T | BaseException: ...
 @overload
 def safe_call(
-    func: Callable[_P, _T],
-    *args: _P.args,
+    func: Callable[..., _T],
+    *args: Any,
     raise_exc: _True,
     include_exc: _ExcFilter = None,
     exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
-    **kwargs: _P.kwargs,
+    **kwargs: Any,
 ) -> _T: ...
 def safe_call(
     func: Callable[..., Any],
@@ -165,7 +165,7 @@ def raise_if(
     bool_value: bool | None = None,
     values: NestedContainer[Hashable | None] = None,
     always: bool = False,
-) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
+) -> Callable[[Callable[..., _T]], Callable[..., _T]]:
     """Decorate a sync or async function to raise when its result matches.
 
     A result raises when `always` is set, when it is one of `values`, or when

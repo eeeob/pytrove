@@ -15,28 +15,28 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
     from concurrent.futures import ThreadPoolExecutor
 
-    from ..typings import MaybeAwaitableCallable, _False, _P, _T
+    from ..typings import MaybeAwaitableCallable, _False, _T
 
 
 # `return_exc=False` (or nothing) is listed first, so `True` or a plain `bool` falls to the arm
 # that may return an exception.
 @overload
 async def to_thread(
-    func: Callable[_P, _T],
-    *args: _P.args,
+    func: Callable[..., _T],
+    *args: Any,
     executor: ThreadPoolExecutor | None = None,
     log_exc: bool = True,
     return_exc: _False = False,
-    **kwargs: _P.kwargs,
+    **kwargs: Any,
 ) -> _T: ...
 @overload
 async def to_thread(
-    func: Callable[_P, _T],
-    *args: _P.args,
+    func: Callable[..., _T],
+    *args: Any,
     executor: ThreadPoolExecutor | None = None,
     log_exc: bool = True,
     return_exc: bool,
-    **kwargs: _P.kwargs,
+    **kwargs: Any,
 ) -> _T | Exception: ...
 async def to_thread(
     func: Callable[..., Any],
@@ -85,7 +85,7 @@ async def to_thread(
 
 
 async def call_sync_or_await(
-    func: MaybeAwaitableCallable[_P, _T], *args: _P.args, **kwargs: _P.kwargs
+    func: MaybeAwaitableCallable[..., _T], *args: Any, **kwargs: Any
 ) -> _T:
     """Call a function and await its result if it is awaitable.
 
