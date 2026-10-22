@@ -186,8 +186,9 @@ def test_tar_writer_refuses_tar_zst_without_a_backend(monkeypatch: pytest.Monkey
 # --- shared helpers for the gap tests below --------------------------------
 
 
-def _ready_extractor(tmp_path: Path, limits: ArchiveLimits = ArchiveLimits()) -> _Extractor:
+def _ready_extractor(tmp_path: Path, limits: ArchiveLimits | None = None) -> _Extractor:
     """An `_Extractor` set up as `run` leaves it, writing straight into `dest`."""
+    limits = ArchiveLimits() if limits is None else limits
     dest = tmp_path / "dest"
     dest.mkdir(exist_ok=True)
     extractor = _Extractor(tmp_path / "a.zip", dest, _Filter.from_rules((), ()), limits)

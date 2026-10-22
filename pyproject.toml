@@ -242,10 +242,6 @@ ignore = [
     "TC006",   # 4.2 forbids quoted annotations, so a `cast` target stays a real name
 ]
 
-[tool.ruff.lint.flake8-bugbear]
-# An immutable `NamedTuple`, so a shared default instance is safe (`B008`).
-extend-immutable-calls = ["pytrove.typings.ArchiveLimits"]
-
 [tool.ruff.lint.isort]
 required-imports = ["from __future__ import annotations as _annotations"]
 

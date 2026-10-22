@@ -46,7 +46,7 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
     flt: _Filter
     """What to keep."""
 
-    limits: ArchiveLimits = ArchiveLimits()
+    limits: ArchiveLimits = field(default_factory=ArchiveLimits)
     """Ceilings and policies, answered through `_limiter`."""
 
     password: bytes | None = None
