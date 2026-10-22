@@ -79,5 +79,5 @@ def test_resolve_json_refs_names_the_extra_when_jsonref_is_missing() -> None:
     else:
         pytest.skip("jsonref is installed")
 
-    with pytest.raises(ImportError, match=r"pytrove\[jsonref\]"):
+    with pytest.raises(ImportError, match=r"pytrove\[json\]"):
         resolve_json_refs({})

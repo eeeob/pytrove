@@ -81,7 +81,7 @@ SCRIPT: Final[str] = textwrap.dedent(
     needs("phone", lambda: pytrove.cc_from_rc("SA"))
     needs("bs4", lambda: pytrove.parse_email_bytes(b""))
     needs("imap", lambda: pytrove.is_accessible_received_email("a@b.c", "p"))
-    needs("jsonref", lambda: pytrove.resolve_json_refs({{}}))
+    needs("json", lambda: pytrove.resolve_json_refs({{}}))
     needs("tg", lambda: pytrove.parse_tg_target("x"))
     needs("tg", lambda: pytrove.models.CompiledTemplate())
     needs("typecheck", lambda: pytrove.validate_type(1, int))
@@ -96,7 +96,7 @@ SCRIPT: Final[str] = textwrap.dedent(
         Path(src, "a.txt").write_text("a", encoding="utf-8")
         Path(src, "b.log").write_text("b", encoding="utf-8")
 
-        # `fastjson`: JSON I/O falls back to the standard library.
+        # `json` (its `orjson` half): JSON I/O falls back to the standard library.
         pytrove.write_json(Path(tmp, "x.json"), {{"k": 1}})
         assert pytrove.read_json(Path(tmp, "x.json")) == {{"k": 1}}
 

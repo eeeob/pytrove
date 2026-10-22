@@ -197,7 +197,7 @@ if HAS_PYROGRAM:
             The file may also set `parse_mode`/`key_time` defaults for all of
             its templates, and hold definitions that repeated values point at
             with a JSON Reference (`{"$ref": "#/..."}`). References are
-            resolved before compiling when the `jsonref` extra is installed.
+            resolved before compiling when the `json` extra is installed.
 
             Args:
                 path: The JSON file.

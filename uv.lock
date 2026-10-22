@@ -752,9 +752,6 @@ country = [
 crypto = [
     { name = "cryptography" },
 ]
-fastjson = [
-    { name = "orjson" },
-]
 full = [
     { name = "aioimaplib" },
     { name = "babel" },
@@ -775,8 +772,9 @@ full = [
 imap = [
     { name = "aioimaplib" },
 ]
-jsonref = [
+json = [
     { name = "jsonref" },
+    { name = "orjson" },
 ]
 locale = [
     { name = "babel" },
@@ -833,11 +831,11 @@ requires-dist = [
     { name = "fastzip", marker = "sys_platform != 'win32' and extra == 'archive'", specifier = ">=0.5" },
     { name = "fastzip", marker = "sys_platform != 'win32' and extra == 'full'", specifier = ">=0.5" },
     { name = "jsonref", marker = "extra == 'full'", specifier = ">=1.1" },
-    { name = "jsonref", marker = "extra == 'jsonref'", specifier = ">=1.1" },
+    { name = "jsonref", marker = "extra == 'json'", specifier = ">=1.1" },
     { name = "kurigram", marker = "extra == 'full'", specifier = ">=2.2.24" },
     { name = "kurigram", marker = "extra == 'tg'", specifier = ">=2.2.24" },
-    { name = "orjson", marker = "extra == 'fastjson'", specifier = ">=3.11.7" },
     { name = "orjson", marker = "extra == 'full'", specifier = ">=3.11.7" },
+    { name = "orjson", marker = "extra == 'json'", specifier = ">=3.11.7" },
     { name = "pathspec", marker = "extra == 'archive'", specifier = ">=1.0" },
     { name = "pathspec", marker = "extra == 'full'", specifier = ">=1.0" },
     { name = "phonenumbers", marker = "extra == 'country'", specifier = ">=9.0.21" },
@@ -855,7 +853,7 @@ requires-dist = [
     { name = "zstandard", marker = "python_full_version < '3.14' and extra == 'archive'", specifier = ">=0.22" },
     { name = "zstandard", marker = "python_full_version < '3.14' and extra == 'full'", specifier = ">=0.22" },
 ]
-provides-extras = ["archive", "bs4", "country", "crypto", "fastjson", "full", "imap", "jsonref", "locale", "mongo", "phone", "proxy", "tg", "typecheck"]
+provides-extras = ["archive", "bs4", "country", "crypto", "full", "imap", "json", "locale", "mongo", "phone", "proxy", "tg", "typecheck"]
 
 [package.metadata.requires-dev]
 dev = [

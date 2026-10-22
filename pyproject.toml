@@ -89,11 +89,10 @@ locale = [
     # Floor set when the feature was added; clean.
     "babel>=2.14",
 ]
-jsonref = [
-    # Floor set when the feature was added; clean.
+json = [
+    # `$ref` resolution. Floor set when the feature was added; clean.
     "jsonref>=1.1",
-]
-fastjson = [
+    # The fast path for JSON I/O; without it the standard `json` is used.
     # 3.9.0 carries CVE-2024-27454 and 3.10 through 3.11.5 carry CVE-2025-67221.
     "orjson>=3.11.7",
 ]
@@ -113,7 +112,7 @@ archive = [
 
 # Every optional group above, so `full` installs all optional features.
 full = [
-    "pytrove[imap,phone,country,bs4,mongo,tg,crypto,typecheck,proxy,locale,jsonref,fastjson,archive]"
+    "pytrove[imap,phone,country,bs4,mongo,tg,crypto,typecheck,proxy,locale,json,archive]"
 ]
 
 # Tooling is not something a user of the library installs, so it lives in

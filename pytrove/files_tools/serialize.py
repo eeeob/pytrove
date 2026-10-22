@@ -25,7 +25,7 @@ from .write import write_file
 
 
 def read_json(path: PathLike, default: _T | type[object] = object, lock: LockProtocol | None = None, **kw: Any) -> JsonValue | _T:
-    """Parse a JSON file, through orjson with the `fastjson` extra and no keywords.
+    """Parse a JSON file, through orjson with the `json` extra and no keywords.
 
     Args:
         path: The file to read.
@@ -135,7 +135,7 @@ def write_pickle(path: PathLike, data: Any, lock: LockProtocol | None = None, fs
     write_file(path, content, lock=lock, fsync=fsync)
 
 
-@_optional_import(("jsonref", "jsonref"))
+@_optional_import(("jsonref", "json"))
 def load_ref_json(
     path: PathLike, default: _T | type[object] = object, lock: LockProtocol | None = None, **kw: Any,
 ) -> JsonValue | _T:

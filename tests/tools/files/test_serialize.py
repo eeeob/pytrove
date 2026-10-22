@@ -34,7 +34,7 @@ class Custom:
 
 # The failure is triggered by data no serialiser can encode, rather than by
 # monkeypatching json.dumps: write_json hands the work to orjson whenever the
-# `fastjson` extra is installed and the kwargs allow it, so patching one
+# `json` extra is installed and the kwargs allow it, so patching one
 # serialiser would silently stop testing anything on that path.
 class _Unserialisable:
     pass
