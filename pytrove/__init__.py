@@ -5,7 +5,9 @@ their own entry points: `pytrove.typings`, `pytrove.errors`, `pytrove.models`
 and `pytrove.enums`.
 """
 
-from .__meta__ import __version__
+__version__ = "1.1.2"
+"""The released version; hatch reads this line at build time with its default pattern, so keep it unannotated."""
+
 from .validate_tools import *
 from .date_tools import *
 from .num_tools import *

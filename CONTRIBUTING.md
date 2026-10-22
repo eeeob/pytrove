@@ -118,7 +118,7 @@ If a group of tools, types, or models is split into subfiles within a directory,
 
 Define `__all__` at the end of the module, after defining its public interface. Wildcard imports must not be used in regular implementation modules. They are permitted only in interface-aggregation files, in accordance with the export rules above, so that internal elements are not re-exported.
 
-An interface-aggregation file (`__init__.py`) contains only its docstring, the wildcard imports of its submodules, and the `__all__` that concatenates theirs. It must not import its submodules by name, such as `from . import archive_tools, async_tools`: a wildcard import already loads each submodule and binds it as an attribute of the package, so the list only duplicates the import lines and must be updated with every new module. An aggregation file also omits `from __future__ import annotations as _annotations` (see the exception in rule 4.2), because it contains no annotations for the import to act on.
+An interface-aggregation file (`__init__.py`) contains only its docstring, the wildcard imports of its submodules, and the `__all__` that concatenates theirs. It must not import its submodules by name, such as `from . import archive_tools, async_tools`: a wildcard import already loads each submodule and binds it as an attribute of the package, so the list only duplicates the import lines and must be updated with every new module. An aggregation file also omits `from __future__ import annotations as _annotations` (see the exception in rule 4.2), because it contains no annotations for the import to act on. The top-level `pytrove/__init__.py` also holds the `__version__` line, because the build backend reads the version from there.
 
 ### 1.10. Handling Conflicts Between Implementation and the Rules
 
@@ -230,6 +230,8 @@ DEFAULT_TIMEOUT: Final[int] = 30
 ```
 
 A constant defined on a class follows the same format, with `ClassVar` in place of `Final`: an upper-case name and an explicit type, so that it is read as a constant and the type checker knows it is not an instance attribute. `Final` is not combined with `ClassVar`; the type checker rejects that as redundant, and the upper-case name already states that the value is not reassigned.
+
+`__version__` takes no `Final` annotation: the build backend's default pattern reads only the plain `__version__ = "..."` form.
 
 ```python
 from typing import ClassVar
