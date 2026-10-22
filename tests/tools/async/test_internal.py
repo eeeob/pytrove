@@ -75,7 +75,9 @@ async def test_gather_cancel_on_error_handles_already_done_futures() -> None:
     assert await _gather_cancel_on_error(future, _value(1)) == [9, 1]
 
 
-async def test_gather_cancel_on_error_silences_destroy_pending_only_for_wrapped_awaitables() -> None:
+async def test_gather_cancel_on_error_silences_destroy_pending_only_for_wrapped_awaitables() -> (
+    None
+):
     task = asyncio.ensure_future(_value(1))
     outer = _gather_cancel_on_error(_value(2), task)
     wrapped, passed = outer._children
@@ -114,7 +116,9 @@ async def test_get_fut_loop_returns_the_futures_loop() -> None:
     future.cancel()
 
 
-def test_log_exc_puts_the_header_index_and_traceback_in_one_record(caplog: pytest.LogCaptureFixture) -> None:
+def test_log_exc_puts_the_header_index_and_traceback_in_one_record(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     msg = "boom"
     try:
         raise KeyError(msg)

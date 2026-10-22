@@ -22,33 +22,62 @@ log = logging.getLogger(__name__)
 
 @overload
 def safe_call(
-    func: Callable[_P, _T], *args: _P.args, include_exc: _ExcFilter = None, exclude_exc: _ExcFilter = None,
-    log_exc: _ExcLogger = False, **kwargs: _P.kwargs,
+    func: Callable[_P, _T],
+    *args: _P.args,
+    include_exc: _ExcFilter = None,
+    exclude_exc: _ExcFilter = None,
+    log_exc: _ExcLogger = False,
+    **kwargs: _P.kwargs,
 ) -> _T | None: ...
 @overload
 def safe_call(
-    func: Callable[_P, _T], *args: _P.args, return_exc: _False, include_exc: _ExcFilter = None,
-    exclude_exc: _ExcFilter = None, log_exc: _ExcLogger = False, **kwargs: _P.kwargs,
+    func: Callable[_P, _T],
+    *args: _P.args,
+    return_exc: _False,
+    include_exc: _ExcFilter = None,
+    exclude_exc: _ExcFilter = None,
+    log_exc: _ExcLogger = False,
+    **kwargs: _P.kwargs,
 ) -> _T | None: ...
 @overload
 def safe_call(
-    func: Callable[_P, _T], *args: _P.args, return_exc: _True, include_exc: type[_ExcT],
-    exclude_exc: _ExcFilter = None, log_exc: _ExcLogger = False, **kwargs: _P.kwargs,
+    func: Callable[_P, _T],
+    *args: _P.args,
+    return_exc: _True,
+    include_exc: type[_ExcT],
+    exclude_exc: _ExcFilter = None,
+    log_exc: _ExcLogger = False,
+    **kwargs: _P.kwargs,
 ) -> _T | _ExcT: ...
 @overload
 def safe_call(
-    func: Callable[_P, _T], *args: _P.args, return_exc: _True, include_exc: tuple[type[_ExcT], ...],
-    exclude_exc: _ExcFilter = None, log_exc: _ExcLogger = False, **kwargs: _P.kwargs,
+    func: Callable[_P, _T],
+    *args: _P.args,
+    return_exc: _True,
+    include_exc: tuple[type[_ExcT], ...],
+    exclude_exc: _ExcFilter = None,
+    log_exc: _ExcLogger = False,
+    **kwargs: _P.kwargs,
 ) -> _T | _ExcT: ...
 @overload
 def safe_call(
-    func: Callable[_P, _T], *args: _P.args, return_exc: _True, include_exc: _ExcFilter = None,
-    exclude_exc: _ExcFilter = None, log_exc: _ExcLogger = False, **kwargs: _P.kwargs,
+    func: Callable[_P, _T],
+    *args: _P.args,
+    return_exc: _True,
+    include_exc: _ExcFilter = None,
+    exclude_exc: _ExcFilter = None,
+    log_exc: _ExcLogger = False,
+    **kwargs: _P.kwargs,
 ) -> _T | BaseException: ...
 @overload
 def safe_call(
-    func: Callable[_P, _T], *args: _P.args, raise_exc: _True, include_exc: _ExcFilter = None,
-    exclude_exc: _ExcFilter = None, log_exc: _ExcLogger = False, **kwargs: _P.kwargs,
+    func: Callable[_P, _T],
+    *args: _P.args,
+    raise_exc: _True,
+    include_exc: _ExcFilter = None,
+    exclude_exc: _ExcFilter = None,
+    log_exc: _ExcLogger = False,
+    **kwargs: _P.kwargs,
 ) -> _T: ...
 def safe_call(
     func: Callable[..., Any],

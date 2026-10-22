@@ -5,7 +5,14 @@ import importlib.util
 import pytest
 
 from pytrove.errors import ValidationError
-from pytrove.phone_tools import cc_from_phone, cc_from_rc, parse_phone, rc_from_cc, rc_from_phone, resolve_rc
+from pytrove.phone_tools import (
+    cc_from_phone,
+    cc_from_rc,
+    parse_phone,
+    rc_from_cc,
+    rc_from_phone,
+    resolve_rc,
+)
 
 HAS_PHONENUMBERS = importlib.util.find_spec("phonenumbers") is not None
 

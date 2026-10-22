@@ -24,7 +24,10 @@ def test_chunk_text_hard_splits_when_no_separator_available() -> None:
 
 def test_chunk_text_breaks_at_a_late_space_but_not_an_early_one() -> None:
     assert chunk_text("aaaa bbbb", max_length=6) == ["aaaa", "bbbb"]
-    assert chunk_text("a bbbbbbbbbbbbbbbbbbbbbbbbbbb", max_length=20) == ["a bbbbbbbbbbbbbbbbbb", "bbbbbbbbb"]
+    assert chunk_text("a bbbbbbbbbbbbbbbbbbbbbbbbbbb", max_length=20) == [
+        "a bbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbb",
+    ]
 
 
 def test_chunk_text_drops_blank_pieces() -> None:

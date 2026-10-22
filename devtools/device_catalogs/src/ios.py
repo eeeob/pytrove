@@ -12,6 +12,7 @@ from .shared import major_of, version_key
 
 # ---------------------------------- iOS ----------------------------------
 
+
 class IOSBuilder(Builder):
     """iPhones, their firmwares, and the strings Telegram iOS sends for them."""
 
@@ -52,32 +53,37 @@ class IOSBuilder(Builder):
     #: share one string (iPhone11,4 and 11,6 are both "iPhone XS Max").
     NAME_BLOCK: ClassVar[re.Pattern[str]] = re.compile(
         r'((?:\s*(?:if|\|\|)?\s*\[platform (?:isEqualToString|hasPrefix):@"[^"]+"\]\s*(?:\|\|)?)+)'
-        r'\s*\)?\s*\n?\s*return @"([^"]+)";')
+        r'\s*\)?\s*\n?\s*return @"([^"]+)";'
+    )
 
     #: Polite spacing for the per-device ipsw.me queries.
     REQUEST_PAUSE: ClassVar[float] = 0.4
 
     # --- documentation written into the catalog ---------------------------
 
-    MODEL_FORMAT: ClassVar[str] = (
-        "MTApiEnvironment.platformString table, keyed by hw.machine")
-    VERSION_FORMAT: ClassVar[str] = (
-        "[UIDevice currentDevice].systemVersion -- plain, no prefix")
+    MODEL_FORMAT: ClassVar[str] = "MTApiEnvironment.platformString table, keyed by hw.machine"
+    VERSION_FORMAT: ClassVar[str] = "[UIDevice currentDevice].systemVersion -- plain, no prefix"
 
     SOURCES: ClassVar[tuple[str, ...]] = (
         f"{IPSW_URL} -- released iOS firmwares per device",
         f"{APPLEDB_URL} -- iPhone identifiers, release dates",
         f"{MTAPI_URL} -- platformString, the exact model string the client sends",
-        (f"{IOS_APPDELEGATE_URL} -- passes deviceModelName: nil, which is why "
-         f"platformString is what reaches the wire"),
+        (
+            f"{IOS_APPDELEGATE_URL} -- passes deviceModelName: nil, which is why "
+            f"platformString is what reaches the wire"
+        ),
     )
 
     NOTES: ClassVar[tuple[str, ...]] = (
-        ("model comes from Telegram's own platformString table, not Apple's marketing "
-         "name: the client hardcodes the string, so a device the table omits reports "
-         "'Unknown iPhone' instead."),
-        ("version is [UIDevice currentDevice].systemVersion verbatim (MTApiEnvironment.m), "
-         "which carries no 'iOS' prefix."),
+        (
+            "model comes from Telegram's own platformString table, not Apple's marketing "
+            "name: the client hardcodes the string, so a device the table omits reports "
+            "'Unknown iPhone' instead."
+        ),
+        (
+            "version is [UIDevice currentDevice].systemVersion verbatim (MTApiEnvironment.m), "
+            "which carries no 'iOS' prefix."
+        ),
     )
 
     def telegram_names(self) -> dict[str, str]:
@@ -88,16 +94,17 @@ class IOSBuilder(Builder):
         prettier one: an identifier the table omits reports "Unknown iPhone".
         """
         source = self.cache.fetch_text(self.MTAPI_FILE, self.MTAPI_URL, errors="replace")
-        body = source[source.index(self.MTAPI_OPEN):]
-        body = body[:body.index(self.MTAPI_CLOSE)]
+        body = source[source.index(self.MTAPI_OPEN) :]
+        body = body[: body.index(self.MTAPI_CLOSE)]
 
         names: dict[str, str] = {}
         for match in self.NAME_BLOCK.finditer(body):
             for identifier in re.findall(r'@"([^"]+)"', match.group(1)):
                 names.setdefault(identifier, match.group(2))
 
-        return {key: value for key, value in names.items()
-                if key.startswith("iPhone") and "," in key}
+        return {
+            key: value for key, value in names.items() if key.startswith("iPhone") and "," in key
+        }
 
     def identifiers(self) -> dict[str, dict[str, str]]:
         """IPhone identifier -> name and release date, from appledb."""
@@ -135,16 +142,17 @@ class IOSBuilder(Builder):
         for index, (identifier, meta) in enumerate(sorted(wanted.items()), 1):
             try:
                 data = self.cache.get_json(self.IPSW_URL.format(identifier=identifier))
-            except Exception as exc:                      # noqa: BLE001 - report and skip
+            except Exception as exc:  # noqa: BLE001 - report and skip
                 print(f"  {identifier}: {type(exc).__name__} {exc}")
                 continue
 
             out[identifier] = {
                 "name": data.get("name") or meta["name"],
                 "released": meta["released"],
-                "firmwares": [{"version": f["version"],
-                               "date": (f.get("releasedate") or "")[:10]}
-                              for f in data.get("firmwares", [])],
+                "firmwares": [
+                    {"version": f["version"], "date": (f.get("releasedate") or "")[:10]}
+                    for f in data.get("firmwares", [])
+                ],
             }
             print(f"  {index}/{len(wanted)} {identifier}: {len(out[identifier]['firmwares'])}")
             time.sleep(self.REQUEST_PAUSE)
@@ -187,10 +195,13 @@ class IOSBuilder(Builder):
             # Widest firmware coverage wins (that is the global variant); the
             # identifier breaks ties so a rebuild always produces the same file.
             current = best.get(name)
-            if (current is None
-                    or len(versions) > len(current["versions"])
-                    or (len(versions) == len(current["versions"])
-                        and identifier < current["identifier"])):
+            if (
+                current is None
+                or len(versions) > len(current["versions"])
+                or (
+                    len(versions) == len(current["versions"]) and identifier < current["identifier"]
+                )
+            ):
                 best[name] = {
                     "model": name,
                     "identifier": identifier,
@@ -202,12 +213,16 @@ class IOSBuilder(Builder):
         if unnamed:
             print(f"  skipped (not in Telegram's name table): {', '.join(sorted(unnamed))}")
 
-        return [Catalog(
-            platform=self.platform,
-            model_format=self.MODEL_FORMAT,
-            version_format=self.VERSION_FORMAT,
-            sources=list(self.SOURCES),
-            notes=list(self.NOTES),
-            versions=[{"version": v, "released": dates[v]} for v in sorted(dates, key=version_key)],
-            devices=sorted(best.values(), key=lambda d: (d["released"], d["model"])),
-        )]
+        return [
+            Catalog(
+                platform=self.platform,
+                model_format=self.MODEL_FORMAT,
+                version_format=self.VERSION_FORMAT,
+                sources=list(self.SOURCES),
+                notes=list(self.NOTES),
+                versions=[
+                    {"version": v, "released": dates[v]} for v in sorted(dates, key=version_key)
+                ],
+                devices=sorted(best.values(), key=lambda d: (d["released"], d["model"])),
+            )
+        ]

@@ -26,7 +26,10 @@ try:
     # Imported by name: fastzip is never installed on Windows, so a static import
     # would be unresolvable there and need a suppression that goes unused elsewhere.
     WZip: Any = importlib.import_module("fastzip.write").WZip
-except (TypeError, ImportError):  # fastzip's import fails with `TypeError` on Windows, where it finds no libz.
+except (
+    TypeError,
+    ImportError,
+):  # fastzip's import fails with `TypeError` on Windows, where it finds no libz.
     WZip: Any = None
 
 try:

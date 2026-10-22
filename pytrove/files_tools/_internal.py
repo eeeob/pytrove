@@ -31,7 +31,9 @@ if TYPE_CHECKING:
 _SPILL_PARTS: Final[int] = 10
 """How many parts `truncate_file` spills into when `size` is 0 and names no part length."""
 
-_ORJSON_DUMP_KEYS: Final[frozenset[str]] = frozenset({"ensure_ascii", "indent", "sort_keys", "default"})
+_ORJSON_DUMP_KEYS: Final[frozenset[str]] = frozenset(
+    {"ensure_ascii", "indent", "sort_keys", "default"}
+)
 """The `write_json` keywords orjson can honour; any other keyword means plain `json`.
 
 orjson only indents by 2, never escapes to ASCII, and writes compact JSON
@@ -84,7 +86,11 @@ def _next_part(folder: Path, stem: str) -> int:
     except OSError:
         return 1
 
-    numbers = [int(name[len(prefix):]) for name in names if name.startswith(prefix) and name[len(prefix):].isdigit()]
+    numbers = [
+        int(name[len(prefix) :])
+        for name in names
+        if name.startswith(prefix) and name[len(prefix) :].isdigit()
+    ]
     return max(numbers, default=0) + 1
 
 
@@ -131,7 +137,9 @@ def _json_loads(content: str | bytes, kw: dict[str, Any]) -> Any:
     return json.loads(content, **kw)
 
 
-def _on_exc_remove_folders(func: Callable[..., Any], path: str, exc: BaseException, *, base_path: str) -> None:
+def _on_exc_remove_folders(
+    func: Callable[..., Any], path: str, exc: BaseException, *, base_path: str
+) -> None:
     """Handle an `rmtree` error: ignore vanished children, unlink junctions, raise the rest.
 
     `rmtree` refuses to walk into a Windows junction; unlinking the link
@@ -224,7 +232,14 @@ def _remove(
     return removed
 
 
-def _spill_parts(path: Path, side: TruncateSide, size: int, dropped: int, spill: Literal[True] | PathLike, fsync: bool) -> list[Path]:
+def _spill_parts(
+    path: Path,
+    side: TruncateSide,
+    size: int,
+    dropped: int,
+    spill: Literal[True] | PathLike,
+    fsync: bool,
+) -> list[Path]:
     """Copy the bytes `truncate_file` will remove into numbered part files.
 
     Args:
@@ -244,7 +259,9 @@ def _spill_parts(path: Path, side: TruncateSide, size: int, dropped: int, spill:
     from .write import atomic_write  # noqa: PLC0415 - see above
 
     folder = ensure_dir(path.parent if spill is True else resolve_path(spill))
-    part_size = size or math.ceil(dropped / _SPILL_PARTS)  # Rounded up, or a tiny spill would write no part.
+    part_size = size or math.ceil(
+        dropped / _SPILL_PARTS
+    )  # Rounded up, or a tiny spill would write no part.
     number = _next_part(folder, path.name)
     left = dropped
     parts: list[Path] = []

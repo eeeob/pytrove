@@ -15,7 +15,7 @@ from pytrove.files_tools import atomic_write, truncate_file, write_file
 
 #: Content with no repeating window, so a wrongly ordered or wrongly cut
 #: part cannot pass a comparison by accident.
-_DATA = bytes(range(256)) * 40          # 10240 bytes
+_DATA = bytes(range(256)) * 40  # 10240 bytes
 
 
 class _Lock:
@@ -40,6 +40,7 @@ def sample(tmp_path: Path) -> Path:
 
 
 # --- atomic_write / write_file ---------------------------------------------
+
 
 def test_atomic_write_writes_text_or_bytes_through_a_temp_file(tmp_path: Path) -> None:
     target = tmp_path / "out.txt"
@@ -81,7 +82,8 @@ def test_a_block_that_raises_leaves_the_old_contents_and_no_temp_file(tmp_path: 
 
 
 def test_atomic_write_does_not_let_its_cleanup_mask_the_blocks_error(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # The removal runs in a finally. An exception from there would replace
     # whatever the caller's block was already raising, and a leftover .tmp
@@ -91,13 +93,18 @@ def test_atomic_write_does_not_let_its_cleanup_mask_the_blocks_error(
 
     monkeypatch.setattr(os, "unlink", refuse)
 
-    with pytest.raises(ValueError, match="the block's own"), atomic_write(tmp_path / "out.txt") as f:
+    with (
+        pytest.raises(ValueError, match="the block's own"),
+        atomic_write(tmp_path / "out.txt") as f,
+    ):
         f.write("x")
         msg = "the block's own error"
         raise ValueError(msg)
 
 
-def test_atomic_write_holds_the_lock_and_releases_it_even_when_the_block_raises(tmp_path: Path) -> None:
+def test_atomic_write_holds_the_lock_and_releases_it_even_when_the_block_raises(
+    tmp_path: Path,
+) -> None:
     lock = _Lock()
 
     with atomic_write(tmp_path / "out.txt", lock=lock, fsync=False) as f:
@@ -132,7 +139,9 @@ def test_atomic_write_keeps_the_existing_mode_or_takes_the_one_given(tmp_path: P
     assert stat.S_IMODE(target.stat().st_mode) == 0o600
 
 
-def test_atomic_write_applies_an_explicit_mode_through_chmod(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_atomic_write_applies_an_explicit_mode_through_chmod(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # Windows keeps only the write bit, so the call itself is observed rather than the result.
     modes: list[int] = []
     real_chmod = os.chmod
@@ -155,7 +164,9 @@ def test_atomic_write_applies_an_explicit_mode_through_chmod(tmp_path: Path, mon
     assert modes[1] == stat.S_IMODE(target.stat().st_mode)
 
 
-def test_atomic_write_fsyncs_the_file_and_the_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_atomic_write_fsyncs_the_file_and_the_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # Windows refuses `os.open` on a directory, so the directory handle is stood in for by a
     # file's: what is checked is that the directory is opened, synced and closed again.
     target = tmp_path / "out.txt"
@@ -196,7 +207,9 @@ def test_atomic_write_fsyncs_the_file_and_the_directory(tmp_path: Path, monkeypa
     assert synced == []
 
 
-def test_atomic_write_survives_a_directory_that_cannot_be_opened(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_atomic_write_survives_a_directory_that_cannot_be_opened(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     real_open = os.open
 
     def refuse_dirs(path: Any, flags: int, *args: Any, **kwargs: Any) -> int:
@@ -225,10 +238,14 @@ def test_write_file_picks_binary_from_the_content(tmp_path: Path) -> None:
     assert raw.read_bytes() == b"\xe9"
 
 
-def test_write_file_forwards_encoding_lock_and_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_write_file_forwards_encoding_lock_and_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     modes: list[int] = []
     real_chmod = os.chmod
-    monkeypatch.setattr(os, "chmod", lambda p, m, *a, **k: (modes.append(m), real_chmod(p, m, *a, **k)))
+    monkeypatch.setattr(
+        os, "chmod", lambda p, m, *a, **k: (modes.append(m), real_chmod(p, m, *a, **k))
+    )
     lock = _Lock()
     target = tmp_path / "t.txt"
 
@@ -240,6 +257,7 @@ def test_write_file_forwards_encoding_lock_and_mode(tmp_path: Path, monkeypatch:
 
 
 # --- truncate_file ---------------------------------------------------------
+
 
 def test_truncate_keeps_the_head_and_drops_the_tail(sample: Path) -> None:
     assert truncate_file(sample, 1000, cut=TruncateSide.TAIL) == sample
@@ -326,7 +344,9 @@ def test_the_parts_go_beside_the_file_by_default(sample: Path, tmp_path: Path) -
     assert {p.parent for p in parts} == {tmp_path}
 
 
-def test_the_parts_go_where_they_are_told_and_the_directory_is_made(sample: Path, tmp_path: Path) -> None:
+def test_the_parts_go_where_they_are_told_and_the_directory_is_made(
+    sample: Path, tmp_path: Path
+) -> None:
     into = tmp_path / "chunks" / "deep"
 
     parts = truncate_file(sample, 4096, spill=into)
@@ -347,7 +367,9 @@ def test_a_second_truncation_numbers_on_from_the_first(sample: Path) -> None:
     assert b"".join(p.read_bytes() for p in first) == _DATA[3000:]
 
 
-def test_a_neighbour_that_is_not_a_part_does_not_move_the_numbering(sample: Path, tmp_path: Path) -> None:
+def test_a_neighbour_that_is_not_a_part_does_not_move_the_numbering(
+    sample: Path, tmp_path: Path
+) -> None:
     # Only an all-digit suffix is a part. A backup sitting beside the file
     # must neither push the count up nor be counted as one and read back.
     (tmp_path / "app.log.bak").write_bytes(b"unrelated")
@@ -393,7 +415,9 @@ def test_size_zero_spills_the_whole_file(sample: Path) -> None:
     assert b"".join(p.read_bytes() for p in parts) == _DATA
 
 
-def test_spilling_off_loses_the_bytes_and_answers_with_the_file(sample: Path, tmp_path: Path) -> None:
+def test_spilling_off_loses_the_bytes_and_answers_with_the_file(
+    sample: Path, tmp_path: Path
+) -> None:
     # Nothing was split, so there is one file in play and its own path is
     # the answer -- an empty list said nothing about what happened.
     assert truncate_file(sample, 3000) == sample

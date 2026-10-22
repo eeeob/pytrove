@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
 # ============================== the checker ==============================
 
+
 class ContractCheck:
     """Runs one source's declared contract over its body.
 
@@ -64,8 +65,7 @@ class ContractCheck:
 
         check = cls.KINDS.get(contract.kind)
         if check is None:
-            return ((f"unknown contract kind {contract.kind}; "
-                     f"known: {sorted(cls.KINDS)}"),)
+            return ((f"unknown contract kind {contract.kind}; known: {sorted(cls.KINDS)}"),)
 
         errors = cls._guard(getattr(cls, check), contract, body)
 
@@ -77,14 +77,14 @@ class ContractCheck:
         return tuple(errors)
 
     @staticmethod
-    def _guard(check: Callable[[Contract, bytes], list[str]],
-               contract: Contract, body: bytes) -> list[str]:
+    def _guard(
+        check: Callable[[Contract, bytes], list[str]], contract: Contract, body: bytes
+    ) -> list[str]:
         """Run one check, turning anything it raises into a stated failure."""
         try:
             return check(contract, body)
-        except Exception as exc:                          # noqa: BLE001
-            return [(f"could not be read as {contract.kind}: "
-                     f"{type(exc).__name__}: {exc}")]
+        except Exception as exc:  # noqa: BLE001
+            return [(f"could not be read as {contract.kind}: {type(exc).__name__}: {exc}")]
 
     # --- helpers ----------------------------------------------------------
 
@@ -116,7 +116,8 @@ class ContractCheck:
             if found < max(contract.min_matches, 1):
                 errors.append(
                     f"{found} match(es) for {contract.must_match!r}, "
-                    f"expected at least {max(contract.min_matches, 1)}")
+                    f"expected at least {max(contract.min_matches, 1)}"
+                )
         return errors
 
     # --- one per kind -----------------------------------------------------

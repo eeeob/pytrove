@@ -40,7 +40,10 @@ def test_safe_call_filters_with_include_and_exclude() -> None:
     with pytest.raises(FileNotFoundError):
         safe_call(_raise(FileNotFoundError()), include_exc=OSError, exclude_exc=FileNotFoundError)
 
-    assert safe_call(_raise(PermissionError()), include_exc=(OSError,), exclude_exc=FileNotFoundError) is None
+    assert (
+        safe_call(_raise(PermissionError()), include_exc=(OSError,), exclude_exc=FileNotFoundError)
+        is None
+    )
 
 
 def test_safe_call_always_propagates_system_exit() -> None:

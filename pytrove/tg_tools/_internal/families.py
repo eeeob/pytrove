@@ -109,11 +109,13 @@ class SystemInfo:
         Returns:
             The versions.
         """
-        return tuple(dict.fromkeys(
-            version
-            for device in cls._devices_for(os)
-            for version in (device.by_os[os][0] if os else device.versions)
-        ))
+        return tuple(
+            dict.fromkeys(
+                version
+                for device in cls._devices_for(os)
+                for version in (device.by_os[os][0] if os else device.versions)
+            )
+        )
 
     @classmethod
     def find_device(cls, model: str, version: str | None = None) -> DeviceInfo | None:
@@ -156,7 +158,9 @@ class SystemInfo:
         rng = _rng(unique_id)
 
         if os is None and catalog.oses:
-            os = rng.choices(catalog.oses, weights=[OS_SHARES.get(system, 1.0) for system in catalog.oses], k=1)[0]
+            os = rng.choices(
+                catalog.oses, weights=[OS_SHARES.get(system, 1.0) for system in catalog.oses], k=1
+            )[0]
 
         if os is None:
             device = rng.choices(catalog.devices, weights=catalog.weights, k=1)[0]

@@ -14,14 +14,21 @@ if TYPE_CHECKING:
 
 @overload
 def rand_tg_device(
-    platform_device: PlatformDevice | None = ..., to_tuple: _False = False, unique_id: str | None = ...,
+    platform_device: PlatformDevice | None = ...,
+    to_tuple: _False = False,
+    unique_id: str | None = ...,
 ) -> DeviceInfo: ...
 @overload
 def rand_tg_device(
-    platform_device: PlatformDevice | None = ..., *, to_tuple: _True, unique_id: str | None = ...,
+    platform_device: PlatformDevice | None = ...,
+    *,
+    to_tuple: _True,
+    unique_id: str | None = ...,
 ) -> tuple[str, str]: ...
 def rand_tg_device(
-    platform_device: PlatformDevice | None = None, to_tuple: bool = False, unique_id: str | None = None,
+    platform_device: PlatformDevice | None = None,
+    to_tuple: bool = False,
+    unique_id: str | None = None,
 ) -> DeviceInfo | tuple[str, str]:
     """Draw a device a real Telegram client could report, with an OS version it runs.
 
@@ -37,7 +44,11 @@ def rand_tg_device(
     Returns:
         The device.
     """
-    family = random_family(_DEVICES.values(), unique_id) if platform_device is None else _DEVICES[platform_device]
+    family = (
+        random_family(_DEVICES.values(), unique_id)
+        if platform_device is None
+        else _DEVICES[platform_device]
+    )
     device = family.random_device(unique_id)
     return (device.model, device.version) if to_tuple else device
 

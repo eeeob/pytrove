@@ -131,13 +131,23 @@ class _ZipMixin:
             try:
                 raw = data.read(_LINK_MAX + 1)
             except OSError as exc:
-                log.warning("extract_archive: could not read the destination of %s %r in %s (%s)",
-                            m.kind, m.name, self.src.name, exc)
+                log.warning(
+                    "extract_archive: could not read the destination of %s %r in %s (%s)",
+                    m.kind,
+                    m.name,
+                    self.src.name,
+                    exc,
+                )
                 return
 
         if len(raw) > _LINK_MAX:
-            log.warning("extract_archive: refused %s %r in %s, its destination is longer than %d bytes",
-                        m.kind, m.name, self.src.name, _LINK_MAX)
+            log.warning(
+                "extract_archive: refused %s %r in %s, its destination is longer than %d bytes",
+                m.kind,
+                m.name,
+                self.src.name,
+                _LINK_MAX,
+            )
             return
 
         self._link(m._replace(target=os.fsdecode(raw)), target)
@@ -167,10 +177,14 @@ class _ZipMixin:
                     info,
                     info.file_size,
                     info.compress_size,
-                    "dir" if info.is_dir()
-                    else "file" if not kind
-                    else "symlink" if kind == stat.S_IFLNK
-                    else "file" if kind == stat.S_IFREG
+                    "dir"
+                    if info.is_dir()
+                    else "file"
+                    if not kind
+                    else "symlink"
+                    if kind == stat.S_IFLNK
+                    else "file"
+                    if kind == stat.S_IFREG
                     else "other",
                 )
                 target = self._place(m)

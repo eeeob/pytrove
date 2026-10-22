@@ -100,7 +100,9 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
         staged = None
 
         if atomic or self.limits.dir_check is not None:
-            staged = Path(tempfile.mkdtemp(prefix=f".{self.dest.name}.", suffix=".tmp", dir=self.dest.parent))
+            staged = Path(
+                tempfile.mkdtemp(prefix=f".{self.dest.name}.", suffix=".tmp", dir=self.dest.parent)
+            )
 
         self._root = staged or self.dest
         self._limiter = _Limiter(self.limits, self.src)
@@ -139,8 +141,12 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
                 self._graft(staged, self.dest)
                 remove_path(staged, return_exc=True, log_exc=True)
         except BaseException:
-            log.error("extract_archive: could not put %s at %r -- what came out of it is in %r",
-                      self.src.name, str(self.dest), str(staged))
+            log.error(
+                "extract_archive: could not put %s at %r -- what came out of it is in %r",
+                self.src.name,
+                str(self.dest),
+                str(staged),
+            )
             raise
 
     def _inspect(self, root: Path) -> None:
@@ -191,7 +197,9 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
         while pairs:
             here, there = pairs.pop()
 
-            with os.scandir(here) as it:  # Closed before moving: an open handle blocks removal on Windows.
+            with os.scandir(
+                here
+            ) as it:  # Closed before moving: an open handle blocks removal on Windows.
                 entries = list(it)
 
             for entry in entries:
@@ -202,11 +210,17 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
                     continue
 
                 if _is_dir(target):
-                    log.warning("extract_archive: refused %r from %s, a directory stands at %r",
-                                entry.name, self.src.name, str(target))
+                    log.warning(
+                        "extract_archive: refused %r from %s, a directory stands at %r",
+                        entry.name,
+                        self.src.name,
+                        str(target),
+                    )
                     continue
 
-                if _is_link(target):  # `os.replace` cannot take a path from a directory reparse point.
+                if _is_link(
+                    target
+                ):  # `os.replace` cannot take a path from a directory reparse point.
                     remove_file(target)
 
                 os.replace(entry.path, target)

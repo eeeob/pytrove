@@ -64,9 +64,15 @@ def test_jitter_impossible_gap_returns_the_far_endpoint() -> None:
 def test_jitter_draws_from_the_one_remaining_side() -> None:
     rng = random.Random(5)
     # The band [100, 150] leaves only [90, 100): every draw lands there.
-    assert all(90.0 <= jitter(100, 0.1, 0.1, previous=125.0, min_distance=25.0, rng=rng) < 100.0 for _ in range(300))
+    assert all(
+        90.0 <= jitter(100, 0.1, 0.1, previous=125.0, min_distance=25.0, rng=rng) < 100.0
+        for _ in range(300)
+    )
     # The band [50, 100] leaves only (100, 110].
-    assert all(100.0 < jitter(100, 0.1, 0.1, previous=75.0, min_distance=25.0, rng=rng) <= 110.0 for _ in range(300))
+    assert all(
+        100.0 < jitter(100, 0.1, 0.1, previous=75.0, min_distance=25.0, rng=rng) <= 110.0
+        for _ in range(300)
+    )
 
 
 def test_jitter_hole_outside_the_window_is_ignored() -> None:
@@ -77,15 +83,26 @@ def test_jitter_hole_outside_the_window_is_ignored() -> None:
 
 
 def test_jitter_rng_makes_it_reproducible() -> None:
-    a = [jitter(100, 0.1, 0.2, previous=99.0, min_distance=2.0, rng=random.Random(42)) for _ in range(5)]
-    b = [jitter(100, 0.1, 0.2, previous=99.0, min_distance=2.0, rng=random.Random(42)) for _ in range(5)]
+    a = [
+        jitter(100, 0.1, 0.2, previous=99.0, min_distance=2.0, rng=random.Random(42))
+        for _ in range(5)
+    ]
+    b = [
+        jitter(100, 0.1, 0.2, previous=99.0, min_distance=2.0, rng=random.Random(42))
+        for _ in range(5)
+    ]
     assert a == b
 
 
-def test_jitter_falls_back_to_the_spans_when_both_tails_carry_no_mass(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_jitter_falls_back_to_the_spans_when_both_tails_carry_no_mass(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Window [90, 110] cut to the tails [90, 95] and [105, 110]; a flat CDF
     # gives both tails zero mass, so the pick goes by their widths and the
     # picked tail's midpoint comes back.
     monkeypatch.setattr(randomness, "_tri_cdf", lambda x, low, high, mode: 0.0)
-    seen = {jitter(100, 0.1, 0.1, previous=100.0, min_distance=5.0, rng=random.Random(s)) for s in range(50)}
+    seen = {
+        jitter(100, 0.1, 0.1, previous=100.0, min_distance=5.0, rng=random.Random(s))
+        for s in range(50)
+    }
     assert seen == {92.5, 107.5}

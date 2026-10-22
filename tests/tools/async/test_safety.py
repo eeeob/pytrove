@@ -21,13 +21,17 @@ async def _fail(exc: BaseException, delay: float = 0) -> None:
     raise exc
 
 
-async def test_safe_await_logs_a_single_failure_without_an_index(caplog: pytest.LogCaptureFixture) -> None:
+async def test_safe_await_logs_a_single_failure_without_an_index(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     assert isinstance(await safe_await(_fail(KeyError("one"))), KeyError)
     assert "error in safe_await\n" in caplog.text
     assert "awaitable index" not in caplog.text
 
 
-async def test_safe_await_logs_each_failure_of_several_with_its_index(caplog: pytest.LogCaptureFixture) -> None:
+async def test_safe_await_logs_each_failure_of_several_with_its_index(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     results = await safe_await(_value(1), _fail(KeyError("two")))
 
     assert results[0] == 1
@@ -78,9 +82,16 @@ async def test_asafe_call_filters_with_include_and_exclude() -> None:
         await asafe_call(_fail(KeyError()), include_exc=ValueError)
 
     with pytest.raises(FileNotFoundError):
-        await asafe_call(_fail(FileNotFoundError()), include_exc=OSError, exclude_exc=FileNotFoundError)
+        await asafe_call(
+            _fail(FileNotFoundError()), include_exc=OSError, exclude_exc=FileNotFoundError
+        )
 
-    assert await asafe_call(_fail(PermissionError()), include_exc=OSError, exclude_exc=FileNotFoundError) is None
+    assert (
+        await asafe_call(
+            _fail(PermissionError()), include_exc=OSError, exclude_exc=FileNotFoundError
+        )
+        is None
+    )
 
 
 async def test_asafe_call_always_propagates_keyboard_interrupt() -> None:
@@ -88,7 +99,9 @@ async def test_asafe_call_always_propagates_keyboard_interrupt() -> None:
         await asafe_call(_fail(KeyboardInterrupt()))
 
 
-async def test_asafe_call_logs_with_a_sync_or_async_callback(caplog: pytest.LogCaptureFixture) -> None:
+async def test_asafe_call_logs_with_a_sync_or_async_callback(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     seen: list[BaseException] = []
 
     async def record(exc: BaseException) -> None:
@@ -137,11 +150,15 @@ async def test_maybe_awaitable_forwards_return_exc_to_every_path(return_exc: boo
         kwargs = {"key": "k"} if args else {}
 
         if return_exc:
-            result = await maybe_awaitable(awaitable_or_callable, *args, return_exc=return_exc, log_exc=False, **kwargs)
+            result = await maybe_awaitable(
+                awaitable_or_callable, *args, return_exc=return_exc, log_exc=False, **kwargs
+            )
             assert isinstance(result, ValueError)
         else:
             with pytest.raises(ValueError, match="a|k"):
-                await maybe_awaitable(awaitable_or_callable, *args, return_exc=return_exc, log_exc=False, **kwargs)
+                await maybe_awaitable(
+                    awaitable_or_callable, *args, return_exc=return_exc, log_exc=False, **kwargs
+                )
 
 
 async def test_maybe_awaitable_dispatches_on_what_it_gets() -> None:

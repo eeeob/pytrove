@@ -57,7 +57,15 @@ class _Compressor:
         count, pool = _split_workers(workers, "compress_folder")
 
         if fmt is ArchiveFormat.ZIP:
-            _write_zip(iter(self), out, 6 if level is None else level, count, pool, stability_retries, stability_check)
+            _write_zip(
+                iter(self),
+                out,
+                6 if level is None else level,
+                count,
+                pool,
+                stability_retries,
+                stability_check,
+            )
         else:
             _write_tar(iter(self), out, fmt, level, count, pool, stability_retries, stability_check)
 
@@ -95,13 +103,21 @@ class _Compressor:
                     dst = Path(os.path.realpath(entry.path))
 
                     if not dst.is_relative_to(root):
-                        log.warning("compress_folder: not following %r, it leaves the folder being archived "
-                                    "(points at %r)", entry.path, str(dst))
+                        log.warning(
+                            "compress_folder: not following %r, it leaves the folder being archived "
+                            "(points at %r)",
+                            entry.path,
+                            str(dst),
+                        )
                         continue
 
                     if dst.is_dir():
-                        log.warning("compress_folder: not following %r, it points at directory %r, which the walk "
-                                    "already reaches on its own", entry.path, str(dst))
+                        log.warning(
+                            "compress_folder: not following %r, it points at directory %r, which the walk "
+                            "already reaches on its own",
+                            entry.path,
+                            str(dst),
+                        )
                         continue
 
                     if dst.is_file() and flt.matches(rel, entry):
@@ -114,7 +130,11 @@ class _Compressor:
                     is_dir = entry.is_dir(follow_symlinks=False)
                     is_file = entry.is_file(follow_symlinks=False)
                 except OSError as exc:
-                    log.warning("compress_folder: cannot read the type of %r, leaving it out (%s)", entry.path, exc)
+                    log.warning(
+                        "compress_folder: cannot read the type of %r, leaving it out (%s)",
+                        entry.path,
+                        exc,
+                    )
                     continue
 
                 if is_dir:

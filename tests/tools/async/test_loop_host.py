@@ -16,7 +16,9 @@ from pytrove.async_tools._loop_host import _LoopHost
 HAS_WRAPT = importlib.util.find_spec("wrapt") is not None
 needs_proxy = pytest.mark.skipif(not HAS_WRAPT, reason="needs the proxy extra")
 
-_LoopRunner = Callable[[Coroutine[Any, Any, Any], Callable[[], asyncio.AbstractEventLoop] | None], None]
+_LoopRunner = Callable[
+    [Coroutine[Any, Any, Any], Callable[[], asyncio.AbstractEventLoop] | None], None
+]
 
 
 def _patch_run_loop(monkeypatch: pytest.MonkeyPatch, run_loop: _LoopRunner) -> None:
@@ -175,11 +177,14 @@ def test_loop_factory_builds_the_loop_where_python_allows_it() -> None:
 
 
 def test_thread_death_during_startup_is_reported_and_logged(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     boom = OSError("no loop")
 
-    def run_loop(coro: Coroutine[Any, Any, Any], _factory: Callable[[], asyncio.AbstractEventLoop] | None) -> None:
+    def run_loop(
+        coro: Coroutine[Any, Any, Any], _factory: Callable[[], asyncio.AbstractEventLoop] | None
+    ) -> None:
         """Fail before the loop ever runs."""
         coro.close()
         raise boom
@@ -198,7 +203,9 @@ def test_thread_death_during_startup_is_reported_and_logged(
 def test_wait_for_running_times_out(monkeypatch: pytest.MonkeyPatch) -> None:
     release = threading.Event()
 
-    def run_loop(coro: Coroutine[Any, Any, Any], _factory: Callable[[], asyncio.AbstractEventLoop] | None) -> None:
+    def run_loop(
+        coro: Coroutine[Any, Any, Any], _factory: Callable[[], asyncio.AbstractEventLoop] | None
+    ) -> None:
         """Hold the thread in startup until released."""
         coro.close()
         release.wait(5)
@@ -220,7 +227,9 @@ def test_wait_for_running_refuses_the_workers_own_thread(monkeypatch: pytest.Mon
     seen: list[BaseException] = []
     worker: AioThreadWorker | None = None
 
-    def run_loop(coro: Coroutine[Any, Any, Any], _factory: Callable[[], asyncio.AbstractEventLoop] | None) -> None:
+    def run_loop(
+        coro: Coroutine[Any, Any, Any], _factory: Callable[[], asyncio.AbstractEventLoop] | None
+    ) -> None:
         """Wait for the worker from its own thread, before it is running."""
         coro.close()
 

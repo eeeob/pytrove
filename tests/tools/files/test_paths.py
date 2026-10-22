@@ -25,6 +25,7 @@ def _umask() -> int:
 
 # --- ensure_path -----------------------------------------------------------
 
+
 def test_ensure_path_returns_a_path_as_is() -> None:
     path = Path("x")
     assert ensure_path(path) is path
@@ -46,6 +47,7 @@ def test_ensure_path_converts_a_non_path_str_pathlike() -> None:
 
 # --- resolve_path ----------------------------------------------------------
 
+
 def test_resolve_path_is_absolute_and_strict_on_request(tmp_path: Path) -> None:
     assert resolve_path("relative").is_absolute()
     assert resolve_path(tmp_path / "missing") == tmp_path.resolve() / "missing"
@@ -60,6 +62,7 @@ def test_resolve_path_takes_str_and_bytes(tmp_path: Path) -> None:
 
 
 # --- ensure_dir ------------------------------------------------------------
+
 
 def test_ensure_dir_makes_the_directory_and_hands_the_path_back(tmp_path: Path) -> None:
     target = tmp_path / "logs"
@@ -92,7 +95,9 @@ def test_ensure_dir_for_a_file_makes_the_directory_above_it(tmp_path: Path) -> N
 def test_a_path_from_ensure_dir_is_writable_straight_away(tmp_path: Path) -> None:
     # The reason it returns the argument rather than the directory: it
     # composes with the writers, in one expression and no temporary.
-    write_file(ensure_dir(tmp_path / "deep" / "nest" / "note.txt", for_file=True), "hello", fsync=False)
+    write_file(
+        ensure_dir(tmp_path / "deep" / "nest" / "note.txt", for_file=True), "hello", fsync=False
+    )
 
     assert (tmp_path / "deep" / "nest" / "note.txt").read_text(encoding="utf-8") == "hello"
 
@@ -132,7 +137,9 @@ def test_ensure_dir_takes_a_string_and_returns_a_path(tmp_path: Path) -> None:
     assert got.is_dir()
 
 
-def test_ensure_dir_does_not_resolve_what_it_is_given(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ensure_dir_does_not_resolve_what_it_is_given(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # Relative stays relative: the caller gets back what it passed in, and
     # reaches for resolve_path when it wants an absolute one.
     monkeypatch.chdir(tmp_path)

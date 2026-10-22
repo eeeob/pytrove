@@ -121,11 +121,15 @@ class CompiledEachLine(BaseDataClass):
 
         item = self.item
 
-        return "\n".join(
-            line
-            for raw_each in each
-            if is_mapping(raw_each) and (line := item.format(_chain_mappings(raw_each, kw))) is not None
-        ) or None
+        return (
+            "\n".join(
+                line
+                for raw_each in each
+                if is_mapping(raw_each)
+                and (line := item.format(_chain_mappings(raw_each, kw))) is not None
+            )
+            or None
+        )
 
 
 __all__ = (

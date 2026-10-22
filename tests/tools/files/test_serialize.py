@@ -56,6 +56,7 @@ class _Lock:
 
 # --- read_json / write_json ------------------------------------------------
 
+
 def test_json_round_trip_and_aliases(tmp_path: Path) -> None:
     target = tmp_path / "data.json"
     write_json(target, {"a": [1, "é"]})
@@ -87,7 +88,9 @@ def test_read_json_corrupted_or_empty_file_raises_decode_error(tmp_path: Path) -
     empty.write_text("", encoding="utf-8")
 
     for path in (corrupted, empty):
-        with pytest.raises(ValueError):  # `json.JSONDecodeError` and `orjson.JSONDecodeError` both are
+        with pytest.raises(
+            ValueError
+        ):  # `json.JSONDecodeError` and `orjson.JSONDecodeError` both are
             read_json(path, default={"fallback": True})
 
 
@@ -130,7 +133,9 @@ def test_write_json_failure_leaves_no_temp_file_and_the_old_file_intact(tmp_path
     assert read_json(path) == {"a": 1}
 
 
-def test_json_io_holds_the_lock_and_skips_fsync_on_request(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_json_io_holds_the_lock_and_skips_fsync_on_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     target = tmp_path / "data.json"
     lock = _Lock()
     synced: list[int] = []
@@ -146,6 +151,7 @@ def test_json_io_holds_the_lock_and_skips_fsync_on_request(tmp_path: Path, monke
 
 
 # --- read_pickle / write_pickle --------------------------------------------
+
 
 def test_pickle_round_trip_of_safe_types(tmp_path: Path) -> None:
     target = tmp_path / "data.pkl"
@@ -204,7 +210,12 @@ def test_strict_refuses_an_unknown_class_unless_allowed(tmp_path: Path) -> None:
 def test_read_pickle_forwards_unpickler_keywords(tmp_path: Path) -> None:
     target = tmp_path / "data.pkl"
     buffers: list[pickle.PickleBuffer] = []
-    write_pickle(target, {"k": pickle.PickleBuffer(bytearray(b"v"))}, protocol=5, buffer_callback=buffers.append)
+    write_pickle(
+        target,
+        {"k": pickle.PickleBuffer(bytearray(b"v"))},
+        protocol=5,
+        buffer_callback=buffers.append,
+    )
     raw = [b.raw() for b in buffers]
     assert raw  # out of band, so the file alone is not enough
 
@@ -227,10 +238,13 @@ def test_blocklist_refuses_an_execution_vector(tmp_path: Path) -> None:
 
 # --- load_ref_json ---------------------------------------------------------
 
+
 def test_load_ref_json_resolves_relative_references(tmp_path: Path) -> None:
     pytest.importorskip("jsonref")
     (tmp_path / "part.json").write_text('{"n": 1}', encoding="utf-8")
-    (tmp_path / "main.json").write_text('{"x": {"$ref": "part.json"}, "y": {"$ref": "#/x"}}', encoding="utf-8")
+    (tmp_path / "main.json").write_text(
+        '{"x": {"$ref": "part.json"}, "y": {"$ref": "#/x"}}', encoding="utf-8"
+    )
 
     resolved = load_ref_json(tmp_path / "main.json")
 

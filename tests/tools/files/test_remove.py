@@ -40,7 +40,9 @@ def _dir_link(link: Path, target: Path) -> str | None:
     else:
         return "symlink"
 
-    made = subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)], capture_output=True, check=False)
+    made = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(target)], capture_output=True, check=False
+    )
 
     return "junction" if made.returncode == 0 else None
 
@@ -68,7 +70,8 @@ def test_the_short_names_are_the_same_functions() -> None:
 
 @pytest.mark.parametrize("remove", [remove_file, remove_folder, remove_path])
 def test_a_link_to_a_directory_is_removed_and_its_target_is_not(
-    linked: tuple[Path, Path], remove: Callable[..., Any],
+    linked: tuple[Path, Path],
+    remove: Callable[..., Any],
 ) -> None:
     # The link is one entry and is removed as one. Following it would take
     # out a tree nobody named -- and a junction is the case that catches a
@@ -84,7 +87,9 @@ def test_a_link_to_a_directory_is_removed_and_its_target_is_not(
 
 @pytest.mark.parametrize("remove", [remove_file, remove_folder, remove_path])
 def test_a_path_that_was_never_there_is_not_a_failure(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture, remove: Callable[..., Any],
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    remove: Callable[..., Any],
 ) -> None:
     # Making sure a path is gone, and it is gone. Calling twice must not
     # be an error either.
@@ -212,7 +217,9 @@ def test_remove_folders_return_exc_collects_and_carries_on(tmp_path: Path) -> No
     assert result[0] == one and result[2] == two
 
 
-def test_remove_folders_log_exc_names_the_directory(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_remove_folders_log_exc_names_the_directory(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     target = tmp_path / "a_file.txt"
     target.write_text("x", encoding="utf-8")
 
@@ -249,7 +256,9 @@ def test_remove_paths_dispatches_by_kind(tmp_path: Path) -> None:
     assert not a_dir.exists() and not a_file.exists()
 
 
-def test_remove_paths_forwards_return_exc_and_log_exc(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_remove_paths_forwards_return_exc_and_log_exc(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     # What blocks a removal differs by platform: Windows refuses to unlink a
     # file that is still open, POSIX does not (the open handle stays valid
     # against the now-unlinked inode) -- so `held` is made unremovable the
@@ -317,7 +326,9 @@ def test_the_path_on_the_exception_is_the_normalised_one(tmp_path: Path) -> None
     assert not exc.filename.endswith("/")
 
 
-def test_log_exc_names_the_path_and_brings_the_traceback(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_log_exc_names_the_path_and_brings_the_traceback(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     # log.exception, so it lands at ERROR carrying the traceback: it is
     # reporting a failure nobody else is going to see, since return_exc
     # means it was swallowed here.
@@ -341,7 +352,8 @@ def test_log_exc_names_the_path_and_brings_the_traceback(tmp_path: Path, caplog:
 
 
 def test_log_exc_says_nothing_for_an_exception_that_is_raised(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     # Same rule as safe_call: one that propagates was never handled here,
     # so logging it as well would report one failure twice under two

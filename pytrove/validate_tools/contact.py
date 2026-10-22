@@ -27,7 +27,9 @@ from .._internal._optional import _optional_import
 if TYPE_CHECKING:
     from ..typings import StrInt
 
-EMAIL_PATTERN: Final[re.Pattern[str]] = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+EMAIL_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+)
 """A plain email address: local part, `@`, a domain with a dot and a 2+ letter suffix."""
 
 log = logging.getLogger(__name__)
@@ -74,7 +76,9 @@ def is_phone_number(
         return False
 
     try:
-        return phonenumbers.is_possible_number(parsed_number) and phonenumbers.is_valid_number(parsed_number)
+        return phonenumbers.is_possible_number(parsed_number) and phonenumbers.is_valid_number(
+            parsed_number
+        )
     except Exception:
         return False
 

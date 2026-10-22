@@ -105,7 +105,9 @@ class _Filter:
         spec = (
             None
             if backends.PathSpec is None or not globs
-            else backends.PathSpec.from_lines("gitignore", (("\\" + g if g[:1] in ("#", "!") else g) for g in globs))
+            else backends.PathSpec.from_lines(
+                "gitignore", (("\\" + g if g[:1] in ("#", "!") else g) for g in globs)
+            )
         )
 
         if spec is not None:
@@ -114,7 +116,9 @@ class _Filter:
         return _Rules(frozenset(paths), tuple(funcs), frozenset(names), tuple(globs), spec)
 
     @classmethod
-    def from_rules(cls, include: Iterable[_Rule], exclude: Iterable[_Rule], who: str = "compress_folder") -> _Filter:
+    def from_rules(
+        cls, include: Iterable[_Rule], exclude: Iterable[_Rule], who: str = "compress_folder"
+    ) -> _Filter:
         """Build a filter from both sides, naming the caller in any complaint.
 
         Args:

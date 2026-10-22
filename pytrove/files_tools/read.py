@@ -10,10 +10,16 @@ if TYPE_CHECKING:
 
 # The `binary=True` overload comes first: one without `binary` but with `**kw` would absorb it and match.
 @overload
-def read_file(path: PathLike, *, binary: Literal[True], lock: LockProtocol | None = None, **kw: Any) -> bytes: ...
+def read_file(
+    path: PathLike, *, binary: Literal[True], lock: LockProtocol | None = None, **kw: Any
+) -> bytes: ...
 @overload
 def read_file(
-    path: PathLike, *, binary: Literal[False] = False, encoding: str = "utf-8", lock: LockProtocol | None = None,
+    path: PathLike,
+    *,
+    binary: Literal[False] = False,
+    encoding: str = "utf-8",
+    lock: LockProtocol | None = None,
     **kw: Any,
 ) -> str: ...
 def read_file(

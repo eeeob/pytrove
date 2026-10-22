@@ -58,14 +58,22 @@ def extract_pyro_update_text(update: Message | Query) -> str | bytes:
 
 
 @overload
-def format_tg_username(target: str | Chat | User, with_invite_link: bool = False, with_at: bool = True) -> str | None: ...
+def format_tg_username(
+    target: str | Chat | User, with_invite_link: bool = False, with_at: bool = True
+) -> str | None: ...
 @overload
 def format_tg_username(
-    target: str | Chat | User, with_invite_link: bool = False, with_at: bool = True, default: _T = ...,
+    target: str | Chat | User,
+    with_invite_link: bool = False,
+    with_at: bool = True,
+    default: _T = ...,
 ) -> str | _T: ...
 @_optional_import(("kurigram", "tg"))
 def format_tg_username(
-    target: str | Chat | User, with_invite_link: bool = False, with_at: bool = True, default: Any = None,
+    target: str | Chat | User,
+    with_invite_link: bool = False,
+    with_at: bool = True,
+    default: Any = None,
 ) -> Any:
     """Normalise a username, `t.me` link or chat into a username.
 
@@ -212,7 +220,9 @@ def format_hidden_tg_link(url: str, text: str, parse_mode: ParseMode | None = No
 
 
 @_optional_import(("kurigram", "tg"))
-def mention_tg_user(user_id: int, user_full_name: str | None = None, parse_mode: ParseMode | None = None) -> str:
+def mention_tg_user(
+    user_id: int, user_full_name: str | None = None, parse_mode: ParseMode | None = None
+) -> str:
     """Format a mention that opens a user's profile.
 
     Args:

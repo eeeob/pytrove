@@ -3,7 +3,10 @@
 from __future__ import annotations as _annotations
 
 import sys
-from enum import Enum, EnumMeta as EnumType  # `EnumType` became the name of `EnumMeta` only in 3.11.
+from enum import (
+    Enum,
+    EnumMeta as EnumType,
+)  # `EnumType` became the name of `EnumMeta` only in 3.11.
 from types import UnionType
 from typing import TYPE_CHECKING, Any, Final, TypeAlias, Union, get_args, get_origin
 
@@ -107,7 +110,9 @@ def _checker_lookup(origin_type: Any, *_: Any) -> Callable[..., None] | None:
         A checker for an enum, a package container type or a PEP 695 alias, otherwise `None`.
     """
 
-    def validate_alias(value: Any, origin_type: Any, args: tuple[Any, ...], memo: TypeCheckMemo, *_: Any) -> None:
+    def validate_alias(
+        value: Any, origin_type: Any, args: tuple[Any, ...], memo: TypeCheckMemo, *_: Any
+    ) -> None:
         """Check `value` against the type a PEP 695 alias stands for.
 
         Args:
@@ -136,7 +141,9 @@ def _checker_lookup(origin_type: Any, *_: Any) -> Callable[..., None] | None:
         except (ValueError, TypeError) as exc:
             raise TypeCheckError(str(exc)) from exc
 
-    def validate_container(value: Any, origin_type: Any, args: tuple[Any, ...], memo: TypeCheckMemo, *_: Any) -> None:
+    def validate_container(
+        value: Any, origin_type: Any, args: tuple[Any, ...], memo: TypeCheckMemo, *_: Any
+    ) -> None:
         """Check that `value` is a container whose items match the type argument.
 
         Args:
@@ -174,7 +181,11 @@ def _checker_lookup(origin_type: Any, *_: Any) -> Callable[..., None] | None:
     if isinstance(origin_type, type) and issubclass(origin_type, Enum):
         return validate_enum
 
-    if isinstance(origin_type, type) and issubclass(origin_type, _CONTAINER) and not issubclass(origin_type, _NOT_CONTAINER):
+    if (
+        isinstance(origin_type, type)
+        and issubclass(origin_type, _CONTAINER)
+        and not issubclass(origin_type, _NOT_CONTAINER)
+    ):
         return validate_container
 
     return None

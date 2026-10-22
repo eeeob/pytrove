@@ -118,6 +118,7 @@ Read down the list: each one depends only on those above it.
 `enums.py`, `layout.py` and `models.py` import nothing from the package, so
 any of them can be read first and alone.
 """
+
 from __future__ import annotations as _annotations
 
 from .cli import Cli, main

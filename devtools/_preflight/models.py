@@ -18,10 +18,10 @@ from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any, ClassVar
 
-from .enums import (ContractKind, Exit, FingerprintKind, Health, Policy,
-                    State, Verb)
+from .enums import ContractKind, Exit, FingerprintKind, Health, Policy, State, Verb
 
 # ============================== how a body is judged ==============================
+
 
 @dataclass(frozen=True, slots=True)
 class Contract:
@@ -67,6 +67,7 @@ class Fingerprint:
 
 
 # ============================== the declarations ==============================
+
 
 @dataclass(frozen=True, slots=True)
 class Source:
@@ -125,7 +126,8 @@ class Source:
         """
         parts = "|".join(
             str(getattr(block, f.name))
-            for block in (self.contract, self.fingerprint) if block is not None
+            for block in (self.contract, self.fingerprint)
+            if block is not None
             for f in fields(block)
         )
         return hashlib.sha256(parts.encode()).hexdigest()[:12] if parts else ""
@@ -250,8 +252,7 @@ class Watch:
         A probe URL and a fingerprint, with no contract and no cache: the body
         is read for one number and then dropped.
         """
-        return Source(id=self.id, probe_url=self.url,
-                      fingerprint=self.fingerprint)
+        return Source(id=self.id, probe_url=self.url, fingerprint=self.fingerprint)
 
 
 @dataclass(frozen=True, slots=True)
@@ -368,11 +369,12 @@ class Registry:
         watches contribute nothing; they are never fetched into the cache.
         """
         return frozenset(
-            {s.cache for s in self.sources if s.cache}
-            | {d.cache for d in self.derived if d.cache})
+            {s.cache for s in self.sources if s.cache} | {d.cache for d in self.derived if d.cache}
+        )
 
 
 # ============================== the results ==============================
+
 
 @dataclass(frozen=True, slots=True)
 class Verdict:
@@ -441,8 +443,7 @@ class Report:
     @property
     def gating(self) -> tuple[Verdict, ...]:
         """The verdicts that can stop a build: everything but the watches."""
-        return tuple(v for v in self.verdicts
-                     if v.source_id not in self.watched)
+        return tuple(v for v in self.verdicts if v.source_id not in self.watched)
 
     @property
     def fatal(self) -> tuple[Verdict, ...]:
@@ -464,13 +465,11 @@ class Report:
         A single failure is weather. The counter lives in the tracked lock so
         it survives a fresh CI runner, and this is the one place it is read.
         """
-        return tuple(v for v in self.verdicts
-                     if v.consecutive >= self.ESCALATE_AFTER)
+        return tuple(v for v in self.verdicts if v.consecutive >= self.ESCALATE_AFTER)
 
     def sorted_verdicts(self) -> list[Verdict]:
         """Worst first, so what needs action is at the top of the report."""
-        return sorted(self.verdicts,
-                      key=lambda v: (v.state.rank, v.source_id))
+        return sorted(self.verdicts, key=lambda v: (v.state.rank, v.source_id))
 
     # --- the gate ---------------------------------------------------------
 

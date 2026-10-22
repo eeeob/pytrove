@@ -44,6 +44,7 @@ def test_run_awaitable_sync_uses_a_loop_running_in_another_thread() -> None:
     thread.start()
 
     try:
+
         async def nine() -> int:
             """Return nine."""
             return 9
@@ -61,6 +62,7 @@ async def test_run_awaitable_sync_targets_another_thread_loop_from_inside_a_runn
     thread.start()
 
     try:
+
         async def ten() -> int:
             """Return ten."""
             return 10

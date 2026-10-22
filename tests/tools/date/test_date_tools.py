@@ -115,12 +115,15 @@ def test_arabic_time_midnight_and_noon_hour_conversion() -> None:
     assert "الساعة 12" in arabic_time(noon)
 
 
-@pytest.mark.parametrize(("moment", "expected"), [
-    (datetime(2024, 1, 1, 9, 0, 0), "الساعة 9 صباحًا"),
-    (datetime(2024, 1, 1, 15, 5, 0), "الساعة 3 و 5 دقيقة مساءً"),
-    (datetime(2024, 1, 1, 0, 0, 7), "الساعة 12 و 7 ثانية صباحًا"),
-    (datetime(2024, 1, 1, 12, 30, 15), "الساعة 12 و 30 دقيقة و 15 ثانية مساءً"),
-])
+@pytest.mark.parametrize(
+    ("moment", "expected"),
+    [
+        (datetime(2024, 1, 1, 9, 0, 0), "الساعة 9 صباحًا"),
+        (datetime(2024, 1, 1, 15, 5, 0), "الساعة 3 و 5 دقيقة مساءً"),
+        (datetime(2024, 1, 1, 0, 0, 7), "الساعة 12 و 7 ثانية صباحًا"),
+        (datetime(2024, 1, 1, 12, 30, 15), "الساعة 12 و 30 دقيقة و 15 ثانية مساءً"),
+    ],
+)
 def test_arabic_time_mentions_only_non_zero_parts(moment: datetime, expected: str) -> None:
     assert arabic_time(moment) == expected
 

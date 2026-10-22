@@ -40,11 +40,16 @@ def test_template_compiles_and_formats_a_whole_message() -> None:
     out = template.format(people=[{"name": "a"}], ignored=None)
     assert out["text"].startswith("hi you\n")
     assert out["parse_mode"] is ParseMode.HTML
-    assert [[b.text for b in row] for row in out["reply_markup"].inline_keyboard] == [["you"], ["a"]]
+    assert [[b.text for b in row] for row in out["reply_markup"].inline_keyboard] == [
+        ["you"],
+        ["a"],
+    ]
     assert CompiledTemplate().format() == {}
     assert CompiledTemplate().format_rich_message({}) is None
 
-    rich = CompiledTemplate.compile({"message": ["plain"], "rich_message": {"html": ["<b>{time}</b>"]}}, key_time="time")
+    rich = CompiledTemplate.compile(
+        {"message": ["plain"], "rich_message": {"html": ["<b>{time}</b>"]}}, key_time="time"
+    )
     payload = rich.format(time="now")
     assert set(payload) == {"rich_message"}
     assert payload["rich_message"].html == "<b>now</b>"
@@ -70,7 +75,9 @@ def test_format_message_accepts_a_read_only_mapping() -> None:
 
 @needs_pyrogram
 def test_format_shows_the_buttons_the_same_key_time_as_the_text() -> None:
-    template = CompiledTemplate.compile({"message": ["{time}"], "buttons": [_button("{time}")]}, key_time="time")
+    template = CompiledTemplate.compile(
+        {"message": ["{time}"], "buttons": [_button("{time}")]}, key_time="time"
+    )
     out = template.format(name="a")
     assert out["reply_markup"].inline_keyboard[0][0].text == out["text"]
 
@@ -89,7 +96,11 @@ def test_template_compile_rewrites_the_dict_and_keyboard_skips_empty_rows() -> N
 
     assert raw["parse_mode"] is ParseMode.MARKDOWN and raw["key_time"] is None
     assert raw["message"] == template.message and raw["rich_message"] == template.rich_message
-    assert [type(part) for part in raw["buttons"]] == [CompiledButtonRow, CompiledEachButton, CompiledButtonRow]
+    assert [type(part) for part in raw["buttons"]] == [
+        CompiledButtonRow,
+        CompiledEachButton,
+        CompiledButtonRow,
+    ]
 
     keyboard = template.format_keyboard({"name": "n", "people": []})
     assert [[b.text for b in row] for row in keyboard.inline_keyboard] == [["n"]]
@@ -98,7 +109,9 @@ def test_template_compile_rewrites_the_dict_and_keyboard_skips_empty_rows() -> N
 
 
 @needs_pyrogram
-def test_compile_from_file_nests_skips_definitions_and_applies_file_defaults(tmp_path: Path) -> None:
+def test_compile_from_file_nests_skips_definitions_and_applies_file_defaults(
+    tmp_path: Path,
+) -> None:
     from pyrogram.enums import ParseMode  # noqa: PLC0415 - optional `pyrogram`, present only when `needs_pyrogram` lets the test run
 
     path = tmp_path / "templates.json"

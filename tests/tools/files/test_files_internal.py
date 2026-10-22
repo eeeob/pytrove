@@ -33,6 +33,7 @@ needs_orjson = pytest.mark.skipif(not HAS_ORJSON, reason="needs the json extra")
 
 # --- constants and the options TypedDict -----------------------------------
 
+
 def test_spill_parts_constant() -> None:
     assert _SPILL_PARTS == 10
 
@@ -43,7 +44,9 @@ def test_orjson_constants_follow_the_extra() -> None:
     if HAS_ORJSON:
         orjson = pytest.importorskip("orjson")
         assert _ORJSON_COMPAT == (
-            orjson.OPT_PASSTHROUGH_DATETIME | orjson.OPT_PASSTHROUGH_DATACLASS | orjson.OPT_NON_STR_KEYS
+            orjson.OPT_PASSTHROUGH_DATETIME
+            | orjson.OPT_PASSTHROUGH_DATACLASS
+            | orjson.OPT_NON_STR_KEYS
         )
     else:
         assert _ORJSON_COMPAT == 0
@@ -56,7 +59,8 @@ def test_mkdir_options_lists_exactly_what_mkdir_takes() -> None:
     # keyword the stdlib adds or drops fails here rather than silently
     # being unavailable through ensure_dir.
     taken = {
-        name for name, param in inspect.signature(Path.mkdir).parameters.items()
+        name
+        for name, param in inspect.signature(Path.mkdir).parameters.items()
         if name != "self" and param.kind in (param.POSITIONAL_OR_KEYWORD, param.KEYWORD_ONLY)
     }
 
@@ -72,6 +76,7 @@ def test_every_mkdir_option_is_optional() -> None:
 
 # --- _next_part ------------------------------------------------------------
 
+
 def test_next_part_counts_only_numeric_suffixes(tmp_path: Path) -> None:
     for name in ("app.log.1", "app.log.7", "app.log.bak", "other.log.9"):
         (tmp_path / name).write_text("", encoding="utf-8")
@@ -82,6 +87,7 @@ def test_next_part_counts_only_numeric_suffixes(tmp_path: Path) -> None:
 
 
 # --- JSON codecs -----------------------------------------------------------
+
 
 def test_json_codecs_round_trip_on_either_backend() -> None:
     encoded = _json_dumps({"a": 1}, {})
@@ -104,7 +110,10 @@ def test_orjson_takes_the_fast_path_only_for_keywords_it_honours() -> None:
 @needs_orjson
 def test_orjson_output_matches_json_byte_for_byte() -> None:
     data = {"b": [1, 2.5, None, True], "a": {"é": "ü"}}
-    assert _json_dumps({1: "x", None: "y"}, {}) == json.dumps({1: "x", None: "y"}, separators=(",", ":")).encode()
+    assert (
+        _json_dumps({1: "x", None: "y"}, {})
+        == json.dumps({1: "x", None: "y"}, separators=(",", ":")).encode()
+    )
 
     for kw in ({}, {"indent": 2}, {"sort_keys": True}, {"indent": 2, "sort_keys": True}):
         fast = _json_dumps(data, dict(kw))
@@ -138,6 +147,7 @@ def test_orjson_parses_only_when_no_keyword_is_given() -> None:
 
 # --- removal helpers -------------------------------------------------------
 
+
 def test_on_exc_remove_folders_ignores_a_vanished_child_but_not_the_root(tmp_path: Path) -> None:
     root = str(tmp_path)
     _on_exc_remove_folders(os.unlink, str(tmp_path / "gone"), FileNotFoundError(), base_path=root)
@@ -150,7 +160,8 @@ def test_on_exc_remove_folders_ignores_a_vanished_child_but_not_the_root(tmp_pat
 
 
 def test_on_exc_remove_folders_unlinks_a_link_and_tolerates_it_vanishing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     link = tmp_path / "link"
     monkeypatch.setattr(_internal, "_is_link", lambda path: str(path) == str(link))
@@ -166,7 +177,9 @@ def test_on_exc_remove_folders_unlinks_a_link_and_tolerates_it_vanishing(
     assert unlinked == [str(link)]
 
     with pytest.raises(PermissionError):  # not a link: the error stands
-        _on_exc_remove_folders(os.path.islink, str(tmp_path / "plain"), PermissionError(), base_path=str(tmp_path))
+        _on_exc_remove_folders(
+            os.path.islink, str(tmp_path / "plain"), PermissionError(), base_path=str(tmp_path)
+        )
 
 
 def test_rmtree_removes_a_tree(tmp_path: Path) -> None:
@@ -177,7 +190,8 @@ def test_rmtree_removes_a_tree(tmp_path: Path) -> None:
 
 
 def test_rmtree_tolerates_a_child_that_vanishes_but_reports_a_missing_root(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     tree = tmp_path / "t"
     tree.mkdir()
@@ -196,7 +210,9 @@ def test_rmtree_tolerates_a_child_that_vanishes_but_reports_a_missing_root(
         _rmtree(tmp_path / "missing")
 
 
-def test_remove_collects_or_raises_with_the_path_named(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_remove_collects_or_raises_with_the_path_named(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     present = tmp_path / "f"
     present.write_text("x", encoding="utf-8")
 
@@ -224,6 +240,7 @@ def test_remove_collects_or_raises_with_the_path_named(tmp_path: Path, caplog: p
 
 
 # --- _spill_parts ----------------------------------------------------------
+
 
 def test_spill_parts_copies_the_removed_end_into_numbered_parts(tmp_path: Path) -> None:
     target = tmp_path / "f.log"

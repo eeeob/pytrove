@@ -65,7 +65,13 @@ def test_attach_one_handler_configured(logger_name: str) -> None:
     stream = io.StringIO()
     formatter = logging.Formatter("%(message)s!")
     handler = attach_logger_handlers(
-        LogHandlerOptions(logger=logger_name, handler=stream, level=logging.WARNING, formatter=formatter, filter=lambda r: True),
+        LogHandlerOptions(
+            logger=logger_name,
+            handler=stream,
+            level=logging.WARNING,
+            formatter=formatter,
+            filter=lambda r: True,
+        ),
     )
     assert isinstance(handler, logging.StreamHandler)
     assert handler.level == logging.WARNING
@@ -76,7 +82,10 @@ def test_attach_one_handler_configured(logger_name: str) -> None:
 
 def test_attach_several_returns_pairs(logger_name: str, tmp_path: Path) -> None:
     pairs = attach_logger_handlers(
-        [LogHandlerOptions(logger=logger_name, handler=io.StringIO()), [LogHandlerOptions(logger=logger_name, handler=tmp_path / "f.log")]],
+        [
+            LogHandlerOptions(logger=logger_name, handler=io.StringIO()),
+            [LogHandlerOptions(logger=logger_name, handler=tmp_path / "f.log")],
+        ],
         return_loggers=True,
     )
     assert [type(h) for _, h in pairs] == [logging.StreamHandler, logging.FileHandler]
@@ -84,11 +93,18 @@ def test_attach_several_returns_pairs(logger_name: str, tmp_path: Path) -> None:
 
 
 def test_set_loggers(logger_name: str) -> None:
-    logger = set_loggers(LoggerOptions(logger=logger_name, level=logging.ERROR, propagate=False, filter=lambda r: True))
+    logger = set_loggers(
+        LoggerOptions(
+            logger=logger_name, level=logging.ERROR, propagate=False, filter=lambda r: True
+        )
+    )
     assert logger.level == logging.ERROR
     assert logger.propagate is False
     assert set_loggers(LoggerOptions(logger=logger_name, reset_level=True)).level == logging.NOTSET
-    assert len(set_loggers([LoggerOptions(logger=logger_name), LoggerOptions(logger=logger_name)])) == 2
+    assert (
+        len(set_loggers([LoggerOptions(logger=logger_name), LoggerOptions(logger=logger_name)]))
+        == 2
+    )
 
 
 def test_rotating_files_oldest_first(tmp_path: Path) -> None:
@@ -97,7 +113,10 @@ def test_rotating_files_oldest_first(tmp_path: Path) -> None:
     try:
         names = [p.name for p in get_rotating_log_files(handler)]
         assert names == ["app.log.2", "app.log.1", "app.log"]
-        assert [p.name for p in get_rotating_log_files(handler, with_base=False)] == ["app.log.2", "app.log.1"]
+        assert [p.name for p in get_rotating_log_files(handler, with_base=False)] == [
+            "app.log.2",
+            "app.log.1",
+        ]
     finally:
         handler.close()
 
@@ -118,6 +137,8 @@ def test_utc3_converter_is_the_static_to_utc3() -> None:
 
 
 @pytest.mark.parametrize("args", [(None,), ()])
-def test_utc3_converter_reads_a_missing_stamp_as_now(monkeypatch: pytest.MonkeyPatch, args: tuple[None, ...]) -> None:
+def test_utc3_converter_reads_a_missing_stamp_as_now(
+    monkeypatch: pytest.MonkeyPatch, args: tuple[None, ...]
+) -> None:
     monkeypatch.setattr(time, "time", lambda: 86_400.0)
     assert UTC3LogFormatter().converter(*args)[:8] == time.gmtime(86_400 + 3 * 3600)[:8]

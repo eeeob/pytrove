@@ -47,7 +47,9 @@ class _LoopHost:
         Raises:
             TypeError: For a non-int `concurrency` or a non-callable factory or handler.
         """
-        if not isinstance(concurrency, int):  # A bool passes on purpose: `True` reads as a cap of 1.
+        if not isinstance(
+            concurrency, int
+        ):  # A bool passes on purpose: `True` reads as a cap of 1.
             msg = f"concurrency must be an int, got {type(concurrency).__name__!r}"
             raise TypeError(msg)
 
@@ -208,8 +210,11 @@ class _LoopHost:
                     raise RuntimeError(msg)
 
                 thread = threading.Thread(
-                    target=safe_call, args=(self._bootstrap,), kwargs={"log_exc": _on_thread_death},
-                    name=self._name, daemon=True,
+                    target=safe_call,
+                    args=(self._bootstrap,),
+                    kwargs={"log_exc": _on_thread_death},
+                    name=self._name,
+                    daemon=True,
                 )
                 thread.start()
                 self._thread = thread
@@ -247,7 +252,9 @@ class _LoopHost:
 
         deadline = None if timeout is None else time.monotonic() + timeout
 
-        while not self._running.wait(0.005):  # Polled, so a thread dying during startup is reported promptly.
+        while not self._running.wait(
+            0.005
+        ):  # Polled, so a thread dying during startup is reported promptly.
             if not thread.is_alive():
                 msg = "worker thread ended before it ever started running"
                 raise RuntimeError(msg) from self._thread_exc

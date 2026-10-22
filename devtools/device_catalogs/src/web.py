@@ -93,22 +93,34 @@ class WebBuilder(Builder):
     #: `navigator.platform` values ("iPhone", "Linux armv81") to stay honest.
     PLATFORMS: ClassVar[tuple[WebPlatform, ...]] = (
         WebPlatform(
-            key="windows", label="Windows",
+            key="windows",
+            label="Windows",
             chromium="Windows NT 10.0; Win64; x64",
-            firefox_platform="", firefox_oscpu="Windows NT 10.0; Win64; x64",
-            navigator="Win32", chrome_slug="win", edge_platform="Windows",
+            firefox_platform="",
+            firefox_oscpu="Windows NT 10.0; Win64; x64",
+            navigator="Win32",
+            chrome_slug="win",
+            edge_platform="Windows",
         ),
         WebPlatform(
-            key="macos", label="macOS",
+            key="macos",
+            label="macOS",
             chromium="Macintosh; Intel Mac OS X 10_15_7",
-            firefox_platform="Macintosh", firefox_oscpu="Intel Mac OS X 10.15",
-            navigator="MacIntel", chrome_slug="mac", edge_platform="MacOS",
+            firefox_platform="Macintosh",
+            firefox_oscpu="Intel Mac OS X 10.15",
+            navigator="MacIntel",
+            chrome_slug="mac",
+            edge_platform="MacOS",
         ),
         WebPlatform(
-            key="linux", label="Linux",
+            key="linux",
+            label="Linux",
             chromium="X11; Linux x86_64",
-            firefox_platform="X11", firefox_oscpu="Linux x86_64",
-            navigator="Linux x86_64", chrome_slug="linux", edge_platform="Linux",
+            firefox_platform="X11",
+            firefox_oscpu="Linux x86_64",
+            navigator="Linux x86_64",
+            chrome_slug="linux",
+            edge_platform="Linux",
         ),
     )
 
@@ -116,17 +128,23 @@ class WebBuilder(Builder):
     #: pair here must come back non-empty or the build says so, rather than
     #: quietly shipping a catalog with a browser missing.
     COMBINATIONS: ClassVar[tuple[tuple[str, str], ...]] = (
-        ("Chrome", "windows"), ("Chrome", "macos"), ("Chrome", "linux"),
-        ("Edge", "windows"), ("Edge", "macos"), ("Edge", "linux"),
-        ("Firefox", "windows"), ("Firefox", "macos"), ("Firefox", "linux"),
+        ("Chrome", "windows"),
+        ("Chrome", "macos"),
+        ("Chrome", "linux"),
+        ("Edge", "windows"),
+        ("Edge", "macos"),
+        ("Edge", "linux"),
+        ("Firefox", "windows"),
+        ("Firefox", "macos"),
+        ("Firefox", "linux"),
     )
 
     # --- the User-Agent templates ----------------------------------------
 
     #: BuildUserAgentFromOSAndProduct in user_agent_utils.cc.
     CHROMIUM_TEMPLATE: ClassVar[str] = (
-        "Mozilla/5.0 ({token}) AppleWebKit/537.36 (KHTML, like Gecko) "
-        "{product} Safari/537.36")
+        "Mozilla/5.0 ({token}) AppleWebKit/537.36 (KHTML, like Gecko) {product} Safari/537.36"
+    )
     #: The product part. Only the major is real: the minor version has been
     #: pinned to 0.0.0 since Chrome 101.
     CHROMIUM_PRODUCT: ClassVar[str] = "Chrome/{major}.0.0.0"
@@ -135,8 +153,7 @@ class WebBuilder(Builder):
     EDGE_SUFFIX: ClassVar[str] = " Edg/{major}.0.0.0"
     #: nsHttpHandler::BuildUserAgent, with the comment assembled from the
     #: platform token (when there is one), the oscpu and "rv:".
-    FIREFOX_TEMPLATE: ClassVar[str] = (
-        "Mozilla/5.0 ({comment}) Gecko/{trail} Firefox/{major}.0")
+    FIREFOX_TEMPLATE: ClassVar[str] = "Mozilla/5.0 ({comment}) Gecko/{trail} Firefox/{major}.0"
     #: LEGACY_UA_GECKO_TRAIL, frozen since Gecko 2.0.
     GECKO_TRAIL: ClassVar[str] = "20100101"
 
@@ -144,11 +161,12 @@ class WebBuilder(Builder):
 
     CHROME_URL: ClassVar[str] = (
         "https://versionhistory.googleapis.com/v1/chrome/platforms/{slug}"
-        "/channels/stable/versions/all/releases")
+        "/channels/stable/versions/all/releases"
+    )
     FIREFOX_URL: ClassVar[str] = (
-        "https://product-details.mozilla.org/1.0/firefox_history_major_releases.json")
-    EDGE_URL: ClassVar[str] = (
-        "https://edgeupdates.microsoft.com/api/products?view=enterprise")
+        "https://product-details.mozilla.org/1.0/firefox_history_major_releases.json"
+    )
+    EDGE_URL: ClassVar[str] = "https://edgeupdates.microsoft.com/api/products?view=enterprise"
 
     CHROME_FILE: ClassVar[str] = "chrome_releases_{slug}.json"
     FIREFOX_FILE: ClassVar[str] = "firefox_releases.json"
@@ -159,61 +177,95 @@ class WebBuilder(Builder):
     #: real machine is, so one architecture is read and the rest skipped.
     EDGE_PRODUCT: ClassVar[str] = "Stable"
     EDGE_ARCH: ClassVar[dict[str, str]] = {
-        "Windows": "x64", "MacOS": "universal", "Linux": "x64",
+        "Windows": "x64",
+        "MacOS": "universal",
+        "Linux": "x64",
     }
 
     # --- documentation written into the catalog ---------------------------
 
     MODEL_FORMAT: ClassVar[str] = (
-        "navigator.userAgent verbatim, which is what both Telegram web clients send")
+        "navigator.userAgent verbatim, which is what both Telegram web clients send"
+    )
     VERSION_FORMAT: ClassVar[str] = (
-        "navigator.platform -- Win32, MacIntel, or uname sysname + machine on Linux")
+        "navigator.platform -- Win32, MacIntel, or uname sysname + machine on Linux"
+    )
 
     SOURCES: ClassVar[tuple[str, ...]] = (
-        ("https://github.com/morethanwords/tweb/blob/master/src/lib/appManagers/networkerFactory.ts"
-         " -- Telegram Web K: deviceModel = USER_AGENT, systemVersion = navigator.platform"),
-        ("https://github.com/Ajaxy/telegram-tt/blob/master/src/api/gramjs/methods/client.ts"
-         " -- Telegram Web A: the same two fields"),
-        ("https://github.com/chromium/chromium/blob/main/components/embedder_support/user_agent_utils.cc"
-         " -- the Chromium UA template and the frozen platform tokens"),
-        ("https://github.com/mozilla/gecko-dev/blob/master/netwerk/protocol/http/nsHttpHandler.cpp"
-         " -- BuildUserAgent, mPlatform, mOscpu and UA_SPARE_PLATFORM"),
-        ("https://github.com/WebKit/WebKit/blob/main/Source/WebCore/page/NavigatorBase.cpp"
-         " -- NavigatorBase::platform(), the system_version values"),
-        ("https://learn.microsoft.com/en-us/microsoft-edge/web-platform/user-agent-guidance"
-         " -- the Edg token and where it goes"),
-        ("https://versionhistory.googleapis.com/v1/chrome/platforms/win/channels/stable/versions/all/releases"
-         " -- released Chrome versions per platform"),
-        ("https://product-details.mozilla.org/1.0/firefox_history_major_releases.json"
-         " -- released Firefox majors and their dates"),
-        ("https://edgeupdates.microsoft.com/api/products?view=enterprise"
-         " -- released Edge versions per platform"),
+        (
+            "https://github.com/morethanwords/tweb/blob/master/src/lib/appManagers/networkerFactory.ts"
+            " -- Telegram Web K: deviceModel = USER_AGENT, systemVersion = navigator.platform"
+        ),
+        (
+            "https://github.com/Ajaxy/telegram-tt/blob/master/src/api/gramjs/methods/client.ts"
+            " -- Telegram Web A: the same two fields"
+        ),
+        (
+            "https://github.com/chromium/chromium/blob/main/components/embedder_support/user_agent_utils.cc"
+            " -- the Chromium UA template and the frozen platform tokens"
+        ),
+        (
+            "https://github.com/mozilla/gecko-dev/blob/master/netwerk/protocol/http/nsHttpHandler.cpp"
+            " -- BuildUserAgent, mPlatform, mOscpu and UA_SPARE_PLATFORM"
+        ),
+        (
+            "https://github.com/WebKit/WebKit/blob/main/Source/WebCore/page/NavigatorBase.cpp"
+            " -- NavigatorBase::platform(), the system_version values"
+        ),
+        (
+            "https://learn.microsoft.com/en-us/microsoft-edge/web-platform/user-agent-guidance"
+            " -- the Edg token and where it goes"
+        ),
+        (
+            "https://versionhistory.googleapis.com/v1/chrome/platforms/win/channels/stable/versions/all/releases"
+            " -- released Chrome versions per platform"
+        ),
+        (
+            "https://product-details.mozilla.org/1.0/firefox_history_major_releases.json"
+            " -- released Firefox majors and their dates"
+        ),
+        (
+            "https://edgeupdates.microsoft.com/api/products?view=enterprise"
+            " -- released Edge versions per platform"
+        ),
     )
 
     NOTES: ClassVar[tuple[str, ...]] = (
-        ("model is the whole User-Agent string, not a device name: a browser has no "
-         "model to report, so both web clients send navigator.userAgent as it stands. "
-         "This is also why a web session draws a browser icon in every client -- "
-         "Telegram Android matches 'chrome'/'firefox'/'edge' inside device_model and "
-         "Telegram Desktop matches 'chrome'/'firefox'/'edg/', both before they look at "
-         "the platform."),
-        ("Every string is generated from the browsers' own frozen templates rather than "
-         "collected, because there is nothing left to collect: Chromium pins its "
-         "platform token and its minor version, Gecko pins the Windows OS version to "
-         "10.0, and only the major version still moves. The majors and their dates come "
-         "from each vendor's own release feed."),
-        (f"Only the newest {MAJORS} majors per browser and system are kept. Browsers "
-         f"update themselves, so a session further behind than that is not a realistic "
-         f"thing to report."),
-        ("Desktop only, on purpose. A phone browser is a real web session but a rare "
-         "one, and it would need its own frozen tokens and its own navigator.platform "
-         "values to be honest rather than guessed."),
-        ("Safari is absent: WebKit freezes the UA prefix but the 'Version/x.y "
-         "Safari/605.1.15' suffix is Safari's own application name and Apple publishes "
-         "no machine-readable version feed, so the numbers would have to be invented. "
-         "macOS is still covered, by Chrome, Edge and Firefox."),
-        ("Each device lists exactly one version because a UA and navigator.platform "
-         "describe the same machine: a UA claiming Windows cannot report 'MacIntel'."),
+        (
+            "model is the whole User-Agent string, not a device name: a browser has no "
+            "model to report, so both web clients send navigator.userAgent as it stands. "
+            "This is also why a web session draws a browser icon in every client -- "
+            "Telegram Android matches 'chrome'/'firefox'/'edge' inside device_model and "
+            "Telegram Desktop matches 'chrome'/'firefox'/'edg/', both before they look at "
+            "the platform."
+        ),
+        (
+            "Every string is generated from the browsers' own frozen templates rather than "
+            "collected, because there is nothing left to collect: Chromium pins its "
+            "platform token and its minor version, Gecko pins the Windows OS version to "
+            "10.0, and only the major version still moves. The majors and their dates come "
+            "from each vendor's own release feed."
+        ),
+        (
+            f"Only the newest {MAJORS} majors per browser and system are kept. Browsers "
+            f"update themselves, so a session further behind than that is not a realistic "
+            f"thing to report."
+        ),
+        (
+            "Desktop only, on purpose. A phone browser is a real web session but a rare "
+            "one, and it would need its own frozen tokens and its own navigator.platform "
+            "values to be honest rather than guessed."
+        ),
+        (
+            "Safari is absent: WebKit freezes the UA prefix but the 'Version/x.y "
+            "Safari/605.1.15' suffix is Safari's own application name and Apple publishes "
+            "no machine-readable version feed, so the numbers would have to be invented. "
+            "macOS is still covered, by Chrome, Edge and Firefox."
+        ),
+        (
+            "Each device lists exactly one version because a UA and navigator.platform "
+            "describe the same machine: a UA claiming Windows cannot report 'MacIntel'."
+        ),
     )
 
     # --- release feeds ----------------------------------------------------
@@ -222,7 +274,8 @@ class WebBuilder(Builder):
         """(major, first serving date) newest first, from Google's feed."""
         data = self.cache.fetch_json(
             self.CHROME_FILE.format(slug=platform.chrome_slug),
-            self.CHROME_URL.format(slug=platform.chrome_slug))
+            self.CHROME_URL.format(slug=platform.chrome_slug),
+        )
 
         first: dict[int, str] = {}
         for release in data.get("releases", []):
@@ -259,8 +312,10 @@ class WebBuilder(Builder):
             if product.get("Product") != self.EDGE_PRODUCT:
                 continue
             for release in product.get("Releases", []):
-                if (release.get("Platform") != platform.edge_platform
-                        or release.get("Architecture") != arch):
+                if (
+                    release.get("Platform") != platform.edge_platform
+                    or release.get("Architecture") != arch
+                ):
                     continue
                 try:
                     major = int(str(release["ProductVersion"]).split(".")[0])
@@ -277,34 +332,37 @@ class WebBuilder(Builder):
     def chromium_agent(cls, platform: WebPlatform, major: int) -> str:
         """Return a Chromium User-Agent for `platform` at version `major`."""
         return cls.CHROMIUM_TEMPLATE.format(
-            token=platform.chromium,
-            product=cls.CHROMIUM_PRODUCT.format(major=major))
+            token=platform.chromium, product=cls.CHROMIUM_PRODUCT.format(major=major)
+        )
 
     @classmethod
     def edge_agent(cls, platform: WebPlatform, major: int) -> str:
         """Return an Edge User-Agent for `platform` at version `major`."""
-        return (cls.chromium_agent(platform, major)
-                + cls.EDGE_SUFFIX.format(major=major))
+        return cls.chromium_agent(platform, major) + cls.EDGE_SUFFIX.format(major=major)
 
     @classmethod
     def firefox_agent(cls, platform: WebPlatform, major: int) -> str:
         """Return a Firefox User-Agent for `platform` at version `major`."""
         parts = [platform.firefox_platform, platform.firefox_oscpu, f"rv:{major}.0"]
         return cls.FIREFOX_TEMPLATE.format(
-            comment="; ".join(part for part in parts if part),
-            trail=cls.GECKO_TRAIL, major=major)
+            comment="; ".join(part for part in parts if part), trail=cls.GECKO_TRAIL, major=major
+        )
 
     # --- output -----------------------------------------------------------
 
     def build(self) -> list[Catalog]:
         """Build the web catalog from every browser's version feed."""
         by_platform = {p.key: p for p in self.PLATFORMS}
-        agents = {"Chrome": self.chromium_agent,
-                  "Edge": self.edge_agent,
-                  "Firefox": self.firefox_agent}
-        feeds = {"Chrome": self.chrome_majors,
-                 "Edge": self.edge_majors,
-                 "Firefox": lambda _platform: self.firefox_majors()}
+        agents = {
+            "Chrome": self.chromium_agent,
+            "Edge": self.edge_agent,
+            "Firefox": self.firefox_agent,
+        }
+        feeds = {
+            "Chrome": self.chrome_majors,
+            "Edge": self.edge_majors,
+            "Firefox": lambda _platform: self.firefox_majors(),
+        }
 
         devices: list[dict[str, Any]] = []
         empty: list[str] = []
@@ -318,19 +376,21 @@ class WebBuilder(Builder):
                 continue
 
             for major, released in majors:
-                devices.append({
-                    "model": agents[browser](platform, major),
-                    "browser": browser,
-                    "major": major,
-                    "system": platform.label,
-                    # `brand` is the group a share is given to, which is the
-                    # browser and the system together: Chrome's share on
-                    # Windows has nothing to do with its share on Linux.
-                    "brand": group,
-                    "released": released,
-                    "versions": [platform.navigator],
-                    "source": f"{browser} release feed + the browser's own UA template",
-                })
+                devices.append(
+                    {
+                        "model": agents[browser](platform, major),
+                        "browser": browser,
+                        "major": major,
+                        "system": platform.label,
+                        # `brand` is the group a share is given to, which is the
+                        # browser and the system together: Chrome's share on
+                        # Windows has nothing to do with its share on Linux.
+                        "brand": group,
+                        "released": released,
+                        "versions": [platform.navigator],
+                        "source": f"{browser} release feed + the browser's own UA template",
+                    }
+                )
             print(f"  {group}: {', '.join(str(m) for m, _ in majors)}")
 
         if empty:
@@ -342,12 +402,14 @@ class WebBuilder(Builder):
             msg = f"duplicate User-Agent strings: {duplicates}"
             raise SystemExit(msg)
 
-        return [Catalog(
-            platform=self.platform,
-            model_format=self.MODEL_FORMAT,
-            version_format=self.VERSION_FORMAT,
-            sources=list(self.SOURCES),
-            notes=list(self.NOTES),
-            versions=[{"version": p.navigator} for p in self.PLATFORMS],
-            devices=sorted(devices, key=lambda d: (d["brand"], -d["major"])),
-        )]
+        return [
+            Catalog(
+                platform=self.platform,
+                model_format=self.MODEL_FORMAT,
+                version_format=self.VERSION_FORMAT,
+                sources=list(self.SOURCES),
+                notes=list(self.NOTES),
+                versions=[{"version": p.navigator} for p in self.PLATFORMS],
+                devices=sorted(devices, key=lambda d: (d["brand"], -d["major"])),
+            )
+        ]

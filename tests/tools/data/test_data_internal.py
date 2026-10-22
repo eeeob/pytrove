@@ -119,7 +119,9 @@ def test_reconstruct_rebuilds_in_order_of_preference() -> None:
     assert _reconstruct([1, 2]) == [1, 2]
 
 
-def test_reconstruct_falls_through_to_refill_and_then_gives_up(caplog: pytest.LogCaptureFixture) -> None:
+def test_reconstruct_falls_through_to_refill_and_then_gives_up(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     class NamedList(list):  # type: ignore[type-arg]  # Only the constructor shape matters here.
         def __init__(self, name: Any) -> None:
             self.name = name

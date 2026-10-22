@@ -84,7 +84,9 @@ class _Device:
     oses: tuple[str, ...] = ()
     """The OSes it reports; empty on a single-OS platform."""
 
-    by_os: dict[str, tuple[tuple[str, ...], tuple[float, ...]]] = field(default_factory=dict, compare=False)
+    by_os: dict[str, tuple[tuple[str, ...], tuple[float, ...]]] = field(
+        default_factory=dict, compare=False
+    )
     """Per OS, the subset of `versions` and their weights; empty on a single-OS platform."""
 
 
@@ -221,7 +223,9 @@ def _catalog(platform: str) -> _Catalog:
 
     for raw in data["devices"]:
         if group := raw.get("brand") or raw.get("vendor"):
-            group_totals[group] = group_totals.get(group, 0.0) + _age_weight(raw.get("released"), today)
+            group_totals[group] = group_totals.get(group, 0.0) + _age_weight(
+                raw.get("released"), today
+            )
 
     devices, weights = [], []
 
@@ -231,8 +235,10 @@ def _catalog(platform: str) -> _Catalog:
         raw_oses: list[str] = raw.get("os") or []
         device_oses = tuple(sorted(raw_oses))
         names = (
-            tuple(raw["versions"]) if raw.get("versions")
-            else tuple(n for n in all_versions if os_of.get(n) in device_oses) if device_oses
+            tuple(raw["versions"])
+            if raw.get("versions")
+            else tuple(n for n in all_versions if os_of.get(n) in device_oses)
+            if device_oses
             else all_versions
         )
 
@@ -258,7 +264,16 @@ def _catalog(platform: str) -> _Catalog:
                     current = by_os.get(system, ((), ()))
                     by_os[system] = (current[0] + (name,), current[1] + (w,))
 
-        devices.append(_Device(raw["model"], names, version_weights, weight, device_oses or tuple(sorted(by_os)), by_os))
+        devices.append(
+            _Device(
+                raw["model"],
+                names,
+                version_weights,
+                weight,
+                device_oses or tuple(sorted(by_os)),
+                by_os,
+            )
+        )
         weights.append(weight)
 
     if not devices:
@@ -271,7 +286,14 @@ def _catalog(platform: str) -> _Catalog:
         if (members := [d for d in devices if system in d.by_os])
     }
 
-    return _Catalog(platform, data.get("updated", ""), tuple(devices), tuple(weights), tuple(by_os_view), by_os_view)
+    return _Catalog(
+        platform,
+        data.get("updated", ""),
+        tuple(devices),
+        tuple(weights),
+        tuple(by_os_view),
+        by_os_view,
+    )
 
 
 __all__ = (

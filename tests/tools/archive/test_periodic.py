@@ -58,6 +58,7 @@ def make_job(
 
 # --- ArchiveJob -------------------------------------------------------------
 
+
 def test_root_is_resolved_to_a_path(tree: Path) -> None:
     job = make_job(str(tree))
     assert job.root == tree.resolve()
@@ -100,6 +101,7 @@ def test_last_run_is_not_a_constructor_argument(tree: Path) -> None:
 
 # --- PeriodicArchiver.create / run_job --------------------------------------
 
+
 async def test_create_writes_a_real_archive(tree: Path) -> None:
     job = make_job(tree, name="out")
     archiver = PeriodicArchiver([job])
@@ -110,7 +112,9 @@ async def test_create_writes_a_real_archive(tree: Path) -> None:
     assert _names(path) == {"a.py", "b.txt"}
 
 
-async def test_create_forwards_every_remaining_compress_folder_option(tree: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_create_forwards_every_remaining_compress_folder_option(
+    tree: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     captured = {}
 
     def fake_compress_folder(src: Path, dest: Path, **kw: Any) -> Path:
@@ -121,8 +125,13 @@ async def test_create_forwards_every_remaining_compress_folder_option(tree: Path
     monkeypatch.setattr(archiver_module, "compress_folder", fake_compress_folder)
 
     job = make_job(
-        tree, name="out",
-        level=5, workers=2, follow_links=True, fsync=False, delete_source=True,
+        tree,
+        name="out",
+        level=5,
+        workers=2,
+        follow_links=True,
+        fsync=False,
+        delete_source=True,
     )
     archiver = PeriodicArchiver([job])
 
@@ -156,7 +165,9 @@ async def test_run_job_hands_the_archive_to_on_archive_then_deletes_it(tree: Pat
     assert not (tree / "out.zip").exists()
 
 
-async def test_run_job_updates_the_jobs_own_last_run(tree: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_run_job_updates_the_jobs_own_last_run(
+    tree: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     job = make_job(tree)
     archiver = PeriodicArchiver([job])
     stamp_before = job.last_run
@@ -187,7 +198,9 @@ async def test_run_job_calls_on_error_and_still_cleans_up(tree: Path) -> None:
     assert not (tree / "out.zip").exists()
 
 
-async def test_run_job_reports_a_failed_create_and_has_nothing_to_remove(tree: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_run_job_reports_a_failed_create_and_has_nothing_to_remove(
+    tree: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     errors = []
     removed = []
 
@@ -234,7 +247,9 @@ async def test_stop_leaves_an_already_finished_run_alone(tree: Path) -> None:
     assert not task.cancelled()
 
 
-async def test_run_job_with_no_on_error_swallows_and_logs(tree: Path, caplog: pytest.LogCaptureFixture) -> None:
+async def test_run_job_with_no_on_error_swallows_and_logs(
+    tree: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     async def failing_on_archive(job: ArchiveJob, path: Path) -> NoReturn:
         msg = "boom"
         raise ValueError(msg)
@@ -259,7 +274,9 @@ async def test_two_jobs_in_the_same_root_exclude_each_others_archive(tree: Path)
     assert archiver._siblings(job_b) == ["a.zip"]
 
 
-async def test_jobs_in_different_roots_do_not_exclude_each_other(tree: Path, tmp_path: Path) -> None:
+async def test_jobs_in_different_roots_do_not_exclude_each_other(
+    tree: Path, tmp_path: Path
+) -> None:
     other_root = tmp_path / "other"
     other_root.mkdir()
 
@@ -272,6 +289,7 @@ async def test_jobs_in_different_roots_do_not_exclude_each_other(tree: Path, tmp
 
 
 # --- should_run ---------------------------------------------------------
+
 
 def test_should_run_defaults_to_elapsed_time_against_min_interval(tree: Path) -> None:
     job = make_job(tree, min_interval=1000)
@@ -340,6 +358,7 @@ async def test_two_jobs_sharing_a_name_do_not_block_each_other(tree: Path, tmp_p
 
 # --- locks ------------------------------------------------------------
 
+
 async def test_locks_are_created_lazily_and_held_only_weakly(tree: Path) -> None:
     job = make_job(tree)
     archiver = PeriodicArchiver([job])
@@ -365,6 +384,7 @@ async def test_a_concurrent_run_of_the_same_job_waits_on_its_lock(tree: Path) ->
 
 
 # --- lifecycle ------------------------------------------------------------
+
 
 async def test_start_creates_a_single_scheduling_task(tree: Path) -> None:
     job_a = make_job(tree, name="a", poll_interval=1000)
@@ -413,7 +433,9 @@ async def test_restart_replaces_the_scheduling_task(tree: Path) -> None:
     await archiver.stop()
 
 
-async def test_loop_keeps_ticking_while_a_slow_run_is_in_flight_without_duplicating_it(tree: Path) -> None:
+async def test_loop_keeps_ticking_while_a_slow_run_is_in_flight_without_duplicating_it(
+    tree: Path,
+) -> None:
     finished = asyncio.Event()
 
     async def slow_on_archive(job: ArchiveJob, path: Path) -> None:

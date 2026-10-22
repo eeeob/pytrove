@@ -84,24 +84,47 @@ class _WriteMixin:
         """
         raw = m.target
 
-        if not self._limiter.allows_link(m) or not raw or raw.startswith("/") or ntpath.splitdrive(raw)[0]:
+        if (
+            not self._limiter.allows_link(m)
+            or not raw
+            or raw.startswith("/")
+            or ntpath.splitdrive(raw)[0]
+        ):
             return
 
-        inside = (target.parent if m.kind == "symlink" else self._root).relative_to(self._root).as_posix()
+        inside = (
+            (target.parent if m.kind == "symlink" else self._root)
+            .relative_to(self._root)
+            .as_posix()
+        )
         rel = posixpath.normpath(f"{inside}/{raw}" if inside != "." else raw)
         resolved = self._under(rel) if self._is_safe_member_name(rel) else None
 
         if resolved is None:
-            log.warning("extract_archive: refused %s %r pointing outside %s in %s", m.kind, m.name, self.dest.name, self.src.name)
+            log.warning(
+                "extract_archive: refused %s %r pointing outside %s in %s",
+                m.kind,
+                m.name,
+                self.dest.name,
+                self.src.name,
+            )
             return
 
         if _is_dir(target):
-            log.warning("extract_archive: refused %s %r in %s, a directory stands at %r", m.kind, m.name, self.src.name, str(target))
+            log.warning(
+                "extract_archive: refused %s %r in %s, a directory stands at %r",
+                m.kind,
+                m.name,
+                self.src.name,
+                str(target),
+            )
             return
 
         try:
             # A free name from `mkstemp`, released at once: `os.symlink`/`os.link` refuse an existing path.
-            fd, tmp_name = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", suffix=".tmp")
+            fd, tmp_name = tempfile.mkstemp(
+                dir=target.parent, prefix=f".{target.name}.", suffix=".tmp"
+            )
             os.close(fd)
             os.unlink(tmp_name)
             tmp = Path(tmp_name)
@@ -118,7 +141,9 @@ class _WriteMixin:
             os.replace(tmp, target)
         except OSError as exc:
             remove_file(tmp, return_exc=True, log_exc=True)
-            log.warning("extract_archive: could not put %s %r at %r (%s)", m.kind, m.name, str(target), exc)
+            log.warning(
+                "extract_archive: could not put %s %r at %r (%s)", m.kind, m.name, str(target), exc
+            )
             return
 
         if self._built is not None:
@@ -157,12 +182,20 @@ class _WriteMixin:
             )
             raise ValidationError(msg) from None
         except OSError as exc:
-            log.warning("extract_archive: could not write %r from %s (%s)", m.name, self.src.name, exc)
+            log.warning(
+                "extract_archive: could not write %r from %s (%s)", m.name, self.src.name, exc
+            )
             return
 
         if grown != m.size:
-            log.warning("extract_archive: %s: member %r declares %d bytes but produced %d -- the archive's "
-                        "metadata does not describe its contents", self.src.name, m.name, m.size, grown)
+            log.warning(
+                "extract_archive: %s: member %r declares %d bytes but produced %d -- the archive's "
+                "metadata does not describe its contents",
+                self.src.name,
+                m.name,
+                m.size,
+                grown,
+            )
 
 
 __all__ = ("_WriteMixin",)

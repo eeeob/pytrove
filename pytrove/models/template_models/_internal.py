@@ -12,7 +12,12 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import NotRequired
 
-from ...typings import TemplateDefaultsDict, TemplateEachButtonDict, TemplateEachLineDict, TemplateLineDict
+from ...typings import (
+    TemplateDefaultsDict,
+    TemplateEachButtonDict,
+    TemplateEachLineDict,
+    TemplateLineDict,
+)
 from ...validate_tools import is_mapping
 
 if TYPE_CHECKING:
@@ -143,7 +148,9 @@ def _compile_lines(
     ] or None
 
 
-def _format_lines(lines: list[CompiledLine | CompiledEachLine] | None, kw: Mapping[str, Any]) -> str | None:
+def _format_lines(
+    lines: list[CompiledLine | CompiledEachLine] | None, kw: Mapping[str, Any]
+) -> str | None:
     """Render a block of lines, dropping the ones that opt out.
 
     Args:
@@ -153,7 +160,10 @@ def _format_lines(lines: list[CompiledLine | CompiledEachLine] | None, kw: Mappi
     Returns:
         The rendered lines joined by newlines, or `None` if none rendered.
     """
-    return "\n".join(formatted for line in (lines or ()) if (formatted := line.format(kw)) is not None) or None
+    return (
+        "\n".join(formatted for line in (lines or ()) if (formatted := line.format(kw)) is not None)
+        or None
+    )
 
 
 __all__ = (

@@ -34,7 +34,9 @@ def test_get_clanguage_code_rejects_a_region_without_an_official_language() -> N
 
 
 @needs_locale
-def test_get_cname_native_falls_back_to_english_for_an_unknown_locale(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_cname_native_falls_back_to_english_for_an_unknown_locale(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(language, "get_clanguage_code", lambda rc: "qqq")
     assert get_cname_native("de") == "Germany"
 
@@ -48,20 +50,26 @@ def test_get_cname_native_rejects_a_region_without_a_name(monkeypatch: pytest.Mo
 
 
 @needs_locale
-def test_get_clanguage_name_falls_back_to_english_for_an_unknown_locale(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_clanguage_name_falls_back_to_english_for_an_unknown_locale(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(language, "get_clanguage_code", lambda rc: "zxx")
     assert get_clanguage_name("de") == "No linguistic content"
 
 
 @needs_locale
-def test_get_clanguage_name_looks_a_script_qualified_code_up_by_its_language(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_clanguage_name_looks_a_script_qualified_code_up_by_its_language(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(language, "get_clanguage_code", lambda rc: "sr_Latn")
     assert get_clanguage_name("rs") == "srpski"
     assert get_clanguage_name("rs", native=False) == "Serbian"
 
 
 @needs_locale
-def test_get_clanguage_name_rejects_a_language_without_a_name(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_clanguage_name_rejects_a_language_without_a_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(language, "get_clanguage_code", lambda rc: "qqq")
 
     with pytest.raises(ValidationError, match="No language name"):

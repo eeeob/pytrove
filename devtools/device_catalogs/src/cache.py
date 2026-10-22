@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 # =============================== cache ===============================
 
+
 class Cache:
     """The download cache, and the only place that touches the network.
 
@@ -63,12 +64,8 @@ class Cache:
         return data
 
     def fetch_text(
-        self,
-        name: str,
-        url: str, *,
-        encoding: str = "utf-8",
-        errors: str = "strict"
-        ) -> str:
+        self, name: str, url: str, *, encoding: str = "utf-8", errors: str = "strict"
+    ) -> str:
         """Return the cache entry `name`, fetched from `url` if absent, as text."""
         return self.fetch(name, url).decode(encoding, errors)
 
@@ -121,8 +118,7 @@ class Cache:
         Windows and silently leave the clone behind.
         """
 
-        def drop_readonly(func: Callable[[str], object], path: str,
-                          _exc: object) -> None:
+        def drop_readonly(func: Callable[[str], object], path: str, _exc: object) -> None:
             os.chmod(path, stat.S_IWRITE)
             func(path)
 

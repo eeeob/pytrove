@@ -31,8 +31,7 @@ from pytrove._internal._stability import _STABILITY_MIN_SIZE
 import pytrove.enums
 from pytrove import backup_folder, compress_folder, extract_archive
 from pytrove.enums import ArchiveFormat
-from pytrove.errors import (ArchiveLimitError, ArchivePolicyError,
-                            ValidationError)
+from pytrove.errors import ArchiveLimitError, ArchivePolicyError, ValidationError
 from pytrove.typings import ArchiveLimits
 from pytrove.archive_tools._internal.extractor import _Extractor
 from typing import NoReturn
@@ -47,9 +46,7 @@ HAS_ZSTD = backends.std_zstd is not None or backends.zstandard is not None
 
 
 # tar.zst needs the `archive` extra; the other two are stdlib-only.
-FORMATS = [ArchiveFormat.ZIP, ArchiveFormat.TAR_GZ] + (
-    [ArchiveFormat.TAR_ZST] if HAS_ZSTD else []
-)
+FORMATS = [ArchiveFormat.ZIP, ArchiveFormat.TAR_GZ] + ([ArchiveFormat.TAR_ZST] if HAS_ZSTD else [])
 
 
 @pytest.fixture
@@ -82,7 +79,9 @@ def _names(archive: Path) -> set[str]:
 
 @pytest.mark.parametrize("fmt", FORMATS)
 @pytest.mark.parametrize("fsync", [False, True])
-def test_round_trip_every_format_and_fsync(tree: Path, tmp_path: Path, fmt: ArchiveFormat, fsync: bool) -> None:
+def test_round_trip_every_format_and_fsync(
+    tree: Path, tmp_path: Path, fmt: ArchiveFormat, fsync: bool
+) -> None:
     # fsync=True is the default and must be exercised: zstandard's
     # stream_writer closes the file it is handed unless told not to, which
     # made only this combination fail with "flush of closed file".
@@ -94,17 +93,23 @@ def test_round_trip_every_format_and_fsync(tree: Path, tmp_path: Path, fmt: Arch
 
     got = {
         str(p.relative_to(dest)).replace(os.sep, "/"): p.read_bytes()
-        for p in dest.rglob("*") if p.is_file()
+        for p in dest.rglob("*")
+        if p.is_file()
     }
     assert got == {
-        "a.py": b"a", "b.txt": b"b",
-        "sub/c.py": b"c", "sub/deep/d.txt": b"d",
+        "a.py": b"a",
+        "b.txt": b"b",
+        "sub/c.py": b"c",
+        "sub/deep/d.txt": b"d",
     }
 
 
 def test_hidden_excluded_by_default(tree: Path, tmp_path: Path) -> None:
     assert _names(backup_folder(tree, tmp_path / "h.zip", fsync=False)) == {
-        "a.py", "b.txt", "sub/c.py", "sub/deep/d.txt",
+        "a.py",
+        "b.txt",
+        "sub/c.py",
+        "sub/deep/d.txt",
     }
 
 
@@ -122,10 +127,14 @@ def test_naming_a_hidden_file_outright_beats_exclude_hidden(tree: Path, tmp_path
     }
 
 
-def test_a_hidden_directory_is_still_pruned_past_an_include_glob(tree: Path, tmp_path: Path) -> None:
+def test_a_hidden_directory_is_still_pruned_past_an_include_glob(
+    tree: Path, tmp_path: Path
+) -> None:
     # A glob is rung 8 and the predicate is rung 4, so the directory loses
     # and is never opened. Same rule as any other exclusion reaching down.
-    assert _names(backup_folder(tree, tmp_path / "h4.zip", include=".hidden/**", fsync=False)) == set()
+    assert (
+        _names(backup_folder(tree, tmp_path / "h4.zip", include=".hidden/**", fsync=False)) == set()
+    )
 
 
 def test_no_directory_is_ever_recorded_in_a_zip(tree: Path, tmp_path: Path) -> None:
@@ -146,7 +155,8 @@ def test_include_narrows_to_a_subtree(tree: Path, tmp_path: Path) -> None:
     # its contents on the include side, so the pattern has to say what it
     # means -- and this is the one spelling both glob backends agree on.
     assert _names(backup_folder(tree, tmp_path / "i.zip", include="sub/**", fsync=False)) == {
-        "sub/c.py", "sub/deep/d.txt",
+        "sub/c.py",
+        "sub/deep/d.txt",
     }
 
 
@@ -162,9 +172,15 @@ def test_a_single_star_stops_at_the_separator(tree: Path, tmp_path: Path) -> Non
 
 
 def test_exclude_beats_include(tree: Path, tmp_path: Path) -> None:
-    names = _names(backup_folder(
-        tree, tmp_path / "x.zip", include="*", exclude="*.txt", fsync=False,
-    ))
+    names = _names(
+        backup_folder(
+            tree,
+            tmp_path / "x.zip",
+            include="*",
+            exclude="*.txt",
+            fsync=False,
+        )
+    )
     assert names == {"a.py", "sub/c.py"}
 
 
@@ -175,8 +191,14 @@ def test_archive_does_not_swallow_itself(tree: Path, tmp_path: Path, fmt: Archiv
     # through) the second run would contain the first.
     sizes = [
         backup_folder(
-            tree, tree / f"self.{fmt.value}", format=fmt, exclude_hidden=False, fsync=False,
-        ).stat().st_size
+            tree,
+            tree / f"self.{fmt.value}",
+            format=fmt,
+            exclude_hidden=False,
+            fsync=False,
+        )
+        .stat()
+        .st_size
         for _ in range(3)
     ]
     assert len(set(sizes)) == 1
@@ -219,7 +241,8 @@ def test_a_junction_inside_dest_cannot_be_written_through(tmp_path: Path) -> Non
         # Windows refuses symlinks without privilege; a junction needs none.
         made = subprocess.run(
             ["cmd", "/c", "mklink", "/J", str(link), str(outside)],
-            capture_output=True, check=False,
+            capture_output=True,
+            check=False,
         )
         if made.returncode != 0:
             pytest.skip("cannot create a junction here")
@@ -280,7 +303,9 @@ def test_extract_skips_symlink_members(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("fmt", FORMATS)
-def test_format_detected_from_content_not_extension(tree: Path, tmp_path: Path, fmt: ArchiveFormat) -> None:
+def test_format_detected_from_content_not_extension(
+    tree: Path, tmp_path: Path, fmt: ArchiveFormat
+) -> None:
     archive = backup_folder(tree, tmp_path / "out", format=fmt, fsync=False)
     renamed = archive.with_name("mystery.bin")
     archive.rename(renamed)
@@ -317,7 +342,9 @@ def test_a_leading_slash_anchors_to_the_root(repeated: Path, tmp_path: Path) -> 
     # The only way to say "the top-level one, not every one". Before this
     # was supported such a pattern matched nothing at all, silently.
     assert _names(backup_folder(repeated, tmp_path / "a.zip", exclude="/logs", fsync=False)) == {
-        "app/logs/app.log", "app/main.py", "srv/deep/logs/deep.log",
+        "app/logs/app.log",
+        "app/main.py",
+        "srv/deep/logs/deep.log",
     }
 
 
@@ -326,7 +353,8 @@ def test_the_anchor_works_for_include_too(tree: Path, tmp_path: Path) -> None:
 
     assert _names(backup_folder(tree, tmp_path / "i.zip", include="/a.py", fsync=False)) == {"a.py"}
     assert _names(backup_folder(tree, tmp_path / "j.zip", include="a.py", fsync=False)) == {
-        "a.py", "sub/a.py",
+        "a.py",
+        "sub/a.py",
     }
 
 
@@ -376,13 +404,17 @@ def test_non_regular_members_are_logged(tmp_path: Path, caplog: pytest.LogCaptur
     assert "skipped symlink member" in caplog.text
 
 
-def test_an_unreadable_file_is_logged_rather_than_dropped_in_silence(tree: Path, tmp_path: Path, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_an_unreadable_file_is_logged_rather_than_dropped_in_silence(
+    tree: Path, tmp_path: Path, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # A backup missing a file it could not read must not look identical to
     # one that never had it.
 
     real = zipfile.ZipFile.write
 
-    def failing(self: zipfile.ZipFile, filename: str, arcname: str | None = None, *a: Any, **kw: Any) -> None:
+    def failing(
+        self: zipfile.ZipFile, filename: str, arcname: str | None = None, *a: Any, **kw: Any
+    ) -> None:
         if str(filename).endswith("b.txt"):
             msg = "Permission denied"
             raise PermissionError(13, msg)
@@ -397,7 +429,9 @@ def test_an_unreadable_file_is_logged_rather_than_dropped_in_silence(tree: Path,
     assert "skipped" in caplog.text
 
 
-def test_a_clean_run_logs_nothing(tree: Path, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_a_clean_run_logs_nothing(
+    tree: Path, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     with caplog.at_level("WARNING", logger="pytrove.archive_tools"):
         archive = backup_folder(tree, tmp_path / "c.zip", fsync=False)
         extract_archive(archive, tmp_path / "cx")
@@ -409,10 +443,16 @@ def test_a_clean_run_logs_nothing(tree: Path, tmp_path: Path, caplog: pytest.Log
 # third-party zstandard below that. Only one may be present, so each is
 # skipped when it is not.
 ZSTD_BACKENDS = [
-    pytest.param("stdlib", marks=pytest.mark.skipif(
-        backends.std_zstd is None, reason="no compression.zstd (needs 3.14+)")),
-    pytest.param("zstandard", marks=pytest.mark.skipif(
-        backends.zstandard is None, reason="zstandard not installed")),
+    pytest.param(
+        "stdlib",
+        marks=pytest.mark.skipif(
+            backends.std_zstd is None, reason="no compression.zstd (needs 3.14+)"
+        ),
+    ),
+    pytest.param(
+        "zstandard",
+        marks=pytest.mark.skipif(backends.zstandard is None, reason="zstandard not installed"),
+    ),
 ]
 
 
@@ -429,12 +469,17 @@ def backend(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> 
 @pytest.mark.skipif(not HAS_ZSTD, reason="no zstd backend")
 @pytest.mark.parametrize("backend", ZSTD_BACKENDS, indirect=True)
 @pytest.mark.parametrize("fsync", [False, True])
-def test_each_zstd_backend_round_trips(tree: Path, tmp_path: Path, backend: str, fsync: bool) -> None:
+def test_each_zstd_backend_round_trips(
+    tree: Path, tmp_path: Path, backend: str, fsync: bool
+) -> None:
     # fsync=True matters here: a backend that closes the handle it was
     # given breaks atomic_write's flush, which is exactly how the
     # third-party one behaved until told closefd=False.
     archive = compress_folder(
-        tree, tmp_path / f"z_{backend}.tar.zst", format="tar.zst", fsync=fsync,
+        tree,
+        tmp_path / f"z_{backend}.tar.zst",
+        format="tar.zst",
+        fsync=fsync,
     )
     extract_archive(archive, tmp_path / f"zx_{backend}_{fsync}")
 
@@ -446,7 +491,11 @@ def test_each_zstd_backend_round_trips(tree: Path, tmp_path: Path, backend: str,
 def test_each_zstd_backend_accepts_workers(tree: Path, tmp_path: Path, backend: str) -> None:
     # The stdlib takes it as options[nb_workers], zstandard as threads=.
     archive = compress_folder(
-        tree, tmp_path / f"w_{backend}.tar.zst", format="tar.zst", workers=-1, fsync=False,
+        tree,
+        tmp_path / f"w_{backend}.tar.zst",
+        format="tar.zst",
+        workers=-1,
+        fsync=False,
     )
     extract_archive(archive, tmp_path / f"wx_{backend}")
 
@@ -457,27 +506,33 @@ def test_each_zstd_backend_accepts_workers(tree: Path, tmp_path: Path, backend: 
     backends.std_zstd is None or backends.zstandard is None,
     reason="needs both backends to compare them",
 )
-def test_the_two_zstd_backends_read_each_other(tree: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_two_zstd_backends_read_each_other(
+    tree: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     made = {}
     real = backends.std_zstd
 
     for name in ("stdlib", "zstandard"):
         monkeypatch.setattr(backends, "std_zstd", real if name == "stdlib" else None)
         made[name] = compress_folder(
-            tree, tmp_path / f"{name}.tar.zst", format="tar.zst", fsync=False,
+            tree,
+            tmp_path / f"{name}.tar.zst",
+            format="tar.zst",
+            fsync=False,
         )
 
     for written, archive in made.items():
         for reader in ("stdlib", "zstandard"):
-            monkeypatch.setattr(backends, "std_zstd",
-                                real if reader == "stdlib" else None)
+            monkeypatch.setattr(backends, "std_zstd", real if reader == "stdlib" else None)
             out = tmp_path / f"o_{written}_{reader}"
             extract_archive(archive, out)
 
             assert (out / "sub" / "deep" / "d.txt").read_bytes() == b"d"
 
 
-def test_missing_both_backends_names_the_right_cure(tree: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_missing_both_backends_names_the_right_cure(
+    tree: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # _require_zstd reads the two backend handles from where they are
     # imported, which is _archive_tools -- archive_tools calls it, it does
     # not hold them.
@@ -507,13 +562,14 @@ def test_backup_folder_is_the_old_name_for_compress_folder() -> None:
 # Compression takes workers (fastzip when it is there, this thread when
 # not); extraction takes none at all any more. Every writing mode still has
 # to produce an archive every reading path can open.
-WRITE_MODES = [{}, {"workers": 1}, {"workers": 4}, {"workers": -1},
-               {"workers": ThreadPoolExecutor}]
+WRITE_MODES = [{}, {"workers": 1}, {"workers": 4}, {"workers": -1}, {"workers": ThreadPoolExecutor}]
 
 
 @pytest.mark.parametrize("fmt", FORMATS)
 @pytest.mark.parametrize("write_kw", WRITE_MODES)
-def test_every_write_mode_round_trips(tree: Path, tmp_path: Path, fmt: ArchiveFormat, write_kw: dict[str, Any]) -> None:
+def test_every_write_mode_round_trips(
+    tree: Path, tmp_path: Path, fmt: ArchiveFormat, write_kw: dict[str, Any]
+) -> None:
     with ThreadPoolExecutor(4) as pool:
         kw = {k: (pool if v is ThreadPoolExecutor else v) for k, v in write_kw.items()}
         archive = compress_folder(tree, tmp_path / "a", format=fmt, fsync=False, **kw)
@@ -523,11 +579,14 @@ def test_every_write_mode_round_trips(tree: Path, tmp_path: Path, fmt: ArchiveFo
 
     got = {
         str(p.relative_to(out)).replace(os.sep, "/"): p.read_bytes()
-        for p in out.rglob("*") if p.is_file()
+        for p in out.rglob("*")
+        if p.is_file()
     }
     assert got == {
-        "a.py": b"a", "b.txt": b"b",
-        "sub/c.py": b"c", "sub/deep/d.txt": b"d",
+        "a.py": b"a",
+        "b.txt": b"b",
+        "sub/c.py": b"c",
+        "sub/deep/d.txt": b"d",
     }
 
 
@@ -587,29 +646,37 @@ def _threads_that_compressed(fn: Callable[[], Any], monkeypatch: pytest.MonkeyPa
 
 
 @pytest.mark.parametrize("kw", [{}, {"workers": 1}])
-def test_the_default_compresses_on_the_calling_thread(tree: Path, tmp_path: Path, kw: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_default_compresses_on_the_calling_thread(
+    tree: Path, tmp_path: Path, kw: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # The default creates no threads: nothing gets a pool underneath it
     # unless it asked, and workers=1 has to mean the same as not asking.
     used = _threads_that_compressed(
-        lambda: compress_folder(tree, tmp_path / "s.zip", fsync=False, **kw), monkeypatch,
+        lambda: compress_folder(tree, tmp_path / "s.zip", fsync=False, **kw),
+        monkeypatch,
     )
 
     assert used == {threading.get_ident()}
 
 
 @pytest.mark.skipif(backends.WZip is None, reason="fastzip not importable here")
-def test_workers_goes_through_fastzip(tree: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_workers_goes_through_fastzip(
+    tree: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # With fastzip present, asking for workers must not fall back to the
     # serial zipfile path -- ZipFile.write should never be reached.
     used = _threads_that_compressed(
-        lambda: compress_folder(tree, tmp_path / "p.zip", workers=4, fsync=False), monkeypatch,
+        lambda: compress_folder(tree, tmp_path / "p.zip", workers=4, fsync=False),
+        monkeypatch,
     )
 
     assert used == set()
 
 
 @pytest.mark.skipif(backends.WZip is not None, reason="needs fastzip to be absent")
-def test_workers_without_fastzip_warns_and_still_works(tree: Path, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_workers_without_fastzip_warns_and_still_works(
+    tree: Path, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     # Degrading in silence is the thing this library refuses to do: the
     # archive is still correct, only slower, and the log says why.
     with caplog.at_level("WARNING", logger="pytrove.archive_tools"):
@@ -632,6 +699,7 @@ def test_windows_hidden_attribute_is_honoured(tmp_path: Path) -> None:
 
 
 # --- limits ---------------------------------------------------------------
+
 
 def _bomb(path: Path, ratio_mb: int = 200) -> Path:
     """An archive whose one member expands enormously. The real thing."""
@@ -664,13 +732,18 @@ def test_a_zip_bomb_is_refused_before_it_is_written(tmp_path: Path) -> None:
     assert not any(p.is_file() for p in dest.rglob("*"))
 
 
-@pytest.mark.parametrize("limits,match", [
-    ({"max_files": 2}, "more than the 2"),
-    ({"max_total_size": 3}, "expands past"),
-    ({"max_file_size": 0}, "over the 0"),
-    ({"max_depth": 1}, "nested"),
-])
-def test_each_limit_refuses_what_it_names(tree: Path, tmp_path: Path, limits: dict[str, int], match: str) -> None:
+@pytest.mark.parametrize(
+    "limits,match",
+    [
+        ({"max_files": 2}, "more than the 2"),
+        ({"max_total_size": 3}, "expands past"),
+        ({"max_file_size": 0}, "over the 0"),
+        ({"max_depth": 1}, "nested"),
+    ],
+)
+def test_each_limit_refuses_what_it_names(
+    tree: Path, tmp_path: Path, limits: dict[str, int], match: str
+) -> None:
     archive = compress_folder(tree, tmp_path / "l.zip", fsync=False)
 
     with pytest.raises(ArchiveLimitError, match=match):
@@ -688,10 +761,16 @@ def test_limits_apply_to_every_format(tree: Path, tmp_path: Path, fmt: ArchiveFo
 def test_a_generous_limit_lets_everything_through(tree: Path, tmp_path: Path) -> None:
     archive = compress_folder(tree, tmp_path / "g.zip", fsync=False)
     extract_archive(
-        archive, tmp_path / "gx",
-        limits=ArchiveLimits(max_files=1000, max_total_size=1 << 30,
-                              max_file_size=1 << 20, max_ratio=1000, max_depth=10,
-                              max_dir_entries=100),
+        archive,
+        tmp_path / "gx",
+        limits=ArchiveLimits(
+            max_files=1000,
+            max_total_size=1 << 30,
+            max_file_size=1 << 20,
+            max_ratio=1000,
+            max_depth=10,
+            max_dir_entries=100,
+        ),
     )
 
     assert (tmp_path / "gx" / "sub" / "deep" / "d.txt").read_bytes() == b"d"
@@ -700,8 +779,11 @@ def test_a_generous_limit_lets_everything_through(tree: Path, tmp_path: Path) ->
 def _extracted_into(arc: Path, dest: Path, **kw: Any) -> list[str]:
     extract_archive(arc, dest, **kw)
 
-    return sorted(str(p.relative_to(dest)).replace(os.sep, "/")
-                  for p in dest.rglob("*") if p.is_file() or p.is_symlink())
+    return sorted(
+        str(p.relative_to(dest)).replace(os.sep, "/")
+        for p in dest.rglob("*")
+        if p.is_file() or p.is_symlink()
+    )
 
 
 def _tar_of(tmp_path: Path, members: list[tuple[str, str, bytes | None, str | None]]) -> Path:
@@ -732,35 +814,35 @@ def _tar_of(tmp_path: Path, members: list[tuple[str, str, bytes | None, str | No
 
 # --- the policies ----------------------------------------------------------
 
+
 def test_symlinks_stop_the_extraction_by_default_and_can_be_skipped(tmp_path: Path) -> None:
     # A link is the one member still dangerous after its own name has been
     # checked -- what it points at is a second name, read later, by
     # something that has forgotten where it came from. So an archive
     # carrying one is not extracted quietly.
-    arc = _tar_of(tmp_path, [("real.txt", "file", b"r", None),
-                             ("in.lnk", "sym", None, "real.txt")])
+    arc = _tar_of(tmp_path, [("real.txt", "file", b"r", None), ("in.lnk", "sym", None, "real.txt")])
 
     with pytest.raises(ArchivePolicyError, match="symlink member"):
         extract_archive(arc, tmp_path / "a")
 
-    assert _extracted_into(arc, tmp_path / "b",
-                           limits=ArchiveLimits(symlinks="skip")) == ["real.txt"]
+    assert _extracted_into(arc, tmp_path / "b", limits=ArchiveLimits(symlinks="skip")) == [
+        "real.txt"
+    ]
 
 
 def test_a_link_pointing_outside_is_refused_even_when_allowed(tmp_path: Path) -> None:
     # Containment is not the callers to waive: a later member written
     # "through" an escaping link lands outside while its own name looks
     # harmless, which is the whole reason link members are dangerous.
-    arc = _tar_of(tmp_path, [("real.txt", "file", b"r", None),
-                             ("out.lnk", "sym", None, "../../escape")])
+    arc = _tar_of(
+        tmp_path, [("real.txt", "file", b"r", None), ("out.lnk", "sym", None, "../../escape")]
+    )
 
-    assert "out.lnk" not in _extracted_into(arc, tmp_path / "c",
-                                            limits=ArchiveLimits.permissive())
+    assert "out.lnk" not in _extracted_into(arc, tmp_path / "c", limits=ArchiveLimits.permissive())
 
 
 def test_a_device_member_is_refused_whatever_the_policy(tmp_path: Path) -> None:
-    arc = _tar_of(tmp_path, [("a.txt", "file", b"a", None),
-                             ("pipe", "fifo", None, None)])
+    arc = _tar_of(tmp_path, [("a.txt", "file", b"a", None), ("pipe", "fifo", None, None)])
 
     assert _extracted_into(arc, tmp_path / "d", limits=ArchiveLimits.permissive()) == ["a.txt"]
 
@@ -779,9 +861,14 @@ def test_duplicate_members(tmp_path: Path) -> None:
         extract_archive(arc, tmp_path / "f", limits=ArchiveLimits(duplicates="error"))
 
 
-@pytest.mark.parametrize("policy,expected", [
-    ("overwrite", "new"), ("skip", "old"), ("error", None),
-])
+@pytest.mark.parametrize(
+    "policy,expected",
+    [
+        ("overwrite", "new"),
+        ("skip", "old"),
+        ("error", None),
+    ],
+)
 def test_overwrite_policy(tmp_path: Path, policy: str, expected: str | None) -> None:
     arc = tmp_path / "p.zip"
 
@@ -802,6 +889,7 @@ def test_overwrite_policy(tmp_path: Path, policy: str, expected: str | None) -> 
 
 # --- when the decisions happen, and where the bytes land -------------------
 
+
 def test_a_breach_part_way_through_leaves_what_came_before_it(tmp_path: Path) -> None:
     # Every member is written as it is read, so a breach on the third one
     # has already put the first two somewhere. Where, and whether they
@@ -810,9 +898,14 @@ def test_a_breach_part_way_through_leaves_what_came_before_it(tmp_path: Path) ->
     # leaves them -- what came out before the archive turned out to be
     # wrong is sometimes the useful thing -- and cleanup_on_error then
     # takes them back again.
-    arc = _tar_of(tmp_path, [("first.txt", "file", b"x" * 100, None),
-                             ("second.txt", "file", b"x" * 100, None),
-                             ("huge.bin", "file", b"x" * 500000, None)])
+    arc = _tar_of(
+        tmp_path,
+        [
+            ("first.txt", "file", b"x" * 100, None),
+            ("second.txt", "file", b"x" * 100, None),
+            ("huge.bin", "file", b"x" * 500000, None),
+        ],
+    )
     seq = [0]
 
     def leftovers(**kw: Any) -> list[str]:
@@ -820,8 +913,7 @@ def test_a_breach_part_way_through_leaves_what_came_before_it(tmp_path: Path) ->
         dest = tmp_path / f"z{seq[0]}"
 
         with pytest.raises(ArchiveLimitError):
-            extract_archive(arc, dest,
-                            limits=ArchiveLimits(max_total_size=1000), **kw)
+            extract_archive(arc, dest, limits=ArchiveLimits(max_total_size=1000), **kw)
 
         return sorted(p.name for p in dest.iterdir()) if dest.exists() else []
 
@@ -831,9 +923,14 @@ def test_a_breach_part_way_through_leaves_what_came_before_it(tmp_path: Path) ->
 
 
 def test_cleanup_on_error_removes_only_what_this_run_created(tmp_path: Path) -> None:
-    arc = _tar_of(tmp_path, [("keep/a.txt", "file", b"x" * 100, None),
-                             ("keep/b.txt", "file", b"x" * 100, None),
-                             ("huge.bin", "file", b"x" * 500000, None)])
+    arc = _tar_of(
+        tmp_path,
+        [
+            ("keep/a.txt", "file", b"x" * 100, None),
+            ("keep/b.txt", "file", b"x" * 100, None),
+            ("huge.bin", "file", b"x" * 500000, None),
+        ],
+    )
 
     dest = tmp_path / "mixed"
     (dest / "keep").mkdir(parents=True)
@@ -841,8 +938,7 @@ def test_cleanup_on_error_removes_only_what_this_run_created(tmp_path: Path) -> 
     (dest / "top.txt").write_text("top")
 
     with pytest.raises(ArchiveLimitError):
-        extract_archive(arc, dest, cleanup_on_error=True,
-                        limits=ArchiveLimits(max_total_size=1000))
+        extract_archive(arc, dest, cleanup_on_error=True, limits=ArchiveLimits(max_total_size=1000))
 
     # "keep" was already there, so it stays and so does what was in it --
     # only the two files this run put inside it are gone.
@@ -853,15 +949,16 @@ def test_cleanup_on_error_removes_only_what_this_run_created(tmp_path: Path) -> 
 
 
 def test_cleanup_on_error_removes_a_directory_it_created_itself(tmp_path: Path) -> None:
-    arc = _tar_of(tmp_path, [("made/a.txt", "file", b"x" * 100, None),
-                             ("huge.bin", "file", b"x" * 500000, None)])
+    arc = _tar_of(
+        tmp_path,
+        [("made/a.txt", "file", b"x" * 100, None), ("huge.bin", "file", b"x" * 500000, None)],
+    )
 
     dest = tmp_path / "fresh"
     dest.mkdir()
 
     with pytest.raises(ArchiveLimitError):
-        extract_archive(arc, dest, cleanup_on_error=True,
-                        limits=ArchiveLimits(max_total_size=1000))
+        extract_archive(arc, dest, cleanup_on_error=True, limits=ArchiveLimits(max_total_size=1000))
 
     assert list(dest.iterdir()) == []
 
@@ -870,21 +967,29 @@ def test_what_came_out_before_the_breach_is_kept_when_asked_for(tmp_path: Path) 
     # atomic=False with cleanup_on_error=False is how a caller says the
     # half-extracted tree is the useful thing. Nothing is taken back then,
     # not even the directory this run made to hold it.
-    arc = _tar_of(tmp_path, [("made/a.txt", "file", b"x" * 100, None),
-                             ("huge.bin", "file", b"x" * 500000, None)])
+    arc = _tar_of(
+        tmp_path,
+        [("made/a.txt", "file", b"x" * 100, None), ("huge.bin", "file", b"x" * 500000, None)],
+    )
 
     dest = tmp_path / "kept"
 
     with pytest.raises(ArchiveLimitError):
-        extract_archive(arc, dest, atomic=False, cleanup_on_error=False,
-                        limits=ArchiveLimits(max_total_size=1000))
+        extract_archive(
+            arc,
+            dest,
+            atomic=False,
+            cleanup_on_error=False,
+            limits=ArchiveLimits(max_total_size=1000),
+        )
 
     assert (dest / "made" / "a.txt").read_text() == "x" * 100
 
 
 def test_atomic_leaves_what_was_there_when_it_fails(tmp_path: Path) -> None:
-    arc = _tar_of(tmp_path, [("new.txt", "file", b"n", None),
-                             ("huge.bin", "file", b"x" * 500000, None)])
+    arc = _tar_of(
+        tmp_path, [("new.txt", "file", b"n", None), ("huge.bin", "file", b"x" * 500000, None)]
+    )
     dest = tmp_path / "keep"
     dest.mkdir()
     (dest / "kept.txt").write_text("kept")
@@ -946,13 +1051,14 @@ def test_atomic_asks_overwrite_about_the_destination_not_the_staging_dir(tmp_pat
     dest.mkdir()
     (dest / "same.txt").write_text("was here first")
 
-    extract_archive(arc, dest, atomic=True,
-                    limits=ArchiveLimits(overwrite="skip"))
+    extract_archive(arc, dest, atomic=True, limits=ArchiveLimits(overwrite="skip"))
 
     assert (dest / "same.txt").read_text() == "was here first"
 
 
-def test_members_land_in_dest_itself_not_in_a_folder_named_after_the_archive(tmp_path: Path) -> None:
+def test_members_land_in_dest_itself_not_in_a_folder_named_after_the_archive(
+    tmp_path: Path,
+) -> None:
     src = tmp_path / "backup"
     (src / "lib").mkdir(parents=True)
     (src / "a.txt").write_text("A")
@@ -980,8 +1086,7 @@ def test_an_empty_path_segment_is_refused_rather_than_folded(tmp_path: Path) -> 
 
     dest = tmp_path / "out"
     seen = []
-    extract_archive(arc, dest, limits=ArchiveLimits(
-        dir_check=lambda p: seen.append(p.name)))
+    extract_archive(arc, dest, limits=ArchiveLimits(dir_check=lambda p: seen.append(p.name)))
 
     assert not (dest / "a" / "b.txt").exists()
     assert (dest / "a" / "c.txt").read_text() == "C"
@@ -998,7 +1103,7 @@ def test_a_corrupt_member_stops_the_extraction(tmp_path: Path) -> None:
         zf.writestr("a.txt", "hello")
 
     blob = bytearray(arc.read_bytes())
-    blob[blob.index(b"hello")] = ord("H")      # break the CRC, keep the size
+    blob[blob.index(b"hello")] = ord("H")  # break the CRC, keep the size
     arc.write_bytes(bytes(blob))
 
     with pytest.raises(zipfile.BadZipFile, match="CRC"):
@@ -1014,8 +1119,11 @@ def test_a_corrupt_member_stops_the_extraction(tmp_path: Path) -> None:
 
 # --- workers ---------------------------------------------------------------
 
+
 @pytest.mark.parametrize("workers", [None, 1, 4, -1])
-def test_extraction_workers_change_nothing_but_the_threads(tree: Path, tmp_path: Path, workers: int | None) -> None:
+def test_extraction_workers_change_nothing_but_the_threads(
+    tree: Path, tmp_path: Path, workers: int | None
+) -> None:
     archive = compress_folder(tree, tmp_path / "w.zip", fsync=False)
     serial = tmp_path / "serial"
     parallel = tmp_path / f"par_{workers}"
@@ -1023,15 +1131,26 @@ def test_extraction_workers_change_nothing_but_the_threads(tree: Path, tmp_path:
     extract_archive(archive, serial)
     extract_archive(archive, parallel, workers=workers)
 
-    assert (sorted(str(p.relative_to(serial)) for p in serial.rglob("*"))
-            == sorted(str(p.relative_to(parallel)) for p in parallel.rglob("*")))
+    assert sorted(str(p.relative_to(serial)) for p in serial.rglob("*")) == sorted(
+        str(p.relative_to(parallel)) for p in parallel.rglob("*")
+    )
 
 
-@pytest.mark.parametrize("label,workers", [
-    ("count", 4), ("one", 1), ("zero", 0),
-    ("str", "4"), ("bool", True), ("float", 2.5), ("pool", ThreadPoolExecutor),
-])
-def test_workers_on_a_tar_is_ignored_and_said_so(tree: Path, tmp_path: Path, caplog: pytest.LogCaptureFixture, label: str, workers: Any) -> None:
+@pytest.mark.parametrize(
+    "label,workers",
+    [
+        ("count", 4),
+        ("one", 1),
+        ("zero", 0),
+        ("str", "4"),
+        ("bool", True),
+        ("float", 2.5),
+        ("pool", ThreadPoolExecutor),
+    ],
+)
+def test_workers_on_a_tar_is_ignored_and_said_so(
+    tree: Path, tmp_path: Path, caplog: pytest.LogCaptureFixture, label: str, workers: Any
+) -> None:
     # A tar is one stream read in order, so the argument buys nothing and is
     # not looked at -- not even its type, since refusing a value that is
     # about to be ignored would be a distinction without a difference. What
@@ -1053,7 +1172,9 @@ def test_workers_on_a_tar_is_ignored_and_said_so(tree: Path, tmp_path: Path, cap
     assert (dest / "sub" / "deep" / "d.txt").read_bytes() == b"d"
 
 
-def test_workers_on_a_tar_says_nothing_when_it_was_not_passed(tree: Path, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_workers_on_a_tar_says_nothing_when_it_was_not_passed(
+    tree: Path, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     archive = compress_folder(tree, tmp_path / "q.tar.gz", format="tar.gz", fsync=False)
 
     with caplog.at_level("WARNING", logger="pytrove.archive_tools"):
@@ -1074,10 +1195,13 @@ def test_the_ceilings_count_what_is_written_not_what_the_archive_holds(tmp_path:
     with pytest.raises(ArchiveLimitError):
         extract_archive(arc, tmp_path / "m1", limits=ArchiveLimits(max_total_size=1000))
 
-    assert _extracted_into(arc, tmp_path / "m2", include="*.py",
-                           limits=ArchiveLimits(max_total_size=1000)) == ["small.py"]
+    assert _extracted_into(
+        arc, tmp_path / "m2", include="*.py", limits=ArchiveLimits(max_total_size=1000)
+    ) == ["small.py"]
+
 
 # --- what a member is compressed with, and whether it is readable at all ---
+
 
 @pytest.mark.parametrize("method", ["ZIP_STORED", "ZIP_DEFLATED", "ZIP_BZIP2", "ZIP_LZMA"])
 def test_every_zip_method_comes_back_as_itself(tmp_path: Path, method: str) -> None:
@@ -1089,8 +1213,7 @@ def test_every_zip_method_comes_back_as_itself(tmp_path: Path, method: str) -> N
     arc = tmp_path / f"{method}.zip"
 
     with zipfile.ZipFile(arc, "w") as zf:
-        zf.writestr(zipfile.ZipInfo("m.txt"), payload,
-                    compress_type=getattr(zipfile, method))
+        zf.writestr(zipfile.ZipInfo("m.txt"), payload, compress_type=getattr(zipfile, method))
 
     dest = tmp_path / "out"
     extract_archive(arc, dest)
@@ -1142,7 +1265,9 @@ def test_a_password_extracts_a_zipcrypto_archive(tmp_path: Path) -> None:
     assert (dest / "a.txt").read_text() == "password protected"
 
 
-def test_a_password_on_a_tar_is_reported_rather_than_ignored(tree: Path, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_a_password_on_a_tar_is_reported_rather_than_ignored(
+    tree: Path, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     archive = compress_folder(tree, tmp_path / "p.tar.gz", format="tar.gz", fsync=False)
 
     with caplog.at_level("WARNING", logger="pytrove.archive_tools"):
@@ -1152,6 +1277,7 @@ def test_a_password_on_a_tar_is_reported_rather_than_ignored(tree: Path, tmp_pat
 
 
 # --- where the destination is, and what it already is ----------------------
+
 
 @pytest.mark.parametrize("atomic", [False, True])
 def test_a_destination_that_is_a_file_is_refused_either_way(tmp_path: Path, atomic: bool) -> None:
@@ -1174,8 +1300,11 @@ def test_a_destination_that_is_a_file_is_refused_either_way(tmp_path: Path, atom
 
 # --- two members, one path -------------------------------------------------
 
+
 @pytest.mark.parametrize("policy", ["overwrite", "skip", "error"])
-def test_two_members_landing_on_one_path_meet_the_overwrite_policy(tmp_path: Path, policy: str) -> None:
+def test_two_members_landing_on_one_path_meet_the_overwrite_policy(
+    tmp_path: Path, policy: str
+) -> None:
     # Neither name is a duplicate of the other and neither is on disk when
     # the other is judged, so keying the check on the member name let the
     # second through whatever the policy said.
@@ -1212,6 +1341,7 @@ def test_two_members_landing_on_one_path_meet_the_overwrite_policy(tmp_path: Pat
 # --- a setting that is not one of the settings -----------------------------
 
 # --- what the ceilings count ----------------------------------------------
+
 
 def test_max_files_does_not_count_directories(tmp_path: Path) -> None:
     # max_files bounds files, not filesystem entries -- see
@@ -1250,8 +1380,7 @@ def test_max_files_counts_a_symlink_too(tmp_path: Path) -> None:
         zf.writestr(info, "real.txt")
 
     with pytest.raises(ArchiveLimitError, match="members allowed"):
-        extract_archive(arc, tmp_path / "s1",
-                        limits=ArchiveLimits(max_files=1, symlinks="allow"))
+        extract_archive(arc, tmp_path / "s1", limits=ArchiveLimits(max_files=1, symlinks="allow"))
 
     dest = tmp_path / "s2"
     extract_archive(arc, dest, limits=ArchiveLimits(max_files=2, symlinks="allow"))
@@ -1262,6 +1391,7 @@ def test_max_files_counts_a_symlink_too(tmp_path: Path) -> None:
 
 # --- a name is refused, never repaired ------------------------------------
 
+
 def _tar_header(name: str, size: int = 2) -> bytes:
     """One ustar header block, so a name can be put in it verbatim.
 
@@ -1270,7 +1400,7 @@ def _tar_header(name: str, size: int = 2) -> bytes:
     """
 
     b = bytearray(512)
-    b[0:len(name)] = name.encode()
+    b[0 : len(name)] = name.encode()
     b[100:108] = b"0000644\x00"
     b[108:116] = b"0000000\x00"
     b[116:124] = b"0000000\x00"
@@ -1312,11 +1442,14 @@ def test_an_absolute_name_in_a_zip_is_refused_not_stripped(tmp_path: Path) -> No
     dest = tmp_path / "zx"
     extract_archive(arc, dest)
 
-    assert (sorted(str(p.relative_to(dest)).replace(os.sep, "/")
-                   for p in dest.rglob("*")) == ["sub", "sub/ok.txt"])
+    assert sorted(str(p.relative_to(dest)).replace(os.sep, "/") for p in dest.rglob("*")) == [
+        "sub",
+        "sub/ok.txt",
+    ]
 
 
 # --- when a name is resolved, relative to when the ones before it landed ---
+
 
 def test_a_name_is_resolved_after_the_members_ahead_of_it_are_written(tmp_path: Path) -> None:
     # A symlink member changes where every name below it resolves to, so
@@ -1354,13 +1487,13 @@ def test_a_name_is_resolved_after_the_members_ahead_of_it_are_written(tmp_path: 
         extractor._Extractor._place = real_place
         extractor._Extractor._link = real_link
 
-    assert order == [("resolve", "sub"), ("link", "sub"),
-                     ("resolve", "sub/evil.txt")]
+    assert order == [("resolve", "sub"), ("link", "sub"), ("resolve", "sub/evil.txt")]
     assert not (tmp_path / "outside").exists()
     assert (dest / "sub" / "evil.txt").read_bytes() == b"evil"
 
 
 # --- memory, which is a correctness property on a large member -------------
+
 
 def test_a_large_member_is_streamed_rather_than_held(tmp_path: Path) -> None:
     # Holding the compressed blob and the inflated result at once cost
@@ -1383,8 +1516,11 @@ def test_a_large_member_is_streamed_rather_than_held(tmp_path: Path) -> None:
 
 # --- workers is one argument, read the same way on both formats ------------
 
+
 @pytest.mark.parametrize("bad", ["4", True, 2.5])
-def test_extraction_refuses_a_workers_value_it_cannot_read(tree: Path, tmp_path: Path, bad: Any) -> None:
+def test_extraction_refuses_a_workers_value_it_cannot_read(
+    tree: Path, tmp_path: Path, bad: Any
+) -> None:
     # ZIP is the only format that uses the argument, so it is the only one
     # that judges it. On a tar the same value is ignored along with every
     # other -- see test_workers_on_a_tar_is_ignored_and_said_so.
@@ -1406,6 +1542,7 @@ def test_extraction_takes_a_pool_it_does_not_own(tree: Path, tmp_path: Path) -> 
 
 # --- an archive written into the tree it is archiving ----------------------
 
+
 def test_the_self_exclusion_takes_out_the_archive_and_nothing_else(tmp_path: Path) -> None:
     # "backup.zip" as a bare name matched every file called that at any
     # depth, and the temp-file rule without its directory and its ".tmp"
@@ -1420,15 +1557,23 @@ def test_the_self_exclusion_takes_out_the_archive_and_nothing_else(tmp_path: Pat
 
     archive = compress_folder(src, src / "backup.zip", exclude_hidden=False, fsync=False)
 
-    assert _names(archive) == {"keep.txt", "sub/backup.zip", ".backup.zip.notes",
-                               "notes/.backup.zip.readme"}
+    assert _names(archive) == {
+        "keep.txt",
+        "sub/backup.zip",
+        ".backup.zip.notes",
+        "notes/.backup.zip.readme",
+    }
 
-    sizes = [compress_folder(src, src / "backup.zip", exclude_hidden=False,
-                             fsync=False).stat().st_size for _ in range(3)]
+    sizes = [
+        compress_folder(src, src / "backup.zip", exclude_hidden=False, fsync=False).stat().st_size
+        for _ in range(3)
+    ]
 
     assert len(set(sizes)) == 1, f"the archive grew each run: {sizes}"
 
+
 # --- how wide the tree may get, as against how deep ------------------------
+
 
 def _zip_of(path: Path, names: list[str], listed_dirs: tuple[str, ...] = ()) -> Path:
     with zipfile.ZipFile(path, "w") as zf:
@@ -1506,8 +1651,7 @@ def test_max_dir_entries_is_breadth_where_max_files_is_the_total(tmp_path: Path)
     # four directories of its own (max_root_entries), and the whole
     # archive is sixteen entries (max_files). Each ceiling refuses at its
     # own number and neither stands in for the other.
-    arc = _zip_of(tmp_path / "spread.zip",
-                  [f"d{i}/f{j}.txt" for i in range(4) for j in range(3)])
+    arc = _zip_of(tmp_path / "spread.zip", [f"d{i}/f{j}.txt" for i in range(4) for j in range(3)])
 
     with pytest.raises(ArchiveLimitError, match="entries allowed"):
         extract_archive(arc, tmp_path / "s1", limits=ArchiveLimits(max_dir_entries=2))
@@ -1519,7 +1663,9 @@ def test_max_dir_entries_is_breadth_where_max_files_is_the_total(tmp_path: Path)
         extract_archive(arc, tmp_path / "s3", limits=ArchiveLimits(max_files=10))
 
     dest = tmp_path / "s4"
-    extract_archive(arc, dest, limits=ArchiveLimits(max_dir_entries=3, max_root_entries=4, max_files=16))
+    extract_archive(
+        arc, dest, limits=ArchiveLimits(max_dir_entries=3, max_root_entries=4, max_files=16)
+    )
 
     assert len(list(dest.rglob("*.txt"))) == 12
 
@@ -1545,13 +1691,17 @@ def test_max_root_entries_counts_what_survives_the_filter(tmp_path: Path) -> Non
 
 
 @pytest.mark.parametrize("fmt", FORMATS)
-def test_max_dir_entries_applies_to_every_format(tree: Path, tmp_path: Path, fmt: ArchiveFormat) -> None:
+def test_max_dir_entries_applies_to_every_format(
+    tree: Path, tmp_path: Path, fmt: ArchiveFormat
+) -> None:
     archive = compress_folder(tree, tmp_path / "w", format=fmt, fsync=False)
 
     with pytest.raises(ArchiveLimitError, match="entries allowed"):
         extract_archive(archive, tmp_path / f"wx_{fmt}", limits=ArchiveLimits(max_dir_entries=1))
 
+
 # --- a directory check of the caller's own ---------------------------------
+
 
 @pytest.fixture
 def two_branches(tmp_path: Path) -> Path:
@@ -1560,19 +1710,19 @@ def two_branches(tmp_path: Path) -> Path:
     arc = tmp_path / "branches.zip"
 
     with zipfile.ZipFile(arc, "w") as zf:
-        for name in ("keep/a.txt", "keep/deep/b.txt",
-                     "drop/c.txt", "drop/deep/d.txt", "top.txt"):
+        for name in ("keep/a.txt", "keep/deep/b.txt", "drop/c.txt", "drop/deep/d.txt", "top.txt"):
             zf.writestr(name, "x" * 100)
 
     return arc
 
 
 def _landed(dest: Path) -> list[str]:
-    return sorted(str(p.relative_to(dest)).replace(os.sep, "/")
-                  for p in dest.rglob("*"))
+    return sorted(str(p.relative_to(dest)).replace(os.sep, "/") for p in dest.rglob("*"))
 
 
-def _recorder(verdict: Callable[[str], bool | None] = lambda rel: None) -> tuple[Callable[[Path], bool | None], list[str]]:
+def _recorder(
+    verdict: Callable[[str], bool | None] = lambda rel: None,
+) -> tuple[Callable[[Path], bool | None], list[str]]:
     """Record each directory by its position in the tree, and answer.
 
     dir_check is handed an absolute path under a staging directory, so the
@@ -1595,7 +1745,9 @@ def _recorder(verdict: Callable[[str], bool | None] = lambda rel: None) -> tuple
     return check, seen
 
 
-def test_dir_check_is_handed_the_directory_with_its_contents_in_it(two_branches: Path, tmp_path: Path) -> None:
+def test_dir_check_is_handed_the_directory_with_its_contents_in_it(
+    two_branches: Path, tmp_path: Path
+) -> None:
     # The whole point of running after the members are written: a check
     # that could only see a name could not have asked any of this.
     inside = {}
@@ -1609,9 +1761,17 @@ def test_dir_check_is_handed_the_directory_with_its_contents_in_it(two_branches:
     assert inside["keep"] == ["a.txt", "deep"]
     assert inside["drop"] == ["c.txt", "deep"]
     assert sorted(inside["deep"]) in (["b.txt"], ["d.txt"])
-    assert _landed(dest) == ["drop", "drop/c.txt", "drop/deep", "drop/deep/d.txt",
-                             "keep", "keep/a.txt", "keep/deep", "keep/deep/b.txt",
-                             "top.txt"]
+    assert _landed(dest) == [
+        "drop",
+        "drop/c.txt",
+        "drop/deep",
+        "drop/deep/d.txt",
+        "keep",
+        "keep/a.txt",
+        "keep/deep",
+        "keep/deep/b.txt",
+        "top.txt",
+    ]
 
 
 def test_dir_check_drops_the_subtree_it_refuses(two_branches: Path, tmp_path: Path) -> None:
@@ -1620,13 +1780,14 @@ def test_dir_check_drops_the_subtree_it_refuses(two_branches: Path, tmp_path: Pa
     dest = tmp_path / "p1"
     extract_archive(two_branches, dest, limits=ArchiveLimits(dir_check=check))
 
-    assert _landed(dest) == ["keep", "keep/a.txt", "keep/deep",
-                             "keep/deep/b.txt", "top.txt"]
+    assert _landed(dest) == ["keep", "keep/a.txt", "keep/deep", "keep/deep/b.txt", "top.txt"]
     # "drop/deep" is never asked about: a refusal is not descended into.
     assert sorted(asked) == ["drop", "keep", "keep/deep"]
 
 
-def test_dir_check_sees_every_directory_once_listed_or_not(two_branches: Path, tmp_path: Path) -> None:
+def test_dir_check_sees_every_directory_once_listed_or_not(
+    two_branches: Path, tmp_path: Path
+) -> None:
     # The archive names no directory members at all, so all four of these
     # are directories a member's path implies. Returning None is the same
     # as approving, which is what a check written only to raise does.
@@ -1647,15 +1808,18 @@ def test_dir_check_is_asked_about_an_empty_directory_member(tmp_path: Path) -> N
 
     asked = []
     dest = tmp_path / "p3"
-    extract_archive(arc, dest, limits=ArchiveLimits(
-        dir_check=lambda p: asked.append(p.name) or False))
+    extract_archive(
+        arc, dest, limits=ArchiveLimits(dir_check=lambda p: asked.append(p.name) or False)
+    )
 
     assert asked == ["lonely"]
     assert _landed(dest) == []
 
 
 @pytest.mark.parametrize("atomic", [False, True])
-def test_dir_check_may_raise_and_the_exception_is_the_callers(two_branches: Path, tmp_path: Path, atomic: bool) -> None:
+def test_dir_check_may_raise_and_the_exception_is_the_callers(
+    two_branches: Path, tmp_path: Path, atomic: bool
+) -> None:
     class Unacceptable(RuntimeError):
         pass
 
@@ -1667,8 +1831,7 @@ def test_dir_check_may_raise_and_the_exception_is_the_callers(two_branches: Path
     dest = tmp_path / f"p4_{atomic}"
 
     with pytest.raises(Unacceptable, match="not acceptable"):
-        extract_archive(two_branches, dest, atomic=atomic,
-                        limits=ArchiveLimits(dir_check=check))
+        extract_archive(two_branches, dest, atomic=atomic, limits=ArchiveLimits(dir_check=check))
 
     # A dir_check always stages, so the raise takes the whole tree with it
     # whatever `atomic` said, and nothing reaches the destination.
@@ -1676,7 +1839,9 @@ def test_dir_check_may_raise_and_the_exception_is_the_callers(two_branches: Path
     assert not list(tmp_path.glob(".*.tmp"))
 
 
-def test_dir_check_does_not_delete_what_was_already_in_the_destination(two_branches: Path, tmp_path: Path) -> None:
+def test_dir_check_does_not_delete_what_was_already_in_the_destination(
+    two_branches: Path, tmp_path: Path
+) -> None:
     # Dropping a directory means removing it after it was written. Done in
     # `dest` that would take anything already living under the same name
     # with it -- which is why a dir_check stages whatever `atomic` says.
@@ -1693,7 +1858,9 @@ def test_dir_check_does_not_delete_what_was_already_in_the_destination(two_branc
     assert not list(tmp_path.glob(".*.tmp"))
 
 
-def test_dir_check_now_runs_after_the_ceilings_have_counted(two_branches: Path, tmp_path: Path) -> None:
+def test_dir_check_now_runs_after_the_ceilings_have_counted(
+    two_branches: Path, tmp_path: Path
+) -> None:
     # It used to run during the walk, so a refused branch was never
     # counted. Seeing inside a directory means it has to be written first,
     # and what is written is weighed -- refusing it afterwards does not
@@ -1701,19 +1868,23 @@ def test_dir_check_now_runs_after_the_ceilings_have_counted(two_branches: Path, 
     check, _ = _recorder(lambda rel: not rel.startswith("drop"))
 
     with pytest.raises(ArchiveLimitError, match="expands past"):
-        extract_archive(two_branches, tmp_path / "p6", limits=ArchiveLimits(
-            max_total_size=350, dir_check=check))
+        extract_archive(
+            two_branches, tmp_path / "p6", limits=ArchiveLimits(max_total_size=350, dir_check=check)
+        )
 
     assert not list(tmp_path.glob(".*.tmp"))
 
 
-def test_dir_check_is_not_bothered_about_what_exclude_already_dropped(two_branches: Path, tmp_path: Path) -> None:
+def test_dir_check_is_not_bothered_about_what_exclude_already_dropped(
+    two_branches: Path, tmp_path: Path
+) -> None:
     # exclude still prunes before anything is read, so an excluded branch
     # is never extracted and therefore never there to be asked about.
     check, asked = _recorder()
 
-    extract_archive(two_branches, tmp_path / "p7", exclude="drop",
-                    limits=ArchiveLimits(dir_check=check))
+    extract_archive(
+        two_branches, tmp_path / "p7", exclude="drop", limits=ArchiveLimits(dir_check=check)
+    )
 
     assert sorted(asked) == ["keep", "keep/deep"]
 
@@ -1728,8 +1899,7 @@ def test_dir_check_works_on_a_tar_as_well(tmp_path: Path) -> None:
             tf.addfile(info, io.BytesIO(b"x"))
 
     dest = tmp_path / "p8"
-    extract_archive(arc, dest, limits=ArchiveLimits(
-        dir_check=lambda p: p.name != "drop"))
+    extract_archive(arc, dest, limits=ArchiveLimits(dir_check=lambda p: p.name != "drop"))
 
     assert _landed(dest) == ["keep", "keep/a.txt"]
 
@@ -1745,6 +1915,7 @@ def test_a_dir_check_that_is_not_callable_fails_at_the_first_call(tmp_path: Path
     with pytest.raises(TypeError, match="not callable"):
         extract_archive(arc, tmp_path / "p9", limits=ArchiveLimits(dir_check="nope"))
 
+
 # --- a raw string is a working policy, not just an accepted one ------------
 #
 # Nothing normalises a policy any more, so whatever the caller typed is what
@@ -1752,6 +1923,7 @@ def test_a_dir_check_that_is_not_callable_fails_at_the_first_call(tmp_path: Path
 # same extraction twice -- once with the string, once with the enum member --
 # and demanding the same outcome. What they guard against is one character:
 # an `is` where an `==` belongs, which no other test in this file would catch.
+
 
 def _corrupt_zip(path: Path) -> Path:
     """A zip whose member fails its CRC, with the declared size intact."""
@@ -1767,7 +1939,9 @@ def _corrupt_zip(path: Path) -> Path:
 
 
 @pytest.mark.parametrize("policy", ["overwrite", "skip", "error"])
-def test_a_raw_overwrite_string_picks_the_same_branch_as_its_enum(tmp_path: Path, policy: str) -> None:
+def test_a_raw_overwrite_string_picks_the_same_branch_as_its_enum(
+    tmp_path: Path, policy: str
+) -> None:
     # "overwrite" is the discriminating one: under `is` the raw string fails
     # the identity test, falls into the collision branch it was meant to
     # skip, and quietly leaves the old file in place.
@@ -1791,11 +1965,14 @@ def test_a_raw_overwrite_string_picks_the_same_branch_as_its_enum(tmp_path: Path
         return (dest / "a.txt").read_text()
 
     assert outcome(ArchiveLimits(overwrite=policy), "raw") == outcome(
-        ArchiveLimits(overwrite=member), "enum")
+        ArchiveLimits(overwrite=member), "enum"
+    )
 
 
 @pytest.mark.parametrize("policy", ["skip", "error"])
-def test_a_raw_duplicates_string_picks_the_same_branch_as_its_enum(tmp_path: Path, policy: str) -> None:
+def test_a_raw_duplicates_string_picks_the_same_branch_as_its_enum(
+    tmp_path: Path, policy: str
+) -> None:
     arc = tmp_path / f"d_{policy}.zip"
 
     with zipfile.ZipFile(arc, "w") as zf:
@@ -1815,18 +1992,20 @@ def test_a_raw_duplicates_string_picks_the_same_branch_as_its_enum(tmp_path: Pat
         return (dest / "a.txt").read_text()
 
     assert outcome(ArchiveLimits(duplicates=policy), "raw") == outcome(
-        ArchiveLimits(duplicates=member), "enum")
+        ArchiveLimits(duplicates=member), "enum"
+    )
 
 
 @pytest.mark.parametrize("policy", ["allow", "skip", "error"])
-def test_a_raw_symlinks_string_picks_the_same_branch_as_its_enum(tmp_path: Path, caplog: pytest.LogCaptureFixture, policy: str) -> None:
+def test_a_raw_symlinks_string_picks_the_same_branch_as_its_enum(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, policy: str
+) -> None:
     # What lands on disk cannot tell these apart everywhere: creating a
     # symlink needs a privilege an ordinary Windows account does not hold,
     # so "allow" and "skip" both end with no link there. The log does tell
     # them apart -- one says the policy skipped it, the other says the
     # platform refused it -- so that is what is compared.
-    arc = _tar_of(tmp_path, [("real.txt", "file", b"r", None),
-                             ("in.lnk", "sym", None, "real.txt")])
+    arc = _tar_of(tmp_path, [("real.txt", "file", b"r", None), ("in.lnk", "sym", None, "real.txt")])
     member = pytrove.enums.ArchiveLinkPolicy(policy)
 
     def outcome(limits: ArchiveLimits, tag: str) -> tuple[list[str] | str, bool]:
@@ -1843,7 +2022,8 @@ def test_a_raw_symlinks_string_picks_the_same_branch_as_its_enum(tmp_path: Path,
         return landed, "skipped symlink member" in caplog.text
 
     assert outcome(ArchiveLimits(symlinks=policy), "raw") == outcome(
-        ArchiveLimits(symlinks=member), "enum")
+        ArchiveLimits(symlinks=member), "enum"
+    )
 
 
 def _zeros_targz(path: Path, size: int) -> Path:
@@ -1862,15 +2042,13 @@ def test_max_ratio_does_not_bound_a_tar_and_max_total_size_does(tmp_path: Path) 
     # absolute ceilings are the bomb check.
     arc = _zeros_targz(tmp_path / "bomb.tar.gz", 8 << 20)
 
-    assert arc.stat().st_size * 1000 < (8 << 20)      # a real ratio over 1000
+    assert arc.stat().st_size * 1000 < (8 << 20)  # a real ratio over 1000
 
-    extract_archive(arc, tmp_path / "through",
-                    limits=ArchiveLimits(max_ratio=1.0001))
+    extract_archive(arc, tmp_path / "through", limits=ArchiveLimits(max_ratio=1.0001))
     assert (tmp_path / "through" / "big.bin").stat().st_size == (8 << 20)
 
     with pytest.raises(ArchiveLimitError, match="expands past"):
-        extract_archive(arc, tmp_path / "no",
-                        limits=ArchiveLimits(max_total_size=1 << 20))
+        extract_archive(arc, tmp_path / "no", limits=ArchiveLimits(max_total_size=1 << 20))
 
 
 def test_max_ratio_bounds_a_zip_from_its_header(tmp_path: Path) -> None:
@@ -1898,8 +2076,7 @@ def test_atomic_leaves_nothing_behind_when_a_running_ceiling_trips(tmp_path: Pat
     (dest / "mine.txt").write_text("mine")
 
     with pytest.raises(ArchiveLimitError):
-        extract_archive(arc, dest, atomic=True,
-                        limits=ArchiveLimits(max_file_size=1 << 20))
+        extract_archive(arc, dest, atomic=True, limits=ArchiveLimits(max_file_size=1 << 20))
 
     assert sorted(p.name for p in dest.iterdir()) == ["mine.txt"]
     assert not list(tmp_path.glob(".*.tmp"))
@@ -1910,7 +2087,7 @@ def test_a_member_that_does_not_produce_what_it_declares_is_refused(tmp_path: Pa
     raw = whole.read_bytes()
 
     cut = tmp_path / "cut.tar.gz"
-    cut.write_bytes(raw[:len(raw) // 3])
+    cut.write_bytes(raw[: len(raw) // 3])
 
     with pytest.raises(ValidationError, match="ends before"):
         extract_archive(cut, tmp_path / "out")
@@ -1944,9 +2121,12 @@ def test_a_directory_is_only_put_to_enter_once(tmp_path: Path) -> None:
     for t in range(6):
         for a in range(3):
             for b in range(3):
-                names += [f"t{t}/f.txt", f"t{t}/a{a}/f.txt",
-                          f"t{t}/a{a}/b{b}/f{b}.txt",
-                          f"t{t}/a{a}/b{b}/c/f{b}.txt"]
+                names += [
+                    f"t{t}/f.txt",
+                    f"t{t}/a{a}/f.txt",
+                    f"t{t}/a{a}/b{b}/f{b}.txt",
+                    f"t{t}/a{a}/b{b}/c/f{b}.txt",
+                ]
 
     with zipfile.ZipFile(arc, "w") as zf:
         for n in dict.fromkeys(names):
@@ -1967,7 +2147,8 @@ def test_a_directory_is_only_put_to_enter_once(tmp_path: Path) -> None:
 
     assert asked, "the filter was never consulted at all"
     assert len(asked) == len(set(asked)), (
-        f"{len(asked) - len(set(asked))} directories were asked about twice")
+        f"{len(asked) - len(set(asked))} directories were asked about twice"
+    )
 
 
 def test_a_refused_directory_still_prunes_below_a_cached_ancestor(tmp_path: Path) -> None:
@@ -1978,8 +2159,7 @@ def test_a_refused_directory_still_prunes_below_a_cached_ancestor(tmp_path: Path
     arc = tmp_path / "mid.zip"
 
     with zipfile.ZipFile(arc, "w") as zf:
-        for n in ("a/keep.txt", "a/b/keep.txt",
-                  "a/b/drop/x.txt", "a/b/drop/deep/y.txt"):
+        for n in ("a/keep.txt", "a/b/keep.txt", "a/b/drop/x.txt", "a/b/drop/deep/y.txt"):
             zf.writestr(n, b"x")
 
     dest = tmp_path / "mid"
@@ -1992,12 +2172,19 @@ def test_a_refused_directory_still_prunes_below_a_cached_ancestor(tmp_path: Path
 # what `dest` is called is an answer, and `format` has to agree with it
 # ---------------------------------------------------------------------
 
-@pytest.mark.parametrize("name, fmt", [
-    ("out.zip", ArchiveFormat.ZIP),
-    ("out.tar.gz", ArchiveFormat.TAR_GZ),
-    ("out.tgz", ArchiveFormat.TAR_GZ),
-] + ([("out.tar.zst", ArchiveFormat.TAR_ZST)] if HAS_ZSTD else []))
-def test_the_format_is_read_off_the_destination_name(tree: Path, tmp_path: Path, name: str, fmt: ArchiveFormat) -> None:
+
+@pytest.mark.parametrize(
+    "name, fmt",
+    [
+        ("out.zip", ArchiveFormat.ZIP),
+        ("out.tar.gz", ArchiveFormat.TAR_GZ),
+        ("out.tgz", ArchiveFormat.TAR_GZ),
+    ]
+    + ([("out.tar.zst", ArchiveFormat.TAR_ZST)] if HAS_ZSTD else []),
+)
+def test_the_format_is_read_off_the_destination_name(
+    tree: Path, tmp_path: Path, name: str, fmt: ArchiveFormat
+) -> None:
     # format defaults to None, which means "the name already said it".
     # Checked against the archive's leading bytes rather than against its
     # extension, since the extension is the thing under test.
@@ -2019,7 +2206,9 @@ def test_a_destination_directory_falls_back_to_zip(tree: Path, tmp_path: Path) -
     assert _Extractor.detect_format(str(made)) is ArchiveFormat.ZIP
 
 
-def test_an_extension_that_says_nothing_is_refused_rather_than_guessed(tree: Path, tmp_path: Path) -> None:
+def test_an_extension_that_says_nothing_is_refused_rather_than_guessed(
+    tree: Path, tmp_path: Path
+) -> None:
     # Guessing here is how a zip ends up called backup.tar.gz, which is
     # the mistake reading the name is there to catch.
     with pytest.raises(ValidationError, match="cannot tell what format"):
@@ -2030,13 +2219,14 @@ def test_an_extension_that_says_nothing_is_refused_rather_than_guessed(tree: Pat
 
 def test_a_format_that_disagrees_with_the_name_is_refused(tree: Path, tmp_path: Path) -> None:
     with pytest.raises(ValidationError, match="does not match"):
-        compress_folder(tree, tmp_path / "backup.tar.gz",
-                        format=ArchiveFormat.ZIP, fsync=False)
+        compress_folder(tree, tmp_path / "backup.tar.gz", format=ArchiveFormat.ZIP, fsync=False)
 
     assert not (tmp_path / "backup.tar.gz").exists()
 
 
-def test_a_format_that_agrees_with_the_name_is_not_a_disagreement(tree: Path, tmp_path: Path) -> None:
+def test_a_format_that_agrees_with_the_name_is_not_a_disagreement(
+    tree: Path, tmp_path: Path
+) -> None:
     # Passing both is allowed; they only have to say the same thing. The
     # raw string spelling is the one a caller is likeliest to reach for.
     made = compress_folder(tree, tmp_path / "b.tgz", format="tar.gz", fsync=False)
@@ -2044,11 +2234,12 @@ def test_a_format_that_agrees_with_the_name_is_not_a_disagreement(tree: Path, tm
     assert _Extractor.detect_format(str(made)) is ArchiveFormat.TAR_GZ
 
 
-def test_an_unknown_extension_cannot_disagree_with_an_explicit_format(tree: Path, tmp_path: Path) -> None:
+def test_an_unknown_extension_cannot_disagree_with_an_explicit_format(
+    tree: Path, tmp_path: Path
+) -> None:
     # An extension this does not recognise says nothing, and something
     # that says nothing cannot contradict anything.
-    made = compress_folder(tree, tmp_path / "backup.bin",
-                           format=ArchiveFormat.ZIP, fsync=False)
+    made = compress_folder(tree, tmp_path / "backup.bin", format=ArchiveFormat.ZIP, fsync=False)
 
     assert made.name == "backup.bin"
     assert _Extractor.detect_format(str(made)) is ArchiveFormat.ZIP
@@ -2069,9 +2260,12 @@ def test_an_archive_that_cannot_be_identified_is_a_util_error(tmp_path: Path) ->
 # a directory is never taken by something that is not one
 # ---------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("atomic", [False, True])
 @pytest.mark.parametrize("kind", ["file", "symlink"])
-def test_a_member_never_takes_the_path_a_directory_holds(tmp_path: Path, atomic: bool, kind: str, caplog: pytest.LogCaptureFixture) -> None:
+def test_a_member_never_takes_the_path_a_directory_holds(
+    tmp_path: Path, atomic: bool, kind: str, caplog: pytest.LogCaptureFixture
+) -> None:
     # The rule _link states, and the reason _graft has to repeat it: under
     # `atomic` the link is written into an empty staging tree, where
     # nothing is standing in the way, so the two sides only meet at the
@@ -2097,8 +2291,7 @@ def test_a_member_never_takes_the_path_a_directory_holds(tmp_path: Path, atomic:
         zf.writestr("real.txt", "real")
 
     with caplog.at_level("WARNING"):
-        extract_archive(archive, dest, atomic=atomic,
-                        limits=ArchiveLimits(symlinks="allow"))
+        extract_archive(archive, dest, atomic=atomic, limits=ArchiveLimits(symlinks="allow"))
 
     assert (dest / "keepme").is_dir() and not (dest / "keepme").is_symlink()
     assert (dest / "keepme" / "precious.txt").read_text() == "precious"
@@ -2117,8 +2310,11 @@ def test_a_member_never_takes_the_path_a_directory_holds(tmp_path: Path, atomic:
 # the commit clears nothing to make room
 # ---------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("present", [False, True])
-def test_a_commit_that_cannot_finish_keeps_both_sides(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, present: bool) -> None:
+def test_a_commit_that_cannot_finish_keeps_both_sides(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, present: bool
+) -> None:
     # The destination used to be removed first so that os.replace could
     # rename onto it. A replace that then failed left the caller with
     # neither the directory nor the archive. Nothing is cleared now, so a
@@ -2160,8 +2356,9 @@ def test_a_commit_that_cannot_finish_keeps_both_sides(tmp_path: Path, monkeypatc
         assert (dest / "mine.txt").read_text() == "mine"
 
     # what came out of the archive is still on disk, and the log says where
-    staged = [p for p in tmp_path.iterdir()
-              if p.name.startswith(".dest.") and p.name.endswith(".tmp")]
+    staged = [
+        p for p in tmp_path.iterdir() if p.name.startswith(".dest.") and p.name.endswith(".tmp")
+    ]
 
     assert len(staged) == 1
     assert (staged[0] / "a.txt").read_text() == "A"
@@ -2173,6 +2370,7 @@ def test_a_commit_that_cannot_finish_keeps_both_sides(tmp_path: Path, monkeypatc
 # ---------------------------------------------------------------------
 # a level of nesting costs the filesystem, never a stack frame
 # ---------------------------------------------------------------------
+
 
 def _can_symlink(tmp_path: Path) -> bool:
     """Whether this account may create a symlink at all.
@@ -2326,6 +2524,7 @@ def test_the_merge_walks_with_a_stack_and_not_with_frames(tmp_path: Path) -> Non
 
 # --- follow_links ---------------------------------------------------------
 
+
 def _link_or_junction(link: Path, target: Path, *, directory: bool) -> str | None:
     """A link at `link` pointing at `target`, by whichever means works.
 
@@ -2343,8 +2542,9 @@ def _link_or_junction(link: Path, target: Path, *, directory: bool) -> str | Non
     if not directory or sys.platform != "win32":
         return None
 
-    made = subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)],
-                          capture_output=True, check=False)
+    made = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(target)], capture_output=True, check=False
+    )
 
     return link if made.returncode == 0 else None
 
@@ -2361,11 +2561,14 @@ def test_a_link_is_left_out_unless_follow_links_asks_for_it(tmp_path: Path) -> N
 
     assert _names(compress_folder(src, tmp_path / "off.zip")) == {"real.txt"}
     assert _names(compress_folder(src, tmp_path / "on.zip", follow_links=True)) == {
-        "link.txt", "real.txt",
+        "link.txt",
+        "real.txt",
     }
 
 
-def test_a_link_out_of_the_tree_is_not_followed_and_is_logged(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_a_link_out_of_the_tree_is_not_followed_and_is_logged(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     # A link out of `src` is a second tree, and archiving it puts files
     # under names claiming they came from this one.
     src = tmp_path / "src"
@@ -2386,7 +2589,9 @@ def test_a_link_out_of_the_tree_is_not_followed_and_is_logged(tmp_path: Path, ca
     assert "leaves the folder being archived" in caplog.text
 
 
-def test_a_link_to_a_directory_inside_is_not_followed_and_is_logged(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_a_link_to_a_directory_inside_is_not_followed_and_is_logged(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     # The walk reaches every directory under src on its own, so following a
     # link to one archives it a second time under a second name -- and a
     # link to an ancestor would do that until the platform refused to
@@ -2423,7 +2628,9 @@ def test_a_link_that_points_at_itself_terminates(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="junctions are Windows-only")
-def test_follow_links_governs_a_junction_the_same_as_a_symlink(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_follow_links_governs_a_junction_the_same_as_a_symlink(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     # It was follow_symlinks and asked os.DirEntry, which does not report a
     # junction as a link at all -- is_symlink() False, is_dir() True -- so a
     # junction was walked into under either setting and the argument could
@@ -2436,8 +2643,11 @@ def test_follow_links_governs_a_junction_the_same_as_a_symlink(tmp_path: Path, c
     outside.mkdir()
     (outside / "secret.txt").write_text("secret")
 
-    made = subprocess.run(["cmd", "/c", "mklink", "/J", str(src / "j"), str(outside)],
-                          capture_output=True, check=False)
+    made = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(src / "j"), str(outside)],
+        capture_output=True,
+        check=False,
+    )
 
     if made.returncode != 0:
         pytest.skip("cannot create a junction here")
@@ -2451,7 +2661,9 @@ def test_follow_links_governs_a_junction_the_same_as_a_symlink(tmp_path: Path, c
     assert "leaves the folder being archived" in caplog.text
 
 
-def test_a_broken_link_is_skipped_without_a_word(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_a_broken_link_is_skipped_without_a_word(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     src = tmp_path / "src"
     src.mkdir()
     (src / "real.txt").write_text("real")
@@ -2467,6 +2679,7 @@ def test_a_broken_link_is_skipped_without_a_word(tmp_path: Path, caplog: pytest.
 
 
 # --- what a refused member costs ------------------------------------------
+
 
 def test_a_member_refused_by_overwrite_costs_nothing_against_the_ceilings(tmp_path: Path) -> None:
     # `overwrite` is asked after count(), deliberately: it is a policy about
@@ -2487,7 +2700,8 @@ def test_a_member_refused_by_overwrite_costs_nothing_against_the_ceilings(tmp_pa
     # Room for one member and ten bytes. The refused one has to give back
     # both, or the second cannot be written.
     extract_archive(
-        archive, dest,
+        archive,
+        dest,
         limits=ArchiveLimits(overwrite="skip", max_files=1, max_total_size=10),
     )
 
@@ -2511,13 +2725,14 @@ def test_a_refused_member_gives_its_name_back_to_duplicates(tmp_path: Path) -> N
         zf.writestr("a.txt", "one")
         zf.writestr("a.txt", "two")
 
-    extract_archive(archive, dest,
-                    limits=ArchiveLimits(overwrite="skip", duplicates="error"))
+    extract_archive(archive, dest, limits=ArchiveLimits(overwrite="skip", duplicates="error"))
 
     assert (dest / "a.txt").read_text() == "mine"
 
 
-def test_a_member_overwrite_refuses_is_not_reported_as_an_escape(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_a_member_overwrite_refuses_is_not_reported_as_an_escape(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     # Two refusals that used to share one line. A member the caller's own
     # policy turned away is not a member that tried to leave the
     # destination, and saying so of every skipped file makes the one that
@@ -2545,7 +2760,9 @@ def test_a_member_overwrite_refuses_is_not_reported_as_an_escape(tmp_path: Path,
 
 
 @pytest.mark.parametrize("fmt", FORMATS)
-def test_the_direct_write_still_runs_warn_if_changed_when_stability_retries_is_zero(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fmt: ArchiveFormat) -> None:
+def test_the_direct_write_still_runs_warn_if_changed_when_stability_retries_is_zero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fmt: ArchiveFormat
+) -> None:
     # stability_retries=0 (the default) never calls _read_stable -- see
     # test_default_stability_retries_never_touches_a_large_file_specially
     # -- but the direct write it falls back to is still expected to run
@@ -2564,7 +2781,9 @@ def test_the_direct_write_still_runs_warn_if_changed_when_stability_retries_is_z
 
 
 @pytest.mark.parametrize("fmt", FORMATS)
-def test_a_small_file_still_runs_warn_if_changed_even_with_stability_retries_set(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fmt: ArchiveFormat) -> None:
+def test_a_small_file_still_runs_warn_if_changed_even_with_stability_retries_set(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fmt: ArchiveFormat
+) -> None:
     # A file under _STABILITY_MIN_SIZE bypasses _read_stable regardless of
     # stability_retries (see test_a_small_file_bypasses_stability_retries_
     # entirely) -- it still takes the direct write, so it is still expected
@@ -2582,7 +2801,9 @@ def test_a_small_file_still_runs_warn_if_changed_even_with_stability_retries_set
 
 
 @pytest.mark.parametrize("bad", [-1, True, False, "3", 1.5])
-def test_stability_retries_rejects_anything_but_a_non_negative_int(tmp_path: Path, bad: Any) -> None:
+def test_stability_retries_rejects_anything_but_a_non_negative_int(
+    tmp_path: Path, bad: Any
+) -> None:
     src = tmp_path / "src"
     src.mkdir()
     (src / "a.txt").write_text("a")
@@ -2604,7 +2825,9 @@ def test_stability_check_rejects_anything_not_callable(tmp_path: Path, bad: Any)
         compress_folder(src, tmp_path / "w.zip", stability_check=bad, fsync=False)
 
 
-def test_stability_check_can_pull_in_a_small_file_stability_retries_would_skip(tmp_path: Path) -> None:
+def test_stability_check_can_pull_in_a_small_file_stability_retries_would_skip(
+    tmp_path: Path,
+) -> None:
     src = tmp_path / "src"
     src.mkdir()
     (src / "small.txt").write_bytes(b"tiny")
@@ -2616,8 +2839,11 @@ def test_stability_check_can_pull_in_a_small_file_stability_retries_would_skip(t
         return True  # guard even a file well under _STABILITY_MIN_SIZE
 
     compress_folder(
-        src, tmp_path / "w.zip",
-        stability_retries=2, stability_check=check, fsync=False,
+        src,
+        tmp_path / "w.zip",
+        stability_retries=2,
+        stability_check=check,
+        fsync=False,
     )
 
     assert len(calls) == 1
@@ -2626,7 +2852,9 @@ def test_stability_check_can_pull_in_a_small_file_stability_retries_would_skip(t
 
 
 @pytest.mark.parametrize("fmt", FORMATS)
-def test_stability_check_returning_false_leaves_a_large_file_unguarded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fmt: ArchiveFormat) -> None:
+def test_stability_check_returning_false_leaves_a_large_file_unguarded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fmt: ArchiveFormat
+) -> None:
     src = tmp_path / "src"
     src.mkdir()
     (src / "big.bin").write_bytes(b"x" * (_STABILITY_MIN_SIZE + 1024))
@@ -2638,21 +2866,31 @@ def test_stability_check_returning_false_leaves_a_large_file_unguarded(tmp_path:
     monkeypatch.setattr(stable, "_read_stable", boom)
 
     compress_folder(
-        src, tmp_path / "w", format=fmt,
-        stability_retries=3, stability_check=lambda st, path: False, fsync=False,
+        src,
+        tmp_path / "w",
+        format=fmt,
+        stability_retries=3,
+        stability_check=lambda st, path: False,
+        fsync=False,
     )
 
 
 @pytest.mark.parametrize("fmt", FORMATS)
-def test_a_custom_stability_check_still_produces_a_correct_archive(tmp_path: Path, fmt: ArchiveFormat) -> None:
+def test_a_custom_stability_check_still_produces_a_correct_archive(
+    tmp_path: Path, fmt: ArchiveFormat
+) -> None:
     src = tmp_path / "src"
     src.mkdir()
     content = os.urandom(4096)  # well under _STABILITY_MIN_SIZE
     (src / "small.bin").write_bytes(content)
 
     archive = compress_folder(
-        src, tmp_path / "w", format=fmt,
-        stability_retries=2, stability_check=lambda st, path: True, fsync=False,
+        src,
+        tmp_path / "w",
+        format=fmt,
+        stability_retries=2,
+        stability_check=lambda st, path: True,
+        fsync=False,
     )
     dest = tmp_path / "x"
     extract_archive(archive, dest)
@@ -2660,7 +2898,9 @@ def test_a_custom_stability_check_still_produces_a_correct_archive(tmp_path: Pat
     assert (dest / "small.bin").read_bytes() == content
 
 
-def test_default_stability_retries_never_touches_a_large_file_specially(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_default_stability_retries_never_touches_a_large_file_specially(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     src = tmp_path / "src"
     src.mkdir()
     (src / "big.bin").write_bytes(b"x" * (_STABILITY_MIN_SIZE + 1024))
@@ -2674,7 +2914,9 @@ def test_default_stability_retries_never_touches_a_large_file_specially(tmp_path
     compress_folder(src, tmp_path / "w.zip", fsync=False)  # stability_retries defaults to 0
 
 
-def test_a_small_file_bypasses_stability_retries_entirely(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_small_file_bypasses_stability_retries_entirely(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     src = tmp_path / "src"
     src.mkdir()
     (src / "small.txt").write_bytes(b"tiny")
@@ -2689,7 +2931,9 @@ def test_a_small_file_bypasses_stability_retries_entirely(tmp_path: Path, monkey
 
 
 @pytest.mark.parametrize("fmt", FORMATS)
-def test_stability_retries_still_produces_a_correct_archive(tmp_path: Path, fmt: ArchiveFormat) -> None:
+def test_stability_retries_still_produces_a_correct_archive(
+    tmp_path: Path, fmt: ArchiveFormat
+) -> None:
     src = tmp_path / "src"
     src.mkdir()
     content = os.urandom(_STABILITY_MIN_SIZE + 1024)
@@ -2703,7 +2947,9 @@ def test_stability_retries_still_produces_a_correct_archive(tmp_path: Path, fmt:
 
 
 @pytest.mark.parametrize("fmt", FORMATS)
-def test_a_large_file_changing_during_compression_warns_after_exhausting_retries(tmp_path: Path, caplog: pytest.LogCaptureFixture, fmt: ArchiveFormat) -> None:
+def test_a_large_file_changing_during_compression_warns_after_exhausting_retries(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, fmt: ArchiveFormat
+) -> None:
     # _read_stable's own read tolerates a size change mid-copy exactly like
     # zipfile does -- it just reads until EOF -- so a writer that changes
     # size freely cannot trip a container's own unrelated read error here,
@@ -2775,7 +3021,10 @@ def test_stability_retries_still_works_with_workers(tmp_path: Path) -> None:
 
 # --- delete_source / delete_archive -----------------------------------------
 
-def test_delete_source_removes_the_folder_once_the_archive_is_written(tree: Path, tmp_path: Path) -> None:
+
+def test_delete_source_removes_the_folder_once_the_archive_is_written(
+    tree: Path, tmp_path: Path
+) -> None:
     archive = compress_folder(tree, tmp_path / "w.zip", delete_source=True, fsync=False)
 
     assert archive.is_file()
@@ -2788,7 +3037,9 @@ def test_delete_source_is_off_by_default(tree: Path, tmp_path: Path) -> None:
     assert tree.exists()
 
 
-def test_delete_source_never_runs_if_writing_the_archive_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_delete_source_never_runs_if_writing_the_archive_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     src = tmp_path / "src"
     src.mkdir()
     (src / "a.txt").write_text("a")
@@ -2806,7 +3057,9 @@ def test_delete_source_never_runs_if_writing_the_archive_fails(tmp_path: Path, m
 
 
 @pytest.mark.parametrize("fmt", FORMATS)
-def test_delete_archive_removes_the_file_once_extraction_finishes(tmp_path: Path, fmt: ArchiveFormat) -> None:
+def test_delete_archive_removes_the_file_once_extraction_finishes(
+    tmp_path: Path, fmt: ArchiveFormat
+) -> None:
     src = tmp_path / "src"
     src.mkdir()
     (src / "a.txt").write_text("a")
@@ -2830,7 +3083,9 @@ def test_delete_archive_is_off_by_default(tmp_path: Path) -> None:
     assert archive.exists()
 
 
-def test_delete_archive_never_runs_if_extraction_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_delete_archive_never_runs_if_extraction_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     src = tmp_path / "src"
     src.mkdir()
     (src / "a.txt").write_text("a")

@@ -13,9 +13,13 @@ if TYPE_CHECKING:
 
 
 @overload
-def iter_flat_cont(*containers: NestedContainer[_T | None], exclude_none: _True = True) -> Generator[_T, None, None]: ...
+def iter_flat_cont(
+    *containers: NestedContainer[_T | None], exclude_none: _True = True
+) -> Generator[_T, None, None]: ...
 @overload
-def iter_flat_cont(*containers: NestedContainer[_T], exclude_none: _False) -> Generator[_T, None, None]: ...
+def iter_flat_cont(
+    *containers: NestedContainer[_T], exclude_none: _False
+) -> Generator[_T, None, None]: ...
 def iter_flat_cont(*containers: Any, exclude_none: bool = True) -> Generator[Any, None, None]:
     """Yield every leaf under `containers`, flattening nested containers lazily.
 
@@ -62,16 +66,22 @@ def flat_cont(*containers: Any, exclude_none: bool = True) -> list[Any]:
 
 @overload
 def iter_flat_map(
-    *containers: Mapping[_KT, NestedContainerMappingValue[_KT, _VT | None]], exclude_none: _True = True,
+    *containers: Mapping[_KT, NestedContainerMappingValue[_KT, _VT | None]],
+    exclude_none: _True = True,
 ) -> Generator[_KT | _VT, None, None]: ...
 @overload
 def iter_flat_map(
-    *containers: Mapping[_KT, NestedContainerMappingValue[_KT, _VT]], exclude_none: _False,
+    *containers: Mapping[_KT, NestedContainerMappingValue[_KT, _VT]],
+    exclude_none: _False,
 ) -> Generator[_KT | _VT, None, None]: ...
 @overload
-def iter_flat_map(*containers: NestedContainer[_T | None], exclude_none: _True = True) -> Generator[_T, None, None]: ...
+def iter_flat_map(
+    *containers: NestedContainer[_T | None], exclude_none: _True = True
+) -> Generator[_T, None, None]: ...
 @overload
-def iter_flat_map(*containers: NestedContainer[_T], exclude_none: _False) -> Generator[_T, None, None]: ...
+def iter_flat_map(
+    *containers: NestedContainer[_T], exclude_none: _False
+) -> Generator[_T, None, None]: ...
 def iter_flat_map(*containers: Any, exclude_none: bool = True) -> Generator[Any, None, None]:
     """Yield every leaf like `iter_flat_cont`, but a mapping gives up its values as well as its keys.
 
@@ -95,11 +105,13 @@ def iter_flat_map(*containers: Any, exclude_none: bool = True) -> Generator[Any,
 
 @overload
 def flat_map(
-    *containers: Mapping[_KT, NestedContainerMappingValue[_KT, _VT | None]], exclude_none: _True = True,
+    *containers: Mapping[_KT, NestedContainerMappingValue[_KT, _VT | None]],
+    exclude_none: _True = True,
 ) -> list[_KT | _VT]: ...
 @overload
 def flat_map(
-    *containers: Mapping[_KT, NestedContainerMappingValue[_KT, _VT]], exclude_none: _False,
+    *containers: Mapping[_KT, NestedContainerMappingValue[_KT, _VT]],
+    exclude_none: _False,
 ) -> list[_KT | _VT]: ...
 @overload
 def flat_map(*containers: NestedContainer[_T | None], exclude_none: _True = True) -> list[_T]: ...
@@ -139,7 +151,9 @@ def iter_flat_cont_by(
     """
     for item in containers:
         if is_container(item):
-            yield from iter_flat_cont_by(*item, is_container=is_container, exclude_none=exclude_none)
+            yield from iter_flat_cont_by(
+                *item, is_container=is_container, exclude_none=exclude_none
+            )
         elif not exclude_none or item is not None:
             yield item
 
@@ -163,7 +177,9 @@ def flat_cont_by(
         >>> flat_cont_by((1, [2], (3, 4)), is_container=lambda x: isinstance(x, tuple))
         [1, [2], 3, 4]
     """
-    return list(iter_flat_cont_by(*containers, is_container=is_container, exclude_none=exclude_none))
+    return list(
+        iter_flat_cont_by(*containers, is_container=is_container, exclude_none=exclude_none)
+    )
 
 
 __all__ = (

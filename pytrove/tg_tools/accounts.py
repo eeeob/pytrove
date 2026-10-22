@@ -38,7 +38,9 @@ def tg_account_created_at(user_id: int) -> float:
 
 
 @_optional_import(("aioimaplib", "imap"), ("beautifulsoup4", "bs4"))
-async def fetch_tg_email_code(email: str, password: str, full_name: str, code_length: int) -> str | None:
+async def fetch_tg_email_code(
+    email: str, password: str, full_name: str, code_length: int
+) -> str | None:
     """Find a Telegram login code in the inbox: the first code in the newest email that names `full_name`.
 
     Args:

@@ -26,24 +26,38 @@ log = logging.getLogger(__name__)
 # Each shape lists `return_exc=False` first, so a plain `bool` (or `True`, or nothing) falls to the
 # arm that may return an exception.
 @overload
-async def safe_await(awaitables: Awaitable[_T], *, return_exc: _False, log_exc: bool = True) -> _T: ...
-@overload
-async def safe_await(awaitables: Awaitable[_T], *, return_exc: bool = True, log_exc: bool = True) -> _T | Exception: ...
+async def safe_await(
+    awaitables: Awaitable[_T], *, return_exc: _False, log_exc: bool = True
+) -> _T: ...
 @overload
 async def safe_await(
-    awaitables: Container[NestedContainer[Awaitable[_T] | None]], *, return_exc: _False, log_exc: bool = True,
+    awaitables: Awaitable[_T], *, return_exc: bool = True, log_exc: bool = True
+) -> _T | Exception: ...
+@overload
+async def safe_await(
+    awaitables: Container[NestedContainer[Awaitable[_T] | None]],
+    *,
+    return_exc: _False,
+    log_exc: bool = True,
 ) -> list[_T]: ...
 @overload
 async def safe_await(
-    awaitables: Container[NestedContainer[Awaitable[_T] | None]], *, return_exc: bool = True, log_exc: bool = True,
+    awaitables: Container[NestedContainer[Awaitable[_T] | None]],
+    *,
+    return_exc: bool = True,
+    log_exc: bool = True,
 ) -> list[_T | Exception]: ...
 @overload
 async def safe_await(
-    *awaitables: NestedContainer[Awaitable[_T] | None], return_exc: _False, log_exc: bool = True,
+    *awaitables: NestedContainer[Awaitable[_T] | None],
+    return_exc: _False,
+    log_exc: bool = True,
 ) -> list[_T]: ...
 @overload
 async def safe_await(
-    *awaitables: NestedContainer[Awaitable[_T] | None], return_exc: bool = True, log_exc: bool = True,
+    *awaitables: NestedContainer[Awaitable[_T] | None],
+    return_exc: bool = True,
+    log_exc: bool = True,
 ) -> list[_T | Exception]: ...
 async def safe_await(*awaitables: Any, return_exc: bool = True, log_exc: bool = True) -> Any:
     """Await awaitables one after another, returning failures instead of raising.
@@ -102,33 +116,56 @@ async def safe_await(*awaitables: Any, return_exc: bool = True, log_exc: bool = 
 
 @overload
 async def asafe_call(
-    awaitable: Awaitable[_T], *, include_exc: _ExcFilter = None, exclude_exc: _ExcFilter = None,
+    awaitable: Awaitable[_T],
+    *,
+    include_exc: _ExcFilter = None,
+    exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
 ) -> _T | None: ...
 @overload
 async def asafe_call(
-    awaitable: Awaitable[_T], *, return_exc: _False, include_exc: _ExcFilter = None,
-    exclude_exc: _ExcFilter = None, log_exc: _ExcLogger = False,
+    awaitable: Awaitable[_T],
+    *,
+    return_exc: _False,
+    include_exc: _ExcFilter = None,
+    exclude_exc: _ExcFilter = None,
+    log_exc: _ExcLogger = False,
 ) -> _T | None: ...
 @overload
 async def asafe_call(
-    awaitable: Awaitable[_T], *, return_exc: _True, include_exc: type[_ExcT],
-    exclude_exc: _ExcFilter = None, log_exc: _ExcLogger = False,
+    awaitable: Awaitable[_T],
+    *,
+    return_exc: _True,
+    include_exc: type[_ExcT],
+    exclude_exc: _ExcFilter = None,
+    log_exc: _ExcLogger = False,
 ) -> _T | _ExcT: ...
 @overload
 async def asafe_call(
-    awaitable: Awaitable[_T], *, return_exc: _True, include_exc: tuple[type[_ExcT], ...],
-    exclude_exc: _ExcFilter = None, log_exc: _ExcLogger = False,
+    awaitable: Awaitable[_T],
+    *,
+    return_exc: _True,
+    include_exc: tuple[type[_ExcT], ...],
+    exclude_exc: _ExcFilter = None,
+    log_exc: _ExcLogger = False,
 ) -> _T | _ExcT: ...
 @overload
 async def asafe_call(
-    awaitable: Awaitable[_T], *, return_exc: _True, include_exc: _ExcFilter = None,
-    exclude_exc: _ExcFilter = None, log_exc: _ExcLogger = False,
+    awaitable: Awaitable[_T],
+    *,
+    return_exc: _True,
+    include_exc: _ExcFilter = None,
+    exclude_exc: _ExcFilter = None,
+    log_exc: _ExcLogger = False,
 ) -> _T | BaseException: ...
 @overload
 async def asafe_call(
-    awaitable: Awaitable[_T], *, raise_exc: _True, include_exc: _ExcFilter = None,
-    exclude_exc: _ExcFilter = None, log_exc: _ExcLogger = False,
+    awaitable: Awaitable[_T],
+    *,
+    raise_exc: _True,
+    include_exc: _ExcFilter = None,
+    exclude_exc: _ExcFilter = None,
+    log_exc: _ExcLogger = False,
 ) -> _T: ...
 async def asafe_call(
     awaitable: Awaitable[Any],
@@ -311,11 +348,18 @@ async def maybe_awaitable(
         return await safe_await(awaitable_or_callable, return_exc=return_exc, log_exc=log_exc)
 
     if iscoroutinefunction_wrapped(awaitable_or_callable):
-        return await safe_await(awaitable_or_callable(*args, **kwargs), return_exc=return_exc, log_exc=log_exc)
+        return await safe_await(
+            awaitable_or_callable(*args, **kwargs), return_exc=return_exc, log_exc=log_exc
+        )
 
     if callable(awaitable_or_callable):
         return await to_thread(
-            awaitable_or_callable, *args, executor=executor, return_exc=return_exc, log_exc=log_exc, **kwargs,
+            awaitable_or_callable,
+            *args,
+            executor=executor,
+            return_exc=return_exc,
+            log_exc=log_exc,
+            **kwargs,
         )
 
     msg = f"Expected an Awaitable or Callable, got {type(awaitable_or_callable).__name__!r}"

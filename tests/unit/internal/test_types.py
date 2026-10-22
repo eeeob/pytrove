@@ -16,12 +16,19 @@ def test_every_private_alias_is_listed_in_all() -> None:
 
 def test_exc_filter_accepts_a_class_a_tuple_or_none() -> None:
     assert set(get_args(_types._ExcFilter)) == {
-        type[BaseException], tuple[type[BaseException], ...], type(None),
+        type[BaseException],
+        tuple[type[BaseException], ...],
+        type(None),
     }
 
 
 def test_raw_entry_covers_every_entry_an_archive_filter_sees() -> None:
-    assert set(get_args(_types._RawEntry)) == {os.DirEntry, zipfile.ZipInfo, tarfile.TarInfo, type(None)}
+    assert set(get_args(_types._RawEntry)) == {
+        os.DirEntry,
+        zipfile.ZipInfo,
+        tarfile.TarInfo,
+        type(None),
+    }
 
 
 def test_rule_is_a_glob_or_a_predicate_over_path_and_entry() -> None:

@@ -56,7 +56,9 @@ def to_int(value: Any, as_int: bool = True) -> Any:
         return value
 
 
-def to_int_deep(data: NestedContainer[_T], as_int: bool = False) -> NestedContainer[_T | int | float]:
+def to_int_deep(
+    data: NestedContainer[_T], as_int: bool = False
+) -> NestedContainer[_T | int | float]:
     """Apply `to_int` to every leaf under `data`, mapping keys included.
 
     Args:

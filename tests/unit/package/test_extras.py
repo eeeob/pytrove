@@ -31,10 +31,14 @@ class Extra(NamedTuple):
 
 EXTRAS: Final[dict[str, Extra]] = {
     "mongo": Extra(("pymongo",), ("pymongo", "bson", "gridfs"), "pytrove.MongoIndex()"),
-    "country": Extra(("pycountry", "phonenumbers"), ("pycountry", "phonenumbers"), "pytrove.get_countries()"),
+    "country": Extra(
+        ("pycountry", "phonenumbers"), ("pycountry", "phonenumbers"), "pytrove.get_countries()"
+    ),
     "crypto": Extra(("cryptography",), ("cryptography",), "pytrove.encrypt(b'x', 'p')"),
     "bs4": Extra(("beautifulsoup4",), ("bs4",), "pytrove.parse_email_bytes(b'')"),
-    "imap": Extra(("aioimaplib",), ("aioimaplib",), "pytrove.is_accessible_received_email('a@b.c', 'p')"),
+    "imap": Extra(
+        ("aioimaplib",), ("aioimaplib",), "pytrove.is_accessible_received_email('a@b.c', 'p')"
+    ),
     "phone": Extra(("phonenumbers",), ("phonenumbers",), "pytrove.cc_from_rc('SA')"),
     "tg": Extra(("kurigram",), ("pyrogram",), "pytrove.parse_tg_target('x')"),
     "typecheck": Extra(("typeguard",), ("typeguard",), "pytrove.validate_type(1, int)"),
@@ -46,7 +50,9 @@ EXTRAS: Final[dict[str, Extra]] = {
     "archive": Extra(
         ("zstandard", "fastzip", "pathspec"),
         ("zstandard", "fastzip", "pathspec"),
-        "pytrove.compress_folder(src, Path(tmp, 'out.tar.zst'))" if sys.version_info < (3, 14) else "",
+        "pytrove.compress_folder(src, Path(tmp, 'out.tar.zst'))"
+        if sys.version_info < (3, 14)
+        else "",
     ),
 }
 
@@ -109,9 +115,16 @@ def _run(extra: Extra) -> str:
     Returns:
         The subprocess stdout.
     """
-    script = SCRIPT.format(dists=list(extra.dists), modules=list(extra.modules), use=extra.use or "None")
+    script = SCRIPT.format(
+        dists=list(extra.dists), modules=list(extra.modules), use=extra.use or "None"
+    )
     result = subprocess.run(
-        [sys.executable, "-c", script], cwd=ROOT, capture_output=True, text=True, encoding="utf-8", check=False
+        [sys.executable, "-c", script],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
     )
     assert result.returncode == 0, result.stderr or result.stdout
     return result.stdout
@@ -138,7 +151,9 @@ def test_a_missing_extra_breaks_only_its_own_feature(name: str) -> None:
 def test_the_cases_cover_every_declared_extra() -> None:
     """`EXTRAS` lists exactly the extras, and their distributions, declared in `pyproject.toml`."""
     tomllib = pytest.importorskip("tomllib")
-    extras = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["optional-dependencies"]
+    extras = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"][
+        "optional-dependencies"
+    ]
     declared = {
         name: {re.match(r"[A-Za-z0-9_.-]+", req).group() for req in reqs}
         for name, reqs in extras.items()

@@ -32,6 +32,7 @@ from .models import Source, Verdict
 
 # ============================== the prober ==============================
 
+
 class Prober:
     """One HTTP (or git-refs) request per source, with retries and a verdict.
 
@@ -57,7 +58,8 @@ class Prober:
     #: expected here: the DMI step makes thousands of raw.githubusercontent
     #: requests and gets throttled for it.
     TRANSIENT_CODES: ClassVar[frozenset[int]] = frozenset(
-        {403, 408, 425, 429, 500, 502, 503, 504, 509, 520, 522, 524})
+        {403, 408, 425, 429, 500, 502, 503, 504, 509, 520, 522, 524}
+    )
 
     #: How much of a body to keep. Every source here is far below this; the
     #: cap only stops a redirect to something enormous from filling memory.
@@ -89,10 +91,14 @@ class Prober:
         req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=self.timeout) as response:
             body = response.read(self.MAX_BYTES)
-            return response.status, body, {
-                "etag": response.headers.get("ETag", "") or "",
-                "last_modified": response.headers.get("Last-Modified", "") or "",
-            }
+            return (
+                response.status,
+                body,
+                {
+                    "etag": response.headers.get("ETag", "") or "",
+                    "last_modified": response.headers.get("Last-Modified", "") or "",
+                },
+            )
 
     # --- classification ---------------------------------------------------
 
@@ -111,7 +117,7 @@ class Prober:
             raise exc
 
         if isinstance(exc, urllib.error.HTTPError):
-            if exc.code == 304:                       # not an error at all
+            if exc.code == 304:  # not an error at all
                 return State.OK, 304, ""
             if exc.code in cls.GONE_CODES:
                 return State.GONE, exc.code, f"HTTP {exc.code}"
@@ -161,13 +167,12 @@ class Prober:
 
         for attempt in range(1, self.ATTEMPTS + 1):
             try:
-                status, body, found = self.request(
-                    url, etag=etag, last_modified=last_modified)
+                status, body, found = self.request(url, etag=etag, last_modified=last_modified)
                 state, error = State.OK, ""
                 break
-            except BaseException as exc:                  # noqa: BLE001
+            except BaseException as exc:  # noqa: BLE001
                 state, status, error = self.classify(exc)
-                if state is State.OK:                     # a 304 raised as HTTPError
+                if state is State.OK:  # a 304 raised as HTTPError
                     body, found = None, {}
                     break
                 if not state.is_transient or attempt == self.ATTEMPTS:

@@ -5,7 +5,12 @@ from __future__ import annotations as _annotations
 from typing import Any
 
 try:
-    from typeguard import CollectionCheckStrategy, TypeCheckError, check_type, checker_lookup_functions
+    from typeguard import (
+        CollectionCheckStrategy,
+        TypeCheckError,
+        check_type,
+        checker_lookup_functions,
+    )
 except ImportError:
     pass
 

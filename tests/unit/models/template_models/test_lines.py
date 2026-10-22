@@ -12,7 +12,9 @@ def test_line_compiles_from_text_or_definition_and_honours_defaults() -> None:
 
 
 def test_each_line_renders_one_line_per_mapping_element() -> None:
-    line = CompiledEachLine.compile({"each": "items", "item": {"text": "{n} {sep}", "all_of": ["n"]}})
+    line = CompiledEachLine.compile(
+        {"each": "items", "item": {"text": "{n} {sep}", "all_of": ["n"]}}
+    )
     kw = {"sep": "-", "items": [{"n": 1}, "skip", {}, {"n": 2}]}
 
     assert line.format(kw) == "1 -\n2 -"

@@ -34,7 +34,9 @@ def apply_discount(price: Number, discount_percent: Number, ndigits: int | None 
     return round(price * (1 - discount_percent / 100), ndigits)
 
 
-def reverse_discount(discounted_price: Number, discount_percent: Number, ndigits: int | None = 4) -> float:
+def reverse_discount(
+    discounted_price: Number, discount_percent: Number, ndigits: int | None = 4
+) -> float:
     """Recover the full price from a discounted one.
 
     Args:

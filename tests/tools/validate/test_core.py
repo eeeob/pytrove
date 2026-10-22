@@ -27,15 +27,20 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-@pytest.mark.parametrize(("obj", "class_info", "expected"), [
-    (1, int, True),
-    (1, str, False),
-    (1, int | str, True),
-    (1, Union[str, int], True),  # noqa: UP007 - `typing.Union` is the case under test.
-    ("x", (bytes, (Union[int, str],)), True),  # noqa: UP007 - same, nested inside tuples.
-    (1.0, (int, (str, bytes)), False),
-])
-def test_is_instance_accepts_every_spelling_of_a_union(obj: Any, class_info: Any, expected: bool) -> None:
+@pytest.mark.parametrize(
+    ("obj", "class_info", "expected"),
+    [
+        (1, int, True),
+        (1, str, False),
+        (1, int | str, True),
+        (1, Union[str, int], True),  # noqa: UP007 - `typing.Union` is the case under test.
+        ("x", (bytes, (Union[int, str],)), True),  # noqa: UP007 - same, nested inside tuples.
+        (1.0, (int, (str, bytes)), False),
+    ],
+)
+def test_is_instance_accepts_every_spelling_of_a_union(
+    obj: Any, class_info: Any, expected: bool
+) -> None:
     assert is_instance(obj, class_info) is expected
 
 

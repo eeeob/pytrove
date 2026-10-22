@@ -106,7 +106,9 @@ def is_tg_bot_command(message: Message | str) -> TypeIs[str]:
     if isinstance(message, Message):
         message = message.text or ""
 
-    return isinstance(message, str) and bool(message) and bool(TG_BOT_COMMAND_PATTERN.match(message))
+    return (
+        isinstance(message, str) and bool(message) and bool(TG_BOT_COMMAND_PATTERN.match(message))
+    )
 
 
 def is_tg_channel_message_link(message_link: Any) -> TypeIs[str]:
@@ -126,11 +128,15 @@ def is_tg_channel_message_link(message_link: Any) -> TypeIs[str]:
         >>> is_tg_channel_message_link("https://t.me/durov")
         False
     """
-    return isinstance(message_link, str) and bool(TG_CHANNEL_MSG_LINK_PATTERN.match(message_link.lower()))
+    return isinstance(message_link, str) and bool(
+        TG_CHANNEL_MSG_LINK_PATTERN.match(message_link.lower())
+    )
 
 
 @overload
-def is_tg_otp_code(code: Any, with_str: _True = True, remove_spaces: bool = False) -> TypeIs[StrInt]: ...
+def is_tg_otp_code(
+    code: Any, with_str: _True = True, remove_spaces: bool = False
+) -> TypeIs[StrInt]: ...
 @overload
 def is_tg_otp_code(code: Any, with_str: _False) -> TypeIs[int]: ...
 def is_tg_otp_code(code: Any, with_str: bool = True, remove_spaces: bool = False) -> bool:
@@ -187,7 +193,9 @@ async def is_valid_tg_app(api_id: StrInt, api_hash: str) -> bool:
     except (TypeError, ValueError):
         return False
 
-    c = Client(f"check_session_{api_id}", api_id=api_id, api_hash=api_hash, in_memory=True, no_updates=True)
+    c = Client(
+        f"check_session_{api_id}", api_id=api_id, api_hash=api_hash, in_memory=True, no_updates=True
+    )
 
     try:
         await c.connect()

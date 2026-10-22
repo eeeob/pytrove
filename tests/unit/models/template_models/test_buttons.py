@@ -22,7 +22,11 @@ def test_button_renders_and_rejects_bad_types() -> None:
     button = CompiledButton.compile(_button(meta={"style": ButtonStyle.DANGER.value}))
     assert button.meta == {"style": ButtonStyle.DANGER}
     rendered = button.format({"name": "a"})
-    assert (rendered.text, rendered.callback_data, rendered.style) == ("a", "id:a", ButtonStyle.DANGER)
+    assert (rendered.text, rendered.callback_data, rendered.style) == (
+        "a",
+        "id:a",
+        ButtonStyle.DANGER,
+    )
     assert CompiledButton.compile(_button(all_of=["x"])).format({"name": "a"}) is None
     assert "url" in CompiledButton._buttons_params
 
@@ -30,7 +34,9 @@ def test_button_renders_and_rejects_bad_types() -> None:
         CompiledButton(text="t", type="nope", value="v").format({})
 
     with pytest.warns(UserWarning, match="unknown"):
-        assert CompiledButton.compile(_button(meta={"unknown": 1})).format({"name": "a"}) is not None
+        assert (
+            CompiledButton.compile(_button(meta={"unknown": 1})).format({"name": "a"}) is not None
+        )
 
 
 @needs_pyrogram

@@ -110,15 +110,28 @@ def write_file(
         fsync: Whether to make the write survive a power loss, at most of the cost;
             the write stays atomic either way.
     """
-    with atomic_write(path, binary=isinstance(content, bytes), encoding=encoding, mode=mode, lock=lock, fsync=fsync) as f:
+    with atomic_write(
+        path,
+        binary=isinstance(content, bytes),
+        encoding=encoding,
+        mode=mode,
+        lock=lock,
+        fsync=fsync,
+    ) as f:
         f.write(content)
 
 
 @overload
-def truncate_file(path: PathLike, size: int, cut: TruncateSide = ..., spill: _False = False, fsync: bool = True) -> Path: ...
+def truncate_file(
+    path: PathLike, size: int, cut: TruncateSide = ..., spill: _False = False, fsync: bool = True
+) -> Path: ...
 @overload
 def truncate_file(
-    path: PathLike, size: int, cut: TruncateSide = ..., spill: _True | PathLike = ..., fsync: bool = True,
+    path: PathLike,
+    size: int,
+    cut: TruncateSide = ...,
+    spill: _True | PathLike = ...,
+    fsync: bool = True,
 ) -> list[Path]: ...
 def truncate_file(
     path: PathLike,

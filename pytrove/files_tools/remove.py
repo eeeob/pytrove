@@ -17,13 +17,19 @@ if TYPE_CHECKING:
 
 
 @overload
-def remove_files(*files: NestedContainer[PathLike], return_exc: _False = False, log_exc: bool = False) -> list[Path]: ...
+def remove_files(
+    *files: NestedContainer[PathLike], return_exc: _False = False, log_exc: bool = False
+) -> list[Path]: ...
 @overload
 def remove_files(
-    *files: NestedContainer[PathLike], return_exc: _True, log_exc: bool = False,
+    *files: NestedContainer[PathLike],
+    return_exc: _True,
+    log_exc: bool = False,
 ) -> list[Path | OSError]: ...
 def remove_files(
-    *files: NestedContainer[PathLike], return_exc: bool = False, log_exc: bool = False,
+    *files: NestedContainer[PathLike],
+    return_exc: bool = False,
+    log_exc: bool = False,
 ) -> list[Path] | list[Path | OSError]:
     """Unlink each path as the single entry it is: a file, a symlink or a junction.
 
@@ -47,14 +53,20 @@ def remove_files(
 
 @overload
 def remove_folders(
-    *folders: NestedContainer[PathLike], return_exc: _False = False, log_exc: bool = False,
+    *folders: NestedContainer[PathLike],
+    return_exc: _False = False,
+    log_exc: bool = False,
 ) -> list[Path]: ...
 @overload
 def remove_folders(
-    *folders: NestedContainer[PathLike], return_exc: _True, log_exc: bool = False,
+    *folders: NestedContainer[PathLike],
+    return_exc: _True,
+    log_exc: bool = False,
 ) -> list[Path | OSError]: ...
 def remove_folders(
-    *folders: NestedContainer[PathLike], return_exc: bool = False, log_exc: bool = False,
+    *folders: NestedContainer[PathLike],
+    return_exc: bool = False,
+    log_exc: bool = False,
 ) -> list[Path] | list[Path | OSError]:
     """Remove each real directory with everything under it.
 
@@ -76,13 +88,19 @@ def remove_folders(
 
 
 @overload
-def remove_paths(*paths: NestedContainer[PathLike], return_exc: _False = False, log_exc: bool = False) -> list[Path]: ...
+def remove_paths(
+    *paths: NestedContainer[PathLike], return_exc: _False = False, log_exc: bool = False
+) -> list[Path]: ...
 @overload
 def remove_paths(
-    *paths: NestedContainer[PathLike], return_exc: _True, log_exc: bool = False,
+    *paths: NestedContainer[PathLike],
+    return_exc: _True,
+    log_exc: bool = False,
 ) -> list[Path | OSError]: ...
 def remove_paths(
-    *paths: NestedContainer[PathLike], return_exc: bool = False, log_exc: bool = False,
+    *paths: NestedContainer[PathLike],
+    return_exc: bool = False,
+    log_exc: bool = False,
 ) -> list[Path] | list[Path | OSError]:
     """Remove each path whatever it is: a real directory as a tree, anything else as one entry.
 

@@ -77,7 +77,9 @@ def map_deep_kv(
     value_func: Callable[[_T], _R],
     key_func: Callable[[Any], Any] | None = None,
 ) -> NestedContainer[_R]: ...
-def map_deep_kv(data: Any, value_func: Callable[[Any], Any], key_func: Callable[[Any], Any] | None = None) -> Any:
+def map_deep_kv(
+    data: Any, value_func: Callable[[Any], Any], key_func: Callable[[Any], Any] | None = None
+) -> Any:
     """Apply `map_deep` with separate functions for mapping keys and everything else.
 
     `key_func` sees only a key that is itself a leaf; a key that is a
@@ -176,10 +178,14 @@ def value_to_enum(
     map_resolve_type: Literal["v", "V"] = "v",
 ) -> Mapping[_KT, _EnumT | _VT]: ...
 @overload
-def value_to_enum(values: Container[_T], enum_classes: NestedContainer[type[_EnumT]]) -> Container[_EnumT | _T]: ...
+def value_to_enum(
+    values: Container[_T], enum_classes: NestedContainer[type[_EnumT]]
+) -> Container[_EnumT | _T]: ...
 @overload
 def value_to_enum(values: _T, enum_classes: NestedContainer[type[_EnumT]]) -> _EnumT | _T: ...
-def value_to_enum(values: Any, enum_classes: NestedContainer[type[Enum]], map_resolve_type: str = "v") -> Any:
+def value_to_enum(
+    values: Any, enum_classes: NestedContainer[type[Enum]], map_resolve_type: str = "v"
+) -> Any:
     """Replace raw values with the enum member that has that value, recursively.
 
     Values with no matching member pass through. On a value collision the

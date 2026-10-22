@@ -30,7 +30,10 @@ if HAS_WRAPT:
         """
 
         def __init__(
-            self, obj: Any, blocked: MaybeContainer[str] | None = None, allowed: MaybeContainer[str] | None = None,
+            self,
+            obj: Any,
+            blocked: MaybeContainer[str] | None = None,
+            allowed: MaybeContainer[str] | None = None,
         ) -> None:
             """Wrap `obj`.
 

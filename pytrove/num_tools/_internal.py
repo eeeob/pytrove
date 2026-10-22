@@ -43,7 +43,11 @@ def _eval_calc_ast(node: ast.AST) -> int | float:
     if isinstance(node, ast.Expression):
         return _eval_calc_ast(node.body)
 
-    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)) and not isinstance(node.value, bool):
+    if (
+        isinstance(node, ast.Constant)
+        and isinstance(node.value, (int, float))
+        and not isinstance(node.value, bool)
+    ):
         return node.value
 
     if isinstance(node, ast.BinOp) and type(node.op) in _CALC_BINOPS:

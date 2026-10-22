@@ -33,33 +33,45 @@ if TYPE_CHECKING:
 TOOLS = Path(__file__).resolve().parents[3] / "devtools"
 PREFLIGHT = TOOLS / "_preflight"
 
-pytestmark = pytest.mark.skipif(
-    not PREFLIGHT.is_dir(), reason="devtools/ is not installed")
+pytestmark = pytest.mark.skipif(not PREFLIGHT.is_dir(), reason="devtools/ is not installed")
 
 if TOOLS.parent.as_posix() not in [p.replace("\\", "/") for p in sys.path]:
     sys.path.insert(0, str(TOOLS.parent))
 
-from devtools._preflight import enums as _enums                        # noqa: E402
-from devtools._preflight import models as _models                      # noqa: E402
-from devtools._preflight import registry as _registry                  # noqa: E402
-from devtools._preflight.check import Checker                          # noqa: E402
-from devtools._preflight.contract import ContractCheck                 # noqa: E402
-from devtools._preflight.door import Dispatcher                        # noqa: E402
-from devtools._preflight.enums import (ContractKind, Exit,              # noqa: E402
-                                    FingerprintKind, Health, Policy,
-                                    State, Verb)
-from devtools._preflight.fingerprint import FingerprintValue           # noqa: E402
-from devtools._preflight.janitor import Janitor                        # noqa: E402
-from devtools._preflight.layout import Layout                          # noqa: E402
-from devtools._preflight.lock import Lock                              # noqa: E402
-from devtools._preflight.models import (Contract, Derived,      # noqa: E402
-                                     Fingerprint, Registry, Report,
-                                     Source, Verdict)
-from devtools._preflight.probe import Prober                           # noqa: E402
-from devtools._preflight.report import TextReport                      # noqa: E402
+from devtools._preflight import enums as _enums  # noqa: E402
+from devtools._preflight import models as _models  # noqa: E402
+from devtools._preflight import registry as _registry  # noqa: E402
+from devtools._preflight.check import Checker  # noqa: E402
+from devtools._preflight.contract import ContractCheck  # noqa: E402
+from devtools._preflight.door import Dispatcher  # noqa: E402
+from devtools._preflight.enums import (
+    ContractKind,
+    Exit,  # noqa: E402
+    FingerprintKind,
+    Health,
+    Policy,
+    State,
+    Verb,
+)
+from devtools._preflight.fingerprint import FingerprintValue  # noqa: E402
+from devtools._preflight.janitor import Janitor  # noqa: E402
+from devtools._preflight.layout import Layout  # noqa: E402
+from devtools._preflight.lock import Lock  # noqa: E402
+from devtools._preflight.models import (
+    Contract,
+    Derived,  # noqa: E402
+    Fingerprint,
+    Registry,
+    Report,
+    Source,
+    Verdict,
+)
+from devtools._preflight.probe import Prober  # noqa: E402
+from devtools._preflight.report import TextReport  # noqa: E402
 
 
 # =============================== fixtures ===============================
+
 
 @pytest.fixture(scope="module", params=Layout.tools())
 def tool(request: pytest.FixtureRequest) -> str:
@@ -74,6 +86,7 @@ def loaded(tool: str) -> Registry:
 
 
 # ======================== the tool folder contract ========================
+
 
 def test_at_least_one_tool_declares_sources() -> None:
     assert Layout.tools(), "no devtools/*/sources/sources.toml found"
@@ -95,7 +108,8 @@ def test_a_tool_has_exactly_one_way_in(tool: str) -> None:
     inner = sorted(
         str(p.relative_to(TOOLS / tool))
         for p in (TOOLS / tool).rglob(Layout.DOOR)
-        if p.parent != TOOLS / tool)
+        if p.parent != TOOLS / tool
+    )
 
     assert not inner, inner
 
@@ -106,7 +120,8 @@ def test_the_tool_root_holds_sections_and_exactly_one_door(tool: str) -> None:
 
     assert files == [Layout.DOOR], (
         f"{tool}/ should hold only {Layout.DOOR} as a file; found {files}. "
-        f"Logic belongs in {Layout.SRC}/, declarations in a named section.")
+        f"Logic belongs in {Layout.SRC}/, declarations in a named section."
+    )
     assert (root / Layout.SRC).is_dir()
 
 
@@ -137,16 +152,11 @@ def test_the_door_only_reaches_into_src(tool: str) -> None:
     to explain where checking lives -- prose is not a dependency.
     """
 
-    door = (TOOLS / tool / Layout.DOOR)
+    door = TOOLS / tool / Layout.DOOR
     tree = ast.parse(door.read_text(encoding="utf-8"))
     imported = {
-        name.name
-        for node in ast.walk(tree) if isinstance(node, ast.Import)
-        for name in node.names
-    } | {
-        node.module or ""
-        for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
-    }
+        name.name for node in ast.walk(tree) if isinstance(node, ast.Import) for name in node.names
+    } | {node.module or "" for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)}
 
     assert not any("_preflight" in name for name in imported), sorted(imported)
     assert any(name.startswith(Layout.SRC) for name in imported), sorted(imported)
@@ -157,6 +167,7 @@ def test_the_cache_lives_under_the_tool(loaded: Registry, tool: str) -> None:
 
 
 # ============================== the registry ==============================
+
 
 def test_registry_parses_and_declares_sources(loaded: Registry) -> None:
     assert loaded.sources, "a registry with no sources checks nothing"
@@ -223,12 +234,12 @@ def test_every_cache_file_is_declared(loaded: Registry) -> None:
 
     reserved = {Layout.STATE_FILE, *loaded.scratch}
     on_disk = {
-        p.name for p in loaded.cache_dir.iterdir()
+        p.name
+        for p in loaded.cache_dir.iterdir()
         if p.name not in reserved and not Layout.is_aside(p)
     }
 
-    assert on_disk <= loaded.declared_cache_files, sorted(
-        on_disk - loaded.declared_cache_files)
+    assert on_disk <= loaded.declared_cache_files, sorted(on_disk - loaded.declared_cache_files)
 
 
 def test_a_registry_rejects_an_unknown_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -238,13 +249,13 @@ def test_a_registry_rejects_an_unknown_key(tmp_path: Path, monkeypatch: pytest.M
         '[tool]\nname = "fake_tool"\n\n'
         '[[source]]\nid = "x"\nurl = "https://example.com/a"\n'
         'cache = "a"\nconsumed_by = "x"\non_removal = "x"\n'
-        'typo_here = 1\n',
-        encoding="utf-8")
+        "typo_here = 1\n",
+        encoding="utf-8",
+    )
     monkeypatch.setattr(Layout, "TOOLS_DIR", tmp_path)
 
     with pytest.raises(_registry.RegistryError, match="unknown key"):
         _registry.load("fake_tool")
-
 
 
 # ============================ the layering ============================
@@ -273,15 +284,13 @@ def _local_imports(module: str) -> set[str]:
         # `from .x import y` is level 1 with module "x"; `from . import x`
         # is level 1 with no module and the names on the right.
         if isinstance(node, ast.ImportFrom) and node.level == 1:
-            found |= ({node.module} if node.module
-                      else {a.name for a in node.names})
+            found |= {node.module} if node.module else {a.name for a in node.names}
     return found
 
 
 def test_the_package_map_lists_every_module() -> None:
     declared = set(_declared_layers())
-    on_disk = {p.stem for p in PREFLIGHT.glob("*.py")
-               if p.stem not in {"__init__", "__main__"}}
+    on_disk = {p.stem for p in PREFLIGHT.glob("*.py") if p.stem not in {"__init__", "__main__"}}
 
     assert declared == on_disk, sorted(declared ^ on_disk)
 
@@ -296,8 +305,8 @@ def test_each_module_imports_only_the_ones_above_it() -> None:
         for imported in _local_imports(module):
             assert imported in order, f"{module} imports unknown {imported}"
             assert order[imported] < position, (
-                f"{module}.py imports {imported}.py, which the package map "
-                f"puts below it")
+                f"{module}.py imports {imported}.py, which the package map puts below it"
+            )
 
 
 @pytest.mark.parametrize("module", ["enums", "layout"])
@@ -332,45 +341,72 @@ def test_every_closed_set_of_values_is_declared_in_one_module() -> None:
     assert not elsewhere, sorted(elsewhere)
     assert {"State", "Policy", "Verb", "Health", "Exit"} <= declared
 
+
 # ============================ the declaration ============================
+
 
 def test_the_declaration_digest_changes_with_the_declaration() -> None:
     # This is what makes a tightened contract take effect: a 304 carries no
     # body, so a stored verdict is only reusable while the declaration that
     # produced it is unchanged.
-    loose = Source(id="a", url="u", cache="c", consumed_by="x", on_removal="x",
-                   contract=Contract(kind=ContractKind.TEXT, must_contain=("one",)))
-    tight = Source(id="a", url="u", cache="c", consumed_by="x", on_removal="x",
-                   contract=Contract(kind=ContractKind.TEXT, must_contain=("one", "two")))
-    repattern = Source(id="a", url="u", cache="c", consumed_by="x", on_removal="x",
-                       contract=Contract(kind=ContractKind.TEXT, must_contain=("one",)),
-                       fingerprint=Fingerprint(kind=FingerprintKind.REGEX_COUNT, pattern="x"))
+    loose = Source(
+        id="a",
+        url="u",
+        cache="c",
+        consumed_by="x",
+        on_removal="x",
+        contract=Contract(kind=ContractKind.TEXT, must_contain=("one",)),
+    )
+    tight = Source(
+        id="a",
+        url="u",
+        cache="c",
+        consumed_by="x",
+        on_removal="x",
+        contract=Contract(kind=ContractKind.TEXT, must_contain=("one", "two")),
+    )
+    repattern = Source(
+        id="a",
+        url="u",
+        cache="c",
+        consumed_by="x",
+        on_removal="x",
+        contract=Contract(kind=ContractKind.TEXT, must_contain=("one",)),
+        fingerprint=Fingerprint(kind=FingerprintKind.REGEX_COUNT, pattern="x"),
+    )
 
     assert loose.digest and loose.digest != tight.digest
     assert loose.digest != repattern.digest
-    assert Source(id="a", url="u", cache="c", consumed_by="x",
-                  on_removal="x").digest == ""
+    assert Source(id="a", url="u", cache="c", consumed_by="x", on_removal="x").digest == ""
 
 
 # ============================== contracts ==============================
 
+
 def test_a_reshaped_json_feed_fails_its_contract() -> None:
-    contract = Contract(kind=ContractKind.JSON_LIST, min_items=2,
-                        item_keys=("cycle", "releaseDate"))
+    contract = Contract(
+        kind=ContractKind.JSON_LIST, min_items=2, item_keys=("cycle", "releaseDate")
+    )
 
     assert not ContractCheck.run(
-        contract, b'[{"cycle":"a","releaseDate":"2026-01-01"},{"cycle":"b"}]')
-    assert ContractCheck.run(contract, b'[{"cycle":"a"}]')          # renamed key
-    assert ContractCheck.run(contract, b'{"cycle":"a"}')            # not a list
-    assert ContractCheck.run(contract, b"<html>oops</html>")        # not JSON
+        contract, b'[{"cycle":"a","releaseDate":"2026-01-01"},{"cycle":"b"}]'
+    )
+    assert ContractCheck.run(contract, b'[{"cycle":"a"}]')  # renamed key
+    assert ContractCheck.run(contract, b'{"cycle":"a"}')  # not a list
+    assert ContractCheck.run(contract, b"<html>oops</html>")  # not JSON
 
 
 def test_a_csv_contract_reads_the_declared_encoding() -> None:
     body = '"Model","Retail Branding"\n"X","Y"\n'.encode("utf-16")
-    holds = Contract(kind=ContractKind.CSV, encoding="utf-16",
-                     must_have_columns=("Model", "Retail Branding"), min_rows=1)
-    wrong = Contract(kind=ContractKind.CSV, encoding="utf-8",
-                     must_have_columns=("Model",), min_rows=1)
+    holds = Contract(
+        kind=ContractKind.CSV,
+        encoding="utf-16",
+        must_have_columns=("Model", "Retail Branding"),
+        min_rows=1,
+    )
+    wrong = Contract(
+        kind=ContractKind.CSV, encoding="utf-8", must_have_columns=("Model",), min_rows=1
+    )
 
     assert not ContractCheck.run(holds, body)
     assert ContractCheck.run(wrong, body)
@@ -379,9 +415,12 @@ def test_a_csv_contract_reads_the_declared_encoding() -> None:
 def test_a_renamed_method_breaks_the_text_contract() -> None:
     # The real case: Telegram-iOS refactoring platformString, which the tool
     # locates by string index and would otherwise crash on mid-build.
-    contract = Contract(kind=ContractKind.TEXT,
-                        must_contain=("- (NSString *)platformString",),
-                        must_match='return @"iPhone', min_matches=2)
+    contract = Contract(
+        kind=ContractKind.TEXT,
+        must_contain=("- (NSString *)platformString",),
+        must_match='return @"iPhone',
+        min_matches=2,
+    )
     good = b'- (NSString *)platformString\nreturn @"iPhone 17";\nreturn @"iPhone Air";'
 
     assert not ContractCheck.run(contract, good)
@@ -393,29 +432,37 @@ def test_a_git_advertisement_must_carry_refs() -> None:
     contract = Contract(kind=ContractKind.GIT_REFS)
 
     assert not ContractCheck.run(
-        contract, b"001e# service=git-upload-pack\n" + b"a" * 40 + b" HEAD\n")
+        contract, b"001e# service=git-upload-pack\n" + b"a" * 40 + b" HEAD\n"
+    )
     assert ContractCheck.run(contract, b"001e# service=git-upload-pack\n")
 
 
 # ============================= fingerprints =============================
 
-@pytest.mark.parametrize("kind,pattern,body,expected", [
-    ("bytes_len", "", b"abcd", 4),
-    ("json_len", "", b'[1,2,3]', 3),
-    ("json_len", "", b'{"a":1,"b":2}', 2),
-    ("regex_count", r'"type":\s*"iPhone"', b'["type": "iPhone", "type": "iPad"]', 1),
-    ("regex_max_int", r'"version":\s*"(\d+)\.', b'"version": "99.1" "version": "156.0"', 156),
-    ("git_head", "", b"0" * 39 + b"1 HEAD\n", "0" * 39 + "1"),
-])
+
+@pytest.mark.parametrize(
+    "kind,pattern,body,expected",
+    [
+        ("bytes_len", "", b"abcd", 4),
+        ("json_len", "", b"[1,2,3]", 3),
+        ("json_len", "", b'{"a":1,"b":2}', 2),
+        ("regex_count", r'"type":\s*"iPhone"', b'["type": "iPhone", "type": "iPad"]', 1),
+        ("regex_max_int", r'"version":\s*"(\d+)\.', b'"version": "99.1" "version": "156.0"', 156),
+        ("git_head", "", b"0" * 39 + b"1 HEAD\n", "0" * 39 + "1"),
+    ],
+)
 def test_a_fingerprint_reduces_a_body_to_its_watched_value(
-        kind: str, pattern: str, body: bytes, expected: int | str) -> None:
+    kind: str, pattern: str, body: bytes, expected: int | str
+) -> None:
     assert FingerprintValue.of(Fingerprint(kind=kind, pattern=pattern), body) == expected
 
 
 def test_csv_rows_counts_data_rows_not_the_header() -> None:
     body = "a,b\n1,2\n3,4\n".encode("utf-16")
-    assert FingerprintValue.of(
-        Fingerprint(kind=FingerprintKind.CSV_ROWS), body, encoding="utf-16") == 2
+    assert (
+        FingerprintValue.of(Fingerprint(kind=FingerprintKind.CSV_ROWS), body, encoding="utf-16")
+        == 2
+    )
 
 
 def test_an_unusable_body_yields_no_fingerprint_rather_than_an_error() -> None:
@@ -427,19 +474,24 @@ def test_an_unusable_body_yields_no_fingerprint_rather_than_an_error() -> None:
 
 # ========================= classifying a failure =========================
 
-@pytest.mark.parametrize("exc,expected", [
-    (urllib.error.HTTPError("u", 404, "gone", {}, None), State.GONE),
-    (urllib.error.HTTPError("u", 410, "gone", {}, None), State.GONE),
-    (urllib.error.HTTPError("u", 429, "slow down", {}, None), State.FLAKY),
-    (urllib.error.HTTPError("u", 403, "forbidden", {}, None), State.FLAKY),
-    (urllib.error.HTTPError("u", 503, "down", {}, None), State.FLAKY),
-    (urllib.error.HTTPError("u", 304, "same", {}, None), State.OK),
-    (urllib.error.URLError(TimeoutError("timed out")), State.FLAKY),
-    (urllib.error.URLError(socket.gaierror("no dns")), State.FLAKY),
-    (TimeoutError("timed out"), State.FLAKY),
-])
+
+@pytest.mark.parametrize(
+    "exc,expected",
+    [
+        (urllib.error.HTTPError("u", 404, "gone", {}, None), State.GONE),
+        (urllib.error.HTTPError("u", 410, "gone", {}, None), State.GONE),
+        (urllib.error.HTTPError("u", 429, "slow down", {}, None), State.FLAKY),
+        (urllib.error.HTTPError("u", 403, "forbidden", {}, None), State.FLAKY),
+        (urllib.error.HTTPError("u", 503, "down", {}, None), State.FLAKY),
+        (urllib.error.HTTPError("u", 304, "same", {}, None), State.OK),
+        (urllib.error.URLError(TimeoutError("timed out")), State.FLAKY),
+        (urllib.error.URLError(socket.gaierror("no dns")), State.FLAKY),
+        (TimeoutError("timed out"), State.FLAKY),
+    ],
+)
 def test_a_dead_source_is_told_apart_from_an_unreachable_one(
-        exc: Exception, expected: State) -> None:
+    exc: Exception, expected: State
+) -> None:
     # The distinction the whole gate rests on. A 404 means a developer has to
     # remove the source from the tool; a timeout means the network blinked,
     # and reporting the second as the first hands somebody a request for
@@ -451,8 +503,7 @@ def test_a_dead_source_is_told_apart_from_an_unreachable_one(
 def test_a_429_is_expected_rather_than_alarming() -> None:
     # The DMI harvest makes thousands of raw.githubusercontent requests and
     # gets throttled for it, which must never read as a dead source.
-    state, status, _ = Prober.classify(
-        urllib.error.HTTPError("u", 429, "slow down", {}, None))
+    state, status, _ = Prober.classify(urllib.error.HTTPError("u", 429, "slow down", {}, None))
 
     assert state == State.FLAKY and status == 429
 
@@ -468,11 +519,11 @@ def test_a_mostly_unreachable_run_blames_the_network_not_the_sources() -> None:
 
 # =============================== the gate ===============================
 
+
 def _report(*states: str, network: str = Health.OK, first: bool = False) -> Report:
     return Report(
         tool="t",
-        verdicts=tuple(Verdict(source_id=f"s{i}", state=s)
-                       for i, s in enumerate(states)),
+        verdicts=tuple(Verdict(source_id=f"s{i}", state=s) for i, s in enumerate(states)),
         network=network,
         first_run=first,
     )
@@ -505,9 +556,11 @@ def test_the_report_puts_what_needs_action_first() -> None:
 
 # =============================== the lock ===============================
 
+
 def _registry_for(tmp_path: Path, *sources: Source, **kw: Any) -> Registry:
-    return Registry(tool="t", tool_dir=tmp_path, cache_dir=tmp_path / ".cache",
-                    sources=tuple(sources), **kw)
+    return Registry(
+        tool="t", tool_dir=tmp_path, cache_dir=tmp_path / ".cache", sources=tuple(sources), **kw
+    )
 
 
 def test_a_first_run_reports_new_and_never_changed(tmp_path: Path) -> None:
@@ -523,11 +576,18 @@ def test_the_lock_is_written_only_when_its_content_differs(tmp_path: Path) -> No
     # The one guarantee the tracked file offers: a diff means something moved.
     path = tmp_path / "sources.lock.json"
     lock = Lock(path)
-    source = Source(id="s", url="u", cache="c", consumed_by="x", on_removal="x",
-                    fingerprint=Fingerprint(kind=FingerprintKind.BYTES_LEN))
+    source = Source(
+        id="s",
+        url="u",
+        cache="c",
+        consumed_by="x",
+        on_removal="x",
+        fingerprint=Fingerprint(kind=FingerprintKind.BYTES_LEN),
+    )
     registry = _registry_for(tmp_path, source)
-    verdict = Verdict(source_id="s", state=State.NEW, now=10, body=b"0123456789",
-                      sha256="abc", bytes_len=10)
+    verdict = Verdict(
+        source_id="s", state=State.NEW, now=10, body=b"0123456789", sha256="abc", bytes_len=10
+    )
 
     assert lock.save(lock.rebuild(registry, [verdict], today="2026-01-01"))
     assert not lock.save(lock.rebuild(registry, [verdict], today="2026-01-01"))
@@ -539,18 +599,50 @@ def test_an_ok_run_carries_the_entry_forward_untouched(tmp_path: Path) -> None:
     # unchanged. Rewriting the hash there would churn the file every run.
     path = tmp_path / "sources.lock.json"
     lock = Lock(path)
-    source = Source(id="s", url="u", cache="c", consumed_by="x", on_removal="x",
-                    fingerprint=Fingerprint(kind=FingerprintKind.BYTES_LEN))
+    source = Source(
+        id="s",
+        url="u",
+        cache="c",
+        consumed_by="x",
+        on_removal="x",
+        fingerprint=Fingerprint(kind=FingerprintKind.BYTES_LEN),
+    )
     registry = _registry_for(tmp_path, source)
 
-    lock.save(lock.rebuild(registry, [Verdict(
-        source_id="s", state=State.NEW, now=10, body=b"0" * 10,
-        declaration=source.digest)], today="2026-01-01"))
+    lock.save(
+        lock.rebuild(
+            registry,
+            [
+                Verdict(
+                    source_id="s",
+                    state=State.NEW,
+                    now=10,
+                    body=b"0" * 10,
+                    declaration=source.digest,
+                )
+            ],
+            today="2026-01-01",
+        )
+    )
     before = path.read_text(encoding="utf-8")
 
-    lock.save(lock.rebuild(registry, [Verdict(
-        source_id="s", state=State.OK, was=10, now=10, body=b"9" * 10,
-        sha256="different", declaration=source.digest)], today="2026-02-02"))
+    lock.save(
+        lock.rebuild(
+            registry,
+            [
+                Verdict(
+                    source_id="s",
+                    state=State.OK,
+                    was=10,
+                    now=10,
+                    body=b"9" * 10,
+                    sha256="different",
+                    declaration=source.digest,
+                )
+            ],
+            today="2026-02-02",
+        )
+    )
 
     assert path.read_text(encoding="utf-8") == before
 
@@ -561,18 +653,28 @@ def test_a_failure_counter_appears_only_while_failing(tmp_path: Path) -> None:
     source = Source(id="s", url="u", cache="c", consumed_by="x", on_removal="x")
     registry = _registry_for(tmp_path, source)
 
-    lock.save(lock.rebuild(registry, [Verdict(
-        source_id="s", state=State.NEW, body=b"x")], today="2026-01-01"))
+    lock.save(
+        lock.rebuild(
+            registry, [Verdict(source_id="s", state=State.NEW, body=b"x")], today="2026-01-01"
+        )
+    )
     assert Lock.FAILING not in path.read_text(encoding="utf-8")
 
-    lock.save(lock.rebuild(registry, [Verdict(
-        source_id="s", state=State.GONE, error="HTTP 404", consecutive=2)],
-        today="2026-01-08"))
+    lock.save(
+        lock.rebuild(
+            registry,
+            [Verdict(source_id="s", state=State.GONE, error="HTTP 404", consecutive=2)],
+            today="2026-01-08",
+        )
+    )
     data = json.loads(path.read_text(encoding="utf-8"))
     assert data["sources"]["s"][Lock.FAILING]["consecutive"] == 2
 
-    lock.save(lock.rebuild(registry, [Verdict(
-        source_id="s", state=State.OK, body=None)], today="2026-01-15"))
+    lock.save(
+        lock.rebuild(
+            registry, [Verdict(source_id="s", state=State.OK, body=None)], today="2026-01-15"
+        )
+    )
     assert Lock.FAILING not in path.read_text(encoding="utf-8")
 
 
@@ -581,20 +683,36 @@ def test_an_unreachable_source_keeps_the_fingerprint_it_had(tmp_path: Path) -> N
     # everything comes back as `new`.
     path = tmp_path / "sources.lock.json"
     lock = Lock(path)
-    source = Source(id="s", url="u", cache="c", consumed_by="x", on_removal="x",
-                    fingerprint=Fingerprint(kind=FingerprintKind.BYTES_LEN))
+    source = Source(
+        id="s",
+        url="u",
+        cache="c",
+        consumed_by="x",
+        on_removal="x",
+        fingerprint=Fingerprint(kind=FingerprintKind.BYTES_LEN),
+    )
     registry = _registry_for(tmp_path, source)
 
-    lock.save(lock.rebuild(registry, [Verdict(
-        source_id="s", state=State.NEW, now=42, body=b"x")], today="2026-01-01"))
-    lock.save(lock.rebuild(registry, [Verdict(
-        source_id="s", state=State.FLAKY, error="timeout", consecutive=1)],
-        today="2026-01-08"))
+    lock.save(
+        lock.rebuild(
+            registry,
+            [Verdict(source_id="s", state=State.NEW, now=42, body=b"x")],
+            today="2026-01-01",
+        )
+    )
+    lock.save(
+        lock.rebuild(
+            registry,
+            [Verdict(source_id="s", state=State.FLAKY, error="timeout", consecutive=1)],
+            today="2026-01-08",
+        )
+    )
 
     assert Lock(path).fingerprint("s") == 42
 
 
 # ============================== the janitor ==============================
+
 
 def _changed(source_id: str) -> Verdict:
     return Verdict(source_id=source_id, state=State.CHANGED, was=1, now=2)
@@ -604,11 +722,11 @@ def test_a_changed_source_loses_its_cached_body(tmp_path: Path) -> None:
     cache = tmp_path / ".cache"
     cache.mkdir()
     (cache / "body.json").write_text("{}", encoding="utf-8")
-    source = Source(id="s", url="u", cache="body.json", consumed_by="x",
-                    on_removal="x", on_change=Policy.DELETE)
+    source = Source(
+        id="s", url="u", cache="body.json", consumed_by="x", on_removal="x", on_change=Policy.DELETE
+    )
 
-    actions = Janitor(_registry_for(tmp_path, source)).run(
-        _report_with(_changed("s")))
+    actions = Janitor(_registry_for(tmp_path, source)).run(_report_with(_changed("s")))
 
     assert any(a.verb is Verb.DELETED for a in actions)
     assert not (cache / "body.json").exists()
@@ -622,11 +740,17 @@ def test_a_merging_cache_is_renamed_aside_not_deleted(tmp_path: Path) -> None:
     cache.mkdir()
     (cache / "records.json").write_text("[]", encoding="utf-8")
     source = Source(id="s", probe_url="u", consumed_by="x", on_removal="x")
-    derived = Derived(id="d", cache="records.json", derives_from=("s",),
-                      on_change=Policy.MERGE, record_max_age_days=730)
+    derived = Derived(
+        id="d",
+        cache="records.json",
+        derives_from=("s",),
+        on_change=Policy.MERGE,
+        record_max_age_days=730,
+    )
 
     actions = Janitor(_registry_for(tmp_path, source, derived=(derived,))).run(
-        _report_with(_changed("s")))
+        _report_with(_changed("s"))
+    )
 
     assert any(a.verb is Verb.RENAMED for a in actions)
     assert (cache / f"records{Layout.PREV}.json").exists()
@@ -638,11 +762,13 @@ def test_an_expensive_cache_survives_an_upstream_change(tmp_path: Path) -> None:
     cache.mkdir()
     (cache / "dmi.json").write_text("[]", encoding="utf-8")
     source = Source(id="s", probe_url="u", consumed_by="x", on_removal="x")
-    derived = Derived(id="d", cache="dmi.json", derives_from=("s",),
-                      on_change=Policy.KEEP, max_age_days=365)
+    derived = Derived(
+        id="d", cache="dmi.json", derives_from=("s",), on_change=Policy.KEEP, max_age_days=365
+    )
 
     actions = Janitor(_registry_for(tmp_path, source, derived=(derived,))).run(
-        _report_with(_changed("s")))
+        _report_with(_changed("s"))
+    )
 
     assert any(a.verb is Verb.KEPT for a in actions)
     assert (cache / "dmi.json").exists()
@@ -653,13 +779,15 @@ def test_a_derived_cache_goes_stale_by_dependency(tmp_path: Path) -> None:
     cache.mkdir()
     (cache / "built.json").write_text("{}", encoding="utf-8")
     source = Source(id="upstream", probe_url="u", consumed_by="x", on_removal="x")
-    derived = Derived(id="d", cache="built.json", derives_from=("upstream",),
-                      on_change=Policy.DELETE)
+    derived = Derived(
+        id="d", cache="built.json", derives_from=("upstream",), on_change=Policy.DELETE
+    )
     registry = _registry_for(tmp_path, source, derived=(derived,))
 
-    assert not any(a.verb is Verb.DELETED for a in
-                   Janitor(registry).run(_report_with(
-                       Verdict(source_id="upstream", state=State.OK))))
+    assert not any(
+        a.verb is Verb.DELETED
+        for a in Janitor(registry).run(_report_with(Verdict(source_id="upstream", state=State.OK)))
+    )
     assert (cache / "built.json").exists()
 
     Janitor(registry).run(_report_with(_changed("upstream")))
@@ -672,8 +800,7 @@ def test_scratch_never_survives_a_run(tmp_path: Path) -> None:
     source = Source(id="s", probe_url="u", consumed_by="x", on_removal="x")
     registry = _registry_for(tmp_path, source, scratch=("dmi-repo",))
 
-    actions = Janitor(registry).run(_report_with(
-        Verdict(source_id="s", state=State.OK)))
+    actions = Janitor(registry).run(_report_with(Verdict(source_id="s", state=State.OK)))
 
     assert any(a.verb is Verb.SCRATCH for a in actions)
     assert not (cache / "dmi-repo").exists()
@@ -686,8 +813,9 @@ def test_an_undeclared_cache_file_is_reported_and_never_deleted(tmp_path: Path) 
     (cache / "mystery.json").write_text("{}", encoding="utf-8")
     source = Source(id="s", probe_url="u", consumed_by="x", on_removal="x")
 
-    actions = Janitor(_registry_for(tmp_path, source)).run(_report_with(
-        Verdict(source_id="s", state=State.OK)))
+    actions = Janitor(_registry_for(tmp_path, source)).run(
+        _report_with(Verdict(source_id="s", state=State.OK))
+    )
 
     assert any(a.verb is Verb.ORPHAN for a in actions)
     assert (cache / "mystery.json").exists()
@@ -697,18 +825,15 @@ def test_a_dry_run_changes_nothing(tmp_path: Path) -> None:
     cache = tmp_path / ".cache"
     cache.mkdir()
     (cache / "body.json").write_text("{}", encoding="utf-8")
-    source = Source(id="s", url="u", cache="body.json", consumed_by="x",
-                    on_removal="x")
+    source = Source(id="s", url="u", cache="body.json", consumed_by="x", on_removal="x")
 
-    Janitor(_registry_for(tmp_path, source), dry_run=True).run(
-        _report_with(_changed("s")))
+    Janitor(_registry_for(tmp_path, source), dry_run=True).run(_report_with(_changed("s")))
 
     assert (cache / "body.json").exists()
 
 
 def _report_with(*verdicts: Verdict) -> Report:
-    return Report(tool="t", verdicts=tuple(verdicts), network=Health.OK,
-                  first_run=False)
+    return Report(tool="t", verdicts=tuple(verdicts), network=Health.OK, first_run=False)
 
 
 # --------------------- a cache somebody else overtook ---------------------
@@ -721,6 +846,7 @@ def _report_with(*verdicts: Verdict) -> Report:
 # that closes it: a cache file must be at least as new as the newest change
 # anybody has recorded for its source.
 
+
 def _aged(path: Path, days: int) -> Path:
     when = time.time() - days * 86400
     os.utime(path, (when, when))
@@ -731,8 +857,7 @@ def _days_back(days: int) -> str:
     return (date.today() - timedelta(days=days)).isoformat()
 
 
-def _cached(tmp_path: Path, name: str = "c", *,
-            fetched_days_ago: int = 7) -> tuple[Source, Path]:
+def _cached(tmp_path: Path, name: str = "c", *, fetched_days_ago: int = 7) -> tuple[Source, Path]:
     cache = tmp_path / ".cache"
     cache.mkdir(exist_ok=True)
     path = cache / name
@@ -745,8 +870,7 @@ def _cached(tmp_path: Path, name: str = "c", *,
 def test_a_cache_older_than_a_change_someone_else_recorded_is_dropped(tmp_path: Path) -> None:
     source, path = _cached(tmp_path, fetched_days_ago=7)
     # `ok`, because this run compares against the value CI already wrote.
-    verdict = Verdict(source_id="s", state=State.OK,
-                      recorded_change=_days_back(3))
+    verdict = Verdict(source_id="s", state=State.OK, recorded_change=_days_back(3))
 
     actions = Janitor(_registry_for(tmp_path, source)).run(_report_with(verdict))
 
@@ -758,8 +882,7 @@ def test_a_cache_fetched_on_the_day_of_the_change_is_kept(tmp_path: Path) -> Non
     # Whole days, matching the lock's own granularity: the run that found the
     # change is also the run that refetched, so same-day is current.
     source, path = _cached(tmp_path, fetched_days_ago=0)
-    verdict = Verdict(source_id="s", state=State.OK,
-                      recorded_change=date.today().isoformat())
+    verdict = Verdict(source_id="s", state=State.OK, recorded_change=date.today().isoformat())
 
     actions = Janitor(_registry_for(tmp_path, source)).run(_report_with(verdict))
 
@@ -785,8 +908,9 @@ def test_a_change_this_run_found_is_not_handled_twice(tmp_path: Path) -> None:
     # actions for one file would read as two different reasons to distrust
     # the same cache.
     source, _ = _cached(tmp_path, fetched_days_ago=7)
-    verdict = Verdict(source_id="s", state=State.CHANGED, was=1, now=2,
-                      recorded_change=_days_back(3))
+    verdict = Verdict(
+        source_id="s", state=State.CHANGED, was=1, now=2, recorded_change=_days_back(3)
+    )
 
     actions = Janitor(_registry_for(tmp_path, source)).run(_report_with(verdict))
 
@@ -799,8 +923,9 @@ def test_a_source_that_could_not_be_reached_never_costs_its_cache(tmp_path: Path
     # timeout deleting the body it was covering for would turn one dropped
     # connection into a build that cannot run at all.
     source, path = _cached(tmp_path, fetched_days_ago=7)
-    verdict = Verdict(source_id="s", state=State.FLAKY, error="timeout",
-                      recorded_change=_days_back(3))
+    verdict = Verdict(
+        source_id="s", state=State.FLAKY, error="timeout", recorded_change=_days_back(3)
+    )
 
     actions = Janitor(_registry_for(tmp_path, source)).run(_report_with(verdict))
 
@@ -810,6 +935,7 @@ def test_a_source_that_could_not_be_reached_never_costs_its_cache(tmp_path: Path
 
 # ======================== conditional request trust ========================
 
+
 class _FakeProber(Prober):
     """Records what validators each probe was given."""
 
@@ -817,23 +943,37 @@ class _FakeProber(Prober):
         super().__init__()
         self.seen: list[tuple[str, str]] = []
 
-    def probe(self, source: Source, *, etag: str = "",
-              last_modified: str = "") -> Verdict:
+    def probe(self, source: Source, *, etag: str = "", last_modified: str = "") -> Verdict:
         self.seen.append((etag, last_modified))
-        return Verdict(source_id=source.id, state=State.OK, body=b"body",
-                       sha256="hash", bytes_len=4)
+        return Verdict(
+            source_id=source.id, state=State.OK, body=b"body", sha256="hash", bytes_len=4
+        )
 
 
-@pytest.mark.parametrize("stored,expect_conditional", [
-    ({"declaration": "MATCH", "contract": "ok",
-      "http": {"etag": "E", "last_modified": "L"}}, True),
-    ({"declaration": "STALE", "contract": "ok",
-      "http": {"etag": "E", "last_modified": "L"}}, False),
-    ({"declaration": "MATCH", "contract": "broken",
-      "http": {"etag": "E", "last_modified": "L"}}, False),
-])
+@pytest.mark.parametrize(
+    "stored,expect_conditional",
+    [
+        (
+            {"declaration": "MATCH", "contract": "ok", "http": {"etag": "E", "last_modified": "L"}},
+            True,
+        ),
+        (
+            {"declaration": "STALE", "contract": "ok", "http": {"etag": "E", "last_modified": "L"}},
+            False,
+        ),
+        (
+            {
+                "declaration": "MATCH",
+                "contract": "broken",
+                "http": {"etag": "E", "last_modified": "L"},
+            },
+            False,
+        ),
+    ],
+)
 def test_a_conditional_request_needs_a_trustworthy_previous_verdict(
-        tmp_path: Path, stored: dict[str, Any], expect_conditional: bool) -> None:
+    tmp_path: Path, stored: dict[str, Any], expect_conditional: bool
+) -> None:
     """A 304 carries no body, so it reuses the stored verdict.
 
     That is only honest while the declaration is the one that verdict was
@@ -842,19 +982,34 @@ def test_a_conditional_request_needs_a_trustworthy_previous_verdict(
     the very next run -- which it did, until this was fixed.
     """
 
-    source = Source(id="s", url="u", cache="c", consumed_by="x", on_removal="x",
-                    contract=Contract(kind=ContractKind.TEXT, must_contain=("x",)))
+    source = Source(
+        id="s",
+        url="u",
+        cache="c",
+        consumed_by="x",
+        on_removal="x",
+        contract=Contract(kind=ContractKind.TEXT, must_contain=("x",)),
+    )
     path = tmp_path / "sources.lock.json"
-    path.write_text(json.dumps({
-        "lock_schema": 1,
-        "sources": {"s": {**stored, "declaration":
-                          source.digest if stored["declaration"] == "MATCH"
-                          else "0000"}},
-    }), encoding="utf-8")
+    path.write_text(
+        json.dumps(
+            {
+                "lock_schema": 1,
+                "sources": {
+                    "s": {
+                        **stored,
+                        "declaration": source.digest
+                        if stored["declaration"] == "MATCH"
+                        else "0000",
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
 
     prober = _FakeProber()
-    Checker(_registry_for(tmp_path, source), Lock(path),
-            prober=prober).check_one(source)
+    Checker(_registry_for(tmp_path, source), Lock(path), prober=prober).check_one(source)
 
     assert (prober.seen[0] != ("", "")) is expect_conditional
 
@@ -874,21 +1029,31 @@ def test_a_conditional_request_needs_a_trustworthy_previous_verdict(
 # sends only Last-Modified, so three were silently exempt from the one check
 # that catches a reshaped feed.
 
-@pytest.mark.parametrize("stored, expect", [
-    ({"etag": '"strong"'}, ('"strong"', "")),
-    ({"etag": 'W/"weak"'}, ("", "")),
-    ({"last_modified": "Wed, 01 Jan 2025 00:00:00 GMT"}, ("", "")),
-    ({"etag": 'W/"weak"', "last_modified": "L"}, ("", "")),
-    ({"etag": '"strong"', "last_modified": "L"}, ('"strong"', "")),
-    ({}, ("", "")),
-])
+
+@pytest.mark.parametrize(
+    "stored, expect",
+    [
+        ({"etag": '"strong"'}, ('"strong"', "")),
+        ({"etag": 'W/"weak"'}, ("", "")),
+        ({"last_modified": "Wed, 01 Jan 2025 00:00:00 GMT"}, ("", "")),
+        ({"etag": 'W/"weak"', "last_modified": "L"}, ("", "")),
+        ({"etag": '"strong"', "last_modified": "L"}, ('"strong"', "")),
+        ({}, ("", "")),
+    ],
+)
 def test_only_a_strong_etag_may_shorten_a_check(
-        tmp_path: Path, stored: dict[str, str], expect: tuple[str, str]) -> None:
+    tmp_path: Path, stored: dict[str, str], expect: tuple[str, str]
+) -> None:
     path = tmp_path / "sources.lock.json"
-    path.write_text(json.dumps({
-        "lock_schema": 1,
-        "sources": {"s": {"contract": "ok", "http": stored}},
-    }), encoding="utf-8")
+    path.write_text(
+        json.dumps(
+            {
+                "lock_schema": 1,
+                "sources": {"s": {"contract": "ok", "http": stored}},
+            }
+        ),
+        encoding="utf-8",
+    )
 
     assert Lock(path).validators("s") == expect
 
@@ -902,30 +1067,45 @@ def test_last_modified_is_still_recorded_as_a_fact(tmp_path: Path) -> None:
 
     source = Source(id="s", url="u", cache="c", consumed_by="x", on_removal="x")
     lock = Lock(tmp_path / "sources.lock.json")
-    rebuilt = lock.rebuild(_registry_for(tmp_path, source), [Verdict(
-        source_id="s", state=State.NEW, body=b"x", sha256="a", bytes_len=1,
-        etag='W/"weak"', last_modified="L")])
+    rebuilt = lock.rebuild(
+        _registry_for(tmp_path, source),
+        [
+            Verdict(
+                source_id="s",
+                state=State.NEW,
+                body=b"x",
+                sha256="a",
+                bytes_len=1,
+                etag='W/"weak"',
+                last_modified="L",
+            )
+        ],
+    )
 
-    assert rebuilt["sources"]["s"]["http"] == {
-        "etag": 'W/"weak"', "last_modified": "L"}
+    assert rebuilt["sources"]["s"]["http"] == {"etag": 'W/"weak"', "last_modified": "L"}
     lock.save(rebuilt)
     assert lock.validators("s") == ("", "")
 
 
 # ===================== a contract reports, never raises =====================
 
-@pytest.mark.parametrize("contract, body, expect", [
-    # a malformed CSV used to raise csv.Error out of the check and end the
-    # run in a traceback: nothing reported, nothing cleaned, no exit code.
-    # the oversized body is built in the test rather than passed here: a
-    # 200 KB parametrize id overflows the environment variable pytest
-    # reports the current test through.
-    (Contract(kind=ContractKind.CSV, min_rows=1), "oversized_csv_field", "could not be read"),
-    # a kind the parser would have rejected, reaching the checker anyway.
-    (Contract(kind="xml"), b"<a/>", "unknown contract kind"),
-])
+
+@pytest.mark.parametrize(
+    "contract, body, expect",
+    [
+        # a malformed CSV used to raise csv.Error out of the check and end the
+        # run in a traceback: nothing reported, nothing cleaned, no exit code.
+        # the oversized body is built in the test rather than passed here: a
+        # 200 KB parametrize id overflows the environment variable pytest
+        # reports the current test through.
+        (Contract(kind=ContractKind.CSV, min_rows=1), "oversized_csv_field", "could not be read"),
+        # a kind the parser would have rejected, reaching the checker anyway.
+        (Contract(kind="xml"), b"<a/>", "unknown contract kind"),
+    ],
+)
 def test_a_body_that_cannot_be_judged_is_a_stated_failure(
-        contract: Contract, body: bytes | str, expect: str) -> None:
+    contract: Contract, body: bytes | str, expect: str
+) -> None:
     if body == "oversized_csv_field":
         body = b'a,b\n"' + b"x" * 200_000
     errors = ContractCheck.run(contract, body)
@@ -944,12 +1124,16 @@ def test_every_contract_kind_the_model_declares_is_implemented() -> None:
     assert set(ContractCheck.KINDS) == set(ContractKind)
 
 
-@pytest.mark.parametrize("block", [
-    'contract = { kind = "text", must_match = "[" }',
-    'fingerprint = { kind = "regex_count", pattern = "(" }',
-])
+@pytest.mark.parametrize(
+    "block",
+    [
+        'contract = { kind = "text", must_match = "[" }',
+        'fingerprint = { kind = "regex_count", pattern = "(" }',
+    ],
+)
 def test_a_pattern_that_will_not_compile_is_a_malformed_registry(
-        tmp_path: Path, block: str) -> None:
+    tmp_path: Path, block: str
+) -> None:
     """Caught at parse time, so it is exit code 4 rather than a traceback out
     of the middle of a check that has already touched the network."""
 
@@ -958,7 +1142,8 @@ def test_a_pattern_that_will_not_compile_is_a_malformed_registry(
         '[tool]\nname = "demo"\n\n[[source]]\nid = "s"\n'
         'url = "http://x/y"\ncache = "c.json"\n'
         'consumed_by = "x"\non_removal = "x"\n' + block,
-        encoding="utf-8")
+        encoding="utf-8",
+    )
 
     was, Layout.TOOLS_DIR = Layout.TOOLS_DIR, tmp_path
     try:
@@ -970,9 +1155,9 @@ def test_a_pattern_that_will_not_compile_is_a_malformed_registry(
 
 # ========================= a run can be stopped =========================
 
+
 @pytest.mark.parametrize("raised", [KeyboardInterrupt, SystemExit])
-def test_an_interrupt_is_not_classified_as_a_flaky_source(
-        raised: type[BaseException]) -> None:
+def test_an_interrupt_is_not_classified_as_a_flaky_source(raised: type[BaseException]) -> None:
     """Catching BaseException around a request is right -- one bad socket must
     not end a run of eighteen sources. Swallowing Ctrl-C was not: it became
     `flaky`, was retried twice with a sleep between, and the run carried on to
@@ -981,43 +1166,42 @@ def test_an_interrupt_is_not_classified_as_a_flaky_source(
     class Interrupting(Prober):
         BACKOFF = 0.0
 
-        def request(self, url: str, *, etag: str = "",
-                    last_modified: str = "") -> NoReturn:
+        def request(self, url: str, *, etag: str = "", last_modified: str = "") -> NoReturn:
             raise raised
 
     with pytest.raises(raised):
-        Interrupting().probe(
-            Source(id="s", url="u", cache="c", consumed_by="x", on_removal="x"))
+        Interrupting().probe(Source(id="s", url="u", cache="c", consumed_by="x", on_removal="x"))
 
 
 def test_a_real_failure_is_still_classified_and_retried() -> None:
     class Broken(Prober):
         BACKOFF = 0.0
 
-        def request(self, url: str, *, etag: str = "",
-                    last_modified: str = "") -> NoReturn:
+        def request(self, url: str, *, etag: str = "", last_modified: str = "") -> NoReturn:
             msg = "socket died"
             raise OSError(msg)
 
-    verdict = Broken().probe(
-        Source(id="s", url="u", cache="c", consumed_by="x", on_removal="x"))
+    verdict = Broken().probe(Source(id="s", url="u", cache="c", consumed_by="x", on_removal="x"))
     assert verdict.state == State.FLAKY
     assert verdict.attempts == Prober.ATTEMPTS
 
 
 # ======================== what the caller learns ========================
 
-@pytest.mark.parametrize("codes, worst", [
-    ([Exit.UNREACHABLE, Exit.DEAD], Exit.DEAD),
-    ([Exit.CHANGED, Exit.DEAD], Exit.DEAD),
-    ([Exit.DEAD, Exit.CHANGED], Exit.DEAD),
-    ([Exit.CHANGED, Exit.UNREACHABLE], Exit.UNREACHABLE),
-    ([Exit.DEAD, Exit.REGISTRY], Exit.REGISTRY),
-    ([Exit.OK, Exit.CHANGED, Exit.OK], Exit.CHANGED),
-    ([Exit.OK, Exit.OK], Exit.OK),
-])
-def test_all_reports_the_worst_outcome_not_the_first(
-        codes: list[Exit], worst: Exit) -> None:
+
+@pytest.mark.parametrize(
+    "codes, worst",
+    [
+        ([Exit.UNREACHABLE, Exit.DEAD], Exit.DEAD),
+        ([Exit.CHANGED, Exit.DEAD], Exit.DEAD),
+        ([Exit.DEAD, Exit.CHANGED], Exit.DEAD),
+        ([Exit.CHANGED, Exit.UNREACHABLE], Exit.UNREACHABLE),
+        ([Exit.DEAD, Exit.REGISTRY], Exit.REGISTRY),
+        ([Exit.OK, Exit.CHANGED, Exit.OK], Exit.CHANGED),
+        ([Exit.OK, Exit.OK], Exit.OK),
+    ],
+)
+def test_all_reports_the_worst_outcome_not_the_first(codes: list[Exit], worst: Exit) -> None:
     """Taking the first non-zero code answered "unreachable" for a run in
     which another tool's source was dead, so the caller would retry instead
     of fetching a developer."""
@@ -1032,27 +1216,40 @@ def test_every_exit_code_is_ranked() -> None:
     assert set(_enums.EXIT_ORDER) == set(Exit)
 
 
-@pytest.mark.parametrize("code, expect", [
-    (None, Exit.OK), (0, 0), (3, 3), (True, 1), (False, 0),
-    # a tool is entitled to `raise SystemExit("the cache is missing")`, and
-    # python prints that and exits 1. int() raised a ValueError instead, so
-    # the tool's own explanation became a traceback from the launcher.
-    ("the cache is missing", Exit.DEAD),
-])
+@pytest.mark.parametrize(
+    "code, expect",
+    [
+        (None, Exit.OK),
+        (0, 0),
+        (3, 3),
+        (True, 1),
+        (False, 0),
+        # a tool is entitled to `raise SystemExit("the cache is missing")`, and
+        # python prints that and exits 1. int() raised a ValueError instead, so
+        # the tool's own explanation became a traceback from the launcher.
+        ("the cache is missing", Exit.DEAD),
+    ],
+)
 def test_a_tool_may_exit_with_a_message(
-        capsys: pytest.CaptureFixture[str], code: object, expect: int) -> None:
+    capsys: pytest.CaptureFixture[str], code: object, expect: int
+) -> None:
     assert Dispatcher._exit_code(code) == expect
 
 
 # ===================== a source believed to be dead =====================
+
 
 def test_a_source_is_only_called_dead_after_enough_consecutive_runs() -> None:
     """One failure is weather. The counter lives in the tracked lock so it
     survives a fresh CI runner, and the report is where it is acted on."""
 
     def report(consecutive: int) -> Report:
-        return Report(tool="t", network="ok", first_run=False, verdicts=(
-            Verdict(source_id="s", state=State.GONE, consecutive=consecutive),))
+        return Report(
+            tool="t",
+            network="ok",
+            first_run=False,
+            verdicts=(Verdict(source_id="s", state=State.GONE, consecutive=consecutive),),
+        )
 
     assert report(Report.ESCALATE_AFTER - 1).escalated == ()
     assert len(report(Report.ESCALATE_AFTER).escalated) == 1
@@ -1061,16 +1258,22 @@ def test_a_source_is_only_called_dead_after_enough_consecutive_runs() -> None:
 
 # ================== break, then recover, then change ==================
 
+
 def _lifecycle_lock(tmp_path: Path, source: Source) -> tuple[Lock, Registry]:
     return Lock(tmp_path / "sources.lock.json"), _registry_for(tmp_path, source)
 
 
-def _verdict(source: Source, state: State, now: Any = None,
-             errors: Iterable[str] = ()) -> Verdict:
-    return Verdict(source_id=source.id, state=state, now=now,
-                   body=None if state in (State.GONE,) else b"body",
-                   sha256="s", bytes_len=4, declaration=source.digest,
-                   contract_errors=tuple(errors))
+def _verdict(source: Source, state: State, now: Any = None, errors: Iterable[str] = ()) -> Verdict:
+    return Verdict(
+        source_id=source.id,
+        state=state,
+        now=now,
+        body=None if state in (State.GONE,) else b"body",
+        sha256="s",
+        bytes_len=4,
+        declaration=source.digest,
+        contract_errors=tuple(errors),
+    )
 
 
 def test_a_failure_does_not_erase_the_fingerprint_it_failed_to_produce(tmp_path: Path) -> None:
@@ -1082,25 +1285,32 @@ def test_a_failure_does_not_erase_the_fingerprint_it_failed_to_produce(tmp_path:
     and had the janitor delete a cache for a change that never happened.
     """
 
-    source = Source(id="s", url="u", cache="c.json",
-                    consumed_by="x", on_removal="x",
-                    contract=Contract(kind=ContractKind.JSON_LIST, item_keys=("name",)),
-                    fingerprint=Fingerprint(kind=FingerprintKind.JSON_LEN))
+    source = Source(
+        id="s",
+        url="u",
+        cache="c.json",
+        consumed_by="x",
+        on_removal="x",
+        contract=Contract(kind=ContractKind.JSON_LIST, item_keys=("name",)),
+        fingerprint=Fingerprint(kind=FingerprintKind.JSON_LEN),
+    )
     lock, registry = _lifecycle_lock(tmp_path, source)
 
     lock.save(lock.rebuild(registry, [_verdict(source, State.NEW, now=3)]))
     assert lock.entry("s")["fingerprint"] == 3
 
     # upstream reshapes: the contract breaks and no fingerprint is produced.
-    lock.save(lock.rebuild(registry, [
-        _verdict(source, State.CONTRACT_BROKEN, errors=("no item carries 'name'",))]))
+    lock.save(
+        lock.rebuild(
+            registry, [_verdict(source, State.CONTRACT_BROKEN, errors=("no item carries 'name'",))]
+        )
+    )
     assert lock.entry("s")["contract"] == "broken"
     assert lock.entry("s")["fingerprint"] == 3, "the baseline must survive"
     assert "sha256" not in lock.entry("s")
 
     # upstream recovers with the same content: `ok`, not `changed`.
-    assert Checker(registry, lock)._moved(
-        lock.fingerprint("s"), 3, "a", lock.sha256("s")) is False
+    assert Checker(registry, lock)._moved(lock.fingerprint("s"), 3, "a", lock.sha256("s")) is False
 
 
 def test_a_recovered_source_stops_being_called_reshaped(tmp_path: Path) -> None:
@@ -1108,10 +1318,15 @@ def test_a_recovered_source_stops_being_called_reshaped(tmp_path: Path) -> None:
     off the conditional path forever on the strength of a failure that is
     over."""
 
-    source = Source(id="s", url="u", cache="c.json",
-                    consumed_by="x", on_removal="x",
-                    contract=Contract(kind=ContractKind.JSON_LIST, item_keys=("name",)),
-                    fingerprint=Fingerprint(kind=FingerprintKind.JSON_LEN))
+    source = Source(
+        id="s",
+        url="u",
+        cache="c.json",
+        consumed_by="x",
+        on_removal="x",
+        contract=Contract(kind=ContractKind.JSON_LIST, item_keys=("name",)),
+        fingerprint=Fingerprint(kind=FingerprintKind.JSON_LEN),
+    )
     lock, registry = _lifecycle_lock(tmp_path, source)
 
     lock.save(lock.rebuild(registry, [_verdict(source, State.NEW, now=3)]))
@@ -1133,16 +1348,30 @@ def test_an_unreachable_source_records_no_verdict_at_all(tmp_path: Path) -> None
     """`flaky` never got a body, so it has nothing to say about the shape.
     Writing `contract: broken` for a timeout would accuse a working source."""
 
-    source = Source(id="s", url="u", cache="c.json",
-                    consumed_by="x", on_removal="x",
-                    contract=Contract(kind=ContractKind.JSON_LIST),
-                    fingerprint=Fingerprint(kind=FingerprintKind.JSON_LEN))
+    source = Source(
+        id="s",
+        url="u",
+        cache="c.json",
+        consumed_by="x",
+        on_removal="x",
+        contract=Contract(kind=ContractKind.JSON_LIST),
+        fingerprint=Fingerprint(kind=FingerprintKind.JSON_LEN),
+    )
     lock, registry = _lifecycle_lock(tmp_path, source)
 
     lock.save(lock.rebuild(registry, [_verdict(source, State.NEW, now=3)]))
-    rebuilt = lock.rebuild(registry, [Verdict(
-        source_id="s", state=State.FLAKY, error="timeout",
-        consecutive=1, declaration=source.digest)])
+    rebuilt = lock.rebuild(
+        registry,
+        [
+            Verdict(
+                source_id="s",
+                state=State.FLAKY,
+                error="timeout",
+                consecutive=1,
+                declaration=source.digest,
+            )
+        ],
+    )
 
     assert rebuilt["sources"]["s"]["contract"] == "ok"
     assert rebuilt["sources"]["s"]["fingerprint"] == 3
@@ -1226,37 +1455,45 @@ def test_the_scheduled_run_keeps_the_counter_it_depends_on() -> None:
 
 # --- reading a cadence -----------------------------------------------------
 
-@pytest.mark.parametrize("cron, days", [
-    ("19 4 * * 1", _models.Schedule.WEEKLY),
-    ("0 5 * * 0", _models.Schedule.WEEKLY),
-    ("0 5 * * *", _models.Schedule.DAILY),
-    ("0 5 1 * *", _models.Schedule.MONTHLY),
-])
-def test_a_cadence_is_read_out_of_the_cron_not_declared_beside_it(
-        cron: str, days: int) -> None:
+
+@pytest.mark.parametrize(
+    "cron, days",
+    [
+        ("19 4 * * 1", _models.Schedule.WEEKLY),
+        ("0 5 * * 0", _models.Schedule.WEEKLY),
+        ("0 5 * * *", _models.Schedule.DAILY),
+        ("0 5 1 * *", _models.Schedule.MONTHLY),
+    ],
+)
+def test_a_cadence_is_read_out_of_the_cron_not_declared_beside_it(cron: str, days: int) -> None:
     # Derived, so there is no second number to drift. The reader is the
     # escalation line: three runs is three weeks here and three days at a
     # daily cadence, and only one of those is worth waiting for.
     assert _models.Schedule(tool="t", cron=cron).every_days == days
 
 
-@pytest.mark.parametrize("cron", [
-    "0 5 * * */3",                                # every third weekday
-    "0 5 * * 1,4",                                # twice a week
-    "0 5 1 1 *",                                  # once a year
-    "0 5 * *",                                    # four fields
-    "nonsense",
-])
+@pytest.mark.parametrize(
+    "cron",
+    [
+        "0 5 * * */3",  # every third weekday
+        "0 5 * * 1,4",  # twice a week
+        "0 5 1 1 *",  # once a year
+        "0 5 * *",  # four fields
+        "nonsense",
+    ],
+)
 def test_a_cron_that_is_not_a_cadence_is_refused_rather_than_rounded(cron: str) -> None:
     assert _models.Schedule(tool="t", cron=cron).every_days == 0
 
 
 def test_a_schedule_that_cannot_be_stated_in_days_is_malformed(
-        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     folder = tmp_path / "fake_tool" / Layout.SCHEDULE
     folder.mkdir(parents=True)
     (folder / Layout.SCHEDULE_FILE).write_text(
-        '[schedule]\ncron = "0 5 * * 1,4"\n', encoding="utf-8")
+        '[schedule]\ncron = "0 5 * * 1,4"\n', encoding="utf-8"
+    )
     monkeypatch.setattr(Layout, "TOOLS_DIR", tmp_path)
 
     with pytest.raises(_registry.RegistryError, match="stated in days"):
@@ -1269,7 +1506,8 @@ def test_a_schedule_rejects_an_unknown_key(tmp_path: Path, monkeypatch: pytest.M
     folder = tmp_path / "fake_tool" / Layout.SCHEDULE
     folder.mkdir(parents=True)
     (folder / Layout.SCHEDULE_FILE).write_text(
-        '[schedule]\ncron = "19 4 * * 1"\nevery_days = 7\n', encoding="utf-8")
+        '[schedule]\ncron = "19 4 * * 1"\nevery_days = 7\n', encoding="utf-8"
+    )
     monkeypatch.setattr(Layout, "TOOLS_DIR", tmp_path)
 
     with pytest.raises(_registry.RegistryError, match="unknown key"):
@@ -1277,7 +1515,8 @@ def test_a_schedule_rejects_an_unknown_key(tmp_path: Path, monkeypatch: pytest.M
 
 
 def test_a_tool_with_no_schedule_is_still_checkable_by_hand(
-        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # Finding a cadence is soft; needing one is the workflow's business.
     monkeypatch.setattr(Layout, "TOOLS_DIR", tmp_path)
 
@@ -1286,9 +1525,14 @@ def test_a_tool_with_no_schedule_is_still_checkable_by_hand(
 
 # --- what a scheduled run reports -----------------------------------------
 
+
 def _failing(consecutive: int, state: str = State.FLAKY) -> Report:
-    return Report(tool="t", network=Health.OK, first_run=False, verdicts=(
-        Verdict(source_id="s", state=state, consecutive=consecutive),))
+    return Report(
+        tool="t",
+        network=Health.OK,
+        first_run=False,
+        verdicts=(Verdict(source_id="s", state=state, consecutive=consecutive),),
+    )
 
 
 def test_an_escalated_source_is_dead_however_flaky_a_run_may_be() -> None:
@@ -1310,9 +1554,15 @@ def test_one_unreachable_run_is_passable_when_the_caller_says_so() -> None:
 
 
 def test_waiving_flakiness_does_not_hide_a_change() -> None:
-    report = Report(tool="t", network=Health.OK, first_run=False, verdicts=(
-        Verdict(source_id="a", state=State.FLAKY, consecutive=1),
-        Verdict(source_id="b", state=State.CHANGED, was=1, now=2)))
+    report = Report(
+        tool="t",
+        network=Health.OK,
+        first_run=False,
+        verdicts=(
+            Verdict(source_id="a", state=State.FLAKY, consecutive=1),
+            Verdict(source_id="b", state=State.CHANGED, was=1, now=2),
+        ),
+    )
 
     assert report.exit_code(allow_flaky=True) == Exit.CHANGED
 
@@ -1360,12 +1610,10 @@ def _tool_classes(tool: str) -> dict[str, set[str]]:
             for item in node.body:
                 if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     names.add(item.name)
-                elif isinstance(item, ast.AnnAssign) and isinstance(
-                        item.target, ast.Name):
+                elif isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
                     names.add(item.target.id)
                 elif isinstance(item, ast.Assign):
-                    names.update(t.id for t in item.targets
-                                 if isinstance(t, ast.Name))
+                    names.update(t.id for t in item.targets if isinstance(t, ast.Name))
             found.setdefault(node.name, set()).update(names)
     return found
 
@@ -1388,8 +1636,9 @@ def test_every_ported_rule_points_at_a_module_that_exists() -> None:
             named = re.findall(r"src/(\w+)\.py", citation.ported_to)
             assert named, f"{citation.id}: ported_to names no src module"
             for module in named:
-                assert (src / f"{module}.py").is_file(), \
+                assert (src / f"{module}.py").is_file(), (
                     f"{citation.id}: src/{module}.py does not exist"
+                )
 
 
 #: What `ported_to` is written in: `Owner.first, SECOND, third()`, one clause
@@ -1433,35 +1682,40 @@ def test_every_ported_rule_points_at_code_that_still_exists() -> None:
             named = _references(citation.ported_to)
             assert named, f"{citation.id}: ported_to names no symbol at all"
             for owner, attr in named:
-                if owner not in classes:          # prose, not a reference
+                if owner not in classes:  # prose, not a reference
                     continue
                 checked += 1
-                assert attr in classes[owner], \
-                    f"{citation.id}: {owner}.{attr} is gone"
+                assert attr in classes[owner], f"{citation.id}: {owner}.{attr} is gone"
 
     # A guard that resolved nothing would pass just as quietly.
     assert checked >= 20, checked
 
 
-def test_a_citation_declares_every_part_of_its_promise(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_citation_declares_every_part_of_its_promise(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # A citation with nothing to look for would pass every week while the
     # rule it quotes was rewritten underneath it.
     folder = tmp_path / "fake_tool"
     (folder / Layout.SOURCES).mkdir(parents=True)
     (folder / Layout.SOURCES / Layout.REGISTRY_FILE).write_text(
-        '[tool]\nname = "fake_tool"\n', encoding="utf-8")
+        '[tool]\nname = "fake_tool"\n', encoding="utf-8"
+    )
     (folder / Layout.PORTED).mkdir()
     (folder / Layout.PORTED / Layout.CITATIONS_FILE).write_text(
         '[[citation]]\nid = "x"\nurl = "https://example.com/a.cpp"\n'
         'ported_to = "src/x.py :: X"\non_drift = "everything"\n',
-        encoding="utf-8")
+        encoding="utf-8",
+    )
     monkeypatch.setattr(Layout, "TOOLS_DIR", tmp_path)
 
     with pytest.raises(_registry.RegistryError, match="anchors is required"):
         _registry.load("fake_tool")
 
 
-def test_one_body_cannot_be_both_a_source_and_a_citation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_one_body_cannot_be_both_a_source_and_a_citation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # They are opposite promises about the same bytes: a source is parsed on
     # every build and may change, a citation is quoted once and must not.
     folder = tmp_path / "fake_tool"
@@ -1469,12 +1723,15 @@ def test_one_body_cannot_be_both_a_source_and_a_citation(tmp_path: Path, monkeyp
     (folder / Layout.SOURCES / Layout.REGISTRY_FILE).write_text(
         '[tool]\nname = "fake_tool"\n\n'
         '[[source]]\nid = "both"\nurl = "https://example.com/a"\n'
-        'cache = "a"\nconsumed_by = "x"\non_removal = "x"\n', encoding="utf-8")
+        'cache = "a"\nconsumed_by = "x"\non_removal = "x"\n',
+        encoding="utf-8",
+    )
     (folder / Layout.PORTED).mkdir()
     (folder / Layout.PORTED / Layout.CITATIONS_FILE).write_text(
         '[[citation]]\nid = "both"\nurl = "https://example.com/a"\n'
         'anchors = ["x"]\nported_to = "src/x.py :: X"\non_drift = "y"\n',
-        encoding="utf-8")
+        encoding="utf-8",
+    )
     monkeypatch.setattr(Layout, "TOOLS_DIR", tmp_path)
 
     with pytest.raises(_registry.RegistryError, match="one kind of promise"):
@@ -1487,8 +1744,12 @@ def test_a_ported_rule_is_probed_as_a_text_contract() -> None:
     # required string is missing" into a fatal, stated failure already
     # applies, and the janitor leaves it alone because it caches nothing.
     citation = _models.Citation(
-        id="c", url="https://example.com/a.cpp", anchors=("one", "two"),
-        ported_to="src/x.py :: X.y", on_drift="everything")
+        id="c",
+        url="https://example.com/a.cpp",
+        anchors=("one", "two"),
+        ported_to="src/x.py :: X.y",
+        on_drift="everything",
+    )
     source = citation.as_source()
 
     assert source.target == citation.url
@@ -1502,9 +1763,18 @@ def test_a_rule_that_moved_stops_the_build(tmp_path: Path) -> None:
     # The gate, not just the exit code. A port whose premise is gone would
     # otherwise regenerate the catalog from rules the client has replaced,
     # and every string it wrote would look perfectly plausible.
-    broken = Report(tool="t", network=Health.OK, first_run=False, verdicts=(
-        Verdict(source_id="libbase_model_rules", state=State.CONTRACT_BROKEN,
-                contract_errors=("does not contain 'x'",)),))
+    broken = Report(
+        tool="t",
+        network=Health.OK,
+        first_run=False,
+        verdicts=(
+            Verdict(
+                source_id="libbase_model_rules",
+                state=State.CONTRACT_BROKEN,
+                contract_errors=("does not contain 'x'",),
+            ),
+        ),
+    )
 
     assert not broken.may_proceed()
     assert not broken.may_proceed(allow_flaky=True)
@@ -1514,20 +1784,32 @@ def test_a_rule_that_moved_stops_the_build(tmp_path: Path) -> None:
 def test_a_ported_rule_is_locked_apart_from_a_source(tmp_path: Path) -> None:
     # So the diff stays readable: a line under `sources` means data moved, a
     # line under `citations` means a rule did and a port needs re-reading.
-    source = Source(id="feed", url="https://example.com/a",
-                    cache="a.json", consumed_by="x", on_removal="x")
+    source = Source(
+        id="feed", url="https://example.com/a", cache="a.json", consumed_by="x", on_removal="x"
+    )
     citation = _models.Citation(
-        id="rule", url="https://example.com/a.cpp", anchors=("one",),
-        ported_to="src/x.py :: X.y", on_drift="everything")
-    registry = Registry(tool="t", tool_dir=tmp_path,
-                        cache_dir=tmp_path / ".cache",
-                        sources=(source,), citations=(citation,))
+        id="rule",
+        url="https://example.com/a.cpp",
+        anchors=("one",),
+        ported_to="src/x.py :: X.y",
+        on_drift="everything",
+    )
+    registry = Registry(
+        tool="t",
+        tool_dir=tmp_path,
+        cache_dir=tmp_path / ".cache",
+        sources=(source,),
+        citations=(citation,),
+    )
     lock = Lock(tmp_path / "sources.lock.json")
 
-    rebuilt = lock.rebuild(registry, [
-        _verdict(source, State.NEW, now=1),
-        _verdict(citation.as_source(), State.NEW),
-    ])
+    rebuilt = lock.rebuild(
+        registry,
+        [
+            _verdict(source, State.NEW, now=1),
+            _verdict(citation.as_source(), State.NEW),
+        ],
+    )
 
     assert set(rebuilt["sources"]) == {"feed"}
     assert set(rebuilt[Lock.CITATIONS]) == {"rule"}
@@ -1535,10 +1817,15 @@ def test_a_ported_rule_is_locked_apart_from_a_source(tmp_path: Path) -> None:
 
 def test_a_ported_rule_declares_no_cache_to_clean(tmp_path: Path) -> None:
     citation = _models.Citation(
-        id="rule", url="https://example.com/a.cpp", anchors=("one",),
-        ported_to="src/x.py :: X.y", on_drift="everything")
-    registry = Registry(tool="t", tool_dir=tmp_path,
-                        cache_dir=tmp_path / ".cache", citations=(citation,))
+        id="rule",
+        url="https://example.com/a.cpp",
+        anchors=("one",),
+        ported_to="src/x.py :: X.y",
+        on_drift="everything",
+    )
+    registry = Registry(
+        tool="t", tool_dir=tmp_path, cache_dir=tmp_path / ".cache", citations=(citation,)
+    )
 
     assert registry.declared_cache_files == frozenset()
     assert len(registry.probes) == 1
@@ -1546,17 +1833,35 @@ def test_a_ported_rule_declares_no_cache_to_clean(tmp_path: Path) -> None:
 
 def test_the_report_keeps_ported_rules_in_their_own_section(tmp_path: Path) -> None:
     citation = _models.Citation(
-        id="rule", url="https://example.com/a.cpp", anchors=("one",),
-        ported_to="src/x.py :: X.y", on_drift="the whole desktop catalog")
-    source = Source(id="feed", url="https://example.com/a", cache="a.json",
-                    consumed_by="x", on_removal="x")
-    registry = Registry(tool="t", tool_dir=tmp_path,
-                        cache_dir=tmp_path / ".cache",
-                        sources=(source,), citations=(citation,))
-    report = Report(tool="t", network=Health.OK, first_run=False, verdicts=(
-        Verdict(source_id="feed", state=State.OK),
-        Verdict(source_id="rule", state=State.CONTRACT_BROKEN,
-                contract_errors=("does not contain 'one'",))))
+        id="rule",
+        url="https://example.com/a.cpp",
+        anchors=("one",),
+        ported_to="src/x.py :: X.y",
+        on_drift="the whole desktop catalog",
+    )
+    source = Source(
+        id="feed", url="https://example.com/a", cache="a.json", consumed_by="x", on_removal="x"
+    )
+    registry = Registry(
+        tool="t",
+        tool_dir=tmp_path,
+        cache_dir=tmp_path / ".cache",
+        sources=(source,),
+        citations=(citation,),
+    )
+    report = Report(
+        tool="t",
+        network=Health.OK,
+        first_run=False,
+        verdicts=(
+            Verdict(source_id="feed", state=State.OK),
+            Verdict(
+                source_id="rule",
+                state=State.CONTRACT_BROKEN,
+                contract_errors=("does not contain 'one'",),
+            ),
+        ),
+    )
 
     text = TextReport.render(report, registry)
     sources_at = text.index("sources -- t")
@@ -1588,10 +1893,14 @@ def _watching_tools() -> list[str]:
 
 
 def _watch(**kw: Any) -> _models.Watch:
-    base = {"id": "w", "url": "https://example.com/page",
-            "value": 7, "fingerprint": Fingerprint(kind=FingerprintKind.REGEX_MAX_INT,
-                                                   pattern=r"v(\d+)"),
-            "used_by": "src/x.py :: X.y", "decision": "hand kept"}
+    base = {
+        "id": "w",
+        "url": "https://example.com/page",
+        "value": 7,
+        "fingerprint": Fingerprint(kind=FingerprintKind.REGEX_MAX_INT, pattern=r"v(\d+)"),
+        "used_by": "src/x.py :: X.y",
+        "decision": "hand kept",
+    }
     return _models.Watch(**{**base, **kw})
 
 
@@ -1613,17 +1922,22 @@ def test_every_watched_decision_points_at_code_that_still_exists() -> None:
                 assert attr in classes[owner], f"{watch.id}: {owner}.{attr} is gone"
 
 
-def test_a_watch_without_a_way_to_read_the_answer_is_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_watch_without_a_way_to_read_the_answer_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # A declared value and no fingerprint is a number nothing compares: the
     # decision would look watched and never be checked again.
     folder = tmp_path / "fake_tool"
     (folder / Layout.SOURCES).mkdir(parents=True)
     (folder / Layout.SOURCES / Layout.REGISTRY_FILE).write_text(
-        '[tool]\nname = "fake_tool"\n', encoding="utf-8")
+        '[tool]\nname = "fake_tool"\n', encoding="utf-8"
+    )
     (folder / Layout.CONFIG).mkdir()
     (folder / Layout.CONFIG / Layout.CONFIG_FILE).write_text(
         '[[watch]]\nid = "w"\nurl = "https://example.com/p"\nvalue = 7\n'
-        'used_by = "src/x.py :: X"\ndecision = "hand kept"\n', encoding="utf-8")
+        'used_by = "src/x.py :: X"\ndecision = "hand kept"\n',
+        encoding="utf-8",
+    )
     monkeypatch.setattr(Layout, "TOOLS_DIR", tmp_path)
 
     with pytest.raises(_registry.RegistryError, match="watch.fingerprint"):
@@ -1631,8 +1945,9 @@ def test_a_watch_without_a_way_to_read_the_answer_is_refused(tmp_path: Path, mon
 
 
 def test_a_watch_is_not_something_the_checker_compares_to_the_lock(tmp_path: Path) -> None:
-    registry = Registry(tool="t", tool_dir=tmp_path,
-                        cache_dir=tmp_path / ".cache", watches=(_watch(),))
+    registry = Registry(
+        tool="t", tool_dir=tmp_path, cache_dir=tmp_path / ".cache", watches=(_watch(),)
+    )
 
     assert registry.probes == ()
     assert registry.declared_cache_files == frozenset()
@@ -1643,9 +1958,15 @@ def test_a_moved_decision_never_stops_a_build() -> None:
     # on them. A page that moved is news; blocking a rebuild over it would
     # teach everyone to pass --no-preflight, which costs the real checks too.
     report = Report(
-        tool="t", network=Health.OK, first_run=False, watched=frozenset({"w"}),
-        verdicts=(Verdict(source_id="w", state=State.GONE, error="HTTP 404"),
-                  Verdict(source_id="feed", state=State.OK)))
+        tool="t",
+        network=Health.OK,
+        first_run=False,
+        watched=frozenset({"w"}),
+        verdicts=(
+            Verdict(source_id="w", state=State.GONE, error="HTTP 404"),
+            Verdict(source_id="feed", state=State.OK),
+        ),
+    )
 
     assert report.fatal == ()
     assert report.transient == ()
@@ -1657,9 +1978,16 @@ def test_a_watch_that_stays_unreadable_for_three_weeks_is_still_escalated() -> N
     # Never gated is not the same as never mentioned. The page behind a
     # hand-kept table disappearing is worth somebody's afternoon.
     report = Report(
-        tool="t", network=Health.OK, first_run=False, watched=frozenset({"w"}),
-        verdicts=(Verdict(source_id="w", state=State.GONE, error="HTTP 404",
-                          consecutive=Report.ESCALATE_AFTER),))
+        tool="t",
+        network=Health.OK,
+        first_run=False,
+        watched=frozenset({"w"}),
+        verdicts=(
+            Verdict(
+                source_id="w", state=State.GONE, error="HTTP 404", consecutive=Report.ESCALATE_AFTER
+            ),
+        ),
+    )
 
     assert len(report.escalated) == 1
     assert report.exit_code(allow_flaky=True) == Exit.DEAD
@@ -1670,12 +1998,12 @@ def test_a_moved_decision_is_reported_and_not_quietly_re_recorded(tmp_path: Path
     # fingerprint written and goes quiet, while a decision keeps saying so
     # until a human edits the file. Recording it here would turn the one
     # mechanism that nags into one more thing that does not.
-    registry = Registry(tool="t", tool_dir=tmp_path,
-                        cache_dir=tmp_path / ".cache", watches=(_watch(),))
+    registry = Registry(
+        tool="t", tool_dir=tmp_path, cache_dir=tmp_path / ".cache", watches=(_watch(),)
+    )
     lock = Lock(tmp_path / "sources.lock.json")
 
-    rebuilt = lock.rebuild(registry, [
-        Verdict(source_id="w", state=State.CHANGED, was=7, now=8)])
+    rebuilt = lock.rebuild(registry, [Verdict(source_id="w", state=State.CHANGED, was=7, now=8)])
 
     assert rebuilt["sources"] == {}
     assert Lock.WATCHES not in rebuilt
@@ -1684,13 +2012,14 @@ def test_a_moved_decision_is_reported_and_not_quietly_re_recorded(tmp_path: Path
 def test_a_watch_keeps_its_failure_counter_and_nothing_else(tmp_path: Path) -> None:
     # The counter has to survive a fresh runner for the three-run rule to
     # mean anything, and it is the only thing about a watch worth keeping.
-    registry = Registry(tool="t", tool_dir=tmp_path,
-                        cache_dir=tmp_path / ".cache", watches=(_watch(),))
+    registry = Registry(
+        tool="t", tool_dir=tmp_path, cache_dir=tmp_path / ".cache", watches=(_watch(),)
+    )
     lock = Lock(tmp_path / "sources.lock.json")
 
-    rebuilt = lock.rebuild(registry, [
-        Verdict(source_id="w", state=State.FLAKY, error="timeout",
-                consecutive=2)])
+    rebuilt = lock.rebuild(
+        registry, [Verdict(source_id="w", state=State.FLAKY, error="timeout", consecutive=2)]
+    )
     entry = rebuilt[Lock.WATCHES]["w"]
 
     assert set(entry) == {Lock.FAILING}
@@ -1701,25 +2030,34 @@ def test_the_janitor_has_nothing_to_do_about_a_moved_decision(tmp_path: Path) ->
     # A watch caches nothing, so there is nothing to delete -- and the id must
     # not be mistaken for a source's, which would make the janitor act on a
     # cache file that belongs to something else entirely.
-    registry = Registry(tool="t", tool_dir=tmp_path,
-                        cache_dir=tmp_path / ".cache", watches=(_watch(),))
-    report = Report(tool="t", network=Health.OK, first_run=False,
-                    watched=frozenset({"w"}),
-                    verdicts=(Verdict(source_id="w", state=State.CHANGED,
-                                      was=7, now=8),))
+    registry = Registry(
+        tool="t", tool_dir=tmp_path, cache_dir=tmp_path / ".cache", watches=(_watch(),)
+    )
+    report = Report(
+        tool="t",
+        network=Health.OK,
+        first_run=False,
+        watched=frozenset({"w"}),
+        verdicts=(Verdict(source_id="w", state=State.CHANGED, was=7, now=8),),
+    )
 
     assert Janitor(registry, dry_run=True).run(report) == []
 
 
 def test_the_report_keeps_watched_values_in_their_own_section(tmp_path: Path) -> None:
-    watch = _watch(used_by="src/desktop.py :: DesktopBuilder.LIBC",
-                   decision="no feed publishes this")
-    registry = Registry(tool="t", tool_dir=tmp_path,
-                        cache_dir=tmp_path / ".cache", watches=(watch,))
-    report = Report(tool="t", network=Health.OK, first_run=False,
-                    watched=frozenset({"w"}),
-                    verdicts=(Verdict(source_id="w", state=State.CHANGED,
-                                      was=7, now=8),))
+    watch = _watch(
+        used_by="src/desktop.py :: DesktopBuilder.LIBC", decision="no feed publishes this"
+    )
+    registry = Registry(
+        tool="t", tool_dir=tmp_path, cache_dir=tmp_path / ".cache", watches=(watch,)
+    )
+    report = Report(
+        tool="t",
+        network=Health.OK,
+        first_run=False,
+        watched=frozenset({"w"}),
+        verdicts=(Verdict(source_id="w", state=State.CHANGED, was=7, now=8),),
+    )
 
     text = TextReport.render(report, registry)
 

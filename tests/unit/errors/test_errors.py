@@ -7,7 +7,12 @@ from pytrove.errors import ArchiveLimitError, ArchivePolicyError, UtilError, Val
 
 
 def test_the_entry_point_exports_every_error() -> None:
-    assert set(pytrove.errors.__all__) == {"UtilError", "ValidationError", "ArchiveLimitError", "ArchivePolicyError"}
+    assert set(pytrove.errors.__all__) == {
+        "UtilError",
+        "ValidationError",
+        "ArchiveLimitError",
+        "ArchivePolicyError",
+    }
 
 
 def test_util_error_is_a_plain_exception() -> None:
@@ -16,12 +21,16 @@ def test_util_error_is_a_plain_exception() -> None:
 
 
 @pytest.mark.parametrize("error", [ValidationError, ArchiveLimitError, ArchivePolicyError])
-def test_every_specific_error_is_both_a_util_error_and_a_value_error(error: type[Exception]) -> None:
+def test_every_specific_error_is_both_a_util_error_and_a_value_error(
+    error: type[Exception],
+) -> None:
     assert issubclass(error, UtilError)
     assert issubclass(error, ValueError)
 
 
-@pytest.mark.parametrize("error", [UtilError, ValidationError, ArchiveLimitError, ArchivePolicyError])
+@pytest.mark.parametrize(
+    "error", [UtilError, ValidationError, ArchiveLimitError, ArchivePolicyError]
+)
 def test_every_error_carries_its_message(error: type[Exception]) -> None:
     msg = "boom"
     with pytest.raises(error, match=msg):

@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 # -------------------------------- Android --------------------------------
 
+
 class ApiLevel(NamedTuple):
     """One Android API level, from source.android.com."""
 
@@ -45,7 +46,7 @@ class AndroidBuilder(Builder):
 
     # --- scope ------------------------------------------------------------
 
-    MIN_SDK: ClassVar[int] = 33                       # Android 13
+    MIN_SDK: ClassVar[int] = 33  # Android 13
     MIN_RELEASE: ClassVar[str] = "2023-01-01"
     #: Conservative bound on how many major upgrades a phone really received.
     MAX_OS_UPGRADES: ClassVar[int] = 4
@@ -114,7 +115,9 @@ class AndroidBuilder(Builder):
 
     PLAY_URL: ClassVar[str] = "https://storage.googleapis.com/play_public/supported_devices.csv"
     EOL_URL: ClassVar[str] = "https://endoflife.date/api/{product}.json"
-    XIAOMI_BASE: ClassVar[str] = "https://raw.githubusercontent.com/XiaomiFirmwareUpdater/miui-updates-tracker/master/data/"
+    XIAOMI_BASE: ClassVar[str] = (
+        "https://raw.githubusercontent.com/XiaomiFirmwareUpdater/miui-updates-tracker/master/data/"
+    )
     API_LEVEL_URL: ClassVar[str] = "https://source.android.com/docs/setup/reference/build-numbers"
     CONNECTIONS_MANAGER_URL: ClassVar[str] = (
         "https://github.com/DrKLO/Telegram/blob/master/TMessagesProj/src/main/java/org/telegram/tgnet/ConnectionsManager.java"
@@ -158,8 +161,8 @@ class AndroidBuilder(Builder):
     #: a letter and a digit: `\bpad\b` matches "Pad 2" but not "Pad2", which is
     #: how `OnePlus Pad2` and `vivo Pad2` reached the phone pool.
     SKIP: ClassVar[re.Pattern[str]] = re.compile(
-        r"\b(watch|slate|pixelbook|pixel c|book|buds|tab\d*|tablet|pad\d*)\b",
-        re.I)
+        r"\b(watch|slate|pixelbook|pixel c|book|buds|tab\d*|tablet|pad\d*)\b", re.I
+    )
     #: What a plausible Build.MODEL looks like.
     MODEL_CODE: ClassVar[re.Pattern[str]] = re.compile(r"[A-Za-z0-9 ._+-]{3,32}")
     #: Generic-system-image names that Google's catalog does carry but no retail
@@ -173,16 +176,22 @@ class AndroidBuilder(Builder):
     #: endoflife.date writes Pixel cycles as "9pro"; Google writes "Pixel 9 Pro".
     PIXEL_CYCLE: ClassVar[re.Pattern[str]] = re.compile(r"(\d+)(a|pro|proxl|profold|xl|fold)?")
     PIXEL_SUFFIX: ClassVar[dict[str, str]] = {
-        "a": "a", "pro": " Pro", "proxl": " Pro XL", "profold": " Pro Fold",
-        "xl": " XL", "fold": " Fold",
+        "a": "a",
+        "pro": " Pro",
+        "proxl": " Pro XL",
+        "profold": " Pro Fold",
+        "xl": " XL",
+        "fold": " Fold",
     }
 
     #: Regional codename and name tails in the Xiaomi tracker, which lists the
     #: same phone once per market.
     XIAOMI_REGION_CODE: ClassVar[re.Pattern[str]] = re.compile(
-        r"_(eea|in|ru|tr|tw|id|jp|kr|global)(_global)?$")
+        r"_(eea|in|ru|tr|tw|id|jp|kr|global)(_global)?$"
+    )
     XIAOMI_REGION_NAME: ClassVar[re.Pattern[str]] = re.compile(
-        r"\s+(China|Global|EEA|India|Russia|Taiwan|Japan|Korea|Indonesia|Turkey|NFC|TD|LTE)$")
+        r"\s+(China|Global|EEA|India|Russia|Taiwan|Japan|Korea|Indonesia|Turkey|NFC|TD|LTE)$"
+    )
 
     def __init__(self, cache: Cache) -> None:
         """Start with empty Google Play lookups; `build` fills them."""
@@ -221,8 +230,10 @@ class AndroidBuilder(Builder):
     @classmethod
     def title_name(cls, cycle: str, prefix: str = "") -> str:
         """Title-case an endoflife.date cycle, after an optional brand prefix."""
-        words = [w.upper() if cls.UPPER_WORD.fullmatch(w) else w.capitalize()
-                 for w in cycle.replace("-", " ").split()]
+        words = [
+            w.upper() if cls.UPPER_WORD.fullmatch(w) else w.capitalize()
+            for w in cycle.replace("-", " ").split()
+        ]
         return (prefix + " " + " ".join(words)).strip()
 
     @classmethod
@@ -281,8 +292,7 @@ class AndroidBuilder(Builder):
 
     def load_play_catalog(self) -> None:
         """Google publishes the CSV as UTF-16; it is the authority on Build.MODEL."""
-        text = self.cache.fetch_text(self.PLAY_FILE, self.PLAY_URL,
-                                     encoding=self.PLAY_ENCODING)
+        text = self.cache.fetch_text(self.PLAY_FILE, self.PLAY_URL, encoding=self.PLAY_ENCODING)
         for row in csv.DictReader(io.StringIO(text)):
             brand = normalize(row.get("Retail Branding"))
             marketing = (row.get("Marketing Name") or "").strip()
@@ -304,8 +314,7 @@ class AndroidBuilder(Builder):
                 return sorted(self.play[(brand, candidate)])
         return []
 
-    def sdk_range(self, released: str, max_sdk: int,
-                  upgrades: int | None = None) -> list[str]:
+    def sdk_range(self, released: str, max_sdk: int, upgrades: int | None = None) -> list[str]:
         """Return the SDK levels this phone plausibly ran.
 
         They run from its launch level up to the lowest of: its support
@@ -317,8 +326,15 @@ class AndroidBuilder(Builder):
         top = min(max_sdk, self.API_LEVELS[-1].api, launch + allowed)
         return [f"SDK {sdk}" for sdk in range(launch, top + 1) if sdk >= self.MIN_SDK]
 
-    def add(self, brand: str, name: str, released: str, max_sdk: int, source: str,
-            upgrades: int | None = None) -> bool:
+    def add(
+        self,
+        brand: str,
+        name: str,
+        released: str,
+        max_sdk: int,
+        source: str,
+        upgrades: int | None = None,
+    ) -> bool:
         """Record every regional variant of one phone. False when nothing matched."""
         if self.SKIP.search(name):
             return False
@@ -397,18 +413,23 @@ class AndroidBuilder(Builder):
     def add_eol_families(self) -> None:
         """Samsung, Pixel, OnePlus and Motorola, which endoflife.date dates."""
         for product, brand, namer_name in self.EOL_FAMILIES:
-            data = self.cache.fetch_json(self.EOL_FILE.format(product=product),
-                                         self.EOL_URL.format(product=product))
+            data = self.cache.fetch_json(
+                self.EOL_FILE.format(product=product), self.EOL_URL.format(product=product)
+            )
             namer: Callable[[str], str] = getattr(self, namer_name)
             matched = 0
             for cycle in data:
                 released = cycle.get("releaseDate") or ""
                 if not released or released < self.MIN_RELEASE:
                     continue
-                if self.add(brand, namer(cycle["cycle"]), released,
-                            self.sdk_at(min(self.horizon(cycle), TODAY)),
-                            f"endoflife.date/{product} + play catalog",
-                            self.upgrades(cycle)):
+                if self.add(
+                    brand,
+                    namer(cycle["cycle"]),
+                    released,
+                    self.sdk_at(min(self.horizon(cycle), TODAY)),
+                    f"endoflife.date/{product} + play catalog",
+                    self.upgrades(cycle),
+                ):
                     matched += 1
             print(f"  {product}: {matched} families")
 
@@ -421,15 +442,20 @@ class AndroidBuilder(Builder):
         ceiling, and the floor is XIAOMI_BACK levels below it with a synthetic
         date taken from the API level table.
         """
-        latest = self.parse_flat_yaml(self.cache.fetch_text(
-            self.XIAOMI_LATEST_FILE, self.XIAOMI_BASE + self.XIAOMI_LATEST,
-            errors="ignore"))
-        codenames = self.parse_codenames(self.cache.fetch_text(
-            self.XIAOMI_DEVICES_FILE, self.XIAOMI_BASE + self.XIAOMI_DEVICES,
-            errors="ignore"))
+        latest = self.parse_flat_yaml(
+            self.cache.fetch_text(
+                self.XIAOMI_LATEST_FILE, self.XIAOMI_BASE + self.XIAOMI_LATEST, errors="ignore"
+            )
+        )
+        codenames = self.parse_codenames(
+            self.cache.fetch_text(
+                self.XIAOMI_DEVICES_FILE, self.XIAOMI_BASE + self.XIAOMI_DEVICES, errors="ignore"
+            )
+        )
 
         families: dict[str, dict[str, Any]] = collections.defaultdict(
-            lambda: {"android": 0, "date": "", "name": ""})
+            lambda: {"android": 0, "date": "", "name": ""}
+        )
 
         for entry in latest:
             if entry.get("branch") != self.XIAOMI_BRANCH or not entry.get("codename"):
@@ -454,11 +480,18 @@ class AndroidBuilder(Builder):
                 continue
 
             name = family["name"]
-            brand = next((b for b in self.XIAOMI_BRANDS
-                          if name.lower().startswith(b)), self.XIAOMI_BRANDS[-1])
+            brand = next(
+                (b for b in self.XIAOMI_BRANDS if name.lower().startswith(b)),
+                self.XIAOMI_BRANDS[-1],
+            )
             floor = max(self.MIN_SDK, max_sdk - self.XIAOMI_BACK)
-            if self.add(brand, name, self.release_of_sdk(floor), max_sdk,
-                        "miui-updates-tracker + play catalog"):
+            if self.add(
+                brand,
+                name,
+                self.release_of_sdk(floor),
+                max_sdk,
+                "miui-updates-tracker + play catalog",
+            ):
                 matched += 1
         print(f"  xiaomi: {matched} families")
 
@@ -490,8 +523,13 @@ class AndroidBuilder(Builder):
                 continue
 
             floor = max(self.MIN_SDK, max_sdk - self.FIRMWARE_BACK)
-            if self.add(brand, name, self.release_of_sdk(floor), max_sdk,
-                        "dumps.tadiphone.dev firmware + play catalog"):
+            if self.add(
+                brand,
+                name,
+                self.release_of_sdk(floor),
+                max_sdk,
+                "dumps.tadiphone.dev firmware + play catalog",
+            ):
                 done.add((brand, name))
                 matched += 1
 
@@ -502,7 +540,8 @@ class AndroidBuilder(Builder):
     # --- documentation written into the catalog ---------------------------
 
     MODEL_FORMAT: ClassVar[str] = (
-        "Build.MANUFACTURER + Build.MODEL (no separator), as Telegram Android sends it")
+        "Build.MANUFACTURER + Build.MODEL (no separator), as Telegram Android sends it"
+    )
     VERSION_FORMAT: ClassVar[str] = "SDK followed by Build.VERSION.SDK_INT"
 
     SOURCES: ClassVar[tuple[str, ...]] = (
@@ -511,43 +550,57 @@ class AndroidBuilder(Builder):
         XIAOMI_BASE,
         f"{API_LEVEL_URL} -- API level release dates",
         CONNECTIONS_MANAGER_URL,
-        (f"{FirmwareHarvest.WEB} -- stock factory firmware build.prop, for the "
-         f"ro.product.manufacturer casing and for the OPPO, realme and vivo ceilings"),
+        (
+            f"{FirmwareHarvest.WEB} -- stock factory firmware build.prop, for the "
+            f"ro.product.manufacturer casing and for the OPPO, realme and vivo ceilings"
+        ),
     )
 
     NOTES: ClassVar[tuple[str, ...]] = (
         f"Devices released before {MIN_RELEASE} are excluded.",
-        (f"Allowed SDKs run from the API level current at release up to "
-         f"min(latest, launch + {MAX_OS_UPGRADES}, API level at support end)."),
-        ("Xiaomi, Redmi, POCO, OPPO, realme and vivo carry exactly one SDK each: the one "
-         "their newest shipped stable firmware proves they run. Those brands have no "
-         "release date in any public feed -- endoflife.date tracks no Chinese phone brand "
-         "and Google's catalog carries no dates -- so a range below that level could not "
-         "be checked against a launch version and would offer a phone a release it never "
-         "ran. The measured level is listed and nothing else."),
-        ("Huawei and Honor are absent on purpose -- Huawei has no Android 13+ "
-         "firmware because it moved to HarmonyOS, and the Honor dumps are GSI or "
-         "enterprise images reporting manufacturer=unknown with model=magic."),
-        ("model is manufacturer + code with no separator, which is how Telegram Android "
-         "builds it (ConnectionsManager.java). code is Build.MODEL straight from Google's "
-         "catalog. manufacturer is ro.product.manufacturer as resolved on the device, not "
-         "the retail branding Google prints: verified on stock factory firmware (samsung "
-         "dm3q/e3q -> samsung, xiaomi houji -> Xiaomi, google komodo -> Google, motorola "
-         "rhode -> motorola, oneplus op595dl1 -> OnePlus, oppo op5e8bl1 -> OPPO, realme "
-         "re60c8l1 -> realme, vivo pd2073 -> vivo). OPPO and realme hide theirs behind a "
-         "bootloader-selected overlay, so the value comes from "
-         "odm/etc/<prjname>/build.<flag>.prop rather than from any partition's build.prop."),
-        ("Neither string is what anyone sees. Telegram's server rewrites both before "
-         "storing them, measured by sending values over MTProto and reading back "
-         "account.getAuthorizations: 'samsungSM-S918B' comes back as 'Samsung Galaxy S23 "
-         "Ultra' and 'SDK 34' as '14 (34)'. The display name is this catalog's own brand + "
-         "name fields, and the SDK mapping is the API level table above, so the server "
-         "independently confirms both."),
-        ("The lookup tolerates casing and spacing ('Samsung SM-S918B' resolves too), and an "
-         "unrecognised code is still split and title-cased ('samsungSM-ZZZZZ' -> 'Samsung "
-         "SM-ZZZZZ'). So the exact raw string matters for being what a real handset sends, "
-         "not for how the session reads -- but every code here does resolve to a real "
-         "device, which an invented one would not."),
+        (
+            f"Allowed SDKs run from the API level current at release up to "
+            f"min(latest, launch + {MAX_OS_UPGRADES}, API level at support end)."
+        ),
+        (
+            "Xiaomi, Redmi, POCO, OPPO, realme and vivo carry exactly one SDK each: the one "
+            "their newest shipped stable firmware proves they run. Those brands have no "
+            "release date in any public feed -- endoflife.date tracks no Chinese phone brand "
+            "and Google's catalog carries no dates -- so a range below that level could not "
+            "be checked against a launch version and would offer a phone a release it never "
+            "ran. The measured level is listed and nothing else."
+        ),
+        (
+            "Huawei and Honor are absent on purpose -- Huawei has no Android 13+ "
+            "firmware because it moved to HarmonyOS, and the Honor dumps are GSI or "
+            "enterprise images reporting manufacturer=unknown with model=magic."
+        ),
+        (
+            "model is manufacturer + code with no separator, which is how Telegram Android "
+            "builds it (ConnectionsManager.java). code is Build.MODEL straight from Google's "
+            "catalog. manufacturer is ro.product.manufacturer as resolved on the device, not "
+            "the retail branding Google prints: verified on stock factory firmware (samsung "
+            "dm3q/e3q -> samsung, xiaomi houji -> Xiaomi, google komodo -> Google, motorola "
+            "rhode -> motorola, oneplus op595dl1 -> OnePlus, oppo op5e8bl1 -> OPPO, realme "
+            "re60c8l1 -> realme, vivo pd2073 -> vivo). OPPO and realme hide theirs behind a "
+            "bootloader-selected overlay, so the value comes from "
+            "odm/etc/<prjname>/build.<flag>.prop rather than from any partition's build.prop."
+        ),
+        (
+            "Neither string is what anyone sees. Telegram's server rewrites both before "
+            "storing them, measured by sending values over MTProto and reading back "
+            "account.getAuthorizations: 'samsungSM-S918B' comes back as 'Samsung Galaxy S23 "
+            "Ultra' and 'SDK 34' as '14 (34)'. The display name is this catalog's own brand + "
+            "name fields, and the SDK mapping is the API level table above, so the server "
+            "independently confirms both."
+        ),
+        (
+            "The lookup tolerates casing and spacing ('Samsung SM-S918B' resolves too), and an "
+            "unrecognised code is still split and title-cased ('samsungSM-ZZZZZ' -> 'Samsung "
+            "SM-ZZZZZ'). So the exact raw string matters for being what a real handset sends, "
+            "not for how the session reads -- but every code here does resolve to a real "
+            "device, which an invented one would not."
+        ),
     )
 
     # --- output -----------------------------------------------------------
@@ -559,13 +612,18 @@ class AndroidBuilder(Builder):
         self.add_xiaomi()
         self.add_firmware_brands()
 
-        return [Catalog(
-            platform=self.platform,
-            model_format=self.MODEL_FORMAT,
-            version_format=self.VERSION_FORMAT,
-            sources=list(self.SOURCES),
-            notes=list(self.NOTES),
-            versions=[{"version": f"SDK {e.api}", "released": e.released, "android": e.android}
-                      for e in self.API_LEVELS if e.api >= self.MIN_SDK],
-            devices=sorted(self.devices.values(), key=lambda d: (d["released"], d["model"])),
-        )]
+        return [
+            Catalog(
+                platform=self.platform,
+                model_format=self.MODEL_FORMAT,
+                version_format=self.VERSION_FORMAT,
+                sources=list(self.SOURCES),
+                notes=list(self.NOTES),
+                versions=[
+                    {"version": f"SDK {e.api}", "released": e.released, "android": e.android}
+                    for e in self.API_LEVELS
+                    if e.api >= self.MIN_SDK
+                ],
+                devices=sorted(self.devices.values(), key=lambda d: (d["released"], d["model"])),
+            )
+        ]

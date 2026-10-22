@@ -43,7 +43,9 @@ async def test_to_thread_takes_return_exc_as_a_plain_bool(return_exc: bool) -> N
     assert await to_thread(int, "7", return_exc=return_exc, log_exc=False) == 7
 
     if return_exc:
-        assert isinstance(await to_thread(_raise_value_error, return_exc=return_exc, log_exc=False), ValueError)
+        assert isinstance(
+            await to_thread(_raise_value_error, return_exc=return_exc, log_exc=False), ValueError
+        )
     else:
         with pytest.raises(ValueError, match="x"):
             await to_thread(_raise_value_error, return_exc=return_exc, log_exc=False)

@@ -7,7 +7,16 @@ import array
 import contextlib
 import logging
 import types
-from collections import ChainMap, Counter, OrderedDict, UserDict, UserList, defaultdict, deque, namedtuple
+from collections import (
+    ChainMap,
+    Counter,
+    OrderedDict,
+    UserDict,
+    UserList,
+    defaultdict,
+    deque,
+    namedtuple,
+)
 from collections.abc import Callable, Iterator, Mapping
 from enum import Enum
 from typing import Any
@@ -86,6 +95,7 @@ class Box:
 
 
 # --- the transforms themselves -------------------------------------------
+
 
 def test_map_deep_applies_func_to_every_leaf() -> None:
     data = {"a": "x", "b": ["y", "z"]}
@@ -287,7 +297,12 @@ def test_value_to_enum_round_trips_enum_to_value() -> None:
 
 
 def test_value_to_enum_takes_any_nesting_of_classes_and_passes_strangers_through() -> None:
-    assert value_to_enum(["red", 1, "other", [1]], [Color, (Size,)]) == [Color.RED, Size.SMALL, "other", [Size.SMALL]]
+    assert value_to_enum(["red", 1, "other", [1]], [Color, (Size,)]) == [
+        Color.RED,
+        Size.SMALL,
+        "other",
+        [Size.SMALL],
+    ]
     assert value_to_enum("red", [Color, Color]) is Color.RED
 
 
@@ -304,7 +319,10 @@ def test_value_to_enum_rejects_an_unknown_side() -> None:
 
 
 def test_clean_none_values_drops_none_at_every_depth() -> None:
-    assert clean_none_values({"a": 1, "b": None, "c": {"d": None, "e": 2}}) == {"a": 1, "c": {"e": 2}}
+    assert clean_none_values({"a": 1, "b": None, "c": {"d": None, "e": 2}}) == {
+        "a": 1,
+        "c": {"e": 2},
+    }
     assert clean_none_values([1, None, [2, None]]) == [1, [2]]
 
 
@@ -326,21 +344,25 @@ def test_clean_none_kw_leaves_unset_arguments_out() -> None:
 
 # --- reconstruction: the type survives -----------------------------------
 
-@pytest.mark.parametrize("value", [
-    [Color.RED, Color.BLUE],
-    (Color.RED,),
-    {Color.RED},
-    frozenset({Color.RED}),
-    deque([Color.RED]),
-    Point(Color.RED, Color.BLUE),
-    UserList([Color.RED]),
-    {"a": Color.RED},
-    defaultdict(list, {"a": Color.RED}),
-    OrderedDict(a=Color.RED),
-    ChainMap({"a": Color.RED}),
-    types.MappingProxyType({"a": Color.RED}),
-    UserDict({"a": Color.RED}),
-])
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        [Color.RED, Color.BLUE],
+        (Color.RED,),
+        {Color.RED},
+        frozenset({Color.RED}),
+        deque([Color.RED]),
+        Point(Color.RED, Color.BLUE),
+        UserList([Color.RED]),
+        {"a": Color.RED},
+        defaultdict(list, {"a": Color.RED}),
+        OrderedDict(a=Color.RED),
+        ChainMap({"a": Color.RED}),
+        types.MappingProxyType({"a": Color.RED}),
+        UserDict({"a": Color.RED}),
+    ],
+)
 def test_the_container_type_survives_the_transform(value: Any) -> None:
     assert type(enum_to_value(value)) is type(value)
 
@@ -387,6 +409,7 @@ def test_an_array_whose_items_no_longer_fit_comes_back_as_it_was() -> None:
 
 # --- reconstruction: what used to be silently wrong ----------------------
 
+
 def test_a_counter_is_not_rebuilt_by_counting_its_own_pairs() -> None:
     # Counter(pairs) counts the pairs as elements: {"a": 1} came back as
     # Counter({("a", 1): 1}). No exception -- just a wrong answer.
@@ -413,14 +436,19 @@ def test_a_mappingproxy_is_handed_a_mapping_and_not_an_iterator() -> None:
     assert dict(out) == {"a": "red"}
 
 
-@pytest.mark.parametrize(("make", "expected"), [
-    (lambda: zip([Color.RED], [Color.BLUE], strict=True), [("red", "blue")]),
-    (lambda: enumerate([Color.RED, Color.BLUE]), [(0, "red"), (1, "blue")]),
-    (lambda: map(lambda v: v, [Color.RED]), ["red"]),  # noqa: C417 - the case is a `map` iterator
-    (lambda: reversed([Color.RED, Color.BLUE]), ["blue", "red"]),
-    (lambda: (v for v in [Color.RED]), ["red"]),
-])
-def test_an_iterator_yields_its_real_contents(make: Callable[[], Iterator[Any]], expected: list[Any]) -> None:
+@pytest.mark.parametrize(
+    ("make", "expected"),
+    [
+        (lambda: zip([Color.RED], [Color.BLUE], strict=True), [("red", "blue")]),
+        (lambda: enumerate([Color.RED, Color.BLUE]), [(0, "red"), (1, "blue")]),
+        (lambda: map(lambda v: v, [Color.RED]), ["red"]),  # noqa: C417 - the case is a `map` iterator
+        (lambda: reversed([Color.RED, Color.BLUE]), ["blue", "red"]),
+        (lambda: (v for v in [Color.RED]), ["red"]),
+    ],
+)
+def test_an_iterator_yields_its_real_contents(
+    make: Callable[[], Iterator[Any]], expected: list[Any]
+) -> None:
     # zip(items) and enumerate(items) both *succeeded* and both returned
     # something else: a zip over one iterable, and a re-numbering from zero.
     # An iterator is no longer rebuilt as its own type at all.
@@ -458,6 +486,7 @@ def test_a_sequence_whose_constructor_swallows_its_argument_is_refilled() -> Non
 
 
 # --- reconstruction: types that carry a default_factory ------------------
+
 
 def test_a_defaultdict_keeps_its_factory() -> None:
     # defaultdict(pairs) is a "first argument must be callable" TypeError:
@@ -534,11 +563,15 @@ def test_a_weak_key_dict_keeps_its_type() -> None:
 
 # --- reconstruction: types that cannot keep themselves -------------------
 
-@pytest.mark.parametrize("value", [
-    range(3),
-    {Color.RED: 1}.keys(),
-    {1: Color.RED}.values(),
-])
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        range(3),
+        {Color.RED: 1}.keys(),
+        {1: Color.RED}.values(),
+    ],
+)
 def test_a_container_that_cannot_be_rebuilt_comes_back_as_it_was(value: Any) -> None:
     # A range cannot hold arbitrary values and a dict view cannot be
     # constructed at all. Handing back a list would be a silent substitution

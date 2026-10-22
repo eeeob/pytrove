@@ -45,10 +45,10 @@ def chunk_text(text: str, max_length: int = TgMessageLength.TEXT) -> list[str]:
             remaining = ""
         elif (last_newline := chunk.rfind("\n")) > 0:
             chunk = chunk[:last_newline]
-            remaining = remaining[last_newline + 1:]
+            remaining = remaining[last_newline + 1 :]
         elif (last_space := chunk.rfind(" ")) > len(chunk) // 10:
             chunk = chunk[:last_space]
-            remaining = remaining[last_space + 1:]
+            remaining = remaining[last_space + 1 :]
         else:
             remaining = remaining[max_length:]
 
@@ -98,7 +98,9 @@ def format_exc_tree(exc: BaseException) -> str:
             current = current.__cause__ or current.__context__
             level += 1
 
-    return "\n".join(f"{'    ' * level}└─ {type(error).__name__}: {error}" for level, error in iter_exc())
+    return "\n".join(
+        f"{'    ' * level}└─ {type(error).__name__}: {error}" for level, error in iter_exc()
+    )
 
 
 @overload
@@ -162,8 +164,12 @@ def numbering(
     items = to_list(values.items() if is_map else values)
 
     if is_map:
-        pair_parser = line_parser if line_parser is not None else (lambda k, v, c: f"{c}. {k} - {v}")
-        lines = [pair_parser(key, value, counter) for counter, (key, value) in enumerate(items, start)]
+        pair_parser = (
+            line_parser if line_parser is not None else (lambda k, v, c: f"{c}. {k} - {v}")
+        )
+        lines = [
+            pair_parser(key, value, counter) for counter, (key, value) in enumerate(items, start)
+        ]
     else:
         value_parser = line_parser if line_parser is not None else (lambda v, c: f"{c}. {v}")
         lines = [value_parser(value, counter) for counter, value in enumerate(items, start)]

@@ -15,7 +15,9 @@ _HAS_BS4 = find_spec("bs4") is not None
 _HAS_IMAP = find_spec("aioimaplib") is not None
 
 needs_bs4 = pytest.mark.skipif(not _HAS_BS4, reason="needs the `bs4` extra")
-needs_imap = pytest.mark.skipif(not (_HAS_IMAP and _HAS_BS4), reason="needs the `imap` and `bs4` extras")
+needs_imap = pytest.mark.skipif(
+    not (_HAS_IMAP and _HAS_BS4), reason="needs the `imap` and `bs4` extras"
+)
 
 
 def _message(plain: str | None = None, html_body: str | None = None) -> bytes:
@@ -104,35 +106,60 @@ def fake_imap(monkeypatch: pytest.MonkeyPatch) -> type[_FakeImap]:
 
 async def _collect(**kwargs: Any) -> list[str]:
     """Run `fetch_emails_from` against Gmail and collect what it yields."""
-    return [text async for text in fetch_emails_from("me@gmail.com", "pw", ImapEmailProvider.GMAIL, **kwargs)]
+    return [
+        text
+        async for text in fetch_emails_from("me@gmail.com", "pw", ImapEmailProvider.GMAIL, **kwargs)
+    ]
 
 
 @needs_imap
-async def test_fetch_emails_from_yields_newest_first(fake_imap: type[_FakeImap], monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(fake_imap, "fetch_answer", ("OK", [
-        b"1 FETCH (BODY[TEXT] {5}", _message("first"), b")",
-        b"2 FETCH (BODY[TEXT] {6}", _message("second"), b")",
-        b"done",
-    ]))
+async def test_fetch_emails_from_yields_newest_first(
+    fake_imap: type[_FakeImap], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        fake_imap,
+        "fetch_answer",
+        (
+            "OK",
+            [
+                b"1 FETCH (BODY[TEXT] {5}",
+                _message("first"),
+                b")",
+                b"2 FETCH (BODY[TEXT] {6}",
+                _message("second"),
+                b")",
+                b"done",
+            ],
+        ),
+    )
     assert await _collect() == ["second", "first"]
     assert await _collect(from_old=True) == ["first", "second"]
     assert fake_imap.logged_out
 
 
 @needs_imap
-async def test_fetch_emails_from_yields_nothing_for_a_zero_limit(fake_imap: type[_FakeImap]) -> None:
+async def test_fetch_emails_from_yields_nothing_for_a_zero_limit(
+    fake_imap: type[_FakeImap],
+) -> None:
     assert await _collect(limit=0) == []
 
 
 @needs_imap
-@pytest.mark.parametrize(("search", "fetch", "message"), [
-    (("NO", [b""]), ("OK", []), "Invalid Email Status"),
-    (("OK", [b""]), ("OK", []), "Invalid Email data"),
-    (("OK", [b"1"]), ("NO", []), "Invalid Fetch Email Status"),
-    (("OK", [b"1"]), ("OK", None), "Invalid Fetch Email data"),
-])
+@pytest.mark.parametrize(
+    ("search", "fetch", "message"),
+    [
+        (("NO", [b""]), ("OK", []), "Invalid Email Status"),
+        (("OK", [b""]), ("OK", []), "Invalid Email data"),
+        (("OK", [b"1"]), ("NO", []), "Invalid Fetch Email Status"),
+        (("OK", [b"1"]), ("OK", None), "Invalid Fetch Email data"),
+    ],
+)
 async def test_fetch_emails_from_rejects_bad_answers(
-    fake_imap: type[_FakeImap], monkeypatch: pytest.MonkeyPatch, search: Any, fetch: Any, message: str,
+    fake_imap: type[_FakeImap],
+    monkeypatch: pytest.MonkeyPatch,
+    search: Any,
+    fetch: Any,
+    message: str,
 ) -> None:
     monkeypatch.setattr(fake_imap, "search_answer", search)
     monkeypatch.setattr(fake_imap, "fetch_answer", fetch)
