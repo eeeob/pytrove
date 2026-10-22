@@ -82,7 +82,8 @@ else:
     MaybeContainer: TypeAlias = Container[_T] | _T
     """One value, or a container of them."""
 
-    NestedStrKeyDict: TypeAlias = dict[str, "NestedStrKeyDict[_T]" | _T]
+    # The quoted self-reference is the pre-3.12 exception in rule 4.2.
+    NestedStrKeyDict: TypeAlias = dict[str, "NestedStrKeyDict[_T]" | _T]  # noqa: TC010 - `TypeVar.__ror__` accepts the `str`
     """A dict with string keys whose values are leaves or further such dicts."""
 
     NestedContainer: TypeAlias = Container["NestedContainer[_T]"] | _T

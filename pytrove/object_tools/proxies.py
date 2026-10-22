@@ -3,8 +3,7 @@
 from __future__ import annotations as _annotations
 
 import weakref
-from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 try:
     import wrapt
@@ -15,7 +14,11 @@ else:
 
 from .._internal._optional import _unavailable_class
 from ..iter_tools import to_frozenset
-from ..typings import MaybeContainer, _T
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from ..typings import MaybeContainer, _T
 
 if HAS_WRAPT:
 

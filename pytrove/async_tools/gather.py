@@ -5,12 +5,14 @@ from __future__ import annotations as _annotations
 import asyncio
 import traceback
 from collections.abc import Awaitable, Iterator
-from typing import Any, cast, overload
+from typing import TYPE_CHECKING, Any, cast, overload
 
 from ..iter_tools import iter_flat_cont
-from ..typings import NestedContainer, _False, _T
 from ..validate_tools import is_exception
 from ._internal import _gather_cancel_on_error, _log_exc
+
+if TYPE_CHECKING:
+    from ..typings import NestedContainer, _False, _T
 
 
 # `return_exc=False` (or nothing) is listed first, so `True` or a plain `bool` falls to the arm

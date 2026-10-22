@@ -3,11 +3,14 @@
 from __future__ import annotations as _annotations
 
 import threading
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from pytrove.files_tools import read_file
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class _Lock:

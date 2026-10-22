@@ -1,10 +1,13 @@
 from __future__ import annotations as _annotations
 
 import time
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pytrove.enums import ArchiveFormat
 from pytrove.models import ArchiveJob
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 async def _noop(job: ArchiveJob, path: Path) -> None:

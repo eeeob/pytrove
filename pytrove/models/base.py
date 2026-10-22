@@ -4,10 +4,9 @@ from __future__ import annotations as _annotations
 
 import json
 import sys
-from collections.abc import Iterator, Mapping
 from dataclasses import asdict, dataclass, fields, is_dataclass
 from enum import Enum
-from typing import Any, ClassVar, get_args, get_origin
+from typing import TYPE_CHECKING, Any, ClassVar, get_args, get_origin
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -16,6 +15,9 @@ else:
 
 from ..data_tools import clean_none_values, enum_to_value, value_to_enum
 from ._internal import _resolved_hints
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator, Mapping
 
 
 @dataclass

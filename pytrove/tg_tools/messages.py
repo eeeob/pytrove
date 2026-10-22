@@ -2,9 +2,12 @@
 
 from __future__ import annotations as _annotations
 
-from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from ..enums import TgMessageLength
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 def split_tg_message(text: str, length: int = TgMessageLength.TEXT, reverse: bool = False) -> list[str]:

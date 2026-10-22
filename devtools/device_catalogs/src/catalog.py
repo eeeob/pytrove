@@ -4,10 +4,12 @@ from __future__ import annotations as _annotations
 
 import json
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .shared import OUT_DIR, ROOT, SCHEMA, TODAY
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ============================== output ==============================
 

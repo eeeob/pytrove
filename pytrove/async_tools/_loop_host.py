@@ -6,12 +6,15 @@ import asyncio
 import logging
 import threading
 import time
-from collections.abc import Callable
 from functools import cached_property
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from ..typings import Number
 from ._threads import _check_loop_factory, _run_loop
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from ..typings import Number
 
 log = logging.getLogger("pytrove.async_tools.worker")
 

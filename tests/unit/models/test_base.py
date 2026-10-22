@@ -25,7 +25,7 @@ import pytest
 from pytrove.models import BaseDataClass
 
 if TYPE_CHECKING:
-    from not_importable_here import NameThatIsNotImportableHere
+    from not_importable_here import NameThatIsNotImportableHere  # noqa: TC004 - unimportable on purpose, to test `_resolved_hints` skipping it
 
 
 class Status(Enum):

@@ -24,14 +24,16 @@ import os
 import shutil
 import stat
 import time
-from collections.abc import Callable
 from datetime import date
-from pathlib import Path
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from .enums import Policy, State, Verb
 from .layout import Layout
 from .models import Action, Registry, Report
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from pathlib import Path
 
 # ============================== the janitor ==============================
 

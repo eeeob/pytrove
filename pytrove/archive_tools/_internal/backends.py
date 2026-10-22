@@ -7,8 +7,7 @@ so there is a single name to check or replace for each backend.
 from __future__ import annotations as _annotations
 
 import importlib
-from types import ModuleType
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 try:
     from compression import zstd as std_zstd  # type: ignore[import-not-found, ty:unresolved-import]  # Standard library only from 3.14.
@@ -19,6 +18,9 @@ try:
     import zstandard
 except ImportError:
     zstandard: ModuleType | None = None
+
+if TYPE_CHECKING:
+    from types import ModuleType
 
 try:
     # Imported by name: fastzip is never installed on Windows, so a static import

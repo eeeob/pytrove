@@ -10,8 +10,7 @@ import shutil
 import sys
 from collections.abc import Callable, Iterator
 from functools import partial
-from pathlib import Path
-from typing import Any, Final, Literal, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Final, Literal, TypedDict, cast
 
 try:
     import orjson
@@ -25,6 +24,9 @@ from ..callable_tools import safe_call
 from ..enums import TruncateSide
 from ..iter_tools import dedupe, iter_flat_cont
 from ..typings import NestedContainer, PathLike
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 _SPILL_PARTS: Final[int] = 10
 """How many parts `truncate_file` spills into when `size` is 0 and names no part length."""

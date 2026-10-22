@@ -4,10 +4,12 @@ from __future__ import annotations as _annotations
 
 import random
 from collections.abc import Iterable, MutableSequence
-from typing import Any, cast, overload
+from typing import TYPE_CHECKING, Any, cast, overload
 
 from ..typings import _T, _VT
-from ._internal import _MS
+
+if TYPE_CHECKING:
+    from ._internal import _MS
 
 
 def dedupe(iterable: Iterable[_T], hashable: bool = True) -> list[_T]:

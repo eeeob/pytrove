@@ -4,13 +4,15 @@ import json
 import subprocess
 import sys
 from datetime import date, timedelta
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
 from pytrove.tg_tools._internal import catalog
 from pytrove.tg_tools._internal.catalog import _Catalog, _Device, _OsView
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 LAZY_PROBE = """
 import pytrove

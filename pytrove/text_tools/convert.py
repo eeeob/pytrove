@@ -3,12 +3,14 @@
 from __future__ import annotations as _annotations
 
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .._internal._sentinel import _is_given
-from ..typings import _T
 from ..validate_tools import is_container
 from ._internal import _SNAKE1_PATTERN, _SNAKE2_PATTERN
+
+if TYPE_CHECKING:
+    from ..typings import _T
 
 
 def to_str(value: _T) -> str | _T:

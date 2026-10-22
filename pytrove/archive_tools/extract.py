@@ -3,9 +3,7 @@
 from __future__ import annotations as _annotations
 
 from collections.abc import Iterator
-from concurrent.futures import Executor
-from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from .._internal._types import _Rule
 from ..enums import ArchiveFormat
@@ -16,6 +14,10 @@ from ..typings import ArchiveLimits, NestedContainer, PathLike
 from ._internal.common import _require_zstd
 from ._internal.extractor import _Extractor
 from ._internal.rules import _Filter
+
+if TYPE_CHECKING:
+    from concurrent.futures import Executor
+    from pathlib import Path
 
 
 def extract_archive(

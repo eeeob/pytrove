@@ -19,12 +19,16 @@ never noticed.
 
 from __future__ import annotations as _annotations
 
+from typing import TYPE_CHECKING
+
 from .check import Checker
 from .janitor import Janitor
 from .layout import Layout
 from .lock import Lock, RunState
-from .models import Action, Registry, Report, Schedule
 from .registry import find_schedule, load
+
+if TYPE_CHECKING:
+    from .models import Action, Registry, Report, Schedule
 
 # ============================== one tool ==============================
 

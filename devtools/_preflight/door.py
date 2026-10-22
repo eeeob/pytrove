@@ -15,14 +15,16 @@ from __future__ import annotations as _annotations
 import runpy
 import sys
 import time
-from typing import ClassVar
-from collections.abc import Sequence
+from typing import TYPE_CHECKING, ClassVar
 
 from .enums import Exit
 from .flight import Preflight
 from .layout import Layout
 from .registry import RegistryError
 from .report import TextReport
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 # ============================== the door ==============================
 

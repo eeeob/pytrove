@@ -6,16 +6,19 @@ import inspect
 import logging
 import traceback
 from collections.abc import Awaitable, Callable, Iterator
-from concurrent.futures import ThreadPoolExecutor
-from typing import Any, cast, overload
+from typing import TYPE_CHECKING, Any, cast, overload
 
 from .._internal._exceptions import _HARD_PROPAGATE
-from .._internal._types import _ExcFilter
 from ..iter_tools import iter_flat_cont
-from ..typings import Container, MaybeAwaitable, NestedContainer, _ExcT, _False, _P, _T, _True
 from ..validate_tools import is_container, is_exception, iscoroutinefunction_wrapped
 from ._internal import _log_exc, _ExcLogger
 from .run import call_sync_or_await, to_thread
+
+if TYPE_CHECKING:
+    from concurrent.futures import ThreadPoolExecutor
+
+    from .._internal._types import _ExcFilter
+    from ..typings import Container, MaybeAwaitable, NestedContainer, _ExcT, _False, _P, _T, _True
 
 log = logging.getLogger(__name__)
 

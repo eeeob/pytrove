@@ -23,11 +23,14 @@ import csv
 import io
 import json
 import re
-from typing import Any, ClassVar
-from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from .enums import FingerprintKind
-from .models import Fingerprint
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from .models import Fingerprint
 
 # ============================== extraction ==============================
 

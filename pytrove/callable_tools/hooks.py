@@ -3,22 +3,25 @@
 from __future__ import annotations as _annotations
 
 import functools
-from collections.abc import Awaitable, Callable
-from typing import Any, Concatenate, overload
+from typing import TYPE_CHECKING, Any, Concatenate, overload
 
 from .._internal._exceptions import _HARD_PROPAGATE
 from ..async_tools import call_sync_or_await
-from ..typings import MaybeAwaitableCallable, _P, _T
 from ..validate_tools import iscoroutinefunction_wrapped
-from ._internal import (
-    _AwaitAfterDecorator,
-    _AwaitOnErrorDecorator,
-    _Coro,
-    _WaitAfterDecorator,
-    _WaitOnErrorDecorator,
-    _AT_co,
-    _ET_co,
-)
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from ..typings import MaybeAwaitableCallable, _P, _T
+    from ._internal import (
+        _AwaitAfterDecorator,
+        _AwaitOnErrorDecorator,
+        _Coro,
+        _WaitAfterDecorator,
+        _WaitOnErrorDecorator,
+        _AT_co,
+        _ET_co,
+    )
 
 
 @overload

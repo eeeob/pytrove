@@ -2,11 +2,8 @@
 
 from __future__ import annotations as _annotations
 
-import os
 from collections.abc import Callable, Iterator
-from concurrent.futures import Executor
-from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from .._internal._stability import _default_stability_check
 from .._internal._types import _Rule
@@ -14,10 +11,16 @@ from ..enums import ArchiveFormat
 from ..errors import ValidationError
 from ..files_tools import atomic_write, remove_folder, resolve_path
 from ..iter_tools import iter_flat_cont
-from ..typings import NestedContainer, PathLike
 from ._internal.common import _format_from_suffix, _is_hidden, _require_zstd, _temp_file_rule
 from ._internal.compressor import _Compressor
 from ._internal.rules import _Filter
+
+if TYPE_CHECKING:
+    import os
+    from concurrent.futures import Executor
+    from pathlib import Path
+
+    from ..typings import NestedContainer, PathLike
 
 
 def compress_folder(

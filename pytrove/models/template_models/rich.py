@@ -3,9 +3,8 @@
 from __future__ import annotations as _annotations
 
 import sys
-from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -18,10 +17,14 @@ except ImportError:
     pass
 
 from ..._internal._optional import _optional_import
-from ...typings import TemplateRichMessageDict
 from ._internal import _compile_lines, _CompiledRichMessageDict, _format_lines
 from .conditions import CompiledDefaults
 from .lines import CompiledEachLine, CompiledLine
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from ...typings import TemplateRichMessageDict
 
 
 @dataclass(slots=True, kw_only=True)

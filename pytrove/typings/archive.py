@@ -6,11 +6,13 @@ build it and pass it to `extract_archive`, so it is part of the interface.
 
 from __future__ import annotations as _annotations
 
-from collections.abc import Callable
-from pathlib import Path
-from typing import Any, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 from ..enums import ArchiveDuplicatePolicy, ArchiveLinkPolicy, ArchiveOverwritePolicy
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from pathlib import Path
 
 
 class ArchiveLimits(NamedTuple):

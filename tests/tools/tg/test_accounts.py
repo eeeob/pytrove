@@ -2,7 +2,7 @@ from __future__ import annotations as _annotations
 
 import importlib.util
 import time
-from collections.abc import AsyncIterator
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -10,6 +10,9 @@ from pytrove.enums import ImapEmailProvider
 from pytrove.errors import ValidationError
 from pytrove.tg_tools import fetch_tg_email_code, tg_account_created_at
 from pytrove.tg_tools._internal import points
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 HAS_EMAIL = all(importlib.util.find_spec(name) is not None for name in ("aioimaplib", "bs4"))
 

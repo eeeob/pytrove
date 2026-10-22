@@ -20,14 +20,16 @@ instead of going quiet the moment it is recorded.
 from __future__ import annotations as _annotations
 
 from dataclasses import replace
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from .contract import ContractCheck
 from .enums import Health, State
 from .fingerprint import FingerprintValue
-from .lock import Lock
 from .models import Registry, Report, Source, Verdict, Watch
 from .probe import Prober
+
+if TYPE_CHECKING:
+    from .lock import Lock
 
 # ============================== the checker ==============================
 

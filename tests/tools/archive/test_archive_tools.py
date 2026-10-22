@@ -19,10 +19,9 @@ import time
 import tracemalloc
 import zipfile
 
-from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -37,6 +36,9 @@ from pytrove.errors import (ArchiveLimitError, ArchivePolicyError,
 from pytrove.typings import ArchiveLimits
 from pytrove.archive_tools._internal.extractor import _Extractor
 from typing import NoReturn
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
 
 # The optional backends are the modules themselves, or None. There is no
 # parallel set of flags any more, so a test forcing one path puts None

@@ -5,16 +5,20 @@ from __future__ import annotations as _annotations
 import asyncio
 import sys
 import threading
-from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING
 
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
 
-from ..typings import _T
 from ._threads import _check_loop_factory, _run_loop
 from .run import run_awaitable_in_coro
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from ..typings import _T
 
 
 class SyncAwaitableRunner:

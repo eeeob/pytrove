@@ -3,11 +3,13 @@
 from __future__ import annotations as _annotations
 
 import functools
-from collections.abc import Callable
-from typing import Any, overload
+from typing import TYPE_CHECKING, Any, overload
 
-from ..typings import _False, _FT, _P, _T, _True
-from ._internal import _LazyCallAll
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from ..typings import _False, _FT, _P, _T, _True
+    from ._internal import _LazyCallAll
 
 
 @overload

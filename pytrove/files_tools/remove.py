@@ -4,14 +4,16 @@ from __future__ import annotations as _annotations
 
 import os
 from collections.abc import Iterator
-from pathlib import Path
-from typing import cast, overload
+from typing import TYPE_CHECKING, cast, overload
 
 from .._internal._fs import _is_dir
 from ..iter_tools import dedupe, iter_flat_cont
 from ..typings import NestedContainer, PathLike, _False, _True
 from ._internal import _remove, _rmtree
 from .paths import ensure_path
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @overload

@@ -2,8 +2,10 @@
 
 from __future__ import annotations as _annotations
 
-import os
-from typing import Final
+from typing import TYPE_CHECKING, Final
+
+if TYPE_CHECKING:
+    import os
 
 _STABILITY_MIN_SIZE: Final[int] = 1 << 20
 """Bytes below which a file is read straight through, however many retries were asked for.

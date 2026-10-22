@@ -5,13 +5,15 @@ from __future__ import annotations as _annotations
 import os
 import stat
 import sys
-from collections.abc import Callable
 from concurrent.futures import Executor
-from typing import Any, Final, TypeAlias
+from typing import TYPE_CHECKING, Any, Final, TypeAlias
 
 from ...enums import ArchiveFormat
 from ...errors import ValidationError
 from . import backends
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 _LINK_MAX: Final[int] = 4096
 """The longest link destination read from a zip member; no platform stores a longer path."""

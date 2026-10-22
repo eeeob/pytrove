@@ -7,11 +7,13 @@ import os
 import shutil
 import stat
 import urllib.request
-from pathlib import Path
-from typing import Any, NoReturn
-from collections.abc import Callable, Iterable
+from typing import TYPE_CHECKING, Any, NoReturn
 
 from .shared import CACHE_DIR, USER_AGENT
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+    from pathlib import Path
 
 # =============================== cache ===============================
 

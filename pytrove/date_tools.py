@@ -4,10 +4,12 @@ from __future__ import annotations as _annotations
 
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Final, overload
+from typing import TYPE_CHECKING, Final, overload
 
 from .enums import TimeUnit
-from .typings import Number, _False, _True
+
+if TYPE_CHECKING:
+    from .typings import Number, _False, _True
 
 UTC_PLUS_3: Final[timezone] = timezone(timedelta(seconds=TimeUnit.HOUR * 3))
 """A fixed UTC+3 offset, independent of the machine's local zone."""

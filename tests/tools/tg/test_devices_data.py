@@ -8,8 +8,7 @@ import io
 import json
 import re
 import sys
-from collections.abc import Iterable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -21,6 +20,9 @@ from pytrove.tg_tools._internal.families import (
     WebDevice,
     iOSDevice,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 #: Only present after a build; the tests that need it skip when it is absent.
 PLAY_CATALOG = (_DATA_DIR.parents[2] / "devtools" / "device_catalogs"

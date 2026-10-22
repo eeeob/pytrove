@@ -28,11 +28,14 @@ from __future__ import annotations as _annotations
 
 import json
 from datetime import date, datetime, timezone
-from pathlib import Path
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from .enums import State
-from .models import Registry, Verdict
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from .models import Registry, Verdict
 
 # ============================== the lock file ==============================
 

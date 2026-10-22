@@ -21,12 +21,14 @@ import socket
 import sys
 import time
 import urllib.error
-from collections.abc import Iterable
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn
 
 import pytest
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 TOOLS = Path(__file__).resolve().parents[3] / "devtools"
 PREFLIGHT = TOOLS / "_preflight"

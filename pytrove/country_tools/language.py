@@ -2,6 +2,8 @@
 
 from __future__ import annotations as _annotations
 
+from typing import TYPE_CHECKING
+
 try:
     from babel import Locale, UnknownLocaleError
 except ImportError:
@@ -9,8 +11,10 @@ except ImportError:
 
 from .._internal._optional import _optional_import
 from ..errors import ValidationError
-from ..typings import RegionCode
 from ._internal import _primary_official_language
+
+if TYPE_CHECKING:
+    from ..typings import RegionCode
 
 
 @_optional_import(("babel", "locale"))

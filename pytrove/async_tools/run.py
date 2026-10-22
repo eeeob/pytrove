@@ -7,12 +7,15 @@ import contextvars
 import functools
 import inspect
 import traceback
-from collections.abc import Awaitable, Callable
-from concurrent.futures import ThreadPoolExecutor
-from typing import Any, overload
+from typing import TYPE_CHECKING, Any, overload
 
-from ..typings import MaybeAwaitableCallable, _False, _P, _T
 from ._internal import _log_exc
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+    from concurrent.futures import ThreadPoolExecutor
+
+    from ..typings import MaybeAwaitableCallable, _False, _P, _T
 
 
 # `return_exc=False` (or nothing) is listed first, so `True` or a plain `bool` falls to the arm

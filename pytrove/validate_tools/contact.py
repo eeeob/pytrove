@@ -5,7 +5,7 @@ from __future__ import annotations as _annotations
 import logging
 import re
 import sys
-from typing import Any, Final
+from typing import TYPE_CHECKING, Any, Final
 
 if sys.version_info >= (3, 13):
     from typing import TypeIs
@@ -23,7 +23,9 @@ except ImportError:
     pass
 
 from .._internal._optional import _optional_import
-from ..typings import StrInt
+
+if TYPE_CHECKING:
+    from ..typings import StrInt
 
 EMAIL_PATTERN: Final[re.Pattern[str]] = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 """A plain email address: local part, `@`, a domain with a dot and a 2+ letter suffix."""

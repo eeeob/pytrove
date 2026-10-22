@@ -3,10 +3,11 @@
 from __future__ import annotations as _annotations
 
 from abc import ABC, abstractmethod
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
-from .cache import Cache
-from .catalog import Catalog
+if TYPE_CHECKING:
+    from .cache import Cache
+    from .catalog import Catalog
 
 # ============================== builders ==============================
 

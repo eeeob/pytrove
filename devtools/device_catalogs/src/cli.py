@@ -3,13 +3,16 @@
 from __future__ import annotations as _annotations
 
 import argparse
+from typing import TYPE_CHECKING
 
 from .android import AndroidBuilder
-from .builder import Builder
 from .cache import Cache
 from .desktop import DesktopBuilder
 from .ios import IOSBuilder
 from .web import WebBuilder
+
+if TYPE_CHECKING:
+    from .builder import Builder
 
 #: `--only` name -> the step. The order is the order a full run writes in.
 BUILDERS: dict[str, type[Builder]] = {

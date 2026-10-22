@@ -3,10 +3,9 @@ from __future__ import annotations as _annotations
 import io
 import logging
 import time
-from collections.abc import Iterator
 from datetime import timedelta
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -19,6 +18,10 @@ from pytrove.logging_tools import (
     _UTC3,
 )
 from pytrove.models import LoggerOptions, LogHandlerOptions
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from pathlib import Path
 
 
 class _Counting(logging.Handler):

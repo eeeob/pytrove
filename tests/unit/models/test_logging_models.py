@@ -2,12 +2,15 @@ from __future__ import annotations as _annotations
 
 import io
 import logging
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from pytrove.errors import ValidationError
 from pytrove.models import LoggerOptions, LogHandlerOptions
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_logger_options_resolve_a_name_none_or_logger() -> None:

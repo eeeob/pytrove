@@ -4,13 +4,16 @@ from __future__ import annotations as _annotations
 
 import asyncio
 import functools
-from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .._internal._asyncio import _get_running_loop
 from ..async_tools import run_awaitable_in_coro
-from ..typings import _P, _T
-from ._internal import _Coro
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from ..typings import _P, _T
+    from ._internal import _Coro
 
 
 async def await_sync(func: Callable[_P, _T], /, *args: _P.args, **kwargs: _P.kwargs) -> _T:

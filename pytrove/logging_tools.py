@@ -6,13 +6,16 @@ import logging
 import time
 from collections.abc import Callable, Iterator
 from datetime import datetime, timedelta, timezone
-from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Any, Final, cast, overload
+from typing import TYPE_CHECKING, Any, Final, cast, overload
 
 from .iter_tools import iter_flat_cont
 from .models import LoggerOptions, LogHandlerOptions
-from .typings import Container, NestedContainer, _False, _True
+
+if TYPE_CHECKING:
+    from logging.handlers import RotatingFileHandler
+
+    from .typings import Container, NestedContainer, _False, _True
 
 _UTC3: Final[timezone] = timezone(timedelta(hours=3))
 """The fixed UTC+3 zone `UTC3LogFormatter` writes record times in."""

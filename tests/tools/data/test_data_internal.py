@@ -6,9 +6,7 @@ import array
 import weakref
 from collections import defaultdict, namedtuple
 from collections.abc import Hashable
-from typing import Any, TypeVar
-
-import pytest
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from pytrove.data_tools._internal import (
     _filled,
@@ -23,6 +21,9 @@ from pytrove.data_tools._internal import (
     _R,
     _RK,
 )
+
+if TYPE_CHECKING:
+    import pytest
 
 Point = namedtuple("Point", "x y")  # noqa: PYI024  # A runtime namedtuple is what the rebuild has to handle.
 

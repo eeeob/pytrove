@@ -3,10 +3,13 @@
 from __future__ import annotations as _annotations
 
 import weakref
-from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from ..typings import _KT, _VT
 from ._factories import _no_arg_factory
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class KeyDefaultDict(dict[_KT, _VT]):

@@ -4,12 +4,14 @@ from __future__ import annotations as _annotations
 
 import ast
 import logging
-from typing import Any, Final, overload
+from typing import TYPE_CHECKING, Any, Final, overload
 
 from ..data_tools import map_deep
 from ..text_tools import clean_spaces
-from ..typings import NestedContainer, StrInt, _False, _T, _True
 from ._internal import _eval_calc_ast
+
+if TYPE_CHECKING:
+    from ..typings import NestedContainer, StrInt, _False, _T, _True
 
 CALC_ALLOWED_CHARS: Final[frozenset[str]] = frozenset("0123456789*/-+.")
 """The only characters `calc` will evaluate; whitespace is removed first."""

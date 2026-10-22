@@ -1,10 +1,12 @@
 from __future__ import annotations as _annotations
 
 import random
-
-import pytest
+from typing import TYPE_CHECKING
 
 from pytrove.num_tools import jitter, randomness
+
+if TYPE_CHECKING:
+    import pytest
 
 
 def test_jitter_stays_inside_the_window() -> None:

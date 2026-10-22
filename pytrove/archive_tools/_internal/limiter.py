@@ -4,15 +4,17 @@ from __future__ import annotations as _annotations
 
 import logging
 import os
-import tarfile
-import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, NamedTuple, NoReturn
+from typing import TYPE_CHECKING, Literal, NamedTuple, NoReturn
 
 from ...enums import ArchiveLinkPolicy, ArchiveOverwritePolicy
 from ...errors import ArchiveLimitError, ArchivePolicyError
 from ...typings.archive import ArchiveLimits
+
+if TYPE_CHECKING:
+    import tarfile
+    import zipfile
 
 log = logging.getLogger(__name__)
 

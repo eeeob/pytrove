@@ -2,9 +2,10 @@
 
 from __future__ import annotations as _annotations
 
-from typing import Any, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, overload
 
-from ..typings import LockProtocol, PathLike
+if TYPE_CHECKING:
+    from ..typings import LockProtocol, PathLike
 
 
 # The `binary=True` overload comes first: one without `binary` but with `**kw` would absorb it and match.

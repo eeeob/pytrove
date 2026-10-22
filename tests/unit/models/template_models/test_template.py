@@ -2,14 +2,16 @@ from __future__ import annotations as _annotations
 
 import importlib.util
 import json
-from pathlib import Path
 from types import MappingProxyType
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
 from pytrove.models import CompiledButtonRow, CompiledEachButton, CompiledTemplate
 from pytrove.models.template_models import template
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 HAS_PYROGRAM = importlib.util.find_spec("pyrogram") is not None
 needs_pyrogram = pytest.mark.skipif(not HAS_PYROGRAM, reason="needs the tg extra")
