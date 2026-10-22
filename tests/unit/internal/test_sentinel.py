@@ -2,6 +2,7 @@ from __future__ import annotations as _annotations
 
 import pytest
 
+import pytrove._internal._sentinel as sentinel
 from pytrove._internal._sentinel import _is_given
 
 
@@ -15,6 +16,4 @@ def test_anything_else_is_given(value: object) -> None:
 
 
 def test_sentinel_module_exports_only_is_given() -> None:
-    import pytrove._internal._sentinel as sentinel
-
     assert sentinel.__all__ == ("_is_given",)

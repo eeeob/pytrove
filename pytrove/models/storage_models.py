@@ -12,7 +12,7 @@ from .base import BaseDataClass
 
 
 @dataclass(slots=True)
-class JsonContainer(Generic[_KT, _VT], BaseDataClass):
+class JsonContainer(BaseDataClass, Generic[_KT, _VT]):
     """A JSON object kept in a file, read on first access and written on `save()`."""
 
     path: PathLike

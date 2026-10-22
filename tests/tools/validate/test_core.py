@@ -67,7 +67,7 @@ def test_is_container_accepts_bare_iterator() -> None:
     assert is_container(iter([1, 2]))
     assert is_container(filter(None, [1, 2]))
     assert is_container(enumerate([1, 2]))
-    assert is_container(zip([1, 2], "ab"))
+    assert is_container(zip([1, 2], "ab", strict=True))
     assert is_container(map(str, [1, 2]))
 
 

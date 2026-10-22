@@ -71,7 +71,7 @@ def test_deterministic_encrypt_same_input_same_output() -> None:
 @needs_crypto
 def test_data_resolver_applied_on_decrypt() -> None:
     enc = encrypt("42", "password123")
-    result = decrypt(enc, "password123", data_resolver=lambda b: int(b))
+    result = decrypt(enc, "password123", data_resolver=int)
     assert result == 42
 
 

@@ -135,8 +135,6 @@ def test_the_door_only_reaches_into_src(tool: str) -> None:
     to explain where checking lives -- prose is not a dependency.
     """
 
-    import ast
-
     door = (TOOLS / tool / Layout.DOOR)
     tree = ast.parse(door.read_text(encoding="utf-8"))
     imported = {
@@ -1588,10 +1586,10 @@ def _watching_tools() -> list[str]:
 
 
 def _watch(**kw: Any) -> _models.Watch:
-    base = dict(id="w", url="https://example.com/page",
-                value=7, fingerprint=Fingerprint(kind=FingerprintKind.REGEX_MAX_INT,
-                                                 pattern=r"v(\d+)"),
-                used_by="src/x.py :: X.y", decision="hand kept")
+    base = {"id": "w", "url": "https://example.com/page",
+            "value": 7, "fingerprint": Fingerprint(kind=FingerprintKind.REGEX_MAX_INT,
+                                                   pattern=r"v(\d+)"),
+            "used_by": "src/x.py :: X.y", "decision": "hand kept"}
     return _models.Watch(**{**base, **kw})
 
 

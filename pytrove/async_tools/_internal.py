@@ -176,7 +176,7 @@ def _gather_cancel_on_error(*awaitables: Awaitable[Any], return_exceptions: bool
             if fut is not awaitable:
                 # Silences "Task was destroyed but it is pending", as `asyncio.gather` does; the
                 # private `Task._log_destroy_pending` is missing from typeshed, hence `setattr`.
-                setattr(fut, "_log_destroy_pending", False)
+                setattr(fut, "_log_destroy_pending", False)  # noqa: B010 - see the comment above
 
             npending += 1
             awaitable_2_fut[awaitable] = fut

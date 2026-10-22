@@ -17,7 +17,7 @@ def _button(text: str = "{name}", **extra: object) -> dict[str, object]:
 
 @needs_pyrogram
 def test_button_renders_and_rejects_bad_types() -> None:
-    from pyrogram.enums import ButtonStyle
+    from pyrogram.enums import ButtonStyle  # noqa: PLC0415 - optional `pyrogram`, present only when `needs_pyrogram` lets the test run
 
     button = CompiledButton.compile(_button(meta={"style": ButtonStyle.DANGER.value}))
     assert button.meta == {"style": ButtonStyle.DANGER}

@@ -662,7 +662,7 @@ class _FakeWZip:
         self.alive_at_close: list[bool] = []
         _FakeWZip.made.append(self)
 
-    def __enter__(self) -> _FakeWZip:
+    def __enter__(self) -> _FakeWZip:  # noqa: PYI034 - a test double that is never subclassed
         """Open."""
         return self
 

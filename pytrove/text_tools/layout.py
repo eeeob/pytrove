@@ -3,7 +3,7 @@
 from __future__ import annotations as _annotations
 
 from collections.abc import Callable, Iterator, Mapping
-from typing import Any, Literal, overload
+from typing import Any, overload
 
 from ..enums import TgMessageLength
 from ..iter_tools import to_list
@@ -118,7 +118,7 @@ def numbering(
     start: int = 1,
     line_parser: Callable[[_T, int], str] | None = None,
     *,
-    line_sep: Literal[None],
+    line_sep: None,
 ) -> list[str]: ...
 @overload
 def numbering(
@@ -126,7 +126,7 @@ def numbering(
     start: int = 1,
     line_parser: Callable[[_KT, _VT, int], str] | None = None,
     *,
-    line_sep: Literal[None],
+    line_sep: None,
 ) -> list[str]: ...
 def numbering(
     values: Container[Any],

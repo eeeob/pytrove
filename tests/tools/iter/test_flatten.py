@@ -48,7 +48,7 @@ def test_flat_cont_flattens_nested_containers() -> None:
     assert set(flat_cont({1, 2}, [3, 4])) == {1, 2, 3, 4}
 
 
-class _Box(Generic[_T], Iterable[_T]):
+class _Box(Iterable[_T], Generic[_T]):
     """A container the built-in `is_container` does not recognise.
 
     It is not a `Collection`, an `Iterator`, a `Sequence` or a `Mapping`, so it
@@ -106,9 +106,9 @@ def test_flat_cont_by_accepts_a_type_guard_predicate() -> None:
     # predicate is accepted wherever a plain `bool` one is -- and neither
     # changes what the element type is inferred to be.
     if sys.version_info >= (3, 13):
-        from typing import TypeIs
+        from typing import TypeIs  # noqa: PLC0415 - `typing.TypeIs` exists only from 3.13
     else:
-        from typing import TypeGuard as TypeIs
+        from typing import TypeGuard as TypeIs  # noqa: PLC0415 - the pre-3.13 stand-in for `TypeIs`
 
     def is_box(x: Any) -> TypeIs[_Box[Any]]:
         return isinstance(x, _Box)

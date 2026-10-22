@@ -34,7 +34,7 @@ def _smart_split_part(
     Returns:
         Whether the part is kept, and the part itself once cleaned and converted.
     """
-    from .convert import clean_spaces
+    from .convert import clean_spaces  # noqa: PLC0415 - `convert` imports this module
 
     if part_filter is not None and not part_filter(text):
         return False, None

@@ -16,7 +16,7 @@ from ._internal import _WeakRegistryKT
 from .descriptors import classproperty
 
 
-class WeakRegistry(Generic[_WeakRegistryKT], ABC):
+class WeakRegistry(ABC, Generic[_WeakRegistryKT]):
     """Instances register themselves in `Cls.__instances__[key]` without being kept alive by it.
 
     Each subclass gets its own table. Without a key, `id(self)` is used, which

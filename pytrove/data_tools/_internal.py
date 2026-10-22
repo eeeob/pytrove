@@ -35,11 +35,10 @@ def _transform(data: Container[Any], func: Callable[[Any], Any] | None = None) -
         Each transformed item that was not dropped.
     """
     for item in data:
-        if func is not None:
-            item = func(item)
+        result = item if func is None else func(item)
 
-        if item is not _MESS:
-            yield item
+        if result is not _MESS:
+            yield result
 
 
 def _transform_mapping(
@@ -60,15 +59,13 @@ def _transform_mapping(
     Yields:
         Each `(key, value)` pair that was not dropped.
     """
-    for key, value in data.items():
-        if key_func is not None:
-            key = key_func(key)
+    for raw_key, raw_value in data.items():
+        key = raw_key if key_func is None else key_func(raw_key)
 
         if key is _MESS:
             continue
 
-        if value_func is not None:
-            value = value_func(value)
+        value = raw_value if value_func is None else value_func(raw_value)
 
         if value is _MESS:
             continue
@@ -266,7 +263,7 @@ def _none_cleaner(value: Any) -> Any:
     Returns:
         `_MESS` for `None`, otherwise the value cleaned recursively.
     """
-    from .walk import clean_none_values
+    from .walk import clean_none_values  # noqa: PLC0415 - `walk` imports this module
 
     if value is None:
         return _MESS

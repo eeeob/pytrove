@@ -56,7 +56,7 @@ def test_container_tuples_hold_classes() -> None:
 
 def test_alias_types_exist_only_from_python_312() -> None:
     if sys.version_info >= (3, 12):
-        from typing import TypeAliasType
+        from typing import TypeAliasType  # noqa: PLC0415 - exists only from 3.12, the branch under test
 
         assert _ALIAS_TYPES == (TypeAliasType,)
     else:

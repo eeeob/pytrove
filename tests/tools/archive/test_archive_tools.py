@@ -187,8 +187,6 @@ def test_dest_directory_names_archive_after_source(tree: Path, tmp_path: Path) -
 
 
 def test_rejects_a_file_as_source(tree: Path, tmp_path: Path) -> None:
-    from pytrove.errors import ValidationError
-
     with pytest.raises(ValidationError):
         backup_folder(tree / "a.py", tmp_path / "no.zip")
 
@@ -379,9 +377,8 @@ def test_non_regular_members_are_logged(tmp_path: Path, caplog: pytest.LogCaptur
 def test_an_unreadable_file_is_logged_rather_than_dropped_in_silence(tree: Path, tmp_path: Path, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch) -> None:
     # A backup missing a file it could not read must not look identical to
     # one that never had it.
-    import zipfile as zf_mod
 
-    real = zf_mod.ZipFile.write
+    real = zipfile.ZipFile.write
 
     def failing(self: zipfile.ZipFile, filename: str, arcname: str | None = None, *a: Any, **kw: Any) -> None:
         if str(filename).endswith("b.txt"):
@@ -389,7 +386,7 @@ def test_an_unreadable_file_is_logged_rather_than_dropped_in_silence(tree: Path,
             raise PermissionError(13, msg)
         return real(self, filename, arcname, *a, **kw)
 
-    monkeypatch.setattr(zf_mod.ZipFile, "write", failing)
+    monkeypatch.setattr(zipfile.ZipFile, "write", failing)
 
     with caplog.at_level("WARNING", logger="pytrove.archive_tools"):
         archive = compress_folder(tree, tmp_path / "u.zip", fsync=False)
@@ -482,7 +479,6 @@ def test_missing_both_backends_names_the_right_cure(tree: Path, tmp_path: Path, 
     # _require_zstd reads the two backend handles from where they are
     # imported, which is _archive_tools -- archive_tools calls it, it does
     # not hold them.
-    from pytrove.archive_tools._internal import backends
 
     monkeypatch.setattr(backends, "std_zstd", None)
     monkeypatch.setattr(backends, "zstandard", None)
@@ -538,15 +534,12 @@ def test_workers_refuses_what_it_cannot_read(tree: Path, tmp_path: Path, bad: An
     # One argument for a count or a pool, and anything else is a mistake
     # worth hearing about. True is in the list on purpose: bool is an int
     # in Python, so it would otherwise pass silently as workers=1.
-    from pytrove.errors import ValidationError
 
     with pytest.raises(ValidationError, match="count or an executor"):
         compress_folder(tree, tmp_path / "bad.zip", workers=bad, fsync=False)
 
 
 def test_a_rejected_workers_value_leaves_no_archive_behind(tree: Path, tmp_path: Path) -> None:
-    from pytrove.errors import ValidationError
-
     out = tmp_path / "out"
     out.mkdir()
 
@@ -657,8 +650,6 @@ def test_no_limits_by_default(tree: Path, tmp_path: Path) -> None:
 
 
 def test_a_zip_bomb_is_refused_before_it_is_written(tmp_path: Path) -> None:
-    from pytrove.errors import ArchiveLimitError
-
     bomb = _bomb(tmp_path / "bomb.zip")
     dest = tmp_path / "out"
 
@@ -672,14 +663,12 @@ def test_a_zip_bomb_is_refused_before_it_is_written(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("limits,match", [
-    (dict(max_files=2), "more than the 2"),
-    (dict(max_total_size=3), "expands past"),
-    (dict(max_file_size=0), "over the 0"),
-    (dict(max_depth=1), "nested"),
+    ({"max_files": 2}, "more than the 2"),
+    ({"max_total_size": 3}, "expands past"),
+    ({"max_file_size": 0}, "over the 0"),
+    ({"max_depth": 1}, "nested"),
 ])
 def test_each_limit_refuses_what_it_names(tree: Path, tmp_path: Path, limits: dict[str, int], match: str) -> None:
-    from pytrove.errors import ArchiveLimitError
-
     archive = compress_folder(tree, tmp_path / "l.zip", fsync=False)
 
     with pytest.raises(ArchiveLimitError, match=match):
@@ -688,8 +677,6 @@ def test_each_limit_refuses_what_it_names(tree: Path, tmp_path: Path, limits: di
 
 @pytest.mark.parametrize("fmt", FORMATS)
 def test_limits_apply_to_every_format(tree: Path, tmp_path: Path, fmt: ArchiveFormat) -> None:
-    from pytrove.errors import ArchiveLimitError
-
     archive = compress_folder(tree, tmp_path / "f", format=fmt, fsync=False)
 
     with pytest.raises(ArchiveLimitError):

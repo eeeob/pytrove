@@ -189,9 +189,9 @@ class DesktopBuilder(Builder):
         "notes": [
             "Version weights approximate the installed base after Windows 10 went end of support on 2025-10-14.",
             "Hardware era is not matched against the Windows version; the pool is limited to current hardware instead.",
-            "No arm64 version is listed. SystemVersionPretty writes arm64 only on an ARM "
-            "machine and every model in this pool is x86, so the string would have to be "
-            "paired with hardware that cannot run it.",
+            ("No arm64 version is listed. SystemVersionPretty writes arm64 only on an ARM "
+             "machine and every model in this pool is x86, so the string would have to be "
+             "paired with hardware that cannot run it."),
             SHARED_MODEL_NOTE,
         ],
     }
@@ -207,12 +207,12 @@ class DesktopBuilder(Builder):
         "notes": [
             "Version strings are every combination of kernel, desktop environment, session type and libc.",
             "Weights are popularity estimates, not measurements; desktop and session shares follow common distro defaults.",
-            "A non-glibc system carries no libc part at all, because GetLibcVersion returns nothing "
-            "outside glibc and the whole clause is then skipped. FreeBSD additionally carries "
-            "uname's release, which lib_base appends everywhere except Linux.",
-            "The model pool adds what Windows has no equivalent for: systemd-detect-virt names "
-            "(uppercased, for virtual machines) and SMBIOS chassis types, which base_info_linux.cpp "
-            "falls back to when DMI exposes no usable product name.",
+            ("A non-glibc system carries no libc part at all, because GetLibcVersion returns nothing "
+             "outside glibc and the whole clause is then skipped. FreeBSD additionally carries "
+             "uname's release, which lib_base appends everywhere except Linux."),
+            ("The model pool adds what Windows has no equivalent for: systemd-detect-virt names "
+             "(uppercased, for virtual machines) and SMBIOS chassis types, which base_info_linux.cpp "
+             "falls back to when DMI exposes no usable product name."),
             SHARED_MODEL_NOTE,
         ],
     }

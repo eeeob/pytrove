@@ -1,6 +1,7 @@
 from __future__ import annotations as _annotations
 
 import random
+from itertools import pairwise
 
 import pytest
 
@@ -31,7 +32,7 @@ def test_Jitter_spreads_consecutive_values_without_min_distance() -> None:
     j = Jitter(5, 0.2, 0.5, rng=random.Random(0))
     seq = [j() for _ in range(3000)]
 
-    gaps = [abs(b - a) for a, b in zip(seq, seq[1:])]
+    gaps = [abs(b - a) for a, b in pairwise(seq)]
     assert min(gaps) > 0.3             # no near-repeats, ever
     assert sum(gaps) / len(gaps) > 1.0  # and they genuinely range across [4, 7.5]
 
@@ -42,7 +43,7 @@ def test_Jitter_zero_wobble_is_the_rigid_golden_walk() -> None:
     assert [a() for _ in range(20)] == [b() for _ in range(20)]
 
     seq = [a() for _ in range(500)]
-    gaps = [abs(y - x) for x, y in zip(seq, seq[1:])]
+    gaps = [abs(y - x) for x, y in pairwise(seq)]
     assert min(gaps) > 0.5
 
 

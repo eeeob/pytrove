@@ -68,16 +68,16 @@ class IOSBuilder(Builder):
         f"{IPSW_URL} -- released iOS firmwares per device",
         f"{APPLEDB_URL} -- iPhone identifiers, release dates",
         f"{MTAPI_URL} -- platformString, the exact model string the client sends",
-        f"{IOS_APPDELEGATE_URL} -- passes deviceModelName: nil, which is why "
-        f"platformString is what reaches the wire",
+        (f"{IOS_APPDELEGATE_URL} -- passes deviceModelName: nil, which is why "
+         f"platformString is what reaches the wire"),
     )
 
     NOTES: ClassVar[tuple[str, ...]] = (
-        "model comes from Telegram's own platformString table, not Apple's marketing "
-        "name: the client hardcodes the string, so a device the table omits reports "
-        "'Unknown iPhone' instead.",
-        "version is [UIDevice currentDevice].systemVersion verbatim (MTApiEnvironment.m), "
-        "which carries no 'iOS' prefix.",
+        ("model comes from Telegram's own platformString table, not Apple's marketing "
+         "name: the client hardcodes the string, so a device the table omits reports "
+         "'Unknown iPhone' instead."),
+        ("version is [UIDevice currentDevice].systemVersion verbatim (MTApiEnvironment.m), "
+         "which carries no 'iOS' prefix."),
     )
 
     def telegram_names(self) -> dict[str, str]:

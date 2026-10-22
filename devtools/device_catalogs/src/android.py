@@ -247,12 +247,13 @@ class AndroidBuilder(Builder):
         """Reader for the tracker's list-of-flat-mappings YAML."""
         items: list[dict[str, str]] = []
         current: dict[str, str] | None = None
-        for line in text.splitlines():
-            if line.startswith("- "):
+        for raw in text.splitlines():
+            line = raw
+            if raw.startswith("- "):
                 if current:
                     items.append(current)
                 current = {}
-                line = "  " + line[2:]
+                line = "  " + raw[2:]
             if current is None or ":" not in line:
                 continue
             key, _, value = line.strip().partition(":")
@@ -507,43 +508,43 @@ class AndroidBuilder(Builder):
         XIAOMI_BASE,
         f"{API_LEVEL_URL} -- API level release dates",
         CONNECTIONS_MANAGER_URL,
-        f"{FirmwareHarvest.WEB} -- stock factory firmware build.prop, for the "
-        f"ro.product.manufacturer casing and for the OPPO, realme and vivo ceilings",
+        (f"{FirmwareHarvest.WEB} -- stock factory firmware build.prop, for the "
+         f"ro.product.manufacturer casing and for the OPPO, realme and vivo ceilings"),
     )
 
     NOTES: ClassVar[tuple[str, ...]] = (
         f"Devices released before {MIN_RELEASE} are excluded.",
-        f"Allowed SDKs run from the API level current at release up to "
-        f"min(latest, launch + {MAX_OS_UPGRADES}, API level at support end).",
-        "Xiaomi, Redmi, POCO, OPPO, realme and vivo carry exactly one SDK each: the one "
-        "their newest shipped stable firmware proves they run. Those brands have no "
-        "release date in any public feed -- endoflife.date tracks no Chinese phone brand "
-        "and Google's catalog carries no dates -- so a range below that level could not "
-        "be checked against a launch version and would offer a phone a release it never "
-        "ran. The measured level is listed and nothing else.",
-        "Huawei and Honor are absent on purpose -- Huawei has no Android 13+ "
-        "firmware because it moved to HarmonyOS, and the Honor dumps are GSI or "
-        "enterprise images reporting manufacturer=unknown with model=magic.",
-        "model is manufacturer + code with no separator, which is how Telegram Android "
-        "builds it (ConnectionsManager.java). code is Build.MODEL straight from Google's "
-        "catalog. manufacturer is ro.product.manufacturer as resolved on the device, not "
-        "the retail branding Google prints: verified on stock factory firmware (samsung "
-        "dm3q/e3q -> samsung, xiaomi houji -> Xiaomi, google komodo -> Google, motorola "
-        "rhode -> motorola, oneplus op595dl1 -> OnePlus, oppo op5e8bl1 -> OPPO, realme "
-        "re60c8l1 -> realme, vivo pd2073 -> vivo). OPPO and realme hide theirs behind a "
-        "bootloader-selected overlay, so the value comes from "
-        "odm/etc/<prjname>/build.<flag>.prop rather than from any partition's build.prop.",
-        "Neither string is what anyone sees. Telegram's server rewrites both before "
-        "storing them, measured by sending values over MTProto and reading back "
-        "account.getAuthorizations: 'samsungSM-S918B' comes back as 'Samsung Galaxy S23 "
-        "Ultra' and 'SDK 34' as '14 (34)'. The display name is this catalog's own brand + "
-        "name fields, and the SDK mapping is the API level table above, so the server "
-        "independently confirms both.",
-        "The lookup tolerates casing and spacing ('Samsung SM-S918B' resolves too), and an "
-        "unrecognised code is still split and title-cased ('samsungSM-ZZZZZ' -> 'Samsung "
-        "SM-ZZZZZ'). So the exact raw string matters for being what a real handset sends, "
-        "not for how the session reads -- but every code here does resolve to a real "
-        "device, which an invented one would not.",
+        (f"Allowed SDKs run from the API level current at release up to "
+         f"min(latest, launch + {MAX_OS_UPGRADES}, API level at support end)."),
+        ("Xiaomi, Redmi, POCO, OPPO, realme and vivo carry exactly one SDK each: the one "
+         "their newest shipped stable firmware proves they run. Those brands have no "
+         "release date in any public feed -- endoflife.date tracks no Chinese phone brand "
+         "and Google's catalog carries no dates -- so a range below that level could not "
+         "be checked against a launch version and would offer a phone a release it never "
+         "ran. The measured level is listed and nothing else."),
+        ("Huawei and Honor are absent on purpose -- Huawei has no Android 13+ "
+         "firmware because it moved to HarmonyOS, and the Honor dumps are GSI or "
+         "enterprise images reporting manufacturer=unknown with model=magic."),
+        ("model is manufacturer + code with no separator, which is how Telegram Android "
+         "builds it (ConnectionsManager.java). code is Build.MODEL straight from Google's "
+         "catalog. manufacturer is ro.product.manufacturer as resolved on the device, not "
+         "the retail branding Google prints: verified on stock factory firmware (samsung "
+         "dm3q/e3q -> samsung, xiaomi houji -> Xiaomi, google komodo -> Google, motorola "
+         "rhode -> motorola, oneplus op595dl1 -> OnePlus, oppo op5e8bl1 -> OPPO, realme "
+         "re60c8l1 -> realme, vivo pd2073 -> vivo). OPPO and realme hide theirs behind a "
+         "bootloader-selected overlay, so the value comes from "
+         "odm/etc/<prjname>/build.<flag>.prop rather than from any partition's build.prop."),
+        ("Neither string is what anyone sees. Telegram's server rewrites both before "
+         "storing them, measured by sending values over MTProto and reading back "
+         "account.getAuthorizations: 'samsungSM-S918B' comes back as 'Samsung Galaxy S23 "
+         "Ultra' and 'SDK 34' as '14 (34)'. The display name is this catalog's own brand + "
+         "name fields, and the SDK mapping is the API level table above, so the server "
+         "independently confirms both."),
+        ("The lookup tolerates casing and spacing ('Samsung SM-S918B' resolves too), and an "
+         "unrecognised code is still split and title-cased ('samsungSM-ZZZZZ' -> 'Samsung "
+         "SM-ZZZZZ'). So the exact raw string matters for being what a real handset sends, "
+         "not for how the session reads -- but every code here does resolve to a real "
+         "device, which an invented one would not."),
     )
 
     # --- output -----------------------------------------------------------

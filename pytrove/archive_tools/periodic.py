@@ -45,7 +45,7 @@ class PeriodicArchiver:
         """
         # `cast` evaluates its type at runtime, and `models` sits above the tools in the import
         # layering, so `ArchiveJob` is imported here rather than at module level.
-        from ..models.archive_models import ArchiveJob
+        from ..models.archive_models import ArchiveJob  # noqa: PLC0415 - `models` sits above `archive_tools` in the import layering
 
         # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
         # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
@@ -147,7 +147,7 @@ class PeriodicArchiver:
                 task = asyncio.create_task(self.run_job(job))
                 self._running.add(task)
                 task.add_done_callback(self._running.discard)
-                task.add_done_callback(lambda _, key=id(job): self._active.discard(key))
+                task.add_done_callback(lambda _, key=id(job): self._active.discard(key))  # noqa: B008 - binds this job's id now; a closure would see the loop's last job
 
     def start(self) -> None:
         """Start the scheduling loop; a no-op while it runs."""

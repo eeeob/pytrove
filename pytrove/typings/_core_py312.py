@@ -6,13 +6,14 @@ older interpreters, which use the `TypeAlias` versions in `core` instead.
 
 from __future__ import annotations as _annotations
 
-from collections.abc import Awaitable, Callable, Collection, Coroutine, Iterator, Mapping, Reversible, Sequence, Set
+from collections.abc import Awaitable, Callable, Collection, Coroutine, Iterator, Mapping, Reversible, Sequence
+from collections.abc import Set as AbstractSet
 from typing import Any
 
-type ContainerWithoutMapping[I] = Sequence[I] | Set[I] | Collection[I] | Reversible[I] | Iterator[I]
+type ContainerWithoutMapping[I] = Sequence[I] | AbstractSet[I] | Collection[I] | Reversible[I] | Iterator[I]
 """An iterable container that is not read as a mapping."""
 
-type Container[I] = Sequence[I] | Set[I] | Collection[I] | Reversible[I] | Iterator[I]
+type Container[I] = Sequence[I] | AbstractSet[I] | Collection[I] | Reversible[I] | Iterator[I]
 """An iterable container; see `NotContainer` for the iterables that do not count."""
 
 type MaybeList[I] = list[I] | I

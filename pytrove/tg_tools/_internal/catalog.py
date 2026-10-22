@@ -253,7 +253,7 @@ def _catalog(platform: str) -> _Catalog:
         by_os: dict[str, tuple[tuple[str, ...], tuple[float, ...]]] = {}
 
         if oses:
-            for name, w in zip(names, version_weights):
+            for name, w in zip(names, version_weights, strict=True):
                 if system := os_of.get(name):
                     current = by_os.get(system, ((), ()))
                     by_os[system] = (current[0] + (name,), current[1] + (w,))

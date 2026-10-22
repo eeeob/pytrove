@@ -7,6 +7,7 @@ import logging
 from typing import Any, Final, overload
 
 from ..data_tools import map_deep
+from ..text_tools import clean_spaces
 from ..typings import NestedContainer, StrInt, _False, _T, _True
 from ._internal import _eval_calc_ast
 
@@ -105,8 +106,6 @@ def calc(value: Any, as_int: bool = False) -> Any:
     value = to_int(value, False)
 
     if isinstance(value, str):
-        from ..text_tools import clean_spaces
-
         c_value: Any = clean_spaces(value)
 
         if all(i in CALC_ALLOWED_CHARS for i in c_value):

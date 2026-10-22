@@ -3,6 +3,7 @@
 from __future__ import annotations as _annotations
 
 import re
+from itertools import pairwise
 
 from .._internal._optional import _optional_import
 from ..email_tools import detect_email_provider, fetch_emails_from
@@ -29,7 +30,7 @@ def tg_account_created_at(user_id: int) -> float:
     if user_id <= points[0][0]:
         return points[0][1]
 
-    for (id1, t1), (id2, t2) in zip(points, points[1:]):
+    for (id1, t1), (id2, t2) in pairwise(points):
         if id1 <= user_id <= id2:
             return _interpolate_time(user_id, id1, t1, id2, t2)
 

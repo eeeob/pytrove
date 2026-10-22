@@ -19,7 +19,7 @@ def test_device_info_is_frozen_and_compares_by_value() -> None:
     device = DeviceInfo("model", "version")
 
     with pytest.raises(dataclasses.FrozenInstanceError):
-        setattr(device, "model", "other")
+        setattr(device, "model", "other")  # noqa: B010 - plain assignment to a frozen field fails `ty`
 
     assert device == DeviceInfo("model", "version")
     assert hash(device) == hash(DeviceInfo("model", "version"))

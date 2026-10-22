@@ -73,7 +73,7 @@ def test_resolve_json_refs_forwards_keywords() -> None:
 
 def test_resolve_json_refs_names_the_extra_when_jsonref_is_missing() -> None:
     try:
-        import jsonref  # noqa: F401
+        import jsonref  # noqa: F401, PLC0415 - probes whether the optional `jsonref` is installed
     except ImportError:
         pass
     else:

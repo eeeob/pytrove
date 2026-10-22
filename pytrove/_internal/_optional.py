@@ -152,10 +152,8 @@ def _get_missing(*packages: _PackageGroup) -> list[tuple[tuple[str, ...], str]]:
     missing: list[tuple[tuple[str, ...], str]] = []
 
     for pkgs, extra in packages:
-        if isinstance(pkgs, str):
-            pkgs = (pkgs,)
-
-        missing_in_group = tuple(pkg for pkg in pkgs if not _is_installed(pkg))
+        group = (pkgs,) if isinstance(pkgs, str) else pkgs
+        missing_in_group = tuple(pkg for pkg in group if not _is_installed(pkg))
 
         if missing_in_group:
             missing.append((missing_in_group, extra))
