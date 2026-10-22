@@ -83,7 +83,7 @@ class _LoopHost:
             msg = "the worker's event loop has not been published yet -- use get_loop(), which waits on that"
             raise RuntimeError(msg)
 
-        from ..object_tools.proxies import WeakRestrictedProxy  # `object_tools` sits above `async_tools`.
+        from ..object_tools.proxies import WeakRestrictedProxy  # noqa: PLC0415 - `object_tools` sits above `async_tools`
 
         return WeakRestrictedProxy(self._loop, blocked=["close", "stop"])
 
@@ -194,7 +194,7 @@ class _LoopHost:
             self._thread_exc = exc
             log.error("AioThreadWorker thread died", exc_info=exc)
 
-        from ..callable_tools import safe_call  # `callable_tools` imports `async_tools`, so not at module level.
+        from ..callable_tools import safe_call  # noqa: PLC0415 - `callable_tools` imports `async_tools`
 
         with self._lock:
             started_thread = self._thread

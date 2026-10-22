@@ -169,8 +169,8 @@ class TextReport:
 
         if report.first_run:
             lines += [
-                f"baseline recorded for {report.tool}: "
-                f"{len(report.verdicts)} source(s), nothing to compare against yet.",
+                (f"baseline recorded for {report.tool}: "
+                 f"{len(report.verdicts)} source(s), nothing to compare against yet."),
                 "",
             ]
 

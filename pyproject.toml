@@ -205,12 +205,36 @@ select = [
     "ANN",     # 4.6: complete type hints
     "EM",      # 4.5: exception messages assigned to a variable first
     "S101",    # 4.5: no `assert` runtime guards
-    "PGH003",  # 4.7: no bare `type: ignore`
+    "PGH",     # 4.7: no bare `type: ignore`, no blanket `noqa`
     "D",       # 5.3-5.5: Google-style docstrings
+    "B",       # 5.1: likely bugs (mutable defaults, unchecked `zip`, loop closures)
+    "C4",      # 5.1: no redundant comprehensions or `dict()`/`list()` calls
+    "E9",      # syntax and IO errors
+    "EXE",     # shebangs match the executable bit
+    "ICN",     # conventional import aliases
+    "INP",     # 0.1/1.8: every package has an `__init__.py`
+    "INT",     # `gettext` calls take literal strings
+    "ISC",     # 5.1: no implicit string concatenation
+    "LOG",     # correct `logging` calls
+    "PIE",     # 5.1: no unnecessary statements or duplicate members
+    "PLC",     # 3.3: imports at the top of the module; pylint conventions
+    "PLE",     # pylint errors
+    "PLW",     # pylint warnings (overwritten loop variables, `subprocess` checks)
+    "PYI",     # 4.1/4.6: well-formed type definitions and overloads
+    "RSE",     # no redundant parentheses on `raise`
+    "RUF013",  # 4.1: no implicit `Optional` from a `None` default
+    "SLOT",    # `__slots__` on `str`/`tuple` subclasses
+    "T10",     # no leftover debugger calls
+    "W",       # no trailing whitespace
+    "YTT",     # 1.1: correct `sys.version_info` comparisons
 ]
 ignore = [
     "ANN401",  # 4.6 forbids `Any` only as a way around a type error, not everywhere
 ]
+
+[tool.ruff.lint.flake8-bugbear]
+# An immutable `NamedTuple`, so a shared default instance is safe (`B008`).
+extend-immutable-calls = ["pytrove.typings.ArchiveLimits"]
 
 [tool.ruff.lint.isort]
 required-imports = ["from __future__ import annotations as _annotations"]
@@ -221,10 +245,19 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 # 1.9: wildcard imports are allowed only in interface-aggregation files, which
 # name their submodules only through those imports (F405) and, having no
-# annotations, omit the `__future__` import (I002, the exception in 4.2).
-"**/__init__.py" = ["F401", "F403", "F405", "I002"]
+# annotations, omit the `__future__` import (I002, the exception in 4.2). Their
+# `__all__ = (*a.__all__, ...)` concatenation, which 1.9 requires, is not a
+# literal that `PLE0604` can read.
+"**/__init__.py" = ["F401", "F403", "F405", "I002", "PLE0604"]
 # Tests assert by design, and 5.3 covers library functions, not test cases.
-"tests/**" = ["S101", "D"]
+# `tests/` has no `__init__.py` on purpose: pytest runs with
+# `--import-mode=importlib`, so test files with the same basename never clash.
+"tests/**" = ["S101", "D", "INP001"]
+# `devtools/` and each tool root are namespace packages by design: a tool root
+# holds only its `__main__.py` door beside named sections (`devtools/README.md`,
+# `Layout` in `devtools/_preflight/layout.py`), so a door has no `__init__.py`.
+"devtools/__main__.py" = ["INP001"]
+"devtools/*/__main__.py" = ["INP001"]
 
 [tool.ty.environment]
 # Fixed, so a check gives the same verdict on every machine: the 3.10 floor's

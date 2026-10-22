@@ -82,9 +82,8 @@ class _Filter:
         """
         paths, funcs, names, globs = set(), [], set(), []
 
-        for item in items:
-            if isinstance(item, str):
-                item = Path(item)
+        for rule in items:
+            item = Path(rule) if isinstance(rule, str) else rule
             if isinstance(item, Path):
                 item = "" if (pos := item.as_posix()) in (".", "/") else pos
 

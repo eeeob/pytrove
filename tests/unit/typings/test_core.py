@@ -2,7 +2,8 @@ from __future__ import annotations as _annotations
 
 import os
 import threading
-from collections.abc import Awaitable, Callable, Collection, Hashable, Iterator, Reversible, Sequence, Set
+from collections.abc import Awaitable, Callable, Collection, Hashable, Iterator, Reversible, Sequence
+from collections.abc import Set as AbstractSet
 from enum import Enum
 from typing import Any, Literal, ParamSpec, TypeVar, get_args, get_origin, get_type_hints
 
@@ -30,7 +31,7 @@ from pytrove.typings import (
     _VT,
 )
 
-CONTAINER_ORIGINS = [Sequence, Set, Collection, Reversible, Iterator]
+CONTAINER_ORIGINS = [Sequence, AbstractSet, Collection, Reversible, Iterator]
 
 
 def _value(alias: Any) -> Any:

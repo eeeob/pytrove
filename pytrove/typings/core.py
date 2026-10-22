@@ -18,7 +18,7 @@ from collections.abc import (
     Mapping,
     Reversible,
     Sequence,
-    Set,
+    Set as AbstractSet,
 )
 from enum import Enum, EnumMeta as EnumType  # `EnumType` became the name of `EnumMeta` only in 3.11.
 from typing import Annotated, Any, Literal, ParamSpec, Protocol, TypeAlias, TypedDict, TypeVar
@@ -70,10 +70,10 @@ if sys.version_info >= (3, 12):
     )
 else:
     # يجب المحافظة على ترتيب الاولويات
-    ContainerWithoutMapping: TypeAlias = Sequence[_T] | Set[_T] | Collection[_T] | Reversible[_T] | Iterator[_T]
+    ContainerWithoutMapping: TypeAlias = Sequence[_T] | AbstractSet[_T] | Collection[_T] | Reversible[_T] | Iterator[_T]
     """An iterable container that is not read as a mapping."""
 
-    Container: TypeAlias = Sequence[_T] | Set[_T] | Collection[_T] | Reversible[_T] | Iterator[_T]
+    Container: TypeAlias = Sequence[_T] | AbstractSet[_T] | Collection[_T] | Reversible[_T] | Iterator[_T]
     """An iterable container; see `NotContainer` for the iterables that do not count."""
 
     MaybeList: TypeAlias = list[_T] | _T

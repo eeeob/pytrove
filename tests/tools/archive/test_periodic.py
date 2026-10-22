@@ -1,6 +1,7 @@
 from __future__ import annotations as _annotations
 
 import asyncio
+import logging
 import time
 import zipfile
 from collections.abc import Awaitable, Callable
@@ -9,7 +10,10 @@ from typing import Any, NoReturn
 
 import pytest
 
+import pytrove.archive_tools.periodic as archiver_module
+from pytrove._internal._stability import _default_stability_check
 from pytrove.archive_tools import PeriodicArchiver
+from pytrove.data_tools import DefaultWeakValueDict
 from pytrove.enums import ArchiveFormat
 from pytrove.models import ArchiveJob
 
@@ -112,7 +116,6 @@ async def test_create_forwards_every_remaining_compress_folder_option(tree: Path
         dest.write_text("x")
         return dest
 
-    import pytrove.archive_tools.periodic as archiver_module
     monkeypatch.setattr(archiver_module, "compress_folder", fake_compress_folder)
 
     job = make_job(
@@ -132,8 +135,6 @@ async def test_create_forwards_every_remaining_compress_folder_option(tree: Path
 
 
 async def test_stability_check_defaults_to_compress_folders_own_default(tree: Path) -> None:
-    from pytrove._internal._stability import _default_stability_check
-
     job = make_job(tree)
     assert job.stability_check is _default_stability_check
 
@@ -158,7 +159,6 @@ async def test_run_job_updates_the_jobs_own_last_run(tree: Path, monkeypatch: py
     archiver = PeriodicArchiver([job])
     stamp_before = job.last_run
 
-    import pytrove.archive_tools.periodic as archiver_module
     monkeypatch.setattr(archiver_module.time, "monotonic", lambda: stamp_before + 1000)
 
     await archiver.run_job(job)
@@ -196,7 +196,6 @@ async def test_run_job_reports_a_failed_create_and_has_nothing_to_remove(tree: P
         msg = "disk full"
         raise OSError(msg)
 
-    import pytrove.archive_tools.periodic as archiver_module
     monkeypatch.setattr(archiver_module, "remove_file", removed.append)
 
     job = make_job(tree, on_error=on_error)
@@ -241,7 +240,6 @@ async def test_run_job_with_no_on_error_swallows_and_logs(tree: Path, caplog: py
     job = make_job(tree, name="out", on_archive=failing_on_archive)
     archiver = PeriodicArchiver([job])
 
-    import logging
     with caplog.at_level(logging.ERROR, logger="pytrove.archive_tools.periodic"):
         await archiver.run_job(job)  # must not raise
 
@@ -341,8 +339,6 @@ async def test_two_jobs_sharing_a_name_do_not_block_each_other(tree: Path, tmp_p
 # --- locks ------------------------------------------------------------
 
 async def test_locks_are_created_lazily_and_held_only_weakly(tree: Path) -> None:
-    from pytrove.data_tools import DefaultWeakValueDict
-
     job = make_job(tree)
     archiver = PeriodicArchiver([job])
 

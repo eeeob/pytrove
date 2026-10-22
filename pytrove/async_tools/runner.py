@@ -110,7 +110,7 @@ class SyncAwaitableRunner:
                 self.__stopping = None
                 started.set()  # Releases `start` even when the loop failed before publishing.
 
-        from ..callable_tools import safe_call  # `callable_tools` imports `async_tools`, so not at module level.
+        from ..callable_tools import safe_call  # noqa: PLC0415 - `callable_tools` imports `async_tools`
 
         with self.__lock:
             if self.started:

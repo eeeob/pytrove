@@ -53,7 +53,7 @@ def is_phone_number(
         phone_number = str(phone_number)
 
         if remove_spaces:
-            from ..text_tools import clean_spaces
+            from ..text_tools import clean_spaces  # noqa: PLC0415 - `text_tools` sits above `validate_tools` in the import layering
 
             phone_number = clean_spaces(phone_number)
 
@@ -125,7 +125,7 @@ async def is_accessible_received_email(email: str, password: str) -> bool:
     Returns:
         Whether the login succeeded; `False` for an unknown provider or any failure.
     """
-    from ..email_tools import detect_email_provider
+    from ..email_tools import detect_email_provider  # noqa: PLC0415 - `email_tools` sits above `validate_tools` in the import layering
 
     provider = detect_email_provider(email)
 

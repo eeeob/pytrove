@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 
 from pytrove.models import CompiledButtonRow, CompiledEachButton, CompiledTemplate
+from pytrove.models.template_models import template
 
 HAS_PYROGRAM = importlib.util.find_spec("pyrogram") is not None
 needs_pyrogram = pytest.mark.skipif(not HAS_PYROGRAM, reason="needs the tg extra")
@@ -21,7 +22,7 @@ def _button(text: str = "{name}", **extra: object) -> dict[str, object]:
 
 @needs_pyrogram
 def test_template_compiles_and_formats_a_whole_message() -> None:
-    from pyrogram.enums import ParseMode
+    from pyrogram.enums import ParseMode  # noqa: PLC0415 - optional `pyrogram`, present only when `needs_pyrogram` lets the test run
 
     template = CompiledTemplate.compile(
         {
@@ -74,7 +75,7 @@ def test_format_shows_the_buttons_the_same_key_time_as_the_text() -> None:
 
 @needs_pyrogram
 def test_template_compile_rewrites_the_dict_and_keyboard_skips_empty_rows() -> None:
-    from pyrogram.enums import ParseMode
+    from pyrogram.enums import ParseMode  # noqa: PLC0415 - optional `pyrogram`, present only when `needs_pyrogram` lets the test run
 
     raw = {
         "message": ["a"],
@@ -96,7 +97,7 @@ def test_template_compile_rewrites_the_dict_and_keyboard_skips_empty_rows() -> N
 
 @needs_pyrogram
 def test_compile_from_file_nests_skips_definitions_and_applies_file_defaults(tmp_path: Path) -> None:
-    from pyrogram.enums import ParseMode
+    from pyrogram.enums import ParseMode  # noqa: PLC0415 - optional `pyrogram`, present only when `needs_pyrogram` lets the test run
 
     path = tmp_path / "templates.json"
     path.write_text(
@@ -130,8 +131,6 @@ def test_compile_from_file_nests_skips_definitions_and_applies_file_defaults(tmp
 def test_compile_from_file_reads_plain_json_without_the_json_extra(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from pytrove.models.template_models import template
-
     def no_jsonref(path: object) -> object:
         """Fail as `load_ref_json` does when `jsonref` is absent."""
         msg = "pytrove[json]"

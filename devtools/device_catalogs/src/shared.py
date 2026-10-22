@@ -37,7 +37,7 @@ def version_key(version: str) -> tuple[int, ...]:
 
 def major_of(version: str) -> int:
     """Return the major component of a dotted version string."""
-    return int(version.split(".")[0])
+    return int(version.split(".", maxsplit=1)[0])
 
 
 def normalize(value: str | None) -> str:

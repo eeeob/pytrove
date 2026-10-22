@@ -12,7 +12,7 @@ def test_internal_protocols_and_type_variables() -> None:
     ):
         assert getattr(proto, "_is_protocol", False)
 
-    assert isinstance(_internal._ET, TypeVar) and _internal._ET.__covariant__
-    assert isinstance(_internal._AT, TypeVar) and _internal._AT.__covariant__
+    assert isinstance(_internal._ET_co, TypeVar) and _internal._ET_co.__covariant__
+    assert isinstance(_internal._AT_co, TypeVar) and _internal._AT_co.__covariant__
     assert _internal._Coro is not None
     assert _internal._ExcLogger is not None

@@ -135,7 +135,7 @@ def _compile_lines(
         The compiled lines, or `None` for an empty block, so it is absent rather than blank.
     """
     # `lines` imports this module for its compiled-shape `TypedDict`, so it is imported here.
-    from .lines import CompiledEachLine, CompiledLine
+    from .lines import CompiledEachLine, CompiledLine  # noqa: PLC0415 - see the comment above
 
     return [
         CompiledEachLine.compile(line) if _is_each_line(line) else CompiledLine.compile(line)

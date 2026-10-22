@@ -24,36 +24,36 @@ _MIN_WEIGHT: Final[float] = 1e-4
 
 GROUP_SHARES: dict[str, float] = {
     # Android retail brands
-    "samsung": 34.0, 
-    "xiaomi": 12.0, 
-    "redmi": 8.0, 
-    "poco": 4.0, 
-    "motorola": 8.0, 
-    "oneplus": 4.0, 
-    "google": 4.0, 
-    "oppo": 11.0, 
-    "vivo": 9.0, 
-    "realme": 5.0, 
+    "samsung": 34.0,
+    "xiaomi": 12.0,
+    "redmi": 8.0,
+    "poco": 4.0,
+    "motorola": 8.0,
+    "oneplus": 4.0,
+    "google": 4.0,
+    "oppo": 11.0,
+    "vivo": 9.0,
+    "realme": 5.0,
     # Desktop vendors
-    "Lenovo": 25.0, 
-    "HP": 22.0, 
-    "Dell": 17.0, 
-    "ASUS": 9.0, 
-    "Acer": 7.0, 
-    "MSI": 4.0, 
-    "Gigabyte": 3.0, 
-    "ASRock": 2.0, 
-    "Other": 11.0, 
+    "Lenovo": 25.0,
+    "HP": 22.0,
+    "Dell": 17.0,
+    "ASUS": 9.0,
+    "Acer": 7.0,
+    "MSI": 4.0,
+    "Gigabyte": 3.0,
+    "ASRock": 2.0,
+    "Other": 11.0,
     # Web: browser and OS together, since a browser's share differs per OS; Safari is not in the catalog.
-    "Chrome on Windows": 50.0, 
-    "Chrome on macOS": 7.0, 
-    "Chrome on Linux": 4.0, 
-    "Edge on Windows": 14.0, 
-    "Edge on macOS": 1.0, 
-    "Edge on Linux": 1.0, 
-    "Firefox on Windows": 5.0, 
-    "Firefox on macOS": 1.0, 
-    "Firefox on Linux": 2.0, 
+    "Chrome on Windows": 50.0,
+    "Chrome on macOS": 7.0,
+    "Chrome on Linux": 4.0,
+    "Edge on Windows": 14.0,
+    "Edge on macOS": 1.0,
+    "Edge on Linux": 1.0,
+    "Firefox on Windows": 5.0,
+    "Firefox on macOS": 1.0,
+    "Firefox on Linux": 2.0,
 }
 """Approximate installed-base share per brand, vendor or browser-on-OS, split across its own devices.
 
@@ -253,7 +253,7 @@ def _catalog(platform: str) -> _Catalog:
         by_os: dict[str, tuple[tuple[str, ...], tuple[float, ...]]] = {}
 
         if oses:
-            for name, w in zip(names, version_weights):
+            for name, w in zip(names, version_weights, strict=True):
                 if system := os_of.get(name):
                     current = by_os.get(system, ((), ()))
                     by_os[system] = (current[0] + (name,), current[1] + (w,))

@@ -414,9 +414,9 @@ def test_a_mappingproxy_is_handed_a_mapping_and_not_an_iterator() -> None:
 
 
 @pytest.mark.parametrize(("make", "expected"), [
-    (lambda: zip([Color.RED], [Color.BLUE]), [("red", "blue")]),
+    (lambda: zip([Color.RED], [Color.BLUE], strict=True), [("red", "blue")]),
     (lambda: enumerate([Color.RED, Color.BLUE]), [(0, "red"), (1, "blue")]),
-    (lambda: map(lambda v: v, [Color.RED]), ["red"]),
+    (lambda: map(lambda v: v, [Color.RED]), ["red"]),  # noqa: C417 - the case is a `map` iterator
     (lambda: reversed([Color.RED, Color.BLUE]), ["blue", "red"]),
     (lambda: (v for v in [Color.RED]), ["red"]),
 ])

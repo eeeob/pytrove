@@ -170,50 +170,50 @@ class WebBuilder(Builder):
         "navigator.platform -- Win32, MacIntel, or uname sysname + machine on Linux")
 
     SOURCES: ClassVar[tuple[str, ...]] = (
-        "https://github.com/morethanwords/tweb/blob/master/src/lib/appManagers/networkerFactory.ts"
-        " -- Telegram Web K: deviceModel = USER_AGENT, systemVersion = navigator.platform",
-        "https://github.com/Ajaxy/telegram-tt/blob/master/src/api/gramjs/methods/client.ts"
-        " -- Telegram Web A: the same two fields",
-        "https://github.com/chromium/chromium/blob/main/components/embedder_support/user_agent_utils.cc"
-        " -- the Chromium UA template and the frozen platform tokens",
-        "https://github.com/mozilla/gecko-dev/blob/master/netwerk/protocol/http/nsHttpHandler.cpp"
-        " -- BuildUserAgent, mPlatform, mOscpu and UA_SPARE_PLATFORM",
-        "https://github.com/WebKit/WebKit/blob/main/Source/WebCore/page/NavigatorBase.cpp"
-        " -- NavigatorBase::platform(), the system_version values",
-        "https://learn.microsoft.com/en-us/microsoft-edge/web-platform/user-agent-guidance"
-        " -- the Edg token and where it goes",
-        "https://versionhistory.googleapis.com/v1/chrome/platforms/win/channels/stable/versions/all/releases"
-        " -- released Chrome versions per platform",
-        "https://product-details.mozilla.org/1.0/firefox_history_major_releases.json"
-        " -- released Firefox majors and their dates",
-        "https://edgeupdates.microsoft.com/api/products?view=enterprise"
-        " -- released Edge versions per platform",
+        ("https://github.com/morethanwords/tweb/blob/master/src/lib/appManagers/networkerFactory.ts"
+         " -- Telegram Web K: deviceModel = USER_AGENT, systemVersion = navigator.platform"),
+        ("https://github.com/Ajaxy/telegram-tt/blob/master/src/api/gramjs/methods/client.ts"
+         " -- Telegram Web A: the same two fields"),
+        ("https://github.com/chromium/chromium/blob/main/components/embedder_support/user_agent_utils.cc"
+         " -- the Chromium UA template and the frozen platform tokens"),
+        ("https://github.com/mozilla/gecko-dev/blob/master/netwerk/protocol/http/nsHttpHandler.cpp"
+         " -- BuildUserAgent, mPlatform, mOscpu and UA_SPARE_PLATFORM"),
+        ("https://github.com/WebKit/WebKit/blob/main/Source/WebCore/page/NavigatorBase.cpp"
+         " -- NavigatorBase::platform(), the system_version values"),
+        ("https://learn.microsoft.com/en-us/microsoft-edge/web-platform/user-agent-guidance"
+         " -- the Edg token and where it goes"),
+        ("https://versionhistory.googleapis.com/v1/chrome/platforms/win/channels/stable/versions/all/releases"
+         " -- released Chrome versions per platform"),
+        ("https://product-details.mozilla.org/1.0/firefox_history_major_releases.json"
+         " -- released Firefox majors and their dates"),
+        ("https://edgeupdates.microsoft.com/api/products?view=enterprise"
+         " -- released Edge versions per platform"),
     )
 
     NOTES: ClassVar[tuple[str, ...]] = (
-        "model is the whole User-Agent string, not a device name: a browser has no "
-        "model to report, so both web clients send navigator.userAgent as it stands. "
-        "This is also why a web session draws a browser icon in every client -- "
-        "Telegram Android matches 'chrome'/'firefox'/'edge' inside device_model and "
-        "Telegram Desktop matches 'chrome'/'firefox'/'edg/', both before they look at "
-        "the platform.",
-        "Every string is generated from the browsers' own frozen templates rather than "
-        "collected, because there is nothing left to collect: Chromium pins its "
-        "platform token and its minor version, Gecko pins the Windows OS version to "
-        "10.0, and only the major version still moves. The majors and their dates come "
-        "from each vendor's own release feed.",
-        f"Only the newest {MAJORS} majors per browser and system are kept. Browsers "
-        f"update themselves, so a session further behind than that is not a realistic "
-        f"thing to report.",
-        "Desktop only, on purpose. A phone browser is a real web session but a rare "
-        "one, and it would need its own frozen tokens and its own navigator.platform "
-        "values to be honest rather than guessed.",
-        "Safari is absent: WebKit freezes the UA prefix but the 'Version/x.y "
-        "Safari/605.1.15' suffix is Safari's own application name and Apple publishes "
-        "no machine-readable version feed, so the numbers would have to be invented. "
-        "macOS is still covered, by Chrome, Edge and Firefox.",
-        "Each device lists exactly one version because a UA and navigator.platform "
-        "describe the same machine: a UA claiming Windows cannot report 'MacIntel'.",
+        ("model is the whole User-Agent string, not a device name: a browser has no "
+         "model to report, so both web clients send navigator.userAgent as it stands. "
+         "This is also why a web session draws a browser icon in every client -- "
+         "Telegram Android matches 'chrome'/'firefox'/'edge' inside device_model and "
+         "Telegram Desktop matches 'chrome'/'firefox'/'edg/', both before they look at "
+         "the platform."),
+        ("Every string is generated from the browsers' own frozen templates rather than "
+         "collected, because there is nothing left to collect: Chromium pins its "
+         "platform token and its minor version, Gecko pins the Windows OS version to "
+         "10.0, and only the major version still moves. The majors and their dates come "
+         "from each vendor's own release feed."),
+        (f"Only the newest {MAJORS} majors per browser and system are kept. Browsers "
+         f"update themselves, so a session further behind than that is not a realistic "
+         f"thing to report."),
+        ("Desktop only, on purpose. A phone browser is a real web session but a rare "
+         "one, and it would need its own frozen tokens and its own navigator.platform "
+         "values to be honest rather than guessed."),
+        ("Safari is absent: WebKit freezes the UA prefix but the 'Version/x.y "
+         "Safari/605.1.15' suffix is Safari's own application name and Apple publishes "
+         "no machine-readable version feed, so the numbers would have to be invented. "
+         "macOS is still covered, by Chrome, Edge and Firefox."),
+        ("Each device lists exactly one version because a UA and navigator.platform "
+         "describe the same machine: a UA claiming Windows cannot report 'MacIntel'."),
     )
 
     # --- release feeds ----------------------------------------------------

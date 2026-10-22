@@ -238,7 +238,7 @@ def all_deep(*values: NestedContainer[Any]) -> bool:
         >>> all_deep([1, [0]])
         False
     """
-    from ..iter_tools import iter_flat_cont
+    from ..iter_tools import iter_flat_cont  # noqa: PLC0415 - `iter_tools` imports `validate_tools`
 
     return all(iter_flat_cont(values))
 
@@ -256,7 +256,7 @@ def any_deep(*values: NestedContainer[Any]) -> bool:
         >>> any_deep([0, [None, 3]])
         True
     """
-    from ..iter_tools import iter_flat_cont
+    from ..iter_tools import iter_flat_cont  # noqa: PLC0415 - `iter_tools` imports `validate_tools`
 
     return any(iter_flat_cont(values))
 

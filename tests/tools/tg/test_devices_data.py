@@ -1,8 +1,13 @@
 from __future__ import annotations as _annotations
 
+import ast
 import collections
+import csv
+import importlib.util
+import io
 import json
 import re
+import sys
 from collections.abc import Iterable
 from typing import Any
 
@@ -31,8 +36,6 @@ BUILDER = (_DATA_DIR.parents[2] / "devtools" / "device_catalogs"
 def _lib_base() -> Any:
     """The builder's port of lib_base, loaded by path."""
 
-    import importlib.util
-    import sys
 
     spec = importlib.util.spec_from_file_location("_libbase_for_tests", BUILDER)
     module = importlib.util.module_from_spec(spec)
@@ -336,8 +339,6 @@ def test_every_android_code_exists_in_googles_catalog() -> None:
     # The stronger form of the test above, when the cache is there to check
     # against: the server's lookup table is this catalog, so a code missing
     # from it is a device that would display as a bare code.
-    import csv
-    import io
 
     text = PLAY_CATALOG.read_bytes().decode("utf-16")
     known = {(row.get("Model") or "").strip() for row in csv.DictReader(io.StringIO(text))}
@@ -460,7 +461,6 @@ def _lib_base_linux_only() -> set[str]:
     one way to reach the constant that works wherever the data does.
     """
 
-    import ast
 
     tree = ast.parse(BUILDER.with_name("desktop.py").read_text(encoding="utf-8"))
     for node in ast.walk(tree):

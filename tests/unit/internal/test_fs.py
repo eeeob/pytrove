@@ -44,7 +44,7 @@ def _make_junction(link: Path, target: Path) -> Path | None:
         return None
 
     done = subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)],
-                          capture_output=True)
+                          capture_output=True, check=False)  # a failure is read from `returncode`
 
     return link if done.returncode == 0 and link.exists() else None
 

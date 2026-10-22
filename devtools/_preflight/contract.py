@@ -61,8 +61,8 @@ class ContractCheck:
 
         check = cls.KINDS.get(contract.kind)
         if check is None:
-            return (f"unknown contract kind {contract.kind}; "
-                    f"known: {sorted(cls.KINDS)}",)
+            return ((f"unknown contract kind {contract.kind}; "
+                     f"known: {sorted(cls.KINDS)}"),)
 
         errors = cls._guard(getattr(cls, check), contract, body)
 
@@ -80,8 +80,8 @@ class ContractCheck:
         try:
             return check(contract, body)
         except Exception as exc:                          # noqa: BLE001
-            return [f"could not be read as {contract.kind}: "
-                    f"{type(exc).__name__}: {exc}"]
+            return [(f"could not be read as {contract.kind}: "
+                     f"{type(exc).__name__}: {exc}")]
 
     # --- helpers ----------------------------------------------------------
 

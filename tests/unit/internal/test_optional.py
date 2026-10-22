@@ -113,7 +113,7 @@ def test_unavailable_class_refuses_every_use() -> None:
     assert stand_in.__name__ == "Thing"
 
     for use in (
-        lambda: stand_in(),
+        stand_in,
         lambda: stand_in.attr,
         lambda: stand_in[int],
         lambda: isinstance(1, stand_in),

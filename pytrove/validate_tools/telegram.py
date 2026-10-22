@@ -155,11 +155,11 @@ def is_tg_otp_code(code: Any, with_str: bool = True, remove_spaces: bool = False
 
     if isinstance(code, str) and with_str:
         if remove_spaces:
-            from ..text_tools import clean_spaces
+            from ..text_tools import clean_spaces  # noqa: PLC0415 - `text_tools` sits above `validate_tools` in the import layering
 
             code = clean_spaces(code)
 
-        from ..num_tools import to_int
+        from ..num_tools import to_int  # noqa: PLC0415 - `num_tools` sits above `validate_tools` in the import layering
 
         return len(code) == _OTP_LENGTH and isinstance(to_int(code, False), int)
 

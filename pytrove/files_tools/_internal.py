@@ -193,7 +193,7 @@ def _remove(
     Raises:
         OSError: The first failure, unless `return_exc` is set.
     """
-    from .paths import ensure_path
+    from .paths import ensure_path  # noqa: PLC0415 - `paths` imports this module
 
     removed: list[Path | OSError] = []
 
@@ -236,9 +236,10 @@ def _spill_parts(path: Path, side: TruncateSide, size: int, dropped: int, spill:
     Returns:
         The parts written, in order.
     """
-    from .paths import ensure_dir, resolve_path
-    from .remove import remove_file
-    from .write import atomic_write
+    # `paths`, `remove` and `write` all import this module.
+    from .paths import ensure_dir, resolve_path  # noqa: PLC0415 - see above
+    from .remove import remove_file  # noqa: PLC0415 - see above
+    from .write import atomic_write  # noqa: PLC0415 - see above
 
     folder = ensure_dir(path.parent if spill is True else resolve_path(spill))
     part_size = size or math.ceil(dropped / _SPILL_PARTS)  # Rounded up, or a tiny spill would write no part.

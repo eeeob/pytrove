@@ -15,6 +15,7 @@ here:
 
 from __future__ import annotations as _annotations
 
+import datetime as dt
 import json
 from pathlib import Path
 
@@ -28,8 +29,6 @@ _STALE_DAYS = 10
 
 
 def _nudge() -> None:
-    import datetime as dt
-
     try:
         stamp = json.loads(_STATE.read_text(encoding="utf-8"))["last_checked"]
         when = dt.datetime.fromisoformat(stamp)

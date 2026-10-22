@@ -327,8 +327,9 @@ class FirmwareHarvest:
             # this phone runs -- so it never moves back down because this run
             # happened to see only an older regional dump of the same device.
             if was is not None and was["android"] > record["android"]:
-                record = {**was, "last_seen": record["last_seen"]}
-            kept[key] = record
+                kept[key] = {**was, "last_seen": record["last_seen"]}
+            else:
+                kept[key] = record
 
         floor = (date.today()
                  - timedelta(days=self.RECORD_MAX_AGE_DAYS)).isoformat()

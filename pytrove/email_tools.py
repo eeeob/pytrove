@@ -83,7 +83,7 @@ def detect_email_provider(email: str) -> ImapEmailProvider | None:
         msg = f"{email} is not valid email"
         raise ValidationError(msg)
 
-    return ImapEmailProvider.from_domain(email.split("@")[-1].lower())
+    return ImapEmailProvider.from_domain(email.rsplit("@", maxsplit=1)[-1].lower())
 
 
 @_optional_import(("aioimaplib", "imap"), ("beautifulsoup4", "bs4"))
