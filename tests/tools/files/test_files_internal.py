@@ -28,7 +28,7 @@ from pytrove.files_tools._internal import (
     HAS_ORJSON,
 )
 
-needs_orjson = pytest.mark.skipif(not HAS_ORJSON, reason="needs the fastjson extra")
+needs_orjson = pytest.mark.skipif(not HAS_ORJSON, reason="needs the json extra")
 
 
 # --- constants and the options TypedDict -----------------------------------

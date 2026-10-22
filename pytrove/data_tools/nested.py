@@ -96,7 +96,7 @@ def get_nested_dict_key(path_dct: NestedStrKeyDict[Literal[True, 1]], sep: str =
     return flatten(path_dct)
 
 
-@_optional_import(("jsonref", "jsonref"))
+@_optional_import(("jsonref", "json"))
 def resolve_json_refs(content: JsonValue, **kw: Any) -> JsonValue:
     """Replace every `$ref` in an already-parsed JSON document.
 

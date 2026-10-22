@@ -127,14 +127,14 @@ def test_compile_from_file_nests_skips_definitions_and_applies_file_defaults(tmp
 
 
 @needs_pyrogram
-def test_compile_from_file_reads_plain_json_without_the_jsonref_extra(
+def test_compile_from_file_reads_plain_json_without_the_json_extra(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from pytrove.models.template_models import template
 
     def no_jsonref(path: object) -> object:
         """Fail as `load_ref_json` does when `jsonref` is absent."""
-        msg = "pytrove[jsonref]"
+        msg = "pytrove[json]"
         raise ImportError(msg)
 
     monkeypatch.setattr(template, "load_ref_json", no_jsonref)
