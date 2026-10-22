@@ -802,6 +802,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "ty" },
 ]
 devtools = [
@@ -861,6 +862,7 @@ dev = [
     { name = "pytest", specifier = ">=9.0.3" },
     { name = "pytest-asyncio", specifier = ">=0.24" },
     { name = "ruff", specifier = "==0.17.1" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0" },
     { name = "ty", specifier = "==0.0.88" },
 ]
 devtools = [{ name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0" }]

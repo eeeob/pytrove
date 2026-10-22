@@ -126,6 +126,7 @@ full = [
 dev = [
     { include-group = "lint" },
     { include-group = "test" },
+    { include-group = "devtools" },
 ]
 lint = [
     # Pinned exactly: ty is pre-1.0 and each release can add or change
