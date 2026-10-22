@@ -35,7 +35,7 @@ else:                                             # pragma: no cover
 
         def _generate_next_value_(name: str, *_: object) -> str:
             return name.lower()
-        
+
         __str__ = str.__str__
         __format__ = str.__format__
 

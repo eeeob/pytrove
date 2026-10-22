@@ -61,10 +61,10 @@ class Cache:
         return data
 
     def fetch_text(
-        self, 
-        name: str, 
+        self,
+        name: str,
         url: str, *,
-        encoding: str = "utf-8", 
+        encoding: str = "utf-8",
         errors: str = "strict"
         ) -> str:
         """Return the cache entry `name`, fetched from `url` if absent, as text."""
