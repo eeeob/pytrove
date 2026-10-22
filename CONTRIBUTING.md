@@ -176,7 +176,7 @@ If a file exceeds this limit, it must be converted into a directory containing s
 
 Order the contents of Python files according to the following sequence:
 
-1. A module docstring (`Module Docstring`), if present.
+1. A module docstring (`Module Docstring`). Every module and package has one, however short (`D100`, `D104`).
 2. `from __future__ import annotations as _annotations` immediately after the module docstring.
 3. Imports in ordered groups: the Python standard library, then external dependencies, then internal library imports, with a blank line between groups.
 4. Module-level constants and type definitions.
