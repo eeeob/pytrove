@@ -6,10 +6,10 @@ import re
 from typing import TYPE_CHECKING, Any, Final, overload
 
 try:
-    from pyrogram.enums import ParseMode
-    from pyrogram.types import CallbackQuery as Query, Chat, Message, User
-    from pyrogram.types.user_and_chats.user import Link
-    from pyrogram.utils import get_channel_id
+    from pyrogram.enums import ParseMode  # type: ignore[import-not-found]  # Optional: the `tg` extra.
+    from pyrogram.types import CallbackQuery as Query, Chat, Message, User  # type: ignore[import-not-found]  # Optional: the `tg` extra.
+    from pyrogram.types.user_and_chats.user import Link  # type: ignore[import-not-found]  # Optional: the `tg` extra.
+    from pyrogram.utils import get_channel_id  # type: ignore[import-not-found]  # Optional: the `tg` extra.
 except ImportError:
     pass
 

@@ -13,7 +13,7 @@ from functools import partial
 from typing import TYPE_CHECKING, Any, Final, Literal, TypedDict, cast
 
 try:
-    import orjson
+    import orjson  # type: ignore[import-not-found]  # Optional: the `json` extra.
 except ImportError:
     HAS_ORJSON = False
 else:

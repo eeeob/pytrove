@@ -7,12 +7,12 @@ from email import message_from_bytes
 from typing import TYPE_CHECKING
 
 try:
-    from aioimaplib import aioimaplib
+    from aioimaplib import aioimaplib  # type: ignore[import-not-found]  # Optional: the `imap` extra.
 except ImportError:
     pass
 
 try:
-    import bs4
+    import bs4  # type: ignore[import-not-found]  # Optional: the `bs4` extra.
 except ImportError:
     pass
 

@@ -14,12 +14,12 @@ else:
     from typing_extensions import Self
 
 try:
-    from pyrogram.types import InlineKeyboardButton
+    from pyrogram.types import InlineKeyboardButton  # type: ignore[import-not-found]  # Optional: the `tg` extra.
 except ImportError:
     pass
 
 if TYPE_CHECKING:
-    from pyrogram.enums import ButtonStyle
+    from pyrogram.enums import ButtonStyle  # type: ignore[import-not-found]  # Optional: the `tg` extra.
 else:
     # `BaseDataClass` resolves field annotations at runtime, so `ButtonStyle`
     # must be a name here even when the installed pyrogram lacks it.

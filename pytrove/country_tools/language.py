@@ -5,7 +5,7 @@ from __future__ import annotations as _annotations
 from typing import TYPE_CHECKING
 
 try:
-    from babel import Locale, UnknownLocaleError
+    from babel import Locale, UnknownLocaleError  # type: ignore[import-not-found]  # Optional: the `locale` extra.
 except ImportError:
     pass
 

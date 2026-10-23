@@ -5,12 +5,12 @@ from __future__ import annotations as _annotations
 from functools import cache
 
 try:
-    from pycountry import countries
+    from pycountry import countries  # type: ignore[import-not-found]  # Optional: the `country` extra.
 except ImportError:
     pass
 
 try:
-    from babel.core import get_global
+    from babel.core import get_global  # type: ignore[import-not-found]  # Optional: the `locale` extra.
 except ImportError:
     pass
 

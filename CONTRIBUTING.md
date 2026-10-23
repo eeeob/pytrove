@@ -125,7 +125,7 @@ from pytrove.constants import *  # all public constants
 
 1. Add it to `[project.optional-dependencies]` in `pyproject.toml`, in the group of its feature.
 2. Add it to the `full` group, which installs every optional feature.
-3. Import it through the optional-import mechanism, so the base import survives its absence.
+3. Import it through the optional-import mechanism, so the base import survives its absence, and end each import line with `# type: ignore[import-not-found]  # Optional: the `<extra>` extra.`, so the editor of a user without the extra shows no warning on it.
 4. Guard the public function or class that needs it, so the error appears only on use.
 5. Make the absence message name the extra and the install command.
 

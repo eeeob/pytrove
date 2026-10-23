@@ -21,7 +21,7 @@ from ...typings import (
 from ...validate_tools import is_mapping
 
 if TYPE_CHECKING:
-    from pyrogram.enums import ParseMode
+    from pyrogram.enums import ParseMode  # type: ignore[import-not-found]  # Optional: the `tg` extra.
 
     # Only annotations use `TypeIs`, so the checker's `typing_extensions` serves every
     # version without raising the runtime floor (`TypeIs` needs `typing_extensions>=4.10`).

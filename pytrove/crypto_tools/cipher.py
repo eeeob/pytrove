@@ -6,7 +6,7 @@ import os
 from typing import TYPE_CHECKING, Any, overload
 
 try:
-    from cryptography.hazmat.primitives.ciphers.aead import AESGCM, AESSIV
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM, AESSIV  # type: ignore[import-not-found]  # Optional: the `crypto` extra.
 except ImportError:
     pass
 

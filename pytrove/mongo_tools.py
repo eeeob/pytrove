@@ -11,7 +11,7 @@ else:
     from typing_extensions import Self
 
 try:
-    from pymongo import IndexModel
+    from pymongo import IndexModel  # type: ignore[import-not-found]  # Optional: the `mongo` extra.
 except ImportError:
     HAS_PYMONGO = False
 else:

@@ -5,7 +5,7 @@ from __future__ import annotations as _annotations
 from typing import Any
 
 try:
-    from typeguard import (
+    from typeguard import (  # type: ignore[import-not-found]  # Optional: the `typecheck` extra.
         CollectionCheckStrategy,
         TypeCheckError,
         check_type,

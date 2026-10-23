@@ -12,7 +12,7 @@ else:
     from typing_extensions import Self
 
 try:
-    from pyrogram.types import InputRichMessage
+    from pyrogram.types import InputRichMessage  # type: ignore[import-not-found]  # Optional: the `tg` extra.
 except ImportError:
     pass
 
