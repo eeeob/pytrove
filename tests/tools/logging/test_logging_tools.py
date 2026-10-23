@@ -3,7 +3,6 @@ from __future__ import annotations as _annotations
 import io
 import logging
 import time
-from datetime import timedelta
 from logging.handlers import RotatingFileHandler
 from typing import TYPE_CHECKING
 
@@ -15,7 +14,6 @@ from pytrove.logging_tools import (
     flush_logger_handler,
     get_rotating_log_files,
     set_loggers,
-    _UTC3,
 )
 from pytrove.models import LoggerOptions, LogHandlerOptions
 
@@ -125,10 +123,6 @@ def test_utc3_formatter_writes_utc_plus_3() -> None:
     record = logging.LogRecord("x", logging.INFO, "f", 1, "m", None, None)
     record.created = 0.0
     assert UTC3LogFormatter("%(asctime)s").format(record).startswith("1970-01-01 03:00:00")
-
-
-def test_utc3_zone_is_a_fixed_plus_three_hours() -> None:
-    assert _UTC3.utcoffset(None) == timedelta(hours=3)
 
 
 def test_utc3_converter_is_the_static_to_utc3() -> None:

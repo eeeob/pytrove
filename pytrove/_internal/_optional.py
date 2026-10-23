@@ -294,4 +294,4 @@ def _unavailable_class(name: str, *packages: _PackageGroup) -> type[Any]:
     return _UnavailableMeta(name, (), dict(_Unavailable.__dict__))
 
 
-__all__ = ("_optional_import", "_unavailable_class")
+__all__ = ("_build_error_msg", "_optional_import", "_unavailable_class")

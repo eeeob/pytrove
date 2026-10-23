@@ -13,7 +13,7 @@ _COPY_BUF: Final[int] = 1 << 20
 """Bytes held in memory per copy step, so copying a large file costs this and not its size."""
 
 _HAS_FILE_ATTRIBUTES: Final[bool] = hasattr(os.stat_result, "st_file_attributes")
-"""Whether `os.lstat` reports Windows file attributes, which is how a junction is recognised."""
+"""Whether `os.stat` reports Windows file attributes: the junction reparse tag, the hidden bit."""
 
 
 def _is_link(path: PathLike) -> bool:
@@ -71,4 +71,5 @@ __all__ = (
     "_is_dir",
     "_is_link",
     "_COPY_BUF",
+    "_HAS_FILE_ATTRIBUTES",
 )
