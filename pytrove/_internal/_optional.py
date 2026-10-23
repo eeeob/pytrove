@@ -187,26 +187,28 @@ def _optional_import(*packages: _PackageGroup) -> Callable[[Callable[_P, _T]], C
         if inspect.isasyncgenfunction(func):
 
             @functools.wraps(func)
-            async def agen_wrapper(*args: Any, **kwargs: Any) -> AsyncIterator[Any]:
+            async def agen_wrapper(*args: _P.args, **kwargs: _P.kwargs) -> AsyncIterator[Any]:
                 """Raise if packages are missing, otherwise yield from `func`."""
                 if error_msg is not None:
                     raise ImportError(error_msg)
                 async for item in func(*args, **kwargs):
                     yield item
 
-            # Same parameters and result as `func`, which is what `Callable[_P, _T]` states.
+            # `async def` types the wrapper as returning a `Coroutine` around its result,
+            # while `_T` already is the awaitable `func` returns; the parameters match.
             return cast(Callable[_P, _T], agen_wrapper)
 
         if inspect.iscoroutinefunction(func):
 
             @functools.wraps(func)
-            async def coro_wrapper(*args: Any, **kwargs: Any) -> Any:
+            async def coro_wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Any:
                 """Raise if packages are missing, otherwise await `func`."""
                 if error_msg is not None:
                     raise ImportError(error_msg)
                 return await func(*args, **kwargs)
 
-            # Same parameters and result as `func`, which is what `Callable[_P, _T]` states.
+            # `async def` types the wrapper as returning a `Coroutine` around its result,
+            # while `_T` already is the awaitable `func` returns; the parameters match.
             return cast(Callable[_P, _T], coro_wrapper)
 
         @functools.wraps(func)
