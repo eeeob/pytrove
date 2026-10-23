@@ -6,7 +6,6 @@ import asyncio
 import logging
 import time
 from collections.abc import Iterator
-from functools import partial
 from typing import TYPE_CHECKING, cast
 
 from ..async_tools import gather_helper, safe_wait_task, to_thread
@@ -98,27 +97,25 @@ class PeriodicArchiver:
             The archive's path.
         """
         return await to_thread(
-            partial(
-                compress_folder,
-                job.root,
-                job.archive_path(),
-                format=job.archive_format,
-                include=job.include,
-                # `None` stands for "no rules", which a nested rule container spells as `()`.
-                exclude=[
-                    self.base_exclude,
-                    () if job.exclude is None else job.exclude,
-                    self._siblings(job),
-                ],
-                exclude_hidden=job.exclude_hidden,
-                stability_retries=job.stability_retries,
-                level=job.level,
-                workers=job.workers,
-                follow_links=job.follow_links,
-                fsync=job.fsync,
-                stability_check=job.stability_check,
-                delete_source=job.delete_source,
-            )
+            compress_folder,
+            job.root,
+            job.archive_path(),
+            format=job.archive_format,
+            include=job.include,
+            # `None` stands for "no rules", which a nested rule container spells as `()`.
+            exclude=[
+                self.base_exclude,
+                () if job.exclude is None else job.exclude,
+                self._siblings(job),
+            ],
+            exclude_hidden=job.exclude_hidden,
+            stability_retries=job.stability_retries,
+            level=job.level,
+            workers=job.workers,
+            follow_links=job.follow_links,
+            fsync=job.fsync,
+            stability_check=job.stability_check,
+            delete_source=job.delete_source,
         )
 
     async def run_job(self, job: ArchiveJob) -> None:
@@ -143,7 +140,7 @@ class PeriodicArchiver:
                     log.error("Archive job %r failed", job.name, exc_info=e)
             finally:
                 if path is not None:
-                    await to_thread(partial(remove_file, path))
+                    await to_thread(remove_file, path)
 
                 object.__setattr__(job, "last_run", time.monotonic())
 

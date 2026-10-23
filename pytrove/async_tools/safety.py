@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from concurrent.futures import ThreadPoolExecutor
 
     from .._internal._types import _ExcFilter
-    from ..typings import Container, MaybeAwaitable, NestedContainer, _ExcT, _False, _P, _T, _True
+    from ..typings import Container, MaybeAwaitable, NestedContainer, _ExcT, _False, _T, _True
 
 log = logging.getLogger(__name__)
 
@@ -253,57 +253,57 @@ async def asafe_call(
 # otherwise bind `R` to the whole coroutine; `MaybeAwaitable` stays last for union-typed values.
 @overload
 async def maybe_awaitable(
-    awaitable_or_callable: Callable[_P, Awaitable[_T]],
-    *args: _P.args,
+    awaitable_or_callable: Callable[..., Awaitable[_T]],
+    *args: Any,
     executor: ThreadPoolExecutor | None = None,
     return_exc: _False = False,
     log_exc: bool = True,
-    **kwargs: _P.kwargs,
+    **kwargs: Any,
 ) -> _T: ...
 @overload
 async def maybe_awaitable(
-    awaitable_or_callable: Callable[_P, Awaitable[_T]],
-    *args: _P.args,
+    awaitable_or_callable: Callable[..., Awaitable[_T]],
+    *args: Any,
     executor: ThreadPoolExecutor | None = None,
     return_exc: bool,
     log_exc: bool = True,
-    **kwargs: _P.kwargs,
+    **kwargs: Any,
 ) -> _T | Exception: ...
 @overload
 async def maybe_awaitable(
-    awaitable_or_callable: Callable[_P, _T],
-    *args: _P.args,
+    awaitable_or_callable: Callable[..., _T],
+    *args: Any,
     executor: ThreadPoolExecutor | None = None,
     return_exc: _False = False,
     log_exc: bool = True,
-    **kwargs: _P.kwargs,
+    **kwargs: Any,
 ) -> _T: ...
 @overload
 async def maybe_awaitable(
-    awaitable_or_callable: Callable[_P, _T],
-    *args: _P.args,
+    awaitable_or_callable: Callable[..., _T],
+    *args: Any,
     executor: ThreadPoolExecutor | None = None,
     return_exc: bool,
     log_exc: bool = True,
-    **kwargs: _P.kwargs,
+    **kwargs: Any,
 ) -> _T | Exception: ...
 @overload
 async def maybe_awaitable(
-    awaitable_or_callable: MaybeAwaitable[_P, _T],
-    *args: _P.args,
+    awaitable_or_callable: MaybeAwaitable[..., _T],
+    *args: Any,
     executor: ThreadPoolExecutor | None = None,
     return_exc: _False = False,
     log_exc: bool = True,
-    **kwargs: _P.kwargs,
+    **kwargs: Any,
 ) -> _T: ...
 @overload
 async def maybe_awaitable(
-    awaitable_or_callable: MaybeAwaitable[_P, _T],
-    *args: _P.args,
+    awaitable_or_callable: MaybeAwaitable[..., _T],
+    *args: Any,
     executor: ThreadPoolExecutor | None = None,
     return_exc: bool,
     log_exc: bool = True,
-    **kwargs: _P.kwargs,
+    **kwargs: Any,
 ) -> _T | Exception: ...
 async def maybe_awaitable(
     awaitable_or_callable: Any,

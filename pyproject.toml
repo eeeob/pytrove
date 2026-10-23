@@ -286,10 +286,3 @@ python-platform = "linux"
 # PEP 695 syntax, imported only on 3.12+ (see `typings/core.py`); checked on
 # its own with `ty check --python-version 3.12 pytrove/typings/_core_py312.py`.
 exclude = ["pytrove/typings/_core_py312.py"]
-
-[tool.ty.rules]
-# `safe_call`, `to_thread` and `maybe_awaitable` take their own keyword-only options
-# between `*args: _P.args` and `**kwargs: _P.kwargs`, which PEP 612 does not allow.
-# The design is kept on purpose; each call site that cascades from it carries a
-# `ty: ignore[...]` naming this. Every other rule is enforced.
-invalid-paramspec = "ignore"

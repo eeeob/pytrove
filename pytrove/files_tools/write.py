@@ -5,7 +5,6 @@ from __future__ import annotations as _annotations
 import os
 import tempfile
 from contextlib import contextmanager
-from functools import partial
 from typing import IO, TYPE_CHECKING, Any, overload
 
 from .._internal._fs import _COPY_BUF
@@ -80,7 +79,7 @@ def atomic_write(
                 try:
                     os.fsync(dir_fd)
                 finally:
-                    safe_call(partial(os.close, dir_fd))
+                    safe_call(os.close, dir_fd)
             except OSError:
                 pass
     finally:

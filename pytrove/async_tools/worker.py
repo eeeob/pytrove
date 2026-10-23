@@ -5,7 +5,6 @@ from __future__ import annotations as _annotations
 import asyncio
 import sys
 import threading
-from functools import partial
 from typing import TYPE_CHECKING, Any
 
 if sys.version_info >= (3, 11):
@@ -82,7 +81,7 @@ class AioThreadWorker(_LoopHost):
         if not thread.is_alive():
             return
 
-        await to_thread(partial(thread.join, timeout))
+        await to_thread(thread.join, timeout)
 
         if timeout is not None and thread.is_alive():
             msg = f"worker did not stop within {timeout!r} seconds"

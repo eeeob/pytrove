@@ -2,7 +2,6 @@
 
 from __future__ import annotations as _annotations
 
-from functools import partial
 from typing import TYPE_CHECKING, Any, overload
 
 try:
@@ -185,7 +184,7 @@ def resolve_rc(value: RegionCode | PhoneNumber | PhoneNumberObj | int) -> Region
         The lowercase region code, or `None` when nothing matches.
     """
     if isinstance(value, int):
-        return safe_call(partial(rc_from_cc, value))
+        return safe_call(rc_from_cc, value)
 
     if isinstance(value, PhoneNumberObj):
         return rc_from_phone(value)
@@ -200,7 +199,7 @@ def resolve_rc(value: RegionCode | PhoneNumber | PhoneNumberObj | int) -> Region
     except (ValueError, TypeError):
         return None
 
-    return safe_call(partial(rc_from_cc, number)) or safe_call(partial(rc_from_phone, number))
+    return safe_call(rc_from_cc, number) or safe_call(rc_from_phone, number)
 
 
 __all__ = (

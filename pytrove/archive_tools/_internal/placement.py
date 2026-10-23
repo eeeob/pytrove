@@ -4,7 +4,6 @@ from __future__ import annotations as _annotations
 
 import logging
 import ntpath
-from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from ...callable_tools import safe_call
@@ -96,7 +95,8 @@ class _PlaceMixin:
         except KeyError:
             if parent:
                 resolved = safe_call(
-                    partial((self._root / parent).resolve, strict=False),
+                    (self._root / parent).resolve,
+                    strict=False,
                     include_exc=(ValueError, OSError),
                     log_exc=True,
                 )
