@@ -4,7 +4,7 @@ from __future__ import annotations as _annotations
 
 import random
 
-from .._internal._triangular import _tri_cdf, _tri_icdf
+from .._internal import _tri_cdf, _tri_icdf
 
 
 def jitter(

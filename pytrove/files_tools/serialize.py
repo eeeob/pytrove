@@ -12,8 +12,7 @@ try:
 except ImportError:
     pass
 
-from .._internal._optional import _optional_import
-from .._internal._sentinel import _is_given
+from .._internal import _optional_import, _is_given
 from ..enums import PickleSafety
 from ..iter_tools import iter_flat_cont
 from ._internal import _json_dumps, _json_loads

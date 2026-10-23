@@ -13,12 +13,12 @@ try:
 except ImportError:
     pass
 
-from .._internal._optional import _optional_import
+from .._internal import _optional_import
 from ..errors import ValidationError
 from ..num_tools import to_int
 from ..text_tools import clean_spaces
 from ..validate_tools import is_tg_user_id
-from ._internal.links import _HIDDEN_PADDING, _PRIVATE_CHAT_LINK_PATTERN, _SHORT_LINK_TEXT
+from ._internal import _HIDDEN_PADDING, _PRIVATE_CHAT_LINK_PATTERN, _SHORT_LINK_TEXT
 
 if TYPE_CHECKING:
     from ..typings import StrInt, _T

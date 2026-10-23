@@ -8,8 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, TYPE_CHECKING
 
-from ..._internal._fs import _is_link
-from ..._internal._stability import _default_stability_check
+from ..._internal import _is_link, _default_stability_check
 from ...enums import ArchiveFormat
 from .common import _split_workers, _WalkEntry
 from .rules import _Filter

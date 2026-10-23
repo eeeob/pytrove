@@ -5,7 +5,7 @@ from __future__ import annotations as _annotations
 import functools
 from typing import TYPE_CHECKING, Any, Concatenate, overload
 
-from .._internal._exceptions import _HARD_PROPAGATE
+from .._internal import _HARD_PROPAGATE
 from ..async_tools import call_sync_or_await
 from ..validate_tools import iscoroutinefunction_wrapped
 

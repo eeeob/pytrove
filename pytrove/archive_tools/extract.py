@@ -5,15 +5,13 @@ from __future__ import annotations as _annotations
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, cast
 
-from .._internal._types import _Rule
+from .._internal import _Rule
 from ..enums import ArchiveFormat
 from ..errors import ValidationError
 from ..files_tools import remove_file, resolve_path
 from ..iter_tools import iter_flat_cont
 from ..typings import ArchiveLimits, NestedContainer, PathLike
-from ._internal.common import _require_zstd
-from ._internal.extractor import _Extractor
-from ._internal.rules import _Filter
+from ._internal import _Extractor, _Filter, _require_zstd
 
 if TYPE_CHECKING:
     from concurrent.futures import Executor

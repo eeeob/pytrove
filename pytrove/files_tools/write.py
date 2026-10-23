@@ -7,7 +7,7 @@ import tempfile
 from contextlib import contextmanager
 from typing import IO, TYPE_CHECKING, Any, overload
 
-from .._internal._fs import _COPY_BUF
+from .._internal import _COPY_BUF
 from ..callable_tools import safe_call
 from ..enums import TruncateSide
 from ..errors import ValidationError

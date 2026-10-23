@@ -19,7 +19,7 @@ try:
 except ImportError:
     pass
 
-from ._internal._optional import _optional_import
+from ._internal import _optional_import
 from .callable_tools import safe_call
 from .errors import ValidationError
 from .text_tools import clean_spaces, to_str

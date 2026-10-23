@@ -9,7 +9,7 @@ try:
 except ImportError:
     pass
 
-from .._internal._optional import _optional_import
+from .._internal import _optional_import
 from ..errors import ValidationError
 from ._internal import _primary_official_language
 

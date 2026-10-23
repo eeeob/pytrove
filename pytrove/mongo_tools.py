@@ -17,7 +17,7 @@ except ImportError:
 else:
     HAS_PYMONGO = True
 
-from ._internal._optional import _unavailable_class
+from ._internal import _unavailable_class
 
 if HAS_PYMONGO:
 

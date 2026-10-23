@@ -11,7 +11,7 @@ try:
 except ImportError:
     pass
 
-from .._internal._optional import _optional_import
+from .._internal import _optional_import
 
 _ITERATIONS: Final[int] = 200_000
 """PBKDF2-SHA256 rounds for every derived key."""

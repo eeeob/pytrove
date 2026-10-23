@@ -16,7 +16,7 @@ try:
 except ImportError:
     pass
 
-from ._internal._optional import _optional_import
+from ._internal import _optional_import
 from .async_tools import safe_await, to_thread
 from .enums import ImapEmailProvider
 from .errors import ValidationError

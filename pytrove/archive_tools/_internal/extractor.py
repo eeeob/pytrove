@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ..._internal._fs import _is_dir, _is_link
+from ..._internal import _is_dir, _is_link
 from ...enums import ArchiveFormat
 from ...errors import ValidationError
 from ...files_tools import remove_file, remove_folder, remove_path, remove_paths

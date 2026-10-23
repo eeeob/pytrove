@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any
 
-from ..._internal._fs import _is_dir, _COPY_BUF
+from ..._internal import _is_dir, _COPY_BUF
 from ...errors import ValidationError
 from ...files_tools import ensure_dir, remove_file
 

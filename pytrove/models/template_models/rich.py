@@ -16,7 +16,7 @@ try:
 except ImportError:
     pass
 
-from ..._internal._optional import _optional_import
+from ..._internal import _optional_import
 from ._internal import _compile_lines, _CompiledRichMessageDict, _format_lines
 from .conditions import CompiledDefaults
 from .lines import CompiledEachLine, CompiledLine

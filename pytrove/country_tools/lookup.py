@@ -4,7 +4,7 @@ from __future__ import annotations as _annotations
 
 from typing import TYPE_CHECKING
 
-from .._internal._optional import _optional_import
+from .._internal import _optional_import
 from ._internal import _country_tables
 
 if TYPE_CHECKING:

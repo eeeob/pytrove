@@ -15,7 +15,7 @@ from . import backends
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
-    from ..._internal._types import _RawEntry, _Rule
+    from ..._internal import _RawEntry, _Rule
 
 
 class _Rules(NamedTuple):

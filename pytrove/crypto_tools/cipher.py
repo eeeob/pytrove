@@ -10,7 +10,7 @@ try:
 except ImportError:
     pass
 
-from .._internal._optional import _optional_import
+from .._internal import _optional_import
 from ..errors import ValidationError
 from ._internal import _derive_deterministic_key, _derive_key, _NONCE_LEN, _SALT_LEN, _TAG_LEN
 
