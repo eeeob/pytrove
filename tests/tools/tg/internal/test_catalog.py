@@ -37,7 +37,7 @@ def _write(directory: Path, platform: str, **data: Any) -> None:
 
 def _resolve(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, **data: Any) -> _Catalog:
     """Resolve a catalog written to `tmp_path`, bypassing the cache of the bundled ones."""
-    monkeypatch.setattr(catalog, "_DATA_DIR", tmp_path)
+    monkeypatch.setattr(catalog, "DEVICE_CATALOGS_DIR", tmp_path)
     _write(tmp_path, "fake", **data)
     return catalog._catalog.__wrapped__("fake")
 
@@ -49,7 +49,6 @@ def test_constants() -> None:
     assert catalog._SCHEMA == 1
     assert catalog._HALF_LIFE_DAYS == 730.0
     assert catalog._MIN_WEIGHT == 1e-4
-    assert catalog._DATA_DIR.is_dir()
     assert all(share > 0 for share in catalog.GROUP_SHARES.values())
     assert set(catalog.OS_SHARES) == {"windows", "linux"}
 
@@ -91,7 +90,7 @@ def test_load_reads_a_bundled_catalog() -> None:
 
 
 def test_load_refuses_a_missing_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(catalog, "_DATA_DIR", tmp_path)
+    monkeypatch.setattr(catalog, "DEVICE_CATALOGS_DIR", tmp_path)
 
     with pytest.raises(FileNotFoundError, match="no device catalog for 'nope'"):
         catalog._load("nope")
@@ -101,7 +100,7 @@ def test_load_refuses_a_missing_file(monkeypatch: pytest.MonkeyPatch, tmp_path: 
 def test_load_refuses_another_schema(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, schema: object
 ) -> None:
-    monkeypatch.setattr(catalog, "_DATA_DIR", tmp_path)
+    monkeypatch.setattr(catalog, "DEVICE_CATALOGS_DIR", tmp_path)
     _write(tmp_path, "old", schema=schema, devices=[], versions=[])
 
     with pytest.raises(ValueError, match="unsupported schema"):

@@ -5,13 +5,10 @@ from __future__ import annotations as _annotations
 from dataclasses import dataclass, field
 from datetime import date
 from functools import cache
-from pathlib import Path
 from typing import Any, Final, cast
 
+from ...constants import DEVICE_CATALOGS_DIR
 from ...files_tools import load_json
-
-_DATA_DIR: Final[Path] = Path(__file__).parents[2] / "data" / "devices"
-"""One JSON catalog per platform; read on first use only."""
 
 _SCHEMA: Final[int] = 1
 """The catalog layout version; must equal `devtools/device_catalogs/src/shared.py::SCHEMA`."""
@@ -166,7 +163,7 @@ def _load(platform: str) -> dict[str, Any]:
         FileNotFoundError: If the file is missing.
         ValueError: If its schema is not `_SCHEMA`.
     """
-    path = _DATA_DIR / f"{platform}.json"
+    path = DEVICE_CATALOGS_DIR / f"{platform}.json"
 
     if not path.is_file():
         msg = f"no device catalog for {platform!r}: {path} is missing"
@@ -303,7 +300,6 @@ __all__ = (
     "_age_weight",
     "_catalog",
     "_load",
-    "_DATA_DIR",
     "_HALF_LIFE_DAYS",
     "_MIN_WEIGHT",
     "_SCHEMA",

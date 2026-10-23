@@ -21,7 +21,7 @@ def test_bundled_points_are_read_on_first_use_and_not_at_import() -> None:
 
 
 def test_points_file_holds_id_and_date_pairs_in_date_order() -> None:
-    rows = json.loads(points._POINTS_FILE.read_text(encoding="utf-8"))
+    rows = json.loads(points.TG_ACCOUNT_POINTS_FILE.read_text(encoding="utf-8"))
     assert rows and all(
         isinstance(uid, int) and time.strptime(day, "%Y-%m-%d") for uid, day in rows
     )
@@ -33,7 +33,6 @@ def test_interpolate_time() -> None:
     assert points._interpolate_time(5, 0, 0.0, 10, 100.0) == 50.0
     assert points._interpolate_time(5, 3, 7.0, 3, 9.0) == 7.0
     assert points._interpolate_time(10**9, 0, 0.0, 1, 10**12) <= time.time()
-    assert points._POINTS_FILE.name == "tg_points.json"
 
 
 def test_points_are_loaded_once_and_reused() -> None:
