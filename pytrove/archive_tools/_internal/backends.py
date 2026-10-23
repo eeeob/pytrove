@@ -10,7 +10,7 @@ import importlib
 from typing import TYPE_CHECKING, Any
 
 try:
-    from compression import zstd as std_zstd  # type: ignore[import-not-found, ty:unresolved-import]  # Standard library only from 3.14.
+    from compression import zstd as std_zstd  # type: ignore[import-not-found]  # Standard library only from 3.14.
 except ImportError:
     std_zstd: ModuleType | None = None
 

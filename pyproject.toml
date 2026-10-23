@@ -282,6 +282,16 @@ convention = "google"
 python-version = "3.10"
 python-platform = "linux"
 
+[tool.ty.analysis]
+# The optional dependencies (rule 2.1), so `make typecheck` also passes on an environment
+# without some extras (`make sync-minimal`). In a full one they resolve and this changes
+# nothing. `compression` is the 3.14+ standard-library package, absent at the 3.10 floor.
+allowed-unresolved-imports = [
+    "aioimaplib.**", "babel.**", "bs4.**", "compression.**", "cryptography.**",
+    "jsonref.**", "orjson.**", "pathspec.**", "phonenumbers.**", "pycountry.**",
+    "pymongo.**", "pyrogram.**", "typeguard.**", "wrapt.**", "zstandard.**",
+]
+
 [tool.ty.src]
 # PEP 695 syntax, imported only on 3.12+ (see `typings/core.py`); checked on
 # its own with `ty check --python-version 3.12 pytrove/typings/_core_py312.py`.
