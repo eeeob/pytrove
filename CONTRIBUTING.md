@@ -1,5 +1,7 @@
 # Contributing to `pytrove`
 
+An Arabic translation is kept in [`CONTRIBUTING.ar.md`](CONTRIBUTING.ar.md); this English text is the reference when the two differ.
+
 This file is the single source of the project's rules. It has two parts: **the workflow**, which walks a change from a fresh clone to a merged pull request, and **the rules** it points at. The rules keep their numbers (`0.1`–`5.8`) because `pyproject.toml`, the `Makefile`, CI and comments in the code cite them. The mechanical rules are enforced by `ruff` and `ty`, configured only in `pyproject.toml` under `[tool.ruff]` and `[tool.ty]`, where each selected rule set names the rule it enforces and each ignore says why; the rest are checked in review.
 
 ## The workflow
