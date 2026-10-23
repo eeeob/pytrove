@@ -14,6 +14,11 @@ on:
     - cron: "0 6 * * 1"
   workflow_dispatch: {}
 
+# The jobs only check out and run the suite, so the token can read and nothing more,
+# whatever the repository's default token permissions are.
+permissions:
+  contents: read
+
 # Every step calls a `make` recipe: the Makefile is the only place the
 # commands are written down, shared with pre-commit and CONTRIBUTING.md.
 jobs:
