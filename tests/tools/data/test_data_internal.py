@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 from pytrove.data_tools._internal import (
     _filled,
-    _mapping_filled,
     _none_cleaner,
     _reconstruct,
     _reconstruct_mapping,
@@ -75,12 +74,10 @@ def test_filled_detects_only_a_total_loss() -> None:
     assert not _filled([1, 2], [])
     assert _filled([], [])  # the transform itself dropped everything
     assert _filled([1], object())  # unsized: nothing to judge
-
-
-def test_mapping_filled_detects_only_a_total_loss() -> None:
-    assert _mapping_filled({"a": 1}, {"a": 1})
-    assert not _mapping_filled({"a": 1}, {})
-    assert _mapping_filled({}, {})
+    # mappings go through the same check
+    assert _filled({"a": 1}, {"a": 1})
+    assert not _filled({"a": 1}, {})
+    assert _filled({}, {})
 
 
 def test_refilled_keeps_the_instance_configuration() -> None:

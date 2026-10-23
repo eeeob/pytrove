@@ -5,10 +5,11 @@ from __future__ import annotations as _annotations
 import logging
 import time
 from collections.abc import Callable, Iterator
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Final, cast, overload
+from typing import TYPE_CHECKING, Any, cast, overload
 
+from .date_tools import UTC_PLUS_3
 from .iter_tools import iter_flat_cont
 from .models import LoggerOptions, LogHandlerOptions
 
@@ -16,9 +17,6 @@ if TYPE_CHECKING:
     from logging.handlers import RotatingFileHandler
 
     from .typings import Container, NestedContainer, _False, _True
-
-_UTC3: Final[timezone] = timezone(timedelta(hours=3))
-"""The fixed UTC+3 zone `UTC3LogFormatter` writes record times in."""
 
 
 class UTC3LogFormatter(logging.Formatter):
@@ -35,7 +33,7 @@ class UTC3LogFormatter(logging.Formatter):
             The time tuple in UTC+3.
         """
         stamp = time.time() if stamp is None else stamp
-        return datetime.fromtimestamp(stamp, tz=_UTC3).timetuple()
+        return datetime.fromtimestamp(stamp, tz=UTC_PLUS_3).timetuple()
 
     # `Formatter.converter` is a writable attribute, so it is overridden as one, not as a method.
     converter: Callable[[float | None], time.struct_time] = _to_utc3

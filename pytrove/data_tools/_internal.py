@@ -4,7 +4,7 @@ from __future__ import annotations as _annotations
 
 import copy
 import logging
-from collections.abc import Callable, Hashable, Iterator, Mapping, MutableMapping, Sequence
+from collections.abc import Callable, Hashable, Iterator, Mapping, MutableMapping, Sized
 from typing import Any, Final, TypeVar, cast
 
 from ..typings import Container
@@ -73,15 +73,15 @@ def _transform_mapping(
         yield key, value
 
 
-def _filled(items: Sequence[Any], new: Any) -> bool:
-    """Tell whether a rebuilt container really received its items.
+def _filled(items: Sized, new: Any) -> bool:
+    """Tell whether a rebuilt container or mapping really received its items.
 
     Some constructors accept the wrong argument silently and return an empty
     container (a `dict` subclass whose `__init__` takes a name). Only total
     loss is detected; a legitimate shrink such as set deduplication is not.
 
     Args:
-        items: The transformed items, already materialised.
+        items: The transformed items or pairs, already materialised.
         new: The rebuilt container.
 
     Returns:
@@ -91,19 +91,6 @@ def _filled(items: Sequence[Any], new: Any) -> bool:
         return bool(len(new)) or not items
     except TypeError:
         return True
-
-
-def _mapping_filled(as_dict: dict[Any, Any], new: Any) -> bool:
-    """Tell whether a rebuilt mapping really received its pairs.
-
-    Args:
-        as_dict: The transformed pairs, already materialised.
-        new: The rebuilt mapping.
-
-    Returns:
-        `False` only when `new` is empty although `as_dict` is not.
-    """
-    return bool(new) or not as_dict
 
 
 def _refilled(data: Any, items: Any) -> Any | None:
@@ -235,7 +222,7 @@ def _reconstruct_mapping(
         except (TypeError, ValueError):
             pass
         else:
-            if _mapping_filled(as_dict, new):
+            if _filled(as_dict, new):
                 return new
 
     try:
@@ -243,12 +230,12 @@ def _reconstruct_mapping(
     except (TypeError, ValueError):
         pass
     else:
-        if _mapping_filled(as_dict, new):
+        if _filled(as_dict, new):
             return new
 
     new = _refilled(data, as_dict)
 
-    if new is not None and _mapping_filled(as_dict, new):
+    if new is not None and _filled(as_dict, new):
         return new
 
     return as_dict
@@ -273,7 +260,6 @@ def _none_cleaner(value: Any) -> Any:
 
 __all__ = (
     "_filled",
-    "_mapping_filled",
     "_none_cleaner",
     "_reconstruct",
     "_reconstruct_mapping",

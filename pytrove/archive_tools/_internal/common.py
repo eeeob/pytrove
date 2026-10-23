@@ -8,6 +8,8 @@ import sys
 from concurrent.futures import Executor
 from typing import TYPE_CHECKING, Any, Final, TypeAlias
 
+from ..._internal._fs import _HAS_FILE_ATTRIBUTES
+from ..._internal._optional import _build_error_msg
 from ...enums import ArchiveFormat
 from ...errors import ValidationError
 from . import backends
@@ -20,9 +22,6 @@ _LINK_MAX: Final[int] = 4096
 
 _NT: Final[bool] = os.name == "nt"
 """Whether paths follow Windows rules, which strip trailing dots and spaces."""
-
-_HAS_FILE_ATTRIBUTES: Final[bool] = hasattr(os.stat_result, "st_file_attributes")
-"""Whether `stat` reports the Windows hidden attribute."""
 
 _SUFFIXES: Final[tuple[tuple[str, ArchiveFormat], ...]] = (
     (".zip", ArchiveFormat.ZIP),
@@ -159,13 +158,7 @@ def _require_zstd() -> None:
         )
         raise ImportError(msg)
 
-    msg = (
-        "To use this feature, all required packages must be installed.\n"
-        "Run: pip install 'pytrove[archive]'\n"
-        "\n"
-        "Required : 'zstandard'\n"
-        "Missing  : 'zstandard'"
-    )
+    msg = _build_error_msg((("zstandard", "archive"),), [(("zstandard",), "archive")])
     raise ImportError(msg)
 
 
@@ -176,7 +169,6 @@ __all__ = (
     "_require_zstd",
     "_split_workers",
     "_temp_file_rule",
-    "_HAS_FILE_ATTRIBUTES",
     "_LINK_MAX",
     "_NT",
     "_SUFFIXES",
