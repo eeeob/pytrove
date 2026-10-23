@@ -26,7 +26,7 @@ def extract_archive(
     *,
     include: NestedContainer[_Rule] | None = None,
     exclude: NestedContainer[_Rule] | None = None,
-    limits: ArchiveLimits = ArchiveLimits(),
+    limits: ArchiveLimits | None = None,
     password: str | bytes | None = None,
     workers: int | Executor | None = None,
     atomic: bool = True,
@@ -52,7 +52,7 @@ def extract_archive(
         include: Rules for what to keep.
         exclude: Rules for what to leave out.
         limits: Ceilings against archive bombs, link/overwrite/duplicate
-            policies, and `dir_check`; see `ArchiveLimits`.
+            policies, and `dir_check`; see `ArchiveLimits`. `None` uses its defaults.
         password: For legacy ZipCrypto members; WinZip AES is refused.
         workers: A thread count or an `Executor`; zip only.
         atomic: Whether to stage everything beside `dest` and move it in only
@@ -92,7 +92,7 @@ def extract_archive(
         src,
         dest,
         _Filter.from_rules(includes, excludes, who="extract_archive"),
-        limits,
+        ArchiveLimits() if limits is None else limits,
         password.encode() if isinstance(password, str) else password,
     ).run(fmt, workers, atomic, cleanup_on_error)
 
