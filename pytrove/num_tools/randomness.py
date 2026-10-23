@@ -27,6 +27,11 @@ def jitter(
     calls are independent draws that cluster near the peak; use `Jitter` for
     a sequence that spreads.
 
+    Changed after 1.1.2: this replaces `jitter(base, minus=2, plus=2)`, which drew
+    uniformly from the absolute window `[max(0, base - minus), base + plus]`.
+    `jitter(base, minus, plus)` becomes `jitter(base, minus / base, plus / base)`;
+    for the old uniform draw, call `random.uniform` on that window directly.
+
     Args:
         value: The target.
         decrease: How far below it the window reaches, as a fraction of it.
