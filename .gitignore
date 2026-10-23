@@ -119,6 +119,9 @@ venv.bak/
 # Git worktrees for working on several branches at once, one directory per branch.
 .worktrees/
 
+# Private 
+.plans/
+
 # AI coding assistants: Claude Code's project instructions and knowledge files.
 .claude/
 CLAUDE.md
