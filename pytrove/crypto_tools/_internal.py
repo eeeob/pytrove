@@ -5,9 +5,9 @@ from __future__ import annotations as _annotations
 from typing import Final
 
 try:
-    from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives import hashes
-    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+    from cryptography.hazmat.backends import default_backend  # type: ignore[import-not-found]  # Optional: the `crypto` extra.
+    from cryptography.hazmat.primitives import hashes  # type: ignore[import-not-found]  # Optional: the `crypto` extra.
+    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC  # type: ignore[import-not-found]  # Optional: the `crypto` extra.
 except ImportError:
     pass
 

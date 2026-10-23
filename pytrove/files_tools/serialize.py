@@ -8,7 +8,7 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, cast
 
 try:
-    import jsonref
+    import jsonref  # type: ignore[import-not-found]  # Optional: the `json` extra.
 except ImportError:
     pass
 

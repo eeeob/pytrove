@@ -15,7 +15,7 @@ except ImportError:
     std_zstd: ModuleType | None = None
 
 try:
-    import zstandard
+    import zstandard  # type: ignore[import-not-found]  # Optional: the `archive` extra.
 except ImportError:
     zstandard: ModuleType | None = None
 
@@ -33,7 +33,7 @@ except (
     WZip: Any = None
 
 try:
-    from pathspec import GitIgnoreSpec, PathSpec
+    from pathspec import GitIgnoreSpec, PathSpec  # type: ignore[import-not-found]  # Optional: the `archive` extra.
 except ImportError:
     PathSpec: Any = None
     GitIgnoreSpec: Any = None

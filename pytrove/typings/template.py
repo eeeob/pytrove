@@ -16,8 +16,8 @@ else:
     from typing_extensions import NotRequired
 
 if TYPE_CHECKING:
-    from pyrogram.enums import ParseMode as PyroParseMode
-    from pyrogram.types import InlineKeyboardMarkup, InputRichMessage
+    from pyrogram.enums import ParseMode as PyroParseMode  # type: ignore[import-not-found]  # Optional: the `tg` extra.
+    from pyrogram.types import InlineKeyboardMarkup, InputRichMessage  # type: ignore[import-not-found]  # Optional: the `tg` extra.
 
     from .core import JsonValue, MaybeList, StrInt
 

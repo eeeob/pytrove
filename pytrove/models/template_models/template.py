@@ -12,8 +12,8 @@ else:
     from typing_extensions import Self
 
 try:
-    from pyrogram.enums import ParseMode
-    from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, InputRichMessage
+    from pyrogram.enums import ParseMode  # type: ignore[import-not-found]  # Optional: the `tg` extra.
+    from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, InputRichMessage  # type: ignore[import-not-found]  # Optional: the `tg` extra.
 except ImportError:
     HAS_PYROGRAM = False
 else:

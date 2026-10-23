@@ -11,7 +11,7 @@ from types import UnionType
 from typing import TYPE_CHECKING, Any, Final, TypeAlias, Union, get_args, get_origin
 
 try:
-    from typeguard import TypeCheckError, TypeCheckMemo, check_type_internal
+    from typeguard import TypeCheckError, TypeCheckMemo, check_type_internal  # type: ignore[import-not-found]  # Optional: the `typecheck` extra.
 except ImportError:
     HAS_TYPEGUARD = False
 else:

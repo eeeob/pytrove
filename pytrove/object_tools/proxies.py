@@ -6,7 +6,7 @@ import weakref
 from typing import TYPE_CHECKING, Any
 
 try:
-    import wrapt
+    import wrapt  # type: ignore[import-not-found]  # Optional: the `proxy` extra.
 except ImportError:
     HAS_WRAPT = False
 else:

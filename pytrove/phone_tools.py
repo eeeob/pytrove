@@ -5,7 +5,7 @@ from __future__ import annotations as _annotations
 from typing import TYPE_CHECKING, Any, overload
 
 try:
-    from phonenumbers import (
+    from phonenumbers import (  # type: ignore[import-not-found]  # Optional: the `phone` extra.
         NumberParseException,
         PhoneNumber as PhoneNumberObj,
         PhoneNumberFormat,

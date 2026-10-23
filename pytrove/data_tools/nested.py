@@ -5,7 +5,7 @@ from __future__ import annotations as _annotations
 from typing import TYPE_CHECKING, Any, Literal
 
 try:
-    import jsonref
+    import jsonref  # type: ignore[import-not-found]  # Optional: the `json` extra.
 except ImportError:
     pass
 

@@ -13,12 +13,12 @@ else:
     from typing import TypeGuard as TypeIs
 
 try:
-    import phonenumbers
+    import phonenumbers  # type: ignore[import-not-found]  # Optional: the `phone` extra.
 except ImportError:
     pass
 
 try:
-    from aioimaplib import aioimaplib
+    from aioimaplib import aioimaplib  # type: ignore[import-not-found]  # Optional: the `imap` extra.
 except ImportError:
     pass
 

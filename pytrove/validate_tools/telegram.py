@@ -13,10 +13,10 @@ else:
     from typing import TypeGuard as TypeIs
 
 try:
-    from pyrogram import Client
-    from pyrogram.errors import BadRequest
-    from pyrogram.types import Message
-    from pyrogram.utils import get_peer_type
+    from pyrogram import Client  # type: ignore[import-not-found]  # Optional: the `tg` extra.
+    from pyrogram.errors import BadRequest  # type: ignore[import-not-found]  # Optional: the `tg` extra.
+    from pyrogram.types import Message  # type: ignore[import-not-found]  # Optional: the `tg` extra.
+    from pyrogram.utils import get_peer_type  # type: ignore[import-not-found]  # Optional: the `tg` extra.
 except ImportError:
     pass
 
