@@ -32,6 +32,10 @@ class KeyDefaultDict(dict[_KT, _VT]):
         Args:
             default_factory: Builds a value from its key.
         """
+        if not callable(default_factory):
+            msg = "default_factory must be callable"
+            raise TypeError(msg)
+
         super().__init__()
         self.default_factory = default_factory
 
