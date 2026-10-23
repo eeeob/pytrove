@@ -8,8 +8,7 @@ import sys
 from concurrent.futures import Executor
 from typing import TYPE_CHECKING, Any, Final, TypeAlias
 
-from ..._internal._fs import _HAS_FILE_ATTRIBUTES
-from ..._internal._optional import _build_error_msg
+from ..._internal import _build_error_msg, _HAS_FILE_ATTRIBUTES
 from ...enums import ArchiveFormat
 from ...errors import ValidationError
 from . import backends

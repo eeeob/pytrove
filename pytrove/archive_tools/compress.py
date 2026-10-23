@@ -5,15 +5,19 @@ from __future__ import annotations as _annotations
 from collections.abc import Callable, Iterator
 from typing import TYPE_CHECKING, cast
 
-from .._internal._stability import _default_stability_check
-from .._internal._types import _Rule
+from .._internal import _Rule, _default_stability_check
 from ..enums import ArchiveFormat
 from ..errors import ValidationError
 from ..files_tools import atomic_write, remove_folder, resolve_path
 from ..iter_tools import iter_flat_cont
-from ._internal.common import _format_from_suffix, _is_hidden, _require_zstd, _temp_file_rule
-from ._internal.compressor import _Compressor
-from ._internal.rules import _Filter
+from ._internal import (
+    _Compressor,
+    _Filter,
+    _format_from_suffix,
+    _is_hidden,
+    _require_zstd,
+    _temp_file_rule,
+)
 
 if TYPE_CHECKING:
     import os

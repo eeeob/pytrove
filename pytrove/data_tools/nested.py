@@ -9,7 +9,7 @@ try:
 except ImportError:
     pass
 
-from .._internal._optional import _optional_import
+from .._internal import _optional_import
 
 if TYPE_CHECKING:
     from ..typings import JsonValue, NestedStrKeyDict, _T

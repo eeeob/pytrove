@@ -28,7 +28,7 @@ else:
     except ImportError:
         ButtonStyle = str
 
-from ..._internal._optional import _optional_import
+from ..._internal import _optional_import
 from ...object_tools import classproperty
 from ...typings import (
     MaybeList,

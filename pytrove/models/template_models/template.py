@@ -19,7 +19,7 @@ except ImportError:
 else:
     HAS_PYROGRAM = True
 
-from ..._internal._optional import _unavailable_class
+from ..._internal import _unavailable_class
 from ...data_tools import clean_none_values
 from ...date_tools import arabic_time
 from ...files_tools import load_ref_json, read_json

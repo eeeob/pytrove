@@ -4,7 +4,7 @@ from __future__ import annotations as _annotations
 
 from typing import TYPE_CHECKING, overload
 
-from ._internal.families import _DEVICES, random_family
+from ._internal import random_family, _DEVICES
 
 if TYPE_CHECKING:
     from ..enums import PlatformDevice

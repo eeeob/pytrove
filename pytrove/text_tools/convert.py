@@ -5,7 +5,7 @@ from __future__ import annotations as _annotations
 import re
 from typing import TYPE_CHECKING, Any
 
-from .._internal._sentinel import _is_given
+from .._internal import _is_given
 from ..validate_tools import is_container
 from ._internal import _SNAKE1_PATTERN, _SNAKE2_PATTERN
 

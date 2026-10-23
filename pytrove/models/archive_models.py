@@ -10,8 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import cast
 
-from .._internal._stability import _default_stability_check
-from .._internal._types import _Rule
+from .._internal import _Rule, _default_stability_check
 from ..enums import ArchiveFormat, TimeUnit
 from ..files_tools import resolve_path
 from ..typings import NestedContainer, PathLike

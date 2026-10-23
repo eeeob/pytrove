@@ -5,10 +5,10 @@ from __future__ import annotations as _annotations
 import re
 from itertools import pairwise
 
-from .._internal._optional import _optional_import
+from .._internal import _optional_import
 from ..email_tools import detect_email_provider, fetch_emails_from
 from ..errors import ValidationError
-from ._internal.points import _interpolate_time, _points
+from ._internal import _interpolate_time, _points
 
 
 def tg_account_created_at(user_id: int) -> float:

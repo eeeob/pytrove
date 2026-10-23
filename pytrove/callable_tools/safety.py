@@ -6,14 +6,14 @@ import functools
 import logging
 from typing import TYPE_CHECKING, Any, overload
 
-from .._internal._exceptions import _HARD_PROPAGATE
+from .._internal import _HARD_PROPAGATE
 from ..iter_tools import iter_flat_cont, to_frozenset
 from ..validate_tools import iscoroutinefunction_wrapped
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Hashable
 
-    from .._internal._types import _ExcFilter
+    from .._internal import _ExcFilter
     from ..typings import NestedContainer, _ExcT, _False, _T, _True
     from ._internal import _ExcLogger
 

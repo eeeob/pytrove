@@ -12,7 +12,7 @@ except ImportError:
 else:
     HAS_WRAPT = True
 
-from .._internal._optional import _unavailable_class
+from .._internal import _unavailable_class
 from ..iter_tools import to_frozenset
 
 if TYPE_CHECKING:

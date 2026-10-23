@@ -19,7 +19,7 @@ except ImportError:
 else:
     HAS_ORJSON = True
 
-from .._internal._fs import _is_link, _COPY_BUF
+from .._internal import _is_link, _COPY_BUF
 from ..callable_tools import safe_call
 from ..enums import TruncateSide
 from ..iter_tools import dedupe, iter_flat_cont

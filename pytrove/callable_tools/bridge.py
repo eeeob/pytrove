@@ -6,7 +6,7 @@ import asyncio
 import functools
 from typing import TYPE_CHECKING, Any
 
-from .._internal._asyncio import _get_running_loop
+from .._internal import _get_running_loop
 from ..async_tools import run_awaitable_in_coro
 
 if TYPE_CHECKING:

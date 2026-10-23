@@ -17,7 +17,7 @@ except ImportError:
 else:
     HAS_TYPEGUARD = True
 
-from .._internal._optional import _optional_import
+from .._internal import _optional_import
 from ..typings import Container, ContainerWithoutMapping, NotContainer
 
 if TYPE_CHECKING:
