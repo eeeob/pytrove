@@ -26,6 +26,7 @@ BIN := $(if $(OS),Scripts,bin)
 # `--no-project --with` keeps it to one ephemeral package, because the release
 # jobs read the version without syncing the project.
 VERSION = $(shell $(UV) run --no-project --with hatchling hatchling version)
+TAG = v$(VERSION)
 
 .PHONY: sync sync-minimal hooks format lint typecheck test test-doctest test-minimal test-floor test-ceil build version clean
 
@@ -95,5 +96,9 @@ build:
 version:
 	@printf '%s\n' "$(VERSION)"
 
+tag:
+	git tag $(TAG)
+	git push origin $(TAG)
+
 clean:
-	rm -rf .venv .venv-minimal .venv-floor .venv-ceil dist build
+	rm -rf .venv $(VENV_MIN) $(VENV_FLOOR) $(VENV_CEIL) dist build *.egg-info
