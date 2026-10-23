@@ -9,12 +9,20 @@ import pytest
 
 import pytrove
 import pytrove.object_tools
+import pytrove.constants
 import pytrove.enums
 import pytrove.errors
 import pytrove.models
 import pytrove.typings
 
-ENTRY_POINTS = ["pytrove", "pytrove.typings", "pytrove.errors", "pytrove.models", "pytrove.enums"]
+ENTRY_POINTS = [
+    "pytrove",
+    "pytrove.typings",
+    "pytrove.errors",
+    "pytrove.models",
+    "pytrove.enums",
+    "pytrove.constants",
+]
 
 # The type variables and literals in `typings` are public by design; the underscore marks them as aliases.
 PUBLIC_UNDERSCORE_TYPES = {
@@ -46,12 +54,13 @@ def test_entry_point_names_are_unique_and_public(name: str) -> None:
     assert not [n for n in names if n.startswith("_") and n not in PUBLIC_UNDERSCORE_TYPES]
 
 
-def test_tools_entry_point_holds_no_type_error_model_or_enum() -> None:
+def test_tools_entry_point_holds_no_type_error_model_enum_or_constant() -> None:
     others = {
         *pytrove.typings.__all__,
         *pytrove.errors.__all__,
         *pytrove.models.__all__,
         *pytrove.enums.__all__,
+        *pytrove.constants.__all__,
     }
     assert not set(pytrove.__all__) & others
 
@@ -70,7 +79,9 @@ def test_an_aggregator_is_the_union_of_its_modules(package: object) -> None:
         if (p / "__init__.py").is_file() and not p.name.startswith("_")
     ]
     if package is pytrove:
-        modules = [m for m in modules if m not in {"enums", "errors", "models", "typings"}]
+        modules = [
+            m for m in modules if m not in {"constants", "enums", "errors", "models", "typings"}
+        ]
     expected = {
         n for m in modules for n in importlib.import_module(f"{package.__name__}.{m}").__all__
     }

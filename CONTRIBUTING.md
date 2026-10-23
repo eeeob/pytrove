@@ -27,12 +27,13 @@ One cohesive change per branch, never on `main`, ending in a pull request (5.8).
 |---|---|---|
 | a public tool | a public module of its section's package, under 300 lines | 1.4, 3.1, 3.2 |
 | an enum, a type, a model, an exception | `enums`, `typings`, `models`, `errors`; never a tool file | 1.4 |
+| a constant more than one section reads, or one about the package itself | `constants`; a constant one module alone uses stays beside its use | 1.4, 4.3 |
 | a helper one section uses | that section's own `_internal.py` (or `_internal/` package) | 1.5 |
 | a helper two or more sections use | `pytrove/_internal/` | 1.5 |
 | an external dependency | an extra in `pyproject.toml`, guarded through `pytrove/_internal/_optional.py`; then `uv lock`, and `uv.lock` is committed with it | 2.1–2.4 |
 | a test | `tests/unit/<section>/` or `tests/tools/<group>/`, mirroring the library | 0.1 |
 
-A split module keeps one unified interface in its `__init__.py` (1.8). A new public name goes into its module's `__all__` and reaches one of the five entry points (1.2, 1.7).
+A split module keeps one unified interface in its `__init__.py` (1.8). A new public name goes into its module's `__all__` and reaches one of the six entry points (1.2, 1.7).
 
 ### 4. Write the code
 
@@ -77,7 +78,7 @@ Conventional Commits for the message and the title, `!` plus a `BREAKING CHANGE`
 
 **0.1 Test tree.** `tests/unit/<section>/` (`enums/`, `errors/`, `models/`, `typings/`, …) holds the unit tests and `tests/tools/<group>/` (`archive/`, `async/`, `files/`, …) the tool tests, mirroring the library's own structure. Unrelated tests are never grouped in a general file or directory.
 
-**0.2 Every element is tested.** Every function, tool, class, method, property, internal helper, constant, enum and module-level definition has a test that verifies its own behaviour, branches, edge cases and error paths; importing the module or passing over the element incidentally does not count. The public interface is tested too, including the five entry points of 1.2. A module that reads bundled data is tested to not load it at import and to load it on first use.
+**0.2 Every element is tested.** Every function, tool, class, method, property, internal helper, constant, enum and module-level definition has a test that verifies its own behaviour, branches, edge cases and error paths; importing the module or passing over the element incidentally does not count. The public interface is tested too, including the six entry points of 1.2. A module that reads bundled data is tested to not load it at import and to load it on first use.
 
 **0.3 Optional dependencies.** The suite runs with none of the optional dependencies installed, so the base import and the unrelated features stay valid. Each optional feature is also tested with its extra installed, and its absence has to raise its specified clear error without disturbing the rest of the library.
 
@@ -85,19 +86,20 @@ Conventional Commits for the message and the title, `!` plus a `BREAKING CHANGE`
 
 **1.1 Python versions.** `3.10` through `3.14` are supported; every tool and feature considers all of them.
 
-**1.2 Entry points.** The public interface is these five, each collecting the public elements of its kind and nothing internal; importing a single name, such as `from pytrove import encrypt`, stays possible.
+**1.2 Entry points.** The public interface is these six, each collecting the public elements of its kind and nothing internal; importing a single name, such as `from pytrove import encrypt`, stays possible.
 
 ```python
-from pytrove import *           # all public tools
-from pytrove.typings import *   # all public types
-from pytrove.errors import *    # all public exceptions
-from pytrove.models import *    # all public models
-from pytrove.enums import *     # all public enums
+from pytrove import *            # all public tools
+from pytrove.typings import *    # all public types
+from pytrove.errors import *     # all public exceptions
+from pytrove.models import *     # all public models
+from pytrove.enums import *      # all public enums
+from pytrove.constants import *  # all public constants
 ```
 
 **1.3 Compatibility.** The names in `__all__`, their signatures and their observable behaviour are the public interface. None is removed or changed in a breaking way without documenting the change, its impact and a migration path; gradual deprecation with a transition period is preferred whenever practical, and a break is never silent.
 
-**1.4 Sections by responsibility.** Code goes in the section its nature dictates: `enums`, `typings`, `models`, `errors`, or the tools. Enum, type, model and error code never lives in a tool or helper file. The one exception is a tool-specific internal helper, placed by 1.5.
+**1.4 Sections by responsibility.** Code goes in the section its nature dictates: `enums`, `typings`, `models`, `errors`, `constants`, or the tools. Enum, type, model and error code never lives in a tool or helper file. `constants` holds the constants more than one section reads and the ones that describe the package itself, starting with where its bundled data lives; a constant one module alone uses stays in that module (4.3). The one exception is a tool-specific internal helper, placed by 1.5.
 
 **1.5 Internal helpers.** A helper shared by two or more sections lives in `pytrove/_internal/`, neither duplicated nor exported. A helper specific to one section lives in its own file inside that section's package (`_internal.py`, or an `_internal/` package), apart from the tool module even when that module is short; a section without a package gets one.
 

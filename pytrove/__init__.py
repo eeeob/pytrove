@@ -1,8 +1,8 @@
 """pytrove: utilities for async applications, data handling, files, archives and Telegram.
 
-Every public tool is re-exported here. Types, errors, models and enums have
-their own entry points: `pytrove.typings`, `pytrove.errors`, `pytrove.models`
-and `pytrove.enums`.
+Every public tool is re-exported here. Types, errors, models, enums and
+constants have their own entry points: `pytrove.typings`, `pytrove.errors`,
+`pytrove.models`, `pytrove.enums` and `pytrove.constants`.
 """
 
 __version__ = "1.1.2"

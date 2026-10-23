@@ -12,7 +12,8 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from pytrove.tg_tools._internal.catalog import _load, _DATA_DIR, _SCHEMA, GROUP_SHARES
+from pytrove.constants import DEVICE_CATALOGS_DIR
+from pytrove.tg_tools._internal.catalog import _load, _SCHEMA, GROUP_SHARES
 from pytrove.tg_tools._internal.families import (
     AndroidDevice,
     DesktopDevice,
@@ -25,12 +26,14 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
 #: Only present after a build; the tests that need it skip when it is absent.
-PLAY_CATALOG = _DATA_DIR.parents[2] / "devtools" / "device_catalogs" / ".cache" / "play_devices.csv"
+PLAY_CATALOG = (
+    DEVICE_CATALOGS_DIR.parents[2] / "devtools" / "device_catalogs" / ".cache" / "play_devices.csv"
+)
 
 #: devtools/ is dev-only and ships in no wheel, so importing it is best-effort.
 #: This one module is loadable on its own: it imports nothing from its package
 #: precisely so this test can read it without building the whole thing.
-BUILDER = _DATA_DIR.parents[2] / "devtools" / "device_catalogs" / "src" / "libbase.py"
+BUILDER = DEVICE_CATALOGS_DIR.parents[2] / "devtools" / "device_catalogs" / "src" / "libbase.py"
 
 
 def _lib_base() -> Any:
@@ -73,7 +76,7 @@ def desktop() -> dict[str, Any]:
 
 
 def test_every_platform_has_its_own_data_file() -> None:
-    files = {p.stem for p in _DATA_DIR.glob("*.json")}
+    files = {p.stem for p in DEVICE_CATALOGS_DIR.glob("*.json")}
     assert files == {p.platform for p in ALL_PLATFORMS}
 
 
@@ -109,7 +112,9 @@ def test_desktop_documents_every_os_separately(desktop: dict[str, Any]) -> None:
 
 
 def test_data_file_is_valid_json_without_duplicate_models(platform: type[SystemInfo]) -> None:
-    data = json.loads((_DATA_DIR / f"{platform.platform}.json").read_text(encoding="utf-8"))
+    data = json.loads(
+        (DEVICE_CATALOGS_DIR / f"{platform.platform}.json").read_text(encoding="utf-8")
+    )
 
     assert _duplicates([d["model"] for d in data["devices"]]) == []
     assert _duplicates([v["version"] for v in data["versions"]]) == []
