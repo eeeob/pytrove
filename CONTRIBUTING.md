@@ -1,75 +1,89 @@
-# Contribution Guidelines for `pytrove` — Ordered by Priority
+# Contributing to `pytrove`
 
-The items are ordered from those with the greatest impact on the library's compatibility and public interface to style and documentation rules. The items below reflect your original instructions, including your adopted decision regarding import interfaces and the placement of `__all__`. Other proposals that you did not adopt are not part of these guidelines.
+This file is the single source of the project's rules. It has two parts: **the workflow**, which walks a change from a fresh clone to a merged pull request, and **the rules** it points at. The rules keep their numbers (`0.1`–`5.8`) because `pyproject.toml`, the `Makefile`, CI and comments in the code cite them. The mechanical rules are enforced by `ruff` and `ty`, configured only in `pyproject.toml` under `[tool.ruff]` and `[tool.ty]`, where each selected rule set names the rule it enforces and each ignore says why; the rest are checked in review.
 
-## Development Setup and Checks
+## The workflow
 
-The only prerequisite is [`uv`](https://docs.astral.sh/uv/). It provisions the interpreter and the environment from `uv.lock`, so nothing else has to be installed or activated. Every command below runs through `make`; the `Makefile` is the only place the commands are written down, and CI, the `pre-commit` hooks and this file all call the same recipes.
+### 1. Set up once
+
+[`uv`](https://docs.astral.sh/uv/) is the only prerequisite: it provisions the interpreter and the environment from `uv.lock`. Every command runs through `make`; the `Makefile` is the only place the commands are written down, and CI, the `pre-commit` hooks and this file all call the same recipes.
 
 ```bash
-make sync            # the locked environment with every extra
-make sync-minimal    # the same environment without any extra
-make hooks           # the pre-commit git hooks, once per clone
-make format          # ruff format over pytrove, tests and devtools
-make lint            # ruff check and format --check over the same tree
-make typecheck       # ty over pytrove, against the 3.10 floor
-make test            # the suite with every extra installed
-make test-doctest    # every `Example` section (rule 5.5)
-make test-minimal    # the bare package plus the test runner (rule 0.3)
-make test-floor      # the lowest version every dependency floor allows, on 3.10
-make test-ceil       # the newest release of every dependency, on 3.14
+make sync     # the locked environment with every extra (`make sync-minimal`: without any extra)
+make hooks    # the pre-commit hooks: `make lint` and `make typecheck` before every commit
 ```
 
-Tooling lives in `[dependency-groups]` in `pyproject.toml` (`lint`, `test`, `devtools`), not in an extra, so `pip install pytrove[dev]` is not a thing. After changing a dependency, run `uv lock` and commit `uv.lock` with the change. `make hooks` installs the `pre-commit` hooks, which run `make lint` and `make typecheck` before every commit.
+Tooling lives in `[dependency-groups]` in `pyproject.toml` (`lint`, `test`, `devtools`), not in an extra, so `pip install pytrove[dev]` is not a thing.
 
-`ruff` and `ty` are configured only in `pyproject.toml`, under `[tool.ruff]` and `[tool.ty]`. That configuration is the reference for every rule in this file that a tool enforces mechanically: each selected rule set names the rule it enforces, and each ignore says why. Do not narrow the rule set or widen an ignore to make a change pass (rule 1.10).
+### 2. Start a branch
 
-## Priority 0 — Test Organization and Mandatory Coverage
+One cohesive change per branch, never on `main`, ending in a pull request (5.8). Large work is split into successive pull requests, each reviewable on its own.
 
-### 0.1. Test Tree Organization
+### 3. Put each piece where it belongs
 
-The `tests` directory must be organized by test type and by the section or subject it tests, while maintaining clear divisions that mirror the structure of the library.
+| what you are adding | where it goes | rule |
+|---|---|---|
+| a public tool | a public module of its section's package, under 300 lines | 1.4, 3.1, 3.2 |
+| an enum, a type, a model, an exception | `enums`, `typings`, `models`, `errors`; never a tool file | 1.4 |
+| a helper one section uses | that section's own `_internal.py` (or `_internal/` package) | 1.5 |
+| a helper two or more sections use | `pytrove/_internal/` | 1.5 |
+| an external dependency | an extra in `pyproject.toml`, guarded through `pytrove/_internal/_optional.py`; then `uv lock`, and `uv.lock` is committed with it | 2.1–2.4 |
+| a test | `tests/unit/<section>/` or `tests/tools/<group>/`, mirroring the library | 0.1 |
 
-Unit tests must be separated in `tests/unit/` from tool tests in `tests/tools/`. `tests/unit/` must be divided into subdirectories corresponding to library sections, such as `models/`, `enums/`, `typings/`, and `errors/`. `tests/tools/` must likewise be divided by tool groups, such as `archive/`, `async/`, and `files/`.
+A split module keeps one unified interface in its `__init__.py` (1.8). A new public name goes into its module's `__all__` and reaches one of the five entry points (1.2, 1.7).
 
-Example:
+### 4. Write the code
 
-```text
-tests/
-├── unit/
-│   ├── enums/
-│   ├── errors/
-│   ├── models/
-│   └── typings/
-└── tools/
-    ├── archive/
-    ├── async/
-    └── files/
-```
+- Lay the module out in the fixed order: docstring, `from __future__ import annotations as _annotations`, grouped imports, constants and types, classes, functions, `__all__` (3.3, 4.2).
+- Hint every parameter and return, internal functions included, with built-in generics and `|` unions and no quoted annotations (4.1, 4.2, 4.6).
+- `Final` on module constants, `ClassVar` on class constants, the `object` class as the "not passed" sentinel (4.3, 4.4).
+- Raise with the message in a variable first; never `assert` as a guard (4.5).
+- Every `noqa` and `ty: ignore` names its code and says why (4.7).
+- Bundled data is read on first use, never at import (1.6).
+- Python 3.10 through 3.14 all have to work (1.1).
+- A public name, signature or behaviour does not change without documentation and a migration path (1.3). When the code and a rule disagree, the code is what gets fixed (1.10).
 
-The distribution of tests must clearly reflect the subject being tested; unrelated tests must not be grouped into general files or directories.
+### 5. Test it
 
-### 0.2. Test Every Library Element
+Every element gets a direct test of its behaviour, branches and error paths, in the test file that mirrors its module (0.1, 0.2). Code behind an extra is tested with the extra and without it (0.3).
 
-Every programmatic element in the library must have a corresponding test; this includes every function, tool, class, method, property, internal helper, constant, enum, and definition or behavior defined at the module level. No programmatic element may exist without a direct test covering its function.
+### 6. Document it
 
-It is not sufficient for a test to import the module or pass over it incidentally; it must verify the expected behavior of the element itself. Tests must cover behavioral branches, edge cases, and relevant error and exception paths. Public-interface and export elements must also be tested, including the five import entry points defined in these rules.
+A Google-style docstring on every function and class, a one-line docstring under every model field and enum member, backticks around code names in comments, and an `Example` that runs as a doctest where showing beats telling (5.2–5.5). `README.md` gets concepts, not tables that change with every addition (5.6).
 
-If a module or tool reads data bundled or stored in library files, tests must verify that this data is not loaded when the module is imported, and that it is loaded only when it is actually needed.
+### 7. Run the checks
 
-### 0.3. Testing Optional Dependencies
+| command | what it runs | when |
+|---|---|---|
+| `make format` | `ruff format` over `pytrove`, `tests` and `devtools` | before committing |
+| `make lint` | `ruff check` and `ruff format --check` over the same tree | every commit (the hook) |
+| `make typecheck` | `ty` over `pytrove`, against the 3.10 floor | every commit (the hook) |
+| `make test` | the suite with every extra installed | before the pull request |
+| `make test-doctest` | every `Example` section (5.5) | after touching an `Example` |
+| `make test-minimal` | the bare package plus the test runner (0.3) | after touching code behind an extra |
+| `make test-floor`, `make test-ceil` | the lowest and the newest dependency versions, on 3.10 and on 3.14 (2.3) | after changing a dependency |
 
-The library must be tested in an environment that contains none of the optional dependencies, to ensure that the base import and features unrelated to them remain valid. Each optional feature must also be tested when its extra is installed, and it must be verified that the absence of its dependency produces its specified clear error without disrupting the rest of the library.
+CI runs every check above on each pull request: `test`, `test-doctest` and `test-minimal` on Python 3.10 through 3.14, the rest on the version each needs. A rule set is never narrowed, nor an ignore widened, in `pyproject.toml` to make a change pass (1.10).
 
-## Priority 1 — Compatibility, Public Interface, and Boundaries of Responsibility
+### 8. Commit and open the pull request
 
-### 1.1. Python Version Support
+Conventional Commits for the message and the title, `!` plus a `BREAKING CHANGE` note when compatibility breaks, and a short body with the objective and the test results (5.7).
 
-The library must support Python versions from `3.10` through `3.14`. Consider compatibility with these versions when developing tools and adding features.
+## The rules
 
-### 1.2. Public Import Entry Points
+### Priority 0 — Tests
 
-The library must provide the following public import entry points, with each entry point collecting its designated public elements:
+**0.1 Test tree.** `tests/unit/<section>/` (`enums/`, `errors/`, `models/`, `typings/`, …) holds the unit tests and `tests/tools/<group>/` (`archive/`, `async/`, `files/`, …) the tool tests, mirroring the library's own structure. Unrelated tests are never grouped in a general file or directory.
+
+**0.2 Every element is tested.** Every function, tool, class, method, property, internal helper, constant, enum and module-level definition has a test that verifies its own behaviour, branches, edge cases and error paths; importing the module or passing over the element incidentally does not count. The public interface is tested too, including the five entry points of 1.2. A module that reads bundled data is tested to not load it at import and to load it on first use.
+
+**0.3 Optional dependencies.** The suite runs with none of the optional dependencies installed, so the base import and the unrelated features stay valid. Each optional feature is also tested with its extra installed, and its absence has to raise its specified clear error without disturbing the rest of the library.
+
+### Priority 1 — Compatibility and the public interface
+
+**1.1 Python versions.** `3.10` through `3.14` are supported; every tool and feature considers all of them.
+
+**1.2 Entry points.** The public interface is these five, each collecting the public elements of its kind and nothing internal; importing a single name, such as `from pytrove import encrypt`, stays possible.
 
 ```python
 from pytrove import *           # all public tools
@@ -79,119 +93,55 @@ from pytrove.models import *    # all public models
 from pytrove.enums import *     # all public enums
 ```
 
-The word “all” means the public elements designated for that entry point, not helpers or internal names. Each interface must reflect what belongs to it: `pytrove` for tools, and the other paths for types, errors, models, and enums. Explicit import of individual elements remains possible, such as `from pytrove import encrypt`.
+**1.3 Compatibility.** The names in `__all__`, their signatures and their observable behaviour are the public interface. None is removed or changed in a breaking way without documenting the change, its impact and a migration path; gradual deprecation with a transition period is preferred whenever practical, and a break is never silent.
 
-### 1.3. Protecting the Public Interface and Compatibility
+**1.4 Sections by responsibility.** Code goes in the section its nature dictates: `enums`, `typings`, `models`, `errors`, or the tools. Enum, type, model and error code never lives in a tool or helper file. The one exception is a tool-specific internal helper, placed by 1.5.
 
-The names exported in `__all__`, their signatures, and their observable behavior are part of the library's public interface. Do not remove a public element or change its signature or behavior in a compatibility-breaking way without documenting the change, stating its impact, and providing migration guidance for users. Use gradual deprecation (`deprecation`) and a transition period whenever practical, and do not introduce a breaking change silently.
+**1.5 Internal helpers.** A helper shared by two or more sections lives in `pytrove/_internal/`, neither duplicated nor exported. A helper specific to one section lives in its own file inside that section's package (`_internal.py`, or an `_internal/` package), apart from the tool module even when that module is short; a section without a package gets one.
 
-### 1.4. Separating Sections by Responsibility
+**1.6 Lazy data.** Data stored or bundled in library files is never read at import; it is loaded on the first use of the feature that needs it, and may be cached when that is safe.
 
-Development must conform to the adopted structure, and every piece of code must be placed in the section appropriate to its nature and responsibility, including:
+**1.7 Public versus internal.** Every module lists what it exports in `__all__`; an internal helper never reaches the public interface by accident.
 
-- `enums`
-- `typings`
-- `models`
-- `errors`
-- library files and helper tools
+**1.8 Aggregated interfaces.** A group split into subfiles exposes one unified interface from its directory's `__init__.py`; a user never needs to know the internal file layout.
 
-Code belonging to `enums`, `typings`, `models`, or `errors` must not be placed in tool or helper files instead of its designated section.
+**1.9 `__all__` and wildcard imports.** `__all__` comes last in a module, after the interface it lists. Wildcard imports are forbidden in implementation modules and allowed only in interface-aggregation `__init__.py` files, which contain just the docstring, the `from .<module> import *` lines and `__all__ = (*a.__all__, *b.__all__, ...)`: no `from . import a, b`, because the wildcard import already binds each submodule, and no `__future__` import, because there are no annotations for it to act on. The top-level `pytrove/__init__.py` also holds the `__version__` line, which the build backend reads.
 
-**Exception:** Internal helpers specific to tools may be placed outside these sections, while complying with the internal-helper organization rule below.
+**1.10 Code versus rule.** Code that violates a rule is fixed to comply. A rule is never changed, removed or weakened to justify the code.
 
-### 1.5. Organizing Internal Helpers
+### Priority 2 — Dependencies
 
-If an internal helper is shared between the logic of two or more sections, it must be placed in the library directory `pytrove/_internal/`; it must not be duplicated in the sections that use it or exported as part of the public interface.
+**2.1 Optional by default.** Each dependency is tied to the feature that needs it and never required by the rest of the library, through the single mechanism in `pytrove/_internal/_optional.py`; no copy of it exists elsewhere.
 
-An internal helper specific to one section, however, must be placed in a separate file within that section's package, such as `pytrove/archive/_internal.py`. It must be separated from the section's tool file even if the tool file is under 300 lines. If the section does not yet have a package, a package containing its tools and its dedicated helper file must be created for it.
+**2.2 Compatibility dependencies.** A dependency a Python version needs, such as `typing_extensions>=4.4; python_version<'3.13'`, is a required dependency under its version marker, not an optional one.
 
-### 1.6. Lazy Loading of Library Data
+**2.3 Version bounds.** Every dependency has a floor and, by default, no ceiling; the reason for each bound is a comment beside it in `pyproject.toml`. A ceiling is added only for a real break with a major version, with its reason.
 
-Any code or logic that needs to read data stored or bundled in library files must use lazy loading (`lazy loading`). This data must not be read or initialized when the module is imported; rather, it must be loaded upon the first actual use of the feature that needs it. The result may be cached after loading if doing so is safe and compatible with the library's behavior.
+**2.4 Adding a dependency.**
 
-### 1.7. Separating Public Elements from Internal Ones
+1. Add it to `[project.optional-dependencies]` in `pyproject.toml`, in the group of its feature.
+2. Add it to the `full` group, which installs every optional feature.
+3. Import it through the optional-import mechanism, so the base import survives its absence.
+4. Guard the public function or class that needs it, so the error appears only on use.
+5. Make the absence message name the extra and the install command.
 
-Elements are divided into public tools or helpers intended for direct use, and internal elements intended for use within the library only. Each module must specify in `__all__` the elements it exports, and internal helpers must be prevented from appearing in the public interface by mistake.
+### Priority 3 — Files and layout
 
-### 1.8. Aggregating Interfaces When Splitting Modules
+**3.1 Files by responsibility.** Tools are grouped by function and logic, never by element type (all functions in one file, all classes in another). A cohesive group is one file, or one directory of files, by its size.
 
-If a group of tools, types, or models is split into subfiles within a directory, that directory's `__init__.py` file must provide a unified interface for importing public elements. A library user must not need to know the internal file distribution.
+**3.2 300 lines.** A tool file holds at most 300 lines of code, its helpers included. Over that, it becomes a directory of cohesive subgroups; a split that only spreads lines around is not acceptable.
 
-### 1.9. Placement of `__all__` and Wildcard Imports
+**3.3 Module order.**
 
-Define `__all__` at the end of the module, after defining its public interface. Wildcard imports must not be used in regular implementation modules. They are permitted only in interface-aggregation files, in accordance with the export rules above, so that internal elements are not re-exported.
-
-An interface-aggregation file (`__init__.py`) contains only its docstring, the wildcard imports of its submodules, and the `__all__` that concatenates theirs. It must not import its submodules by name, such as `from . import archive_tools, async_tools`: a wildcard import already loads each submodule and binds it as an attribute of the package, so the list only duplicates the import lines and must be updated with every new module. An aggregation file also omits `from __future__ import annotations as _annotations` (see the exception in rule 4.2), because it contains no annotations for the import to act on. The top-level `pytrove/__init__.py` also holds the `__version__` line, because the build backend reads the version from there.
-
-### 1.10. Handling Conflicts Between Implementation and the Rules
-
-If existing or new code violates an adopted rule, the code or design causing the conflict must be fixed so that it complies with that rule. The rule must not be changed, removed, or weakened merely to justify the noncompliant implementation or avoid fixing it.
-
-## Priority 2 — External Dependencies
-
-### 2.1. Optional Dependencies
-
-External dependencies must be optional by default, and each dependency must be associated only with the tool or feature that needs it, without becoming a requirement for using the rest of the library.
-
-Optional dependencies must be handled through the sole central mechanism in `pytrove/_internal/_optional.py` after moving it from its current path when modifications begin. Do not use a separate copy at the old path or within section packages.
-
-### 2.2. Dependencies Required for Compatibility
-
-Dependencies required to support a particular Python version are excepted, such as:
-
-```text
-typing_extensions>=4.0; python_version<'3.13'
-```
-
-These dependencies must not be treated as optional; rather, they must be managed as required dependencies under the specified version condition.
-
-### 2.3. Dependency Version Bounds
-
-A minimum bound (`Version Floor`) must be specified for every dependency, and no upper bound is set by default. The rationale for version bounds must be documented next to the dependency definition in `pyproject.toml`.
-
-An upper bound may be set when there is a real compatibility break with a major version, provided the reason is explained in a comment next to the dependency. Do not add upper bounds without a specific technical reason.
-
-### 2.4. Steps for Adding a Dependency
-
-When adding a new external dependency:
-
-1. Add it to `[project.optional-dependencies]` in `pyproject.toml`, within the group appropriate to the feature.
-2. Add it to the `full` group if that group is dedicated to installing all optional features.
-3. Use the appropriate optional-import mechanism to ensure that the base import does not fail in its absence.
-4. Guard the dependent public function or class so that the error appears only when the feature that needs it is used.
-5. Make the dependency-absence message clear, and indicate the required extra or dependency and the appropriate installation command.
-
-## Priority 3 — File and Code Organization
-
-### 3.1. Dividing Files by Responsibility
-
-Organize tools according to their functions, sections, or the logic that groups them, not according to the type of programmatic elements.
-
-Files must not be separated merely to put every function in one file and every class in another without considering their functional and logical relationship. Each cohesive group may be represented by a separate file or by a directory containing subfiles, according to the size and nature of the group.
-
-### 3.2. Maximum Length of Tool Files
-
-The length of any file dedicated to tools must not exceed **300 lines of code**, including tools and their internal helpers.
-
-If a file exceeds this limit, it must be converted into a directory containing smaller files, and the tools must be divided into functionally and logically cohesive subgroups. The division must not merely distribute code to meet the line limit; it must preserve clarity of responsibilities and cohesion.
-
-### 3.3. Ordering the Contents of Python Files
-
-Order the contents of Python files according to the following sequence:
-
-1. A module docstring (`Module Docstring`). Every module and package has one, however short (`D100`, `D104`).
-2. `from __future__ import annotations as _annotations` immediately after the module docstring.
-3. Imports in ordered groups: the Python standard library, then external dependencies, then internal library imports, with a blank line between groups.
-4. Module-level constants and type definitions.
+1. The module docstring; every module and package has one, however short (`D100`, `D104`).
+2. `from __future__ import annotations as _annotations`.
+3. Imports: standard library, then external, then internal, a blank line between the groups.
+4. Constants and type definitions.
 5. Classes.
 6. Functions.
-7. `__all__` at the end of the module.
+7. `__all__`.
 
-Consider dependencies and functional cohesion when ordering classes and functions, so that logically related elements remain grouped together.
-
-Order imports consistently, and avoid unused imports. Do not use wildcard imports in regular implementation files; they are permitted in interface-aggregation files in accordance with the `__all__` rule. The mechanical part (unused and wildcard imports, the `__future__` line) is enforced by `F` and `I002` in `[tool.ruff.lint]`; the ordering below is not.
-
-When importing specific names from a module using `from ... import ...`, order the imported names in this sequence: classes, then functions, then constants, then ordinary variables. This order applies within the list of names imported from the module and does not change the order of module groups: the Python standard library, then external dependencies, then library imports.
+Related classes and functions stay together. Imports are ordered consistently and none is unused (`F` and `I002` enforce that part; the order itself is not mechanical). Wildcard imports follow 1.9. Inside one `from ... import (...)`, names go classes, functions, constants, then ordinary variables:
 
 ```python
 from .source import (
@@ -202,102 +152,41 @@ from .source import (
 )
 ```
 
-## Priority 4 — Types, Constants, and Runtime Behavior
+### Priority 4 — Types, constants and runtime behaviour
 
-### 4.1. Type Syntax
+**4.1 Type syntax.** Built-in generics and `|` unions, never the [deprecated `typing` aliases](https://docs.python.org/3/library/typing.html#deprecated-aliases): `list[str]`, not `List[str]`; `int | None`, not `Optional[int]` (`UP`).
 
-Use built-in generics and `|` unions instead of the [deprecated `typing` aliases](https://docs.python.org/3/library/typing.html#deprecated-aliases): `list[str]`, not `List[str]`; `int | None`, not `Optional[int]`. Enforced by `ruff`'s `UP` rules (`[tool.ruff.lint]` in `pyproject.toml`).
+**4.2 Deferred annotations.** Every module has `from __future__ import annotations as _annotations` right after its docstring. The `_annotations` alias stays even though nothing uses it: it marks the import as there for its side effect. Types imported under `TYPE_CHECKING` are therefore used unquoted, and a quoted annotation is prohibited (`I002`, `UP037`). Two exceptions: an aggregation `__init__.py` (1.9) omits the import, and before 3.12 a self-referential alias defined by plain assignment may quote its own name, as in `NestedContainer: TypeAlias = Container["NestedContainer[_T]"] | _T`, because the right-hand side is evaluated at import and nothing else lets it refer to itself; on 3.12 and later the same alias is a PEP 695 `type` statement with no quotes.
 
-### 4.2. Deferred Evaluation of Annotations
+**4.3 Constants.** A module constant is `NAME: Final[T] = value`. A class constant is `NAME: ClassVar[T] = value`, upper-case with an explicit type, never `ClassVar[Final[T]]`. `__version__` takes no `Final`, because the build backend reads only the plain `__version__ = "..."` form. A class attribute meant to be overridden is a setting, not a constant: lower-case name, plain annotation.
 
-Every Python module must contain the following import immediately after the module docstring:
+**4.4 Omitted versus `None`.** When a parameter has to tell "not passed" from `None`, its default is the `object` class itself, not an instance of it. Check how the surrounding code already does this and reuse that pattern rather than introducing another.
 
-```python
-from __future__ import annotations as _annotations
-```
-
-Keep the `_annotations` alias as is, even when it is not used directly; it makes clear that the import is for its side effect. Annotations are then evaluated lazily, so types imported under `TYPE_CHECKING` are used unquoted; a quoted annotation is prohibited. Enforced by `I002` (the import) and `UP037` (no quoted annotations) in `[tool.ruff.lint]`.
-
-**Exception — interface-aggregation files:** an `__init__.py` that only aggregates (rule 1.9) has no annotations, so it omits this import.
-
-**Exception — recursive type aliases before Python 3.12:** a self-referential type alias defined by a plain assignment (`X: TypeAlias = ...`) for Python versions earlier than `3.12` may quote its own self-reference, for example `NestedContainer: TypeAlias = Container["NestedContainer[_T]"] | _T`. The right-hand side of such an assignment is evaluated when the module is imported, so `from __future__ import annotations` does not defer it, and on `3.10`/`3.11` there is no other way for the alias to refer to itself. The exception covers only that self-reference inside the pre-`3.12` definition; on `3.12` and later the same alias must be defined with a PEP 695 `type` statement, without quotation marks.
-
-### 4.3. Constants
-
-Add `Final` to module-level constants that are not intended to be reassigned.
-
-```python
-from typing import Final
-
-DEFAULT_TIMEOUT: Final[int] = 30
-```
-
-A constant defined on a class follows the same format, with `ClassVar` in place of `Final`: an upper-case name and an explicit type, so that it is read as a constant and the type checker knows it is not an instance attribute. `Final` is not combined with `ClassVar`; the type checker rejects that as redundant, and the upper-case name already states that the value is not reassigned.
-
-`__version__` takes no `Final` annotation: the build backend's default pattern reads only the plain `__version__ = "..."` form.
-
-```python
-from typing import ClassVar
-
-class Worker:
-    DEFAULT_ROW_WIDTH: ClassVar[int] = 2
-```
-
-A class attribute that subclasses are meant to override is a setting, not a constant; it keeps a lower-case name and a plain annotation.
-
-### 4.4. Distinguishing Omission of a Parameter from Passing `None`
-
-If a parameter needs to distinguish between not being explicitly passed and being passed `None`, use the object class itself (`Object Class`) as a special default value (`Sentinel`), instead of creating an instance of that class.
-
-Before introducing this pattern in a function or type, check its existing uses in the relevant locations, and reuse the existing pattern whenever appropriate instead of introducing a new pattern unnecessarily.
-
-### 4.5. Runtime Guards and Exceptions
-
-Do not use `assert` as a runtime guard (`-O` removes it); raise `RuntimeError` or a more specific exception with a clear message. Assign the message to a variable first, then pass the variable to `raise`. Enforced by `S101` and `EM` in `[tool.ruff.lint]`.
+**4.5 Guards and exceptions.** `assert` is never a runtime guard (`-O` removes it). Raise `RuntimeError` or something more specific, with the message assigned to a variable first (`S101`, `EM`):
 
 ```python
 msg = f"connection not open (state={self._state})"
 raise RuntimeError(msg)
 ```
 
-### 4.6. Completeness of Type Hints
+**4.6 Complete hints.** Every function and method, internal ones included, hints its parameters and its return (`ANN`); attributes and variables are hinted when the type is unclear or the hint helps checking. `Any` is never a way around a type error; `ANN401` is unselected for the honest cases, not as a licence. Hints work on every supported version and pass `ty` (`make typecheck`) with no unhandled warning or error.
 
-Every function and method, internal ones included, has complete and correct hints for its parameters and return value (`ANN` in `[tool.ruff.lint]`). Add hints to attributes and variables when their type is not clear or when doing so helps static checking. Use the precise type instead of `Any` as a way around a type-checking problem; that is why `ANN401` is not enforced, not a licence for `Any`.
+**4.7 Suppressions carry reasons.** A hint that needs special handling, or a warning that cannot be fixed correctly, gets a concise comment with the technical reason. Every `type: ignore`, `ty: ignore` and `noqa` names its code and its reason; a bare one is prohibited (`PGH003`).
 
-Hints must be compatible with the supported Python versions and pass `ty` (pinned in the `lint` dependency group, configured under `[tool.ty]`; `make typecheck`) without unhandled warnings or errors.
+### Priority 5 — Style, documentation and Git
 
-### 4.7. Comments on Hints and Type Warnings
+**5.1 Clarity.** Names describe their purpose, each function and class has one understandable responsibility, and duplication and needless complexity are avoided. Type support is real, not decorative.
 
-If a type hint needs special handling, or produces a warning that cannot be fixed correctly, a concise comment next to it explains the handling and the technical reason the warning remains. Every `type: ignore`, `ty: ignore` or `noqa` names the specific code and carries a reason; a bare suppression is prohibited (`PGH003` in `[tool.ruff.lint]`).
-
-## Priority 5 — Style Consistency and Documentation
-
-### 5.1. Code Cleanliness and Clarity
-
-Write code and function, parameter, and variable names in a clear, readable style. Use names that describe the purpose, give every function or class an understandable responsibility, and avoid duplication and unnecessary complexity. Code must properly and completely support type hints in accordance with the type rule, not merely by adding superficial hints.
-
-### 5.2. Code References in Comments
-
-Put every reference to code within comments between backticks, including names of functions, classes, attributes, variables, and other programmatic references. Apply this to every reference in the comment, not only the first reference.
+**5.2 Code in comments.** Every code reference inside a comment is in backticks, every time, not only the first:
 
 ```python
 # Correct: Call `Client.stop()` before `Client.start()`.
 # Incorrect: Call Client.stop() before Client.start().
 ```
 
-### 5.3. Documenting Functions and Tools
+**5.3 Docstrings.** Every function, operation and tool has a concise Google-style docstring, however small it is (`D` with `convention = "google"` enforces presence and format; the content rules below are not mechanical).
 
-Write a docstring (`Docstring`) for every function, operation, or tool in the library, regardless of its size or simplicity. The documentation must be concise and clear, and explain the purpose directly without verbosity or unnecessary details.
-
-Use **Google-style Docstring** format in all documentation. Presence and format are enforced by the `D` rules (`[tool.ruff.lint.pydocstyle]`, `convention = "google"`); the content rules in 5.4 and 5.5 are not mechanical.
-
-### 5.4. Documenting Classes, Models, Types, and Constants
-
-Write documentation or a concise comment for every class, model, type definition, constant, or enum member that needs clarification. Explain the purpose, meaning, and important constraints, values, or units, without repeating what the name makes clear.
-
-Use the same style used for function documentation: Google-style when appropriate, adapting sections according to the element. A class or model docstring explains its purpose and important constraints; `typings` documentation explains the shape of the type; module-level constants are documented near their definition when their meaning is not clear from the name and value alone. Maintain brevity and cleanliness.
-
-**Every member of a model-like entity is documented on its own.** In a model (`dataclass`, `TypedDict`, `NamedTuple`, or any class whose body is a list of fields) and in an `enum`, each field or member carries a short, clear docstring of its own: a string literal on the line directly after the member, in addition to the entity's main docstring. It states the meaning, unit, constraint or default that the name alone does not. The entity's docstring then does not repeat the members in an `Attributes` section (rule 5.5), so each fact has one place.
+**5.4 Classes, models, types and constants.** Each is documented where its name does not say enough: purpose, meaning, constraints, units. In a model (`dataclass`, `TypedDict`, `NamedTuple`, any class that is a list of fields) and in an enum, every field or member has a docstring of its own, a string literal on the next line, and the class docstring does not repeat them in an `Attributes` section:
 
 ```python
 class ArchiveLimits(TypedDict):
@@ -310,19 +199,7 @@ class ArchiveLimits(TypedDict):
     """Highest allowed uncompressed-to-compressed ratio, as a guard against bombs."""
 ```
 
-### 5.5. Documentation Sections
-
-An element's documentation includes, according to its nature:
-
-- A brief description explaining its purpose.
-- `Args` for parameters, when present.
-- `Returns` for the return value, when present.
-- `Raises` for exceptions that may be raised as part of the documented behavior, when present.
-- `Example` for a function whose use is clearer shown than described: a non-obvious signature, a transformation whose output shape is not evident, or several related options.
-
-Do not add sections that do not apply, and avoid repeating information that can be understood directly from the name or signature.
-
-An `Example` is written as a doctest (`>>>` lines followed by the exact output) so that it is executable, and it must be correct: CI runs `pytest --doctest-modules pytrove`, and an example whose output does not match fails the build. Keep examples to what the function itself does, with no network, filesystem or optional-dependency requirement; a function whose use cannot be shown that way gets no `Example` rather than a skipped one.
+**5.5 Docstring sections.** A brief description, then `Args`, `Returns` and `Raises` when they apply, and `Example` when the use is clearer shown than described. No section that does not apply, nothing the name or signature already says. An `Example` is a doctest (`>>>` lines and the exact output), runs under `make test-doctest`, fails the build when wrong, and needs no network, filesystem or optional dependency; a function that cannot be shown that way gets no `Example` rather than a skipped one.
 
 ```python
 def chunk(items: Sequence[_T], size: int) -> list[list[_T]]:
@@ -341,54 +218,16 @@ def chunk(items: Sequence[_T], size: int) -> list[list[_T]]:
     """
 ```
 
-### 5.6. Stability of Public Documentation Files
+**5.6 Public documentation.** `README.md` and its like explain concepts and never carry data that changes with every addition, such as a table of extras and the packages each installs. Changing details have one reference source, which is linked rather than copied.
 
-Public documentation files such as `README.md` must focus on general explanations and concepts that need clarification, and must not contain lists or tables of data that changes continuously and requires updating with every addition or modification.
+**5.7 Commits and pull requests.** Commit messages and pull-request titles are concise Conventional Commits, `<type>[optional scope]: <short description>`, such as `feat(archive): add lazy loading for bundled data` or `fix(types): correct optional dependency annotations`. The pull-request body and review comments say what the change is for and how it was tested, briefly and without detail that does not aid review; they need not follow the format. A breaking change puts `!` in the title and a `BREAKING CHANGE` note with the required migration.
 
-Avoid repeating feature-maintenance details in public documentation; this includes a table linking every `extra` to the dependencies it installs, because this connects unrelated topics and requires updating the table with every dependency change. If changing details need documentation, they must have a single reference source, which should be referenced rather than copied into `README.md`.
-
-**Example:**
-
-```python
-def get_extension(filename: str) -> str:
-    """Return the file extension without the leading dot.
-
-    Args:
-        filename: The name of the file.
-
-    Returns:
-        The file extension, or an empty string if absent.
-    """
-    ...
-```
-
-### 5.7. Commit Messages and Pull Requests
-
-`commit` messages and pull request titles must be as concise as possible and follow the **Conventional Commits** format:
-
-```text
-<type>[optional scope]: <short description>
-```
-
-Examples:
-
-```text
-feat(archive): add lazy loading for bundled data
-fix(types): correct optional dependency annotations
-```
-
-Write the pull-request body and review comments concisely and clearly, mentioning the objective or impact and test results when needed, without listing details that do not aid review. The pull-request body or review comment does not need to follow the Conventional Commits format; the format is used for the commit message and pull-request title. When there is a breaking change, show that in the title using `!` and state `BREAKING CHANGE` with an explanation of the required migration.
-
-### 5.8. Branches and Scope of Change
-
-Every independent change must be implemented on a separate branch, then a pull request must be submitted for its review and merge. Do not make changes directly on the main branch.
-
-Each branch and pull request must focus on one specific and cohesive subject or logic. Break work down into the smallest independent and understandable changes possible, and avoid grouping unrelated changes in a single branch or pull request. If large work consists of changes that can be reviewed and merged in stages, split it into successive pull requests to facilitate review, monitoring, and tracking.
+**5.8 Branches.** Every independent change gets its own branch and pull request; nothing lands on `main` directly. One cohesive subject per branch, in the smallest independent pieces, and large work in successive pull requests.
 
 ## Scope of Application
 
-Every rule in this file applies to the whole library — existing code and files as well as new ones — with no exemption for code written before the rule was adopted. This includes the 300-line limit, which applies to existing files too. Existing code that does not comply must be brought into compliance, following the branch and pull-request rules above.
+Every rule applies to the whole library, existing code as well as new, with no exemption for code written before a rule was adopted; the 300-line limit included. Non-compliant code is brought into compliance on its own branch and pull request.
 
-## Mechanism for Expanding the Rules in the Future
+## Extending the rules
 
-When beginning work on a new domain or feature type in the library, review these rules before implementation. If requirements specific to the new domain emerge, formulate an appropriate rule and add it to this file at the appropriate priority level, while updating the related tests and documentation. Do not assume detailed rules for domains on which work has not yet begun.
+Before working in a new domain, reread this file. If the domain needs a rule of its own, add it here at the right priority and update the related tests and documentation. No rules are assumed for domains not yet worked on.
