@@ -1,4 +1,4 @@
-# Optional: `pre-commit install` once, and every commit runs the same two
+# `make hooks` once, and every commit runs the same two
 # recipes the `lint` and `typecheck` jobs run, so the hooks and CI cannot
 # disagree. The rule sets live in `pyproject.toml`, not here.
 repos:

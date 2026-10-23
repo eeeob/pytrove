@@ -4,10 +4,12 @@ The items are ordered from those with the greatest impact on the library's compa
 
 ## Development Setup and Checks
 
-The only prerequisite is [`uv`](https://docs.astral.sh/uv/). It provisions the interpreter and the environment from `uv.lock`, so nothing else has to be installed or activated. Every command below runs through `make`; the `Makefile` is the only place the commands are written down, and CI, the optional `pre-commit` hooks and this file all call the same recipes.
+The only prerequisite is [`uv`](https://docs.astral.sh/uv/). It provisions the interpreter and the environment from `uv.lock`, so nothing else has to be installed or activated. Every command below runs through `make`; the `Makefile` is the only place the commands are written down, and CI, the `pre-commit` hooks and this file all call the same recipes.
 
 ```bash
 make sync            # the locked environment with every extra
+make sync-minimal    # the same environment without any extra
+make hooks           # the pre-commit git hooks, once per clone
 make format          # ruff format over pytrove, tests and devtools
 make lint            # ruff check and format --check over the same tree
 make typecheck       # ty over pytrove, against the 3.10 floor
@@ -18,7 +20,7 @@ make test-floor      # the lowest version every dependency floor allows, on 3.10
 make test-ceil       # the newest release of every dependency, on 3.14
 ```
 
-Tooling lives in `[dependency-groups]` in `pyproject.toml` (`lint`, `test`, `devtools`), not in an extra, so `pip install pytrove[dev]` is not a thing. After changing a dependency, run `uv lock` and commit `uv.lock` with the change. `pre-commit install` is optional; the hooks run `make lint` and `make typecheck`.
+Tooling lives in `[dependency-groups]` in `pyproject.toml` (`lint`, `test`, `devtools`), not in an extra, so `pip install pytrove[dev]` is not a thing. After changing a dependency, run `uv lock` and commit `uv.lock` with the change. `make hooks` installs the `pre-commit` hooks, which run `make lint` and `make typecheck` before every commit.
 
 `ruff` and `ty` are configured only in `pyproject.toml`, under `[tool.ruff]` and `[tool.ty]`. That configuration is the reference for every rule in this file that a tool enforces mechanically: each selected rule set names the rule it enforces, and each ignore says why. Do not narrow the rule set or widen an ignore to make a change pass (rule 1.10).
 
