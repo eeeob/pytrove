@@ -27,12 +27,23 @@ BIN := $(if $(OS),Scripts,bin)
 # jobs read the version without syncing the project.
 VERSION = $(shell $(UV) run --no-project --with hatchling hatchling version)
 
-.PHONY: sync format lint typecheck test test-doctest test-minimal test-floor test-ceil build version clean
+.PHONY: sync sync-minimal hooks format lint typecheck test test-doctest test-minimal test-floor test-ceil build version clean
 
 # No other recipe needs this: they all sync on their own. It exists so CI can
 # install in a step of its own, which makes a resolution failure read as one.
 sync:
 	$(UV) sync --all-extras
+
+# The tooling groups without any extra: enough to lint, type-check the core and
+# run the tests, every extra-dependent one of which then skips.
+sync-minimal:
+	$(UV) sync
+
+# Once per clone: every commit then runs `make lint` and `make typecheck`.
+# `pre-commit` comes from the `lint` group, so this needs nothing installed
+# first. Safe to repeat: it rewrites `.git/hooks/pre-commit` in place.
+hooks:
+	$(RUN) pre-commit install
 
 format:
 	$(RUN) ruff format pytrove tests devtools
