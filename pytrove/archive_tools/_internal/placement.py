@@ -12,8 +12,8 @@ from .common import _NT
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from .limiter import _Limiter, _Member
-    from .rules import _Filter
+    from .extractor import _Extractor
+    from .limiter import _Member
 
 log = logging.getLogger(__name__)
 
@@ -29,15 +29,7 @@ class _PlaceMixin:
 
     __slots__ = ()
 
-    src: Path
-    dest: Path
-    flt: _Filter
-    _root: Path
-    _limiter: _Limiter
-    _cleared: dict[str, Path | None]
-    _ancestry: dict[str, bool]
-
-    def _member_kept(self, m: _Member) -> bool:
+    def _member_kept(self: _Extractor, m: _Member) -> bool:
         """Apply the filter as a walk would, pruning at each directory the name passes through.
 
         `_ancestry` memoises `enter` per directory; finding a branch there proves
@@ -69,7 +61,7 @@ class _PlaceMixin:
 
         return self.flt.matches(m.name, m.raw)
 
-    def _under(self, name: str) -> Path | None:
+    def _under(self: _Extractor, name: str) -> Path | None:
         """Resolve a posix name under the root, through a per-directory cache.
 
         On Windows trailing dots and spaces are stripped from each component
@@ -112,7 +104,7 @@ class _PlaceMixin:
 
         return None if safe is None else safe / base
 
-    def _place(self, m: _Member) -> Path | None:
+    def _place(self: _Extractor, m: _Member) -> Path | None:
         """Decide where a member goes, just before it is written.
 
         Header checks first (kind, name, filter, duplicates), then the path,
@@ -155,7 +147,7 @@ class _PlaceMixin:
         self._limiter.count(m)
         return target
 
-    def _is_safe_member_name(self, name: Any) -> bool:
+    def _is_safe_member_name(self: _Extractor, name: Any) -> bool:
         """Judge a member name by its text alone.
 
         Refused: non-strings, empty names, NUL, backslashes (a separator on

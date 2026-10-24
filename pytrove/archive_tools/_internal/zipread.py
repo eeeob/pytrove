@@ -10,11 +10,14 @@ import zipfile
 from concurrent.futures import Executor, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, cast
 
 from ...errors import ValidationError
 from .common import _split_workers, _LINK_MAX
 from .limiter import _Member
+
+if TYPE_CHECKING:
+    from .extractor import _Extractor
 
 log = logging.getLogger(__name__)
 
@@ -80,17 +83,7 @@ class _ZipMixin:
 
     __slots__ = ()
 
-    src: Path
-    password: bytes | None
-
-    if TYPE_CHECKING:
-        # Provided by `_PlaceMixin` and `_WriteMixin` in `_Extractor`; declared so `ty` can check the calls made through `self`.
-        def _place(self, m: _Member) -> Path | None: ...
-        def _mkdir(self, path: Path) -> None: ...
-        def _link(self, m: _Member, target: Path) -> None: ...
-        def _spill(self, m: _Member, data: IO[bytes], target: Path) -> None: ...
-
-    def _zip_copy(self, readers: _ZipReaders, m: _Member, target: Path) -> None:
+    def _zip_copy(self: _Extractor, readers: _ZipReaders, m: _Member, target: Path) -> None:
         """Write one member, on whichever thread runs this.
 
         A zip link's destination lives in its data, so it is read here,
@@ -152,7 +145,7 @@ class _ZipMixin:
 
         self._link(m._replace(target=os.fsdecode(raw)), target)
 
-    def _zip(self, workers: int | Executor | None = None) -> None:
+    def _zip(self: _Extractor, workers: int | Executor | None = None) -> None:
         """Read the central directory and write every member that passes, in one pass.
 
         With `workers`, writes run on a pool (zlib releases the GIL); two
