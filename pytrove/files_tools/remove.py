@@ -3,17 +3,18 @@
 from __future__ import annotations as _annotations
 
 import os
-from collections.abc import Iterator
 from typing import TYPE_CHECKING, cast, overload
 
 from .._internal import _is_dir
 from ..iter_tools import dedupe, iter_flat_cont
-from ..typings import NestedContainer, PathLike, _False, _True
 from ._internal import _remove, _rmtree
 from .paths import ensure_path
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
+
+    from ..typings import NestedContainer, PathLike, _False, _True
 
 
 @overload
@@ -119,7 +120,7 @@ def remove_paths(
 
     # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
     # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
-    leaves = cast(Iterator[PathLike], iter_flat_cont(paths))
+    leaves = cast("Iterator[PathLike]", iter_flat_cont(paths))
 
     for path in dedupe(ensure_path(path) for path in leaves):
         remover = remove_folders if _is_dir(path) else remove_files

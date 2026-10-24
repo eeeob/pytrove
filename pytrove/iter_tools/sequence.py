@@ -6,9 +6,8 @@ import random
 from collections.abc import Iterable, MutableSequence
 from typing import TYPE_CHECKING, Any, cast, overload
 
-from ..typings import _T, _VT
-
 if TYPE_CHECKING:
+    from ..typings import _T, _VT
     from ._internal import _MS
 
 
@@ -63,7 +62,7 @@ def pad_list(
     """
     # Padded in place, so the caller's list gains `default`s of another type:
     # the return type states the widened content the input type cannot.
-    padded = cast(list[_VT | _T | None], values)
+    padded = cast("list[_VT | _T | None]", values)
 
     if len(padded) < length:
         padded.extend([default] * (length - len(padded)))

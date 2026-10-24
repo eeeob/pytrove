@@ -38,7 +38,7 @@ A split module keeps one unified interface in its `__init__.py` (1.8). A new pub
 ### 4. Write the code
 
 - Lay the module out in the fixed order: docstring, `from __future__ import annotations as _annotations`, grouped imports, constants and types, classes, functions, `__all__` (3.3, 4.2).
-- Hint every parameter and return, internal functions included, with built-in generics and `|` unions and no quoted annotations (4.1, 4.2, 4.6).
+- Hint every parameter and return, internal functions included, with built-in generics and `|` unions and no quoted annotations; only a `cast` target is quoted (4.1, 4.2, 4.6).
 - `Final` on module constants, `ClassVar` on class constants, the `object` class as the "not passed" sentinel (4.3, 4.4).
 - Raise with the message in a variable first; never `assert` as a guard (4.5).
 - Every `noqa` and `ty: ignore` names its code and says why (4.7).
@@ -160,7 +160,7 @@ from .source import (
 
 **4.1 Type syntax.** Built-in generics and `|` unions, never the [deprecated `typing` aliases](https://docs.python.org/3/library/typing.html#deprecated-aliases): `list[str]`, not `List[str]`; `int | None`, not `Optional[int]` (`UP`).
 
-**4.2 Deferred annotations.** Every module has `from __future__ import annotations as _annotations` right after its docstring. The `_annotations` alias stays even though nothing uses it: it marks the import as there for its side effect. Types imported under `TYPE_CHECKING` are therefore used unquoted, and a quoted annotation is prohibited (`I002`, `UP037`). Two exceptions: an aggregation `__init__.py` (1.9) omits the import, and before 3.12 a self-referential alias defined by plain assignment may quote its own name, as in `NestedContainer: TypeAlias = Container["NestedContainer[_T]"] | _T`, because the right-hand side is evaluated at import and nothing else lets it refer to itself; on 3.12 and later the same alias is a PEP 695 `type` statement with no quotes.
+**4.2 Deferred annotations.** Every module has `from __future__ import annotations as _annotations` right after its docstring. The `_annotations` alias stays even though nothing uses it: it marks the import as there for its side effect. Types imported under `TYPE_CHECKING` are therefore used unquoted, and a quoted annotation is prohibited (`I002`, `UP037`). Three exceptions: an aggregation `__init__.py` (1.9) omits the import; the target of `typing.cast` is a quoted string, as in `cast("Iterator[Leaf]", x)`, because `cast` evaluates its first argument at runtime, so a quoted target lets its names stay under `TYPE_CHECKING` (`TC006` enforces it; the casts exist mostly because `ty` cannot yet solve the recursive `NestedContainer`, astral-sh/ty#1703); and before 3.12 a self-referential alias defined by plain assignment may quote its own name, as in `NestedContainer: TypeAlias = Container["NestedContainer[_T]"] | _T`, because the right-hand side is evaluated at import and nothing else lets it refer to itself; on 3.12 and later the same alias is a PEP 695 `type` statement with no quotes.
 
 **4.3 Constants.** A module constant is `NAME: Final[T] = value`. A class constant is `NAME: ClassVar[T] = value`, upper-case with an explicit type, never `ClassVar[Final[T]]`. `__version__` takes no `Final`, because the build backend reads only the plain `__version__ = "..."` form. A class attribute meant to be overridden is a setting, not a constant: lower-case name, plain annotation.
 

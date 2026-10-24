@@ -102,7 +102,7 @@ class ArchiveJob:
             `root / "<dest_name()>.<archive_format>"`.
         """
         # `__post_init__` resolves `root` to a `Path`; the field keeps the type its callers pass.
-        return cast(Path, self.root) / f"{self.dest_name()}.{self.archive_format.value}"
+        return cast("Path", self.root) / f"{self.dest_name()}.{self.archive_format.value}"
 
 
 __all__ = ("ArchiveJob",)

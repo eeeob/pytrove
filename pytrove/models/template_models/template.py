@@ -23,15 +23,6 @@ from ..._internal import _unavailable_class
 from ...data_tools import clean_none_values
 from ...date_tools import arabic_time
 from ...files_tools import load_ref_json, read_json
-from ...typings import (
-    JsonValue,
-    NestedStrKeyDict,
-    PathLike,
-    TemplateDict,
-    TemplatePyroMessage,
-    _False,
-    _True,
-)
 from ._internal import (
     _chain_mappings,
     _compile_lines,
@@ -46,6 +37,16 @@ from .rich import CompiledRichMessage
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+
+    from ...typings import (
+        JsonValue,
+        NestedStrKeyDict,
+        PathLike,
+        TemplateDict,
+        TemplatePyroMessage,
+        _False,
+        _True,
+    )
 
 if HAS_PYROGRAM:
 
@@ -96,7 +97,7 @@ if HAS_PYROGRAM:
                 The compiled template.
             """
             # The dict is rewritten in place into its compiled shape.
-            compiled = cast(_CompiledTemplateDict, template)
+            compiled = cast("_CompiledTemplateDict", template)
             compiled["parse_mode"] = (
                 ParseMode(mode)
                 if (mode := template.get("parse_mode", None) or parse_mode) is not None
@@ -206,7 +207,7 @@ if HAS_PYROGRAM:
             # `clean_none_values` drops the `None` values that no `TemplatePyroMessage`
             # key can hold, which its `_T -> _T` signature cannot express.
             return cast(
-                TemplatePyroMessage,
+                "TemplatePyroMessage",
                 clean_none_values({**content, "reply_markup": self.format_keyboard(values)}),
             )
 
@@ -251,7 +252,7 @@ if HAS_PYROGRAM:
                 else None,
                 # The file format holds `key_time` as a string; like every other template
                 # key it is taken from the JSON unchecked.
-                cast(str | None, templates.pop("key_time", None)) or key_time,
+                cast("str | None", templates.pop("key_time", None)) or key_time,
             )
 
         @overload
@@ -300,7 +301,7 @@ if HAS_PYROGRAM:
                 the compiled templates nested as `template` nests them.
             """
             if is_single_template:
-                return cls.compile(cast(TemplateDict, template), parse_mode, key_time)
+                return cls.compile(cast("TemplateDict", template), parse_mode, key_time)
 
             return {
                 name: (

@@ -2,15 +2,26 @@
 
 from __future__ import annotations as _annotations
 
-from collections.abc import Callable, Iterator, Mapping
 from enum import Enum
-from typing import Any, Literal, cast, overload
+from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
 from ..errors import ValidationError
 from ..iter_tools import iter_flat_cont
-from ..typings import Container, NestedContainer, NestedContainerMappingValue, _EnumT, _KT, _T, _VT
 from ..validate_tools import is_container, is_mapping
 from ._internal import _none_cleaner, _reconstruct, _reconstruct_mapping, _R, _RK
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator, Mapping
+
+    from ..typings import (
+        Container,
+        NestedContainer,
+        NestedContainerMappingValue,
+        _EnumT,
+        _KT,
+        _T,
+        _VT,
+    )
 
 
 @overload
@@ -143,7 +154,7 @@ def snapshot(data: _T) -> _T:
         An equal structure of the same shape, every container and mapping rebuilt.
     """
     # `map_deep` keeps the shape, which its overloads cannot carry from `_T` to `_T`.
-    return cast(_T, map_deep(data, lambda value: value))
+    return cast("_T", map_deep(data, lambda value: value))
 
 
 def enum_to_value(data: _T) -> _T:
@@ -162,7 +173,9 @@ def enum_to_value(data: _T) -> _T:
         {1: [1, 'x']}
     """
     # `map_deep` keeps the shape, which its overloads cannot carry from `_T` to `_T`.
-    return cast(_T, map_deep(data, lambda value: value.value if isinstance(value, Enum) else value))
+    return cast(
+        "_T", map_deep(data, lambda value: value.value if isinstance(value, Enum) else value)
+    )
 
 
 @overload
@@ -220,7 +233,7 @@ def value_to_enum(
 
     # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
     # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
-    classes = cast(Iterator[type[Enum]], iter_flat_cont(enum_classes))
+    classes = cast("Iterator[type[Enum]]", iter_flat_cont(enum_classes))
 
     for enum_cls in frozenset(classes):
         enum_map.update(enum_cls._value2member_map_)
@@ -268,10 +281,10 @@ def clean_none_values(data: _T) -> _T:
     """
     # Both rebuild `data` as its own type, which their signatures cannot carry to `_T`.
     if is_mapping(data):
-        return cast(_T, _reconstruct_mapping(data, value_func=_none_cleaner))
+        return cast("_T", _reconstruct_mapping(data, value_func=_none_cleaner))
 
     if is_container(data):
-        return cast(_T, _reconstruct(data, _none_cleaner))
+        return cast("_T", _reconstruct(data, _none_cleaner))
 
     return data
 

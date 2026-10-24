@@ -4,7 +4,6 @@ from __future__ import annotations as _annotations
 
 import io
 import pickle
-from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, cast
 
 try:
@@ -22,6 +21,8 @@ from .read import read_file
 from .write import write_file
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from ..typings import JsonValue, LockProtocol, NestedContainer, PathLike, _T
 
 
@@ -114,8 +115,8 @@ def read_pickle(
 
     # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
     # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
-    classes = cast(Iterator[type], iter_flat_cont(allow_classes))
-    modules = cast(Iterator[str], iter_flat_cont(allow_modules))
+    classes = cast("Iterator[type]", iter_flat_cont(allow_classes))
+    modules = cast("Iterator[str]", iter_flat_cont(allow_modules))
     allowed = _SAFE_PICKLE_CLASSES | frozenset(
         (cls.__module__, cls.__qualname__) for cls in classes
     )

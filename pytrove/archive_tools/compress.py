@@ -2,7 +2,6 @@
 
 from __future__ import annotations as _annotations
 
-from collections.abc import Callable, Iterator
 from typing import TYPE_CHECKING, cast
 
 from .._internal import _Rule, _default_stability_check
@@ -21,6 +20,7 @@ from ._internal import (
 
 if TYPE_CHECKING:
     import os
+    from collections.abc import Callable, Iterator
     from concurrent.futures import Executor
     from pathlib import Path
 
@@ -152,8 +152,8 @@ def compress_folder(
     walk = _Compressor(
         str(src),
         _Filter.from_rules(
-            cast(Iterator[_Rule], iter_flat_cont(include)),
-            cast(Iterator[_Rule], iter_flat_cont(excluded)),
+            cast("Iterator[_Rule]", iter_flat_cont(include)),
+            cast("Iterator[_Rule]", iter_flat_cont(excluded)),
         ),
         follow_links=follow_links,
     )

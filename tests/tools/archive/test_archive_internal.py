@@ -249,10 +249,10 @@ def test_is_hidden_reads_the_windows_attribute_only_where_stat_reports_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(common, "_HAS_FILE_ATTRIBUTES", True)
-    assert common._is_hidden("x", cast(os.DirEntry, _HiddenEntry()))
+    assert common._is_hidden("x", cast("os.DirEntry", _HiddenEntry()))
 
     monkeypatch.setattr(common, "_HAS_FILE_ATTRIBUTES", False)
-    assert not common._is_hidden("x", cast(os.DirEntry, _HiddenEntry()))
+    assert not common._is_hidden("x", cast("os.DirEntry", _HiddenEntry()))
 
 
 @pytest.mark.parametrize(
@@ -825,7 +825,7 @@ class _Unclosable:
 def test_zip_readers_close_every_handle_even_when_one_fails(tmp_path: Path) -> None:
     readers = zipread._ZipReaders(_zip_with(tmp_path / "a.zip", ("f", b"x")), None)
     handle = readers.get()
-    readers._all.insert(0, cast(zipfile.ZipFile, _Unclosable()))
+    readers._all.insert(0, cast("zipfile.ZipFile", _Unclosable()))
 
     readers.close()
 
@@ -920,7 +920,7 @@ def test_zip_copy_logs_a_link_destination_it_cannot_read(
     extractor = _ready_extractor(tmp_path)
     member = limiter._Member("ln", _symlink_info("ln"), 8, 8, "symlink")
 
-    extractor._zip_copy(cast(zipread._ZipReaders, _Readers()), member, extractor._root / "ln")
+    extractor._zip_copy(cast("zipread._ZipReaders", _Readers()), member, extractor._root / "ln")
 
     assert recorded_links == []
     assert "could not read the destination of symlink" in caplog.text

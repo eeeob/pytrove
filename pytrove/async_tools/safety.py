@@ -5,7 +5,6 @@ from __future__ import annotations as _annotations
 import inspect
 import logging
 import traceback
-from collections.abc import Awaitable, Callable, Iterator
 from typing import TYPE_CHECKING, Any, cast, overload
 
 from .._internal import _HARD_PROPAGATE
@@ -15,6 +14,7 @@ from ._internal import _log_exc, _ExcLogger
 from .run import call_sync_or_await, to_thread
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable, Iterator
     from concurrent.futures import ThreadPoolExecutor
 
     from .._internal import _ExcFilter
@@ -92,7 +92,7 @@ async def safe_await(*awaitables: Any, return_exc: bool = True, log_exc: bool = 
 
     # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
     # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
-    leaves = cast(Iterator[Awaitable[Any]], iter_flat_cont(awaitables))
+    leaves = cast("Iterator[Awaitable[Any]]", iter_flat_cont(awaitables))
 
     for i, awaitable in enumerate(leaves):
         is_multi = is_multi or i > 0

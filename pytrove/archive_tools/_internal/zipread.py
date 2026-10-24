@@ -100,7 +100,7 @@ class _ZipMixin:
         """
         # `_zip` builds every member it hands here from a `ZipInfo`; `_Member.raw` is
         # the union both readers share, so the zip side states its own arm.
-        info = cast(zipfile.ZipInfo, m.raw)
+        info = cast("zipfile.ZipInfo", m.raw)
 
         if info.compress_type == 99:
             msg = f"extract_archive: {self.src.name}: member {m.name!r} uses WinZip AES encryption, which the standard library cannot read"

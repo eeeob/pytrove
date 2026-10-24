@@ -5,7 +5,6 @@ from __future__ import annotations as _annotations
 import asyncio
 import logging
 import time
-from collections.abc import Iterator
 from typing import TYPE_CHECKING, cast
 
 from ..async_tools import gather_helper, safe_wait_task, to_thread
@@ -16,6 +15,7 @@ from ..iter_tools import iter_flat_cont
 from .compress import compress_folder
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
 
     from ..models.archive_models import ArchiveJob
@@ -45,13 +45,9 @@ class PeriodicArchiver:
             jobs: The jobs, at any nesting.
             base_exclude: Patterns left out of every archive.
         """
-        # `cast` evaluates its type at runtime, and `models` sits above the tools in the import
-        # layering, so `ArchiveJob` is imported here rather than at module level.
-        from ..models.archive_models import ArchiveJob  # noqa: PLC0415 - `models` sits above `archive_tools` in the import layering
-
         # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
         # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
-        self.jobs = tuple(cast(Iterator[ArchiveJob], iter_flat_cont(jobs)))
+        self.jobs = tuple(cast("Iterator[ArchiveJob]", iter_flat_cont(jobs)))
         self.base_exclude = base_exclude
         self._locks: DefaultWeakValueDict[int, asyncio.Lock] = DefaultWeakValueDict(asyncio.Lock)
         self._task: asyncio.Task[None] | None = None

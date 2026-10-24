@@ -4,7 +4,6 @@ from __future__ import annotations as _annotations
 
 import asyncio
 import traceback
-from collections.abc import Awaitable, Iterator
 from typing import TYPE_CHECKING, Any, cast, overload
 
 from ..iter_tools import iter_flat_cont
@@ -12,6 +11,8 @@ from ..validate_tools import is_exception
 from ._internal import _gather_cancel_on_error, _log_exc
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Iterator
+
     from ..typings import NestedContainer, _False, _T
 
 
@@ -51,7 +52,7 @@ async def gather_helper(
     caller_stack = traceback.extract_stack()[:-1] if log_exc else None
     # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
     # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
-    leaves = cast(Iterator[Awaitable[Any]], iter_flat_cont(awaitables))
+    leaves = cast("Iterator[Awaitable[Any]]", iter_flat_cont(awaitables))
     results = await asyncio.gather(*leaves, return_exceptions=return_exc)
 
     if log_exc and return_exc:
@@ -91,7 +92,7 @@ async def gather_abort(
     caller_stack = traceback.extract_stack()[:-1] if log_exc else None
     # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
     # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
-    leaves = cast(Iterator[Awaitable[Any]], iter_flat_cont(awaitables))
+    leaves = cast("Iterator[Awaitable[Any]]", iter_flat_cont(awaitables))
     results = await _gather_cancel_on_error(*leaves, return_exceptions=return_exc)
 
     if log_exc and return_exc:
