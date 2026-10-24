@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
     from concurrent.futures import ThreadPoolExecutor
 
-    from ..typings import MaybeAwaitableCallable, _False, _T
+    from ..typings import MaybeAwaitableCallable, _False, _P, _T
 
 
 # `return_exc=False` (or nothing) is listed first, so `True` or a plain `bool` falls to the arm
@@ -85,7 +85,7 @@ async def to_thread(
 
 
 async def call_sync_or_await(
-    func: MaybeAwaitableCallable[..., _T], *args: Any, **kwargs: Any
+    func: MaybeAwaitableCallable[_P, _T], *args: _P.args, **kwargs: _P.kwargs
 ) -> _T:
     """Call a function and await its result if it is awaitable.
 

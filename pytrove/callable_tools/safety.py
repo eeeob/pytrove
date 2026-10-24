@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Hashable
 
     from .._internal import _ExcFilter
-    from ..typings import NestedContainer, _ExcT, _False, _T, _True
+    from ..typings import NestedContainer, _ExcT, _False, _P, _T, _True
     from ._internal import _ExcLogger
 
 log = logging.getLogger(__name__)
@@ -165,7 +165,7 @@ def raise_if(
     bool_value: bool | None = None,
     values: NestedContainer[Hashable | None] = None,
     always: bool = False,
-) -> Callable[[Callable[..., _T]], Callable[..., _T]]:
+) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
     """Decorate a sync or async function to raise when its result matches.
 
     A result raises when `always` is set, when it is one of `values`, or when
@@ -215,7 +215,7 @@ def raise_if(
 
         return always or is_listed or (bool_value is not None and bool(result) == bool_value)
 
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+    def decorator(func: Callable[_P, Any]) -> Callable[_P, Any]:
         """Wrap `func`.
 
         Args:
@@ -226,7 +226,7 @@ def raise_if(
         """
         if iscoroutinefunction_wrapped(func):
 
-            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            async def async_wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Any:
                 """Await `func` and raise on a matching result."""
                 result = await func(*args, **kwargs)
 
@@ -237,7 +237,7 @@ def raise_if(
 
             return functools.wraps(func)(async_wrapper)
 
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
+        def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Any:
             """Call `func` and raise on a matching result."""
             result = func(*args, **kwargs)
 

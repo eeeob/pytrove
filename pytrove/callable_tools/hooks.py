@@ -128,7 +128,7 @@ def middleware(
     after: Callable[Concatenate[_T, _P], _AT_co],
     on_error: None = None,
 ) -> _WaitAfterDecorator[_P, _T, _AT_co]: ...
-def middleware(func: Callable[..., Any] | None = None, **kw: Any) -> Any:
+def middleware(func: Callable[_P, Any] | None = None, **kw: Any) -> Any:
     """Wrap a sync or async function with hooks, directly or as a decorator.
 
     `before(*args, **kwargs)` runs first; an exception raised by `func` goes to
@@ -186,7 +186,7 @@ def middleware(func: Callable[..., Any] | None = None, **kw: Any) -> Any:
 
     if is_corofunc:
 
-        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+        async def async_wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Any:
             """Run `func` between its hooks, awaiting each."""
             if before is not None:
                 await before(*args, **kwargs)
@@ -207,7 +207,7 @@ def middleware(func: Callable[..., Any] | None = None, **kw: Any) -> Any:
 
         return functools.wraps(func)(async_wrapper)
 
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Any:
         """Run `func` between its hooks."""
         if before is not None:
             before(*args, **kwargs)
