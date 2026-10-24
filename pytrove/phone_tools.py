@@ -26,13 +26,19 @@ from .text_tools import clean_spaces, to_str
 from .validate_tools import is_phone_number, is_rc, validation
 
 if TYPE_CHECKING:
-    from .typings import PhoneNumber, RegionCode, _True
+    from .typings import PhoneNumber, RegionCode, _False, _True
 
 
 @overload
 def parse_phone(
-    phone_number: PhoneNumber | int | PhoneNumberObj, clean: bool = True
+    phone_number: PhoneNumber | int | PhoneNumberObj,
+    clean: bool = True,
+    return_numobj: _False = False,
 ) -> PhoneNumber: ...
+@overload
+def parse_phone(
+    phone_number: PhoneNumber | int | PhoneNumberObj, clean: bool, return_numobj: _True
+) -> PhoneNumberObj: ...
 @overload
 def parse_phone(
     phone_number: PhoneNumber | int | PhoneNumberObj,

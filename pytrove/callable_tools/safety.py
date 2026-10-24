@@ -20,25 +20,18 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
+# The flag arms come first and the `return_exc=False` arm (or nothing) last: every arm takes
+# `**kwargs: Any`, so an arm without a flag would match a call that passes one and hide it.
 @overload
 def safe_call(
     func: Callable[..., _T],
     *args: Any,
+    raise_exc: _True,
     include_exc: _ExcFilter = None,
     exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
     **kwargs: Any,
-) -> _T | None: ...
-@overload
-def safe_call(
-    func: Callable[..., _T],
-    *args: Any,
-    return_exc: _False,
-    include_exc: _ExcFilter = None,
-    exclude_exc: _ExcFilter = None,
-    log_exc: _ExcLogger = False,
-    **kwargs: Any,
-) -> _T | None: ...
+) -> _T: ...
 @overload
 def safe_call(
     func: Callable[..., _T],
@@ -73,12 +66,12 @@ def safe_call(
 def safe_call(
     func: Callable[..., _T],
     *args: Any,
-    raise_exc: _True,
+    return_exc: _False = False,
     include_exc: _ExcFilter = None,
     exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
     **kwargs: Any,
-) -> _T: ...
+) -> _T | None: ...
 def safe_call(
     func: Callable[..., Any],
     *args: Any,

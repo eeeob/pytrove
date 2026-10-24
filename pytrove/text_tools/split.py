@@ -29,6 +29,7 @@ def smart_split(
 def smart_split(
     text: NestedContainer[str],
     indexing: int,
+    part_resolver: None = None,
     *,
     strip: bool = ...,
     remove_spaces: bool = ...,
@@ -52,6 +53,7 @@ def smart_split(
 def smart_split(
     text: NestedContainer[str],
     indexing: slice,
+    part_resolver: None = None,
     *,
     strip: bool = ...,
     remove_spaces: bool = ...,
@@ -62,6 +64,7 @@ def smart_split(
 @overload
 def smart_split(
     text: NestedContainer[str],
+    indexing: None = None,
     *,
     part_resolver: Callable[[str], _T],
     strip: bool = ...,
@@ -73,6 +76,8 @@ def smart_split(
 @overload
 def smart_split(
     text: NestedContainer[str],
+    indexing: None = None,
+    part_resolver: None = None,
     *,
     strip: bool = ...,
     remove_spaces: bool = ...,

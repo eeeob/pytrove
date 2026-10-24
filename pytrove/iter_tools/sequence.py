@@ -40,6 +40,15 @@ def dedupe(iterable: Iterable[_T], hashable: bool = True) -> list[_T]:
     return result
 
 
+# Without `default` the padding is `None`; a `None` default could not solve `_T`.
+@overload
+def pad_list(values: list[_VT], length: int, exact: bool = False) -> list[_VT | None]: ...
+@overload
+def pad_list(values: list[_VT], length: int, exact: bool, default: _T) -> list[_VT | _T]: ...
+@overload
+def pad_list(
+    values: list[_VT], length: int, exact: bool = False, *, default: _T
+) -> list[_VT | _T]: ...
 def pad_list(
     values: list[_VT], length: int, exact: bool = False, default: _T | None = None
 ) -> list[_VT | _T | None]:

@@ -63,10 +63,15 @@ def format_tg_username(
 ) -> str | None: ...
 @overload
 def format_tg_username(
+    target: str | Chat | User, with_invite_link: bool, with_at: bool, default: _T
+) -> str | _T: ...
+@overload
+def format_tg_username(
     target: str | Chat | User,
     with_invite_link: bool = False,
     with_at: bool = True,
-    default: _T = ...,
+    *,
+    default: _T,
 ) -> str | _T: ...
 @_optional_import(("kurigram", "tg"))
 def format_tg_username(

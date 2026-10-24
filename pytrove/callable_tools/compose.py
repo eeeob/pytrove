@@ -128,11 +128,16 @@ def ignore_arguments(func: Callable[[], _T]) -> Callable[..., _T]:
     return wrapper
 
 
+# `value` omitted has its own arms typed `None`: a `None` default cannot solve `_T`.
 @overload
-def return_constant(func: Callable[_P, Any], *, value: _T | None = None) -> Callable[_P, _T]: ...
+def return_constant(func: Callable[_P, Any]) -> Callable[_P, None]: ...
+@overload
+def return_constant(func: Callable[_P, Any], *, value: _T) -> Callable[_P, _T]: ...
+@overload
+def return_constant(func: None = None) -> Callable[[Callable[_P, Any]], Callable[_P, None]]: ...
 @overload
 def return_constant(
-    func: None, *, value: _T | None = None
+    func: None = None, *, value: _T
 ) -> Callable[[Callable[_P, Any]], Callable[_P, _T]]: ...
 def return_constant(func: Callable[_P, Any] | None = None, *, value: Any = None) -> Any:
     """Wrap a function so it runs as usual but always returns `value`.
