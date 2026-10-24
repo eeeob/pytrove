@@ -47,10 +47,12 @@ def read_file(
     Raises:
         FileNotFoundError: If the file does not exist.
     """
-    try:
-        if lock is not None:
-            lock.acquire()
+    # Acquired outside the `try`: a failed `acquire` must not reach a `release` that would
+    # raise for an unheld lock and replace the original error.
+    if lock is not None:
+        lock.acquire()
 
+    try:
         if binary:
             with open(path, "rb", **kw) as f:
                 return f.read()

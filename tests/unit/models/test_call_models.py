@@ -2,6 +2,8 @@ from __future__ import annotations as _annotations
 
 import asyncio
 
+import pytest
+
 from pytrove.enums import TriggerOn
 from pytrove.models import DeferredCall, DelayedCallback
 
@@ -96,3 +98,20 @@ async def test_delayed_callback_cancel_after_it_finished_only_clears_the_task() 
     await cb.cancel()
     assert cb.task is None and cb.cancelled
     assert task.result() == 1 and not task.cancelled()
+
+
+async def test_delayed_callback_an_on_finished_error_never_hides_the_callbacks_own() -> None:
+    def fail() -> None:
+        """Fail as the callback."""
+        msg = "the callback's own"
+        raise ValueError(msg)
+
+    def broken_on_finished(cb: DelayedCallback[None]) -> None:
+        """Fail as the hook."""
+        msg = "the hook's"
+        raise RuntimeError(msg)
+
+    cb = DelayedCallback(0, fail, on_finished=broken_on_finished)
+
+    with pytest.raises(ValueError, match="the callback's own"):
+        await cb.start()
