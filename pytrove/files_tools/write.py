@@ -56,38 +56,40 @@ def atomic_write(
         except FileNotFoundError:
             mode = 0o644
 
-    fd, tmp_path = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=directory)
+    # Acquired outside the `try`: a failed `acquire` must not reach a `release` that would
+    # raise for an unheld lock and replace the original error.
+    if lock is not None:
+        lock.acquire()
 
     try:
-        if lock is not None:
-            lock.acquire()
+        fd, tmp_path = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=directory)
 
-        with os.fdopen(fd, "wb" if binary else "w", encoding=None if binary else encoding) as f:
-            yield f
+        try:
+            with os.fdopen(fd, "wb" if binary else "w", encoding=None if binary else encoding) as f:
+                yield f
+
+                if fsync:
+                    f.flush()
+                    os.fsync(f.fileno())
+
+            os.chmod(tmp_path, mode)
+            os.replace(tmp_path, path)
 
             if fsync:
-                f.flush()
-                os.fsync(f.fileno())
-
-        os.chmod(tmp_path, mode)
-        os.replace(tmp_path, path)
-
-        if fsync:
-            # The rename lives in the directory, which needs its own `fsync` to survive a power loss.
-            try:
-                dir_fd = os.open(directory, os.O_RDONLY)
+                # The rename lives in the directory, which needs its own `fsync` to survive a power loss.
                 try:
-                    os.fsync(dir_fd)
-                finally:
-                    safe_call(os.close, dir_fd)
-            except OSError:
-                pass
-    finally:
-        try:
-            if lock is not None:
-                lock.release()
+                    dir_fd = os.open(directory, os.O_RDONLY)
+                    try:
+                        os.fsync(dir_fd)
+                    finally:
+                        safe_call(os.close, dir_fd)
+                except OSError:
+                    pass
         finally:
             remove_file(tmp_path, return_exc=True, log_exc=True)
+    finally:
+        if lock is not None:
+            lock.release()
 
 
 def write_file(

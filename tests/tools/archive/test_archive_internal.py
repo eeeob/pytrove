@@ -1235,3 +1235,24 @@ def test_warn_if_changed_is_silent_if_the_file_is_gone_by_the_second_stat(
         stable._warn_if_changed(str(target), before)
 
     assert caplog.text == ""
+
+
+def test_a_failed_cleanup_never_replaces_the_extraction_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail_extraction(self: _Extractor, workers: object = None) -> None:
+        msg = "the extraction's own"
+        raise ValueError(msg)
+
+    def fail_cleanup(*args: object, **kwargs: object) -> None:
+        msg = "the cleanup's"
+        raise RuntimeError(msg)
+
+    src = tmp_path / "a.zip"
+    src.write_bytes(b"")
+    monkeypatch.setattr(_Extractor, "_zip", fail_extraction)
+    monkeypatch.setattr(extractor_module, "remove_path", fail_cleanup)
+    extractor = _Extractor(src, tmp_path / "out", _Filter.from_rules((), ()))
+
+    with pytest.raises(ValueError, match="the extraction's own"):
+        extractor.run(ArchiveFormat.ZIP, atomic=True)

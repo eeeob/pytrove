@@ -92,7 +92,7 @@ class DelayedCallback(Generic[_T]):
     """Keyword arguments for `callback`."""
 
     on_finished: MaybeCoroutineCallable[[Self], Any] | None = None
-    """Called with this instance once the wait ends, whether the callback ran, failed or was cancelled."""
+    """Called with this instance once the wait ends, however it ended; an error it raises is logged, not raised."""
 
     cancel_event: asyncio.Event = field(default_factory=asyncio.Event)
     """Set to cancel the callback before it starts; `wait()` blocks on it for `delay`."""
@@ -121,7 +121,7 @@ class DelayedCallback(Generic[_T]):
 
         finally:
             if self.on_finished is not None:
-                await maybe_awaitable(self.on_finished, self)
+                await maybe_awaitable(self.on_finished, self, return_exc=True)
 
         return None
 

@@ -454,3 +454,20 @@ async def test_loop_keeps_ticking_while_a_slow_run_is_in_flight_without_duplicat
 
     finished.set()
     await archiver.stop()
+
+
+async def test_run_job_a_failed_removal_neither_raises_nor_skips_last_run(
+    tree: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(*args: Any, **kwargs: Any) -> NoReturn:
+        raise PermissionError(13, "held")
+
+    job = make_job(tree)
+    archiver = PeriodicArchiver([job])
+    stamp_before = job.last_run
+    monkeypatch.setattr(archiver_module, "remove_file", refuse)
+    monkeypatch.setattr(archiver_module.time, "monotonic", lambda: stamp_before + 1000)
+
+    await archiver.run_job(job)
+
+    assert job.last_run == stamp_before + 1000

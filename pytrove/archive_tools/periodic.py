@@ -139,8 +139,10 @@ class PeriodicArchiver:
                 else:
                     log.error("Archive job %r failed", job.name, exc_info=e)
             finally:
+                # Returned, not raised: a failed removal must not replace the error in flight
+                # nor skip the `last_run` update below; `to_thread` still logs it.
                 if path is not None:
-                    await to_thread(remove_file, path)
+                    await to_thread(remove_file, path, return_exc=True)
 
                 object.__setattr__(job, "last_run", time.monotonic())
 

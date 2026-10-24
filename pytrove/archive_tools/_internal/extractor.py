@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..._internal import _is_dir, _is_link
+from ...callable_tools import safe_call
 from ...enums import ArchiveFormat
 from ...errors import ValidationError
 from ...files_tools import remove_file, remove_folder, remove_path, remove_paths
@@ -121,10 +122,14 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
 
             self._inspect(self._root)
         except BaseException:
+            # The cleanup cannot replace the error in flight: anything it raises is logged instead.
             if staged is not None:
-                remove_path(staged, return_exc=True, log_exc=True)
+                safe_call(lambda: remove_path(staged, return_exc=True, log_exc=True), log_exc=True)
             elif self._built:
-                remove_paths(dedupe(self._built), return_exc=True, log_exc=True)
+                built = self._built  # A local keeps the narrowing inside the lambda.
+                safe_call(
+                    lambda: remove_paths(dedupe(built), return_exc=True, log_exc=True), log_exc=True
+                )
             raise
 
         if staged is None:

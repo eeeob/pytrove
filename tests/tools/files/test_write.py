@@ -32,6 +32,15 @@ class _Lock:
         self.calls.append("release")
 
 
+class _FailingLock(_Lock):
+    """A lock whose `acquire` raises, recording any `release` it is wrongly given."""
+
+    def acquire(self) -> bool:
+        self.calls.append("acquire")
+        msg = "lock timed out"
+        raise TimeoutError(msg)
+
+
 @pytest.fixture
 def sample(tmp_path: Path) -> Path:
     path = tmp_path / "app.log"
@@ -471,3 +480,16 @@ def test_a_head_cut_keeps_the_file_mode(sample: Path) -> None:
     truncate_file(sample, 3000, cut=TruncateSide.HEAD)
 
     assert sample.stat().st_mode & 0o777 == 0o640
+
+
+def test_atomic_write_raises_a_failed_acquire_as_is_and_leaves_nothing(tmp_path: Path) -> None:
+    lock = _FailingLock()
+
+    with (
+        pytest.raises(TimeoutError, match="lock timed out"),
+        atomic_write(tmp_path / "out.txt", lock=lock, fsync=False),
+    ):
+        pass
+
+    assert lock.calls == ["acquire"]
+    assert list(tmp_path.iterdir()) == []

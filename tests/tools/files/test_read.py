@@ -27,6 +27,15 @@ class _Lock:
         self.calls.append("release")
 
 
+class _FailingLock(_Lock):
+    """A lock whose `acquire` raises, recording any `release` it is wrongly given."""
+
+    def acquire(self) -> bool:
+        self.calls.append("acquire")
+        msg = "lock timed out"
+        raise TimeoutError(msg)
+
+
 def test_read_file_reads_text_or_bytes(tmp_path: Path) -> None:
     target = tmp_path / "f.txt"
     target.write_bytes("é".encode())
@@ -74,3 +83,14 @@ def test_read_file_raises_for_a_missing_file(tmp_path: Path) -> None:
 
     with pytest.raises(FileNotFoundError):
         read_file(tmp_path / "missing", binary=True)
+
+
+def test_read_file_raises_a_failed_acquire_as_is_and_never_releases(tmp_path: Path) -> None:
+    target = tmp_path / "f.txt"
+    target.write_text("x", encoding="utf-8")
+    lock = _FailingLock()
+
+    with pytest.raises(TimeoutError, match="lock timed out"):
+        read_file(target, lock=lock)
+
+    assert lock.calls == ["acquire"]
