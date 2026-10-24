@@ -4,7 +4,7 @@ from __future__ import annotations as _annotations
 
 from typing import TYPE_CHECKING, Any
 
-from ...callable_tools import ignore_arguments
+from ..._internal import _ignore_arguments
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -33,7 +33,7 @@ def _no_arg_factory(default_factory: Callable[[], _VT]) -> Callable[[Any], _VT]:
         msg = "default_factory must be callable"
         raise TypeError(msg)
 
-    return ignore_arguments(default_factory)
+    return _ignore_arguments(default_factory)
 
 
 __all__ = ("_no_arg_factory",)

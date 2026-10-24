@@ -9,6 +9,7 @@ import time
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
+from ...object_tools.proxies import WeakRestrictedProxy
 from .threads import _check_loop_factory, _run_loop
 
 if TYPE_CHECKING:
@@ -87,8 +88,6 @@ class _LoopHost:
         if self._loop is None:
             msg = "the worker's event loop has not been published yet -- use get_loop(), which waits on that"
             raise RuntimeError(msg)
-
-        from ...object_tools.proxies import WeakRestrictedProxy  # noqa: PLC0415 - `object_tools` sits above `async_tools`
 
         return WeakRestrictedProxy(self._loop, blocked=["close", "stop"])
 

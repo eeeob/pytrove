@@ -5,6 +5,8 @@ from __future__ import annotations as _annotations
 import functools
 from typing import TYPE_CHECKING, Any, overload
 
+from .._internal import _ignore_arguments
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -119,13 +121,7 @@ def ignore_arguments(func: Callable[[], _T]) -> Callable[..., _T]:
     Returns:
         A wrapper calling `func()` whatever it is passed.
     """
-
-    @functools.wraps(func)
-    def wrapper(*_: Any, **__: Any) -> _T:
-        """Call `func` with no arguments."""
-        return func()
-
-    return wrapper
+    return _ignore_arguments(func)
 
 
 # `value` omitted has its own arms typed `None`: a `None` default cannot solve `_T`.
