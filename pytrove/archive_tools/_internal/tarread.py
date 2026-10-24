@@ -13,7 +13,8 @@ from .limiter import _Member
 
 if TYPE_CHECKING:
     from concurrent.futures import Executor
-    from pathlib import Path
+
+    from .extractor import _Extractor
 
 log = logging.getLogger(__name__)
 
@@ -23,17 +24,7 @@ class _TarMixin:
 
     __slots__ = ()
 
-    src: Path
-    password: bytes | None
-
-    if TYPE_CHECKING:
-        # Provided by `_PlaceMixin` and `_WriteMixin` in `_Extractor`; declared so `ty` can check the calls made through `self`.
-        def _place(self, m: _Member) -> Path | None: ...
-        def _mkdir(self, path: Path) -> None: ...
-        def _link(self, m: _Member, target: Path) -> None: ...
-        def _spill(self, m: _Member, data: IO[bytes], target: Path) -> None: ...
-
-    def _tar(self, fmt: ArchiveFormat, workers: int | Executor | None = None) -> None:
+    def _tar(self: _Extractor, fmt: ArchiveFormat, workers: int | Executor | None = None) -> None:
         """Read the tar stream and write every member that passes.
 
         A tar is one stream read in order, so `workers` and a password are

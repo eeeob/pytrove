@@ -8,14 +8,15 @@ import os
 import posixpath
 import tempfile
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any
+from typing import IO, TYPE_CHECKING
 
 from ..._internal import _is_dir, _COPY_BUF
 from ...errors import ValidationError
 from ...files_tools import ensure_dir, remove_file
 
 if TYPE_CHECKING:
-    from .limiter import _Limiter, _Member
+    from .extractor import _Extractor
+    from .limiter import _Member
 
 log = logging.getLogger(__name__)
 
@@ -28,19 +29,7 @@ class _WriteMixin:
 
     __slots__ = ()
 
-    src: Path
-    dest: Path
-    _root: Path
-    _limiter: _Limiter
-    _made: set[Path]
-    _built: list[Path] | None
-
-    if TYPE_CHECKING:
-        # Provided by `_PlaceMixin` in `_Extractor`; declared so `ty` can check the calls made through `self`.
-        def _under(self, name: str) -> Path | None: ...
-        def _is_safe_member_name(self, name: Any) -> bool: ...
-
-    def _mkdir(self, path: Path) -> None:
+    def _mkdir(self: _Extractor, path: Path) -> None:
         """Create a directory once, recording each level this run brings into being.
 
         Args:
@@ -70,7 +59,7 @@ class _WriteMixin:
         if self._built is not None:
             self._built.extend(reversed(fresh))
 
-    def _link(self, m: _Member, target: Path) -> None:
+    def _link(self: _Extractor, m: _Member, target: Path) -> None:
         """Recreate a link member, if the policy allows and it stays inside the destination.
 
         A symlink resolves from its own directory, a hardlink from the root;
@@ -149,7 +138,7 @@ class _WriteMixin:
         if self._built is not None:
             self._built.append(target)
 
-    def _spill(self, m: _Member, data: IO[bytes], target: Path) -> None:
+    def _spill(self: _Extractor, m: _Member, data: IO[bytes], target: Path) -> None:
         """Copy a member's bytes into place in bounded chunks, re-weighing its size as it grows.
 
         A size different from the header is logged, not fatal. An `OSError`
