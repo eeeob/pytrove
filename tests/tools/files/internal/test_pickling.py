@@ -1,4 +1,4 @@
-"""`files_tools._pickling`: the restricted unpickler and its tables."""
+"""`files_tools._internal.pickling`: the restricted unpickler and its tables."""
 
 from __future__ import annotations as _annotations
 
@@ -9,7 +9,7 @@ from pathlib import Path, PurePosixPath
 import pytest
 
 from pytrove.enums import PickleSafety
-from pytrove.files_tools._pickling import (
+from pytrove.files_tools._internal import (
     _RestrictedUnpickler,
     _normalise_global,
     _SAFE_PICKLE_CLASSES,

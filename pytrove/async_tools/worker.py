@@ -12,8 +12,7 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import Self
 
-from ._loop_host import _LoopHost
-from ._threads import _run_tracked
+from ._internal import _LoopHost, _run_tracked
 from .run import to_thread
 
 if TYPE_CHECKING:

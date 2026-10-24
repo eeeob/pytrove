@@ -10,8 +10,7 @@ from typing import Any
 import pytest
 
 from pytrove.async_tools import AioThreadWorker
-from pytrove.async_tools import _loop_host
-from pytrove.async_tools._loop_host import _LoopHost
+from pytrove.async_tools._internal import _LoopHost, loop_host
 
 HAS_WRAPT = importlib.util.find_spec("wrapt") is not None
 needs_proxy = pytest.mark.skipif(not HAS_WRAPT, reason="needs the proxy extra")
@@ -23,7 +22,7 @@ _LoopRunner = Callable[
 
 def _patch_run_loop(monkeypatch: pytest.MonkeyPatch, run_loop: _LoopRunner) -> None:
     """Replace the loop driver the worker thread calls."""
-    monkeypatch.setattr(_loop_host, "_run_loop", run_loop)
+    monkeypatch.setattr(loop_host, "_run_loop", run_loop)
 
 
 def test_loop_host_starts_in_a_known_state() -> None:
@@ -36,7 +35,7 @@ def test_loop_host_starts_in_a_known_state() -> None:
 
 
 def test_loop_host_logs_under_the_worker_logger() -> None:
-    assert _loop_host.log.name == "pytrove.async_tools.worker"
+    assert loop_host.log.name == "pytrove.async_tools.worker"
 
 
 def test_loop_proxy_refuses_before_the_loop_is_published() -> None:

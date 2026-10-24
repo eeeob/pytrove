@@ -18,17 +18,17 @@ except ImportError:
 else:
     HAS_ORJSON = True
 
-from .._internal import _is_link, _COPY_BUF
-from ..callable_tools import safe_call
-from ..enums import TruncateSide
-from ..iter_tools import dedupe, iter_flat_cont
-from .paths import ensure_dir, ensure_path, resolve_path
+from ..._internal import _is_link, _COPY_BUF
+from ...callable_tools import safe_call
+from ...enums import TruncateSide
+from ...iter_tools import dedupe, iter_flat_cont
+from ..paths import ensure_dir, ensure_path, resolve_path
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
     from pathlib import Path
 
-    from ..typings import NestedContainer, PathLike
+    from ...typings import NestedContainer, PathLike
 
 _SPILL_PARTS: Final[int] = 10
 """How many parts `truncate_file` spills into when `size` is 0 and names no part length."""
@@ -254,8 +254,8 @@ def _spill_parts(
         The parts written, in order.
     """
     # `remove` and `write` import this module.
-    from .remove import remove_file  # noqa: PLC0415 - see above
-    from .write import atomic_write  # noqa: PLC0415 - see above
+    from ..remove import remove_file  # noqa: PLC0415 - see above
+    from ..write import atomic_write  # noqa: PLC0415 - see above
 
     folder = ensure_dir(path.parent if spill is True else resolve_path(spill))
     part_size = size or math.ceil(

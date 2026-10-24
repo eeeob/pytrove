@@ -1,4 +1,4 @@
-"""`files_tools._internal`: JSON codecs, tree removal and spill parts."""
+"""`files_tools._internal.common`: JSON codecs, tree removal and spill parts."""
 
 from __future__ import annotations as _annotations
 
@@ -12,8 +12,8 @@ from typing import Any
 import pytest
 
 from pytrove.enums import TruncateSide
-from pytrove.files_tools import _internal
 from pytrove.files_tools._internal import (
+    common,
     _MkdirOptions,
     _json_dumps,
     _json_loads,
@@ -164,7 +164,7 @@ def test_on_exc_remove_folders_unlinks_a_link_and_tolerates_it_vanishing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     link = tmp_path / "link"
-    monkeypatch.setattr(_internal, "_is_link", lambda path: str(path) == str(link))
+    monkeypatch.setattr(common, "_is_link", lambda path: str(path) == str(link))
     unlinked: list[str] = []
 
     def unlink(path: str) -> None:

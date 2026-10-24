@@ -5,10 +5,20 @@ from pathlib import Path
 
 import pytrove._internal
 import pytrove.archive_tools._internal
+import pytrove.async_tools._internal
+import pytrove.data_tools._internal
+import pytrove.files_tools._internal
 import pytrove.tg_tools._internal
 import pytest
 
-PACKAGES = [pytrove._internal, pytrove.archive_tools._internal, pytrove.tg_tools._internal]
+PACKAGES = [
+    pytrove._internal,
+    pytrove.archive_tools._internal,
+    pytrove.async_tools._internal,
+    pytrove.data_tools._internal,
+    pytrove.files_tools._internal,
+    pytrove.tg_tools._internal,
+]
 
 
 @pytest.mark.parametrize("package", PACKAGES, ids=lambda p: p.__name__)

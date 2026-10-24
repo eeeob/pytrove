@@ -9,12 +9,12 @@ import time
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
-from ._threads import _check_loop_factory, _run_loop
+from .threads import _check_loop_factory, _run_loop
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from ..typings import Number
+    from ...typings import Number
 
 log = logging.getLogger("pytrove.async_tools.worker")
 
@@ -88,7 +88,7 @@ class _LoopHost:
             msg = "the worker's event loop has not been published yet -- use get_loop(), which waits on that"
             raise RuntimeError(msg)
 
-        from ..object_tools.proxies import WeakRestrictedProxy  # noqa: PLC0415 - `object_tools` sits above `async_tools`
+        from ...object_tools.proxies import WeakRestrictedProxy  # noqa: PLC0415 - `object_tools` sits above `async_tools`
 
         return WeakRestrictedProxy(self._loop, blocked=["close", "stop"])
 
@@ -199,7 +199,7 @@ class _LoopHost:
             self._thread_exc = exc
             log.error("AioThreadWorker thread died", exc_info=exc)
 
-        from ..callable_tools import safe_call  # noqa: PLC0415 - `callable_tools` imports `async_tools`
+        from ...callable_tools import safe_call  # noqa: PLC0415 - `callable_tools` imports `async_tools`
 
         with self._lock:
             started_thread = self._thread

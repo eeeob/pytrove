@@ -1,10 +1,10 @@
-"""`data_tools._factories`: adapting zero-argument factories."""
+"""`data_tools._internal.factories`: adapting zero-argument factories."""
 
 from __future__ import annotations as _annotations
 
 import pytest
 
-from pytrove.data_tools._factories import _no_arg_factory
+from pytrove.data_tools._internal import _no_arg_factory
 
 
 def test_no_arg_factory_ignores_the_key_and_keeps_the_original() -> None:
