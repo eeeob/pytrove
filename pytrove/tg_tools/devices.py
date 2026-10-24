@@ -20,6 +20,10 @@ def rand_tg_device(
 ) -> DeviceInfo: ...
 @overload
 def rand_tg_device(
+    platform_device: PlatformDevice | None, to_tuple: _True, unique_id: str | None = ...
+) -> tuple[str, str]: ...
+@overload
+def rand_tg_device(
     platform_device: PlatformDevice | None = ...,
     *,
     to_tuple: _True,

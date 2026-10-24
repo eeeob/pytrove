@@ -3,7 +3,7 @@
 from __future__ import annotations as _annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Generic, cast
+from typing import Any, Generic, cast, overload
 
 from ..async_tools import to_thread
 from ..files_tools import read_json, write_json
@@ -80,6 +80,10 @@ class JsonContainer(BaseDataClass, Generic[_KT, _VT]):
         # The data came from JSON, so it is JSON again whatever `_KT`/`_VT` say.
         write_json(self.path, cast("JsonValue", self._loaded_data()), self.lock, **kw)
 
+    @overload
+    def get(self, key: _KT) -> _VT | None: ...
+    @overload
+    def get(self, key: _KT, default: _T) -> _VT | _T: ...
     def get(self, key: _KT, default: _T | None = None) -> _VT | _T | None:
         """Return the value under `key`, loading the file first if needed.
 
@@ -154,6 +158,10 @@ class JsonContainer(BaseDataClass, Generic[_KT, _VT]):
         """
         await to_thread(self.save, **kw)
 
+    @overload
+    async def async_get(self, key: _KT) -> _VT | None: ...
+    @overload
+    async def async_get(self, key: _KT, default: _T) -> _VT | _T: ...
     async def async_get(self, key: _KT, default: _T | None = None) -> _VT | _T | None:
         """Async `get()`: the file is read in a thread.
 
