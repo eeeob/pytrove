@@ -6,6 +6,7 @@ happens to define it; the split into modules is this package's own business.
 """
 
 from ._asyncio import *
+from ._callables import *
 from ._exceptions import *
 from ._fs import *
 from ._optional import *
@@ -16,6 +17,7 @@ from ._types import *
 
 __all__ = (
     *_asyncio.__all__,
+    *_callables.__all__,
     *_exceptions.__all__,
     *_fs.__all__,
     *_optional.__all__,
