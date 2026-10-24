@@ -22,6 +22,7 @@ from .._internal import _is_link, _COPY_BUF
 from ..callable_tools import safe_call
 from ..enums import TruncateSide
 from ..iter_tools import dedupe, iter_flat_cont
+from .paths import ensure_dir, ensure_path, resolve_path
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -204,8 +205,6 @@ def _remove(
     Raises:
         OSError: The first failure, unless `return_exc` is set.
     """
-    from .paths import ensure_path  # noqa: PLC0415 - `paths` imports this module
-
     removed: list[Path | OSError] = []
 
     # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
@@ -254,8 +253,7 @@ def _spill_parts(
     Returns:
         The parts written, in order.
     """
-    # `paths`, `remove` and `write` all import this module.
-    from .paths import ensure_dir, resolve_path  # noqa: PLC0415 - see above
+    # `remove` and `write` import this module.
     from .remove import remove_file  # noqa: PLC0415 - see above
     from .write import atomic_write  # noqa: PLC0415 - see above
 
