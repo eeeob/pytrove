@@ -4,7 +4,7 @@ from __future__ import annotations as _annotations
 
 import asyncio
 import functools
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from .._internal import _get_running_loop
 from ..async_tools import run_awaitable_in_coro
@@ -40,7 +40,7 @@ def to_coroutine(func: Callable[_P, _T]) -> Callable[_P, _Coro[_T]]:
         A coroutine function with `func`'s name and signature.
     """
 
-    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+    async def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:
         """Call `func`."""
         return func(*args, **kwargs)
 

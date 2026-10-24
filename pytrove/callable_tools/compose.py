@@ -134,7 +134,7 @@ def return_constant(func: Callable[_P, Any], *, value: _T | None = None) -> Call
 def return_constant(
     func: None, *, value: _T | None = None
 ) -> Callable[[Callable[_P, Any]], Callable[_P, _T]]: ...
-def return_constant(func: Callable[..., Any] | None = None, *, value: Any = None) -> Any:
+def return_constant(func: Callable[_P, Any] | None = None, *, value: Any = None) -> Any:
     """Wrap a function so it runs as usual but always returns `value`.
 
     Args:
@@ -153,7 +153,7 @@ def return_constant(func: Callable[..., Any] | None = None, *, value: Any = None
         return functools.partial(return_constant, value=value)
 
     @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Any:
         """Call `func` and return `value` instead of its result."""
         func(*args, **kwargs)
         return value
