@@ -95,7 +95,7 @@ class CompiledEachLine(BaseDataClass):
             The compiled line.
         """
         # The dict is rewritten in place into its compiled shape.
-        compiled = cast(_CompiledEachLineDict, item)
+        compiled = cast("_CompiledEachLineDict", item)
         compiled["item"] = CompiledLine.compile(item["item"])
         return cls.from_dict(compiled, True)
 

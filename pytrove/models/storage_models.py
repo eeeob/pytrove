@@ -51,7 +51,7 @@ class JsonContainer(BaseDataClass, Generic[_KT, _VT]):
             raise TypeError(msg)
 
         # JSON is untyped: the caller states the shape through `_KT`/`_VT`.
-        self.data = cast(dict[_KT, _VT], data)
+        self.data = cast("dict[_KT, _VT]", data)
 
     def _loaded_data(self) -> dict[_KT, _VT]:
         """Return the loaded object.
@@ -78,7 +78,7 @@ class JsonContainer(BaseDataClass, Generic[_KT, _VT]):
             RuntimeError: If nothing is loaded.
         """
         # The data came from JSON, so it is JSON again whatever `_KT`/`_VT` say.
-        write_json(self.path, cast(JsonValue, self._loaded_data()), self.lock, **kw)
+        write_json(self.path, cast("JsonValue", self._loaded_data()), self.lock, **kw)
 
     def get(self, key: _KT, default: _T | None = None) -> _VT | _T | None:
         """Return the value under `key`, loading the file first if needed.

@@ -19,7 +19,7 @@ def _points() -> tuple[tuple[int, float], ...]:
     """
     # `load_json` returns any `JsonValue`; the bundled file is a list of `[id, "YYYY-MM-DD"]`
     # pairs (checked by its tests), so the cast states that fixed shape for unpacking.
-    rows = cast(list[tuple[int, str]], load_json(TG_ACCOUNT_POINTS_FILE))
+    rows = cast("list[tuple[int, str]]", load_json(TG_ACCOUNT_POINTS_FILE))
     return tuple((uid, date_to_stamp(day, format="%Y-%m-%d")) for uid, day in rows)
 
 

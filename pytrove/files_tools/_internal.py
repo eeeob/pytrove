@@ -8,7 +8,6 @@ import math
 import os
 import shutil
 import sys
-from collections.abc import Callable, Iterator
 from functools import partial
 from typing import TYPE_CHECKING, Any, Final, Literal, TypedDict, cast
 
@@ -23,10 +22,12 @@ from .._internal import _is_link, _COPY_BUF
 from ..callable_tools import safe_call
 from ..enums import TruncateSide
 from ..iter_tools import dedupe, iter_flat_cont
-from ..typings import NestedContainer, PathLike
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
     from pathlib import Path
+
+    from ..typings import NestedContainer, PathLike
 
 _SPILL_PARTS: Final[int] = 10
 """How many parts `truncate_file` spills into when `size` is 0 and names no part length."""
@@ -209,7 +210,7 @@ def _remove(
 
     # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
     # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
-    leaves = cast(Iterator[PathLike], iter_flat_cont(paths))
+    leaves = cast("Iterator[PathLike]", iter_flat_cont(paths))
 
     for path in dedupe(ensure_path(path) for path in leaves):
         try:

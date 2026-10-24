@@ -8,16 +8,18 @@ import inspect
 import operator
 import re
 import sys
-from collections.abc import AsyncIterator, Callable
 from importlib.metadata import PackageNotFoundError, distribution, version
-from typing import Any, Final, TypeAlias, cast
+from typing import TYPE_CHECKING, Any, Final, TypeAlias, cast
 
 if sys.version_info >= (3, 11):
     from typing import Never
 else:
     from typing_extensions import Never
 
-from ..typings import _P, _T
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Callable
+
+    from ..typings import _P, _T
 
 _PackageGroup: TypeAlias = tuple[str | tuple[str, ...], str]
 """One or more package specs, and the extra that installs them."""
@@ -196,7 +198,7 @@ def _optional_import(*packages: _PackageGroup) -> Callable[[Callable[_P, _T]], C
 
             # `async def` types the wrapper as returning a `Coroutine` around its result,
             # while `_T` already is the awaitable `func` returns; the parameters match.
-            return cast(Callable[_P, _T], agen_wrapper)
+            return cast("Callable[_P, _T]", agen_wrapper)
 
         if inspect.iscoroutinefunction(func):
 
@@ -209,7 +211,7 @@ def _optional_import(*packages: _PackageGroup) -> Callable[[Callable[_P, _T]], C
 
             # `async def` types the wrapper as returning a `Coroutine` around its result,
             # while `_T` already is the awaitable `func` returns; the parameters match.
-            return cast(Callable[_P, _T], coro_wrapper)
+            return cast("Callable[_P, _T]", coro_wrapper)
 
         @functools.wraps(func)
         def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:

@@ -4,18 +4,18 @@ from __future__ import annotations as _annotations
 
 import logging
 import time
-from collections.abc import Callable, Iterator
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast, overload
 
 from .date_tools import UTC_PLUS_3
 from .iter_tools import iter_flat_cont
-from .models import LoggerOptions, LogHandlerOptions
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
     from logging.handlers import RotatingFileHandler
 
+    from .models import LoggerOptions, LogHandlerOptions
     from .typings import Container, NestedContainer, _False, _True
 
 
@@ -91,6 +91,7 @@ def attach_logger_handlers(
 
     Example:
         >>> import io
+        >>> from pytrove.models import LogHandlerOptions
         >>> logger, handler = attach_logger_handlers(
         ...     LogHandlerOptions(logger="pytrove.example", handler=io.StringIO(), level=logging.INFO),
         ...     return_loggers=True,
@@ -103,7 +104,7 @@ def attach_logger_handlers(
 
     # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
     # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
-    for options in cast(Iterator[LogHandlerOptions], iter_flat_cont(hdlrs_options)):
+    for options in cast("Iterator[LogHandlerOptions]", iter_flat_cont(hdlrs_options)):
         logger = options.resolve_logger()
         handler = options.resolve_handler()
 
@@ -134,6 +135,7 @@ def set_loggers(
         The logger for a single description, otherwise a list of them.
 
     Example:
+        >>> from pytrove.models import LoggerOptions
         >>> set_loggers(LoggerOptions(logger="pytrove.example", level=logging.DEBUG, propagate=False)).level
         10
     """
@@ -141,7 +143,7 @@ def set_loggers(
 
     # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
     # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
-    for options in cast(Iterator[LoggerOptions], iter_flat_cont(loggers_options)):
+    for options in cast("Iterator[LoggerOptions]", iter_flat_cont(loggers_options)):
         logger = options.resolve_logger()
 
         if options.reset_level:

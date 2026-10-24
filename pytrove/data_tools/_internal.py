@@ -5,9 +5,10 @@ from __future__ import annotations as _annotations
 import copy
 import logging
 from collections.abc import Callable, Hashable, Iterator, Mapping, MutableMapping, Sized
-from typing import Any, Final, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Final, TypeVar, cast
 
-from ..typings import Container
+if TYPE_CHECKING:
+    from ..typings import Container
 
 _R = TypeVar("_R")
 """A transform's result type."""
@@ -147,7 +148,7 @@ def _reconstruct(data: Container[Any], func: Callable[[Any], Any] | None = None)
         The rebuilt container, a lazy iterator, or `data` itself.
     """
     # Any container class may arrive; its constructor is probed below, not known.
-    cls = cast(Callable[..., Container[Any]], type(data))
+    cls = cast("Callable[..., Container[Any]]", type(data))
 
     if hasattr(cls, "__next__"):
         return _transform(data, func)
@@ -209,7 +210,7 @@ def _reconstruct_mapping(
         The rebuilt mapping, or a plain dict of the transformed pairs.
     """
     # Any mapping class may arrive; its constructor is probed below, not known.
-    cls = cast(Callable[..., Mapping[Any, Any]], type(data))
+    cls = cast("Callable[..., Mapping[Any, Any]]", type(data))
     as_dict = dict(_transform_mapping(data, key_func, value_func))
     factory = getattr(data, "default_factory", None)
 
@@ -218,7 +219,7 @@ def _reconstruct_mapping(
             new = cls(factory)
             # A mapping with a `default_factory` is taken as `defaultdict`-like, so mutable;
             # one whose `update` refuses falls through to the next attempt below.
-            cast(MutableMapping[Any, Any], new).update(as_dict)
+            cast("MutableMapping[Any, Any]", new).update(as_dict)
         except (TypeError, ValueError):
             pass
         else:

@@ -171,7 +171,7 @@ def _load(platform: str) -> dict[str, Any]:
 
     # `load_json` returns any `JsonValue`; every bundled catalog is a JSON object (checked by
     # `test_devices_data`), and its schema is verified just below.
-    data = cast(dict[str, Any], load_json(path))
+    data = cast("dict[str, Any]", load_json(path))
 
     if data.get("schema") != _SCHEMA:
         msg = f"{platform}.json: unsupported schema {data.get('schema')!r}, expected {_SCHEMA}"

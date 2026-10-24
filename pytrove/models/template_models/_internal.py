@@ -4,7 +4,6 @@ from __future__ import annotations as _annotations
 
 import sys
 from collections import ChainMap
-from collections.abc import Mapping, MutableMapping
 from typing import TYPE_CHECKING, Any, TypedDict, cast
 
 if sys.version_info >= (3, 11):
@@ -21,12 +20,12 @@ from ...typings import (
 from ...validate_tools import is_mapping
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping, MutableMapping
     from pyrogram.enums import ParseMode  # type: ignore[import-not-found]  # Optional: the `tg` extra.
 
     # Only annotations use `TypeIs`, so the checker's `typing_extensions` serves every
     # version without raising the runtime floor (`TypeIs` needs `typing_extensions>=4.10`).
     from typing_extensions import TypeIs
-
     from .buttons import CompiledButton, CompiledButtonRow, CompiledEachButton
     from .lines import CompiledEachLine, CompiledLine
     from .rich import CompiledRichMessage
@@ -125,7 +124,7 @@ def _chain_mappings(*maps: Mapping[str, Any]) -> Mapping[str, Any]:
     """
     # `ChainMap` types its maps as `MutableMapping` because a write lands in the first
     # one; the chains built here are only read, and reads work on any `Mapping`.
-    return ChainMap(*cast(tuple[MutableMapping[str, Any], ...], maps))
+    return ChainMap(*cast("tuple[MutableMapping[str, Any], ...]", maps))
 
 
 def _compile_lines(

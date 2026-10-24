@@ -59,7 +59,7 @@ class CompiledRichMessage(CompiledDefaults):
             The compiled rich message.
         """
         # The dict is rewritten in place into its compiled shape.
-        compiled = cast(_CompiledRichMessageDict, item)
+        compiled = cast("_CompiledRichMessageDict", item)
         compiled["html"] = _compile_lines(item.get("html", None))
         compiled["markdown"] = _compile_lines(item.get("markdown", None))
 

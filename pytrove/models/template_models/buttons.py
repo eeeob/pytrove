@@ -151,7 +151,7 @@ class CompiledEachButton(BaseDataClass):
             The compiled button block.
         """
         # The dict is rewritten in place into its compiled shape.
-        compiled = cast(_CompiledEachButtonDict, item)
+        compiled = cast("_CompiledEachButtonDict", item)
         compiled["item"] = CompiledButton.compile(item["item"])
         return cls.from_dict(compiled, True)
 
@@ -212,7 +212,7 @@ class CompiledButtonRow(BaseDataClass):
         # A mapping is the one-button arm of `MaybeList`, anything else its list arm.
         # `ty` cannot split the arms by `is_mapping`: it keeps a `list & Mapping`
         # intersection in one branch and the `TypedDict` in the other.
-        buttons = cast(list[TemplateButtonDict], [item] if is_mapping(item) else item)
+        buttons = cast("list[TemplateButtonDict]", [item] if is_mapping(item) else item)
 
         return cls.from_dict(
             {"buttons": [CompiledButton.compile(button) for button in buttons]}, True

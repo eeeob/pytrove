@@ -2,10 +2,8 @@
 
 from __future__ import annotations as _annotations
 
-from collections.abc import Iterator
 from typing import TYPE_CHECKING, cast
 
-from .._internal import _Rule
 from ..enums import ArchiveFormat
 from ..errors import ValidationError
 from ..files_tools import remove_file, resolve_path
@@ -14,8 +12,11 @@ from ..typings import ArchiveLimits, NestedContainer, PathLike
 from ._internal import _Extractor, _Filter, _require_zstd
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from concurrent.futures import Executor
     from pathlib import Path
+
+    from .._internal import _Rule
 
 
 def extract_archive(
@@ -83,8 +84,8 @@ def extract_archive(
 
     # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
     # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
-    includes = cast(Iterator[_Rule], iter_flat_cont(include))
-    excludes = cast(Iterator[_Rule], iter_flat_cont(exclude))
+    includes = cast("Iterator[_Rule]", iter_flat_cont(include))
+    excludes = cast("Iterator[_Rule]", iter_flat_cont(exclude))
 
     _Extractor(
         src,
