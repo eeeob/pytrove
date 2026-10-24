@@ -6,7 +6,7 @@ import pickle
 from pickle import _compat_pickle  # type: ignore[attr-defined, ty:unresolved-import]  # A private stdlib module typeshed does not stub.
 from typing import IO, Any, Final
 
-from ..enums import PickleSafety
+from ...enums import PickleSafety
 
 _SAFE_PICKLE_CLASSES: Final[frozenset[tuple[str, str]]] = frozenset(
     {

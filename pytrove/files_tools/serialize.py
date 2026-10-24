@@ -14,8 +14,7 @@ except ImportError:
 from .._internal import _optional_import, _is_given
 from ..enums import PickleSafety
 from ..iter_tools import iter_flat_cont
-from ._internal import _json_dumps, _json_loads
-from ._pickling import _RestrictedUnpickler, _SAFE_PICKLE_CLASSES
+from ._internal import _RestrictedUnpickler, _json_dumps, _json_loads, _SAFE_PICKLE_CLASSES
 from .paths import resolve_path
 from .read import read_file
 from .write import write_file

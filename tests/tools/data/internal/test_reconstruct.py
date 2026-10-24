@@ -1,4 +1,4 @@
-"""`data_tools._internal`: rebuilding a container as its own type."""
+"""`data_tools._internal.reconstruct`: rebuilding a container as its own type."""
 
 from __future__ import annotations as _annotations
 
@@ -129,7 +129,7 @@ def test_reconstruct_falls_through_to_refill_and_then_gives_up(
     out = _reconstruct(source, str)
     assert type(out) is NamedList and list(out) == ["1"] and out.name == "n"
 
-    with caplog.at_level("WARNING", logger="pytrove.data_tools._internal"):
+    with caplog.at_level("WARNING", logger="pytrove.data_tools._internal.reconstruct"):
         bad_array = _reconstruct(array.array("i", [1]), str)
         kept_range = _reconstruct(range(2), str)
 

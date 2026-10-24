@@ -6,7 +6,7 @@ import warnings
 
 import pytest
 
-from pytrove.async_tools._threads import _check_loop_factory, _run_loop, _run_tracked
+from pytrove.async_tools._internal import _check_loop_factory, _run_loop, _run_tracked
 
 
 def test_check_loop_factory() -> None:

@@ -12,7 +12,7 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import Self
 
-from ._threads import _check_loop_factory, _run_loop
+from ._internal import _check_loop_factory, _run_loop
 from .run import run_awaitable_in_coro
 
 if TYPE_CHECKING:

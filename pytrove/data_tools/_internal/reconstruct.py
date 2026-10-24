@@ -8,7 +8,7 @@ from collections.abc import Callable, Hashable, Iterator, Mapping, MutableMappin
 from typing import TYPE_CHECKING, Any, Final, TypeVar, cast
 
 if TYPE_CHECKING:
-    from ..typings import Container
+    from ...typings import Container
 
 _R = TypeVar("_R")
 """A transform's result type."""
@@ -251,7 +251,7 @@ def _none_cleaner(value: Any) -> Any:
     Returns:
         `_MESS` for `None`, otherwise the value cleaned recursively.
     """
-    from .walk import clean_none_values  # noqa: PLC0415 - `walk` imports this module
+    from ..walk import clean_none_values  # noqa: PLC0415 - `walk` imports this module
 
     if value is None:
         return _MESS

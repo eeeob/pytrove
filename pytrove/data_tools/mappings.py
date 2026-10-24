@@ -6,7 +6,7 @@ import weakref
 from typing import TYPE_CHECKING
 
 from ..typings import _KT, _VT
-from ._factories import _no_arg_factory
+from ._internal import _no_arg_factory
 
 if TYPE_CHECKING:
     from collections.abc import Callable
