@@ -81,8 +81,9 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
         """Extract the archive, staging it beside `dest` when `atomic` or a `dir_check` asks.
 
         A staged tree is renamed onto a missing `dest`, else merged into it
-        (not atomic). If that last step fails the staged tree is kept and
-        named in the log. Without staging, `cleanup_on_error` removes what this
+        (not atomic). If that last step fails the staged tree is kept beside
+        `dest`, as a `.<dest name>.*.tmp` directory, and the error raised
+        names the path that could not be written. Without staging, `cleanup_on_error` removes what this
         run created, and nothing that existed before.
 
         Args:
@@ -137,22 +138,13 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
 
         # Nothing is cleared to make room: removing `dest` first and failing the rename after loses both.
         try:
-            try:
-                os.replace(staged, self.dest)
-            except OSError:
-                if not self.dest.exists():
-                    raise
+            os.replace(staged, self.dest)
+        except OSError:
+            if not self.dest.exists():
+                raise
 
-                self._graft(staged, self.dest)
-                remove_path(staged, return_exc=True, log_exc=True)
-        except BaseException:
-            log.error(
-                "extract_archive: could not put %s at %r -- what came out of it is in %r",
-                self.src.name,
-                str(self.dest),
-                str(staged),
-            )
-            raise
+            self._graft(staged, self.dest)
+            remove_path(staged, return_exc=True, log_exc=True)
 
     def _inspect(self, root: Path) -> None:
         """Put every extracted directory to `dir_check`, outermost first, removing refused subtrees.

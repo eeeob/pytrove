@@ -2313,7 +2313,7 @@ def test_a_member_never_takes_the_path_a_directory_holds(
 
 @pytest.mark.parametrize("present", [False, True])
 def test_a_commit_that_cannot_finish_keeps_both_sides(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, present: bool
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, present: bool
 ) -> None:
     # The destination used to be removed first so that os.replace could
     # rename onto it. A replace that then failed left the caller with
@@ -2346,25 +2346,21 @@ def test_a_commit_that_cannot_finish_keeps_both_sides(
 
     monkeypatch.setattr(os, "replace", refuse)
 
-    with caplog.at_level("ERROR"):
-        with pytest.raises(PermissionError):
-            extract_archive(archive, dest, atomic=True)
+    with pytest.raises(PermissionError):
+        extract_archive(archive, dest, atomic=True)
 
     assert dest.exists() is present
 
     if present:
         assert (dest / "mine.txt").read_text() == "mine"
 
-    # what came out of the archive is still on disk, and the log says where
+    # what came out of the archive is still on disk, beside the destination
     staged = [
         p for p in tmp_path.iterdir() if p.name.startswith(".dest.") and p.name.endswith(".tmp")
     ]
 
     assert len(staged) == 1
     assert (staged[0] / "a.txt").read_text() == "A"
-    # the name, not the whole path: the log writes it with %r, which
-    # doubles every separator on Windows
-    assert staged[0].name in caplog.text
 
 
 # ---------------------------------------------------------------------
