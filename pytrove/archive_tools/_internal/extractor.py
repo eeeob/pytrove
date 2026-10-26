@@ -122,7 +122,7 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
                 self._tar(fmt, workers)
 
             self._inspect(self._root)
-        except BaseException:
+        except BaseException as exc:
             # The cleanup cannot replace the error in flight: anything it raises is logged instead.
             if staged is not None:
                 safe_call(lambda: remove_path(staged, return_exc=True, log_exc=True), log_exc=True)
@@ -131,7 +131,7 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
                 safe_call(
                     lambda: remove_paths(dedupe(built), return_exc=True, log_exc=True), log_exc=True
                 )
-            raise
+            raise exc
 
         if staged is None:
             return
@@ -139,9 +139,9 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
         # Nothing is cleared to make room: removing `dest` first and failing the rename after loses both.
         try:
             os.replace(staged, self.dest)
-        except OSError:
+        except OSError as exc:
             if not self.dest.exists():
-                raise
+                raise exc
 
             self._graft(staged, self.dest)
             remove_path(staged, return_exc=True, log_exc=True)

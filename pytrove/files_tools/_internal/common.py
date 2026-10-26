@@ -220,7 +220,7 @@ def _remove(
             safe_call(setattr, exc, "filename", str(path), include_exc=AttributeError)
 
             if not return_exc:
-                raise
+                raise exc
 
             if log_exc:
                 log.error("%s: could not remove %s", who, str(path), exc_info=exc)

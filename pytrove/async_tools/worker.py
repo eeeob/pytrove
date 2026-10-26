@@ -124,7 +124,7 @@ class AioThreadWorker(_LoopHost):
                 return await work
 
             return await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(work, loop))
-        except asyncio.CancelledError:
+        except asyncio.CancelledError as exc:
             cancelling = getattr(asyncio.current_task(), "cancelling", None)
 
             if (
@@ -135,7 +135,7 @@ class AioThreadWorker(_LoopHost):
                 msg = "AioThreadWorker stopped before this task completed"
                 raise RuntimeError(msg) from None
 
-            raise
+            raise exc
 
     __call__ = submit
 

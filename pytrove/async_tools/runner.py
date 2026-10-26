@@ -157,9 +157,9 @@ class SyncAwaitableRunner:
         if not self.started:
             try:
                 self.start()
-            except RuntimeError:
+            except RuntimeError as exc:
                 if self.closed:  # Losing a start race is fine; being closed is not.
-                    raise
+                    raise exc
 
         loop = self.__loop
 
