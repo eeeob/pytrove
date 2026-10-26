@@ -38,7 +38,7 @@ def test_random_device_only_returns_pairs_the_catalog_allows(platform: type[Syst
 
     for _ in range(200):
         device = platform.random_device()
-        assert (device.model, device.version) in allowed
+        assert device.to_tuple() in allowed
 
 
 def test_same_unique_id_gives_the_same_device(platform: type[SystemInfo]) -> None:
@@ -46,7 +46,7 @@ def test_same_unique_id_gives_the_same_device(platform: type[SystemInfo]) -> Non
 
 
 def test_different_unique_ids_spread_across_devices(platform: type[SystemInfo]) -> None:
-    drawn = {platform.random_device(f"user-{i}").model for i in range(60)}
+    drawn = {platform.random_device(f"user-{i}").device_model for i in range(60)}
     assert len(drawn) > 1
 
 
@@ -63,7 +63,7 @@ def test_pinning_an_os_only_draws_that_os(os: str) -> None:
 
     for i in range(120):
         device = DesktopDevice.random_device(f"pin-{i}", os=os)
-        assert (device.model, device.version) in allowed
+        assert device.to_tuple() in allowed
 
 
 def test_pinning_an_os_is_deterministic() -> None:
@@ -82,7 +82,9 @@ def test_pinning_an_unknown_os_raises() -> None:
 
 def test_desktop_draws_follow_the_os_shares() -> None:
     os_of = {v["version"]: v["os"] for v in _load("desktop")["versions"]}
-    picks = collections.Counter(os_of[DesktopDevice.random_device().version] for _ in range(4000))
+    picks = collections.Counter(
+        os_of[DesktopDevice.random_device().system_version] for _ in range(4000)
+    )
     total = sum(OS_SHARES.values())
 
     for name, share in OS_SHARES.items():
@@ -90,7 +92,7 @@ def test_desktop_draws_follow_the_os_shares() -> None:
 
 
 def test_newer_releases_are_drawn_more_often_than_the_oldest() -> None:
-    versions = [iOSDevice.random_device().version for _ in range(600)]
+    versions = [iOSDevice.random_device().system_version for _ in range(600)]
     newest = sum(1 for v in versions if v.startswith("27"))
     oldest = sum(1 for v in versions if v.startswith("18"))
 
@@ -191,7 +193,7 @@ def test_devices_narrowed_to_one_os_only_pairs_its_versions(os: str) -> None:
     pairs = DesktopDevice.devices(os)
 
     assert pairs and set(pairs) <= set(DesktopDevice.devices())
-    assert {pair.version for pair in pairs} == set(DesktopDevice.versions(os))
+    assert {pair.system_version for pair in pairs} == set(DesktopDevice.versions(os))
 
 
 def test_listing_an_unknown_os_raises() -> None:

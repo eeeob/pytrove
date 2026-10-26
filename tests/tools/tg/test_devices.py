@@ -11,15 +11,15 @@ from pytrove.tg_tools._internal.families import _DEVICES, random_family
 @pytest.mark.parametrize("platform", list(PlatformDevice))
 def test_rand_tg_device_works_for_every_platform(platform: PlatformDevice) -> None:
     device = rand_tg_device(platform)
-    assert device.model and device.version
+    assert device.device_model and device.system_version
 
 
 def test_rand_tg_device_pins_and_reproduces() -> None:
     device = rand_tg_device(PlatformDevice.IOS, unique_id="u")
     assert isinstance(device, DeviceInfo)
     assert device == rand_tg_device(PlatformDevice.IOS, unique_id="u")
-    assert rand_tg_device(PlatformDevice.WEB, to_tuple=True, unique_id="u") == tuple(
-        rand_tg_device(PlatformDevice.WEB, unique_id="u").to_dict().values()
+    assert rand_tg_device(PlatformDevice.WEB, to_tuple=True, unique_id="u") == (
+        rand_tg_device(PlatformDevice.WEB, unique_id="u").to_tuple()
     )
 
 
@@ -47,4 +47,4 @@ def test_rand_tg_device_to_tuple_is_model_then_version() -> None:
     device = rand_tg_device(PlatformDevice.ANDROID, unique_id="t")
     model, version = rand_tg_device(PlatformDevice.ANDROID, to_tuple=True, unique_id="t")
 
-    assert (model, version) == (device.model, device.version)
+    assert (model, version) == device.to_tuple()
