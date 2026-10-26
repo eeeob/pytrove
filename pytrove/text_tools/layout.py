@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, overload
 from ..enums import TgMessageLength
 from ..iter_tools import to_list
 from ..validate_tools import is_mapping
+from ._internal import _cut_piece
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping
@@ -14,24 +15,45 @@ if TYPE_CHECKING:
     from ..typings import Container, ContainerWithoutMapping, _KT, _T, _VT
 
 
-def chunk_text(text: str, max_length: int = TgMessageLength.TEXT) -> list[str]:
-    """Split text into pieces of at most `max_length` characters, avoiding mid-word cuts.
+def chunk_text(
+    text: str, max_length: int = TgMessageLength.TEXT, reverse: bool = False
+) -> list[str]:
+    r"""Split text into pieces of at most `max_length` characters, avoiding mid-word cuts.
 
-    Within each window it breaks at the last newline, else at the last space
-    in the window's later 90% (an earlier one would leave a near-empty piece),
-    else hard at `max_length`. Pieces are stripped, and blank ones dropped.
+    Each piece breaks at the last newline that fits, else at the last space
+    that leaves it longer than `max_length // 10` (an earlier one would leave a
+    near-empty piece), else hard at `max_length`. A break just past the limit
+    counts too, since the break character itself is dropped. With `reverse`,
+    the search is mirrored: pieces are cut from the end, at the first fitting
+    break, so the piece holding the end of the text is the full one. Pieces are
+    stripped, and blank ones dropped.
+
+    Only `\n` and the space are break characters: `\r\n` works, since the
+    `\r` is stripped, but a lone `\r`, `\v`, `\f` or other line separator
+    is not a line break.
 
     Args:
         text: The text to split.
         max_length: The longest a piece may be; Telegram's message limit by default.
+        reverse: Whether to cut pieces from the end of the text.
 
     Returns:
-        The pieces in order; `[text]` when it already fits.
+        The pieces in the order they were cut: from the end of the text first
+        when `reverse` is set; `[text]` when it already fits.
+
+    Raises:
+        ValueError: If `max_length` is less than 1.
 
     Example:
         >>> chunk_text("one two three four", 9)
         ['one two', 'three', 'four']
+        >>> chunk_text("one two three four", 9, reverse=True)
+        ['four', 'two three', 'one']
     """
+    if max_length < 1:
+        msg = f"max_length must be at least 1, not {max_length!r}"
+        raise ValueError(msg)
+
     if len(text) <= max_length:
         return [text]
 
@@ -39,18 +61,7 @@ def chunk_text(text: str, max_length: int = TgMessageLength.TEXT) -> list[str]:
     remaining = text
 
     while remaining:
-        chunk = remaining[:max_length]
-
-        if len(remaining) <= max_length:
-            remaining = ""
-        elif (last_newline := chunk.rfind("\n")) > 0:
-            chunk = chunk[:last_newline]
-            remaining = remaining[last_newline + 1 :]
-        elif (last_space := chunk.rfind(" ")) > len(chunk) // 10:
-            chunk = chunk[:last_space]
-            remaining = remaining[last_space + 1 :]
-        else:
-            remaining = remaining[max_length:]
+        chunk, remaining = _cut_piece(remaining, max_length, reverse)
 
         if chunk.strip():
             chunks.append(chunk.strip())
