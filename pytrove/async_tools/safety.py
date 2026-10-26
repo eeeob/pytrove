@@ -7,7 +7,7 @@ import logging
 import traceback
 from typing import TYPE_CHECKING, Any, cast, overload
 
-from .._internal import _HARD_PROPAGATE
+from .._internal import _HARD_PROPAGATE, _check_swallow_options, _is_swallowed
 from ..iter_tools import iter_flat_cont
 from ..validate_tools import is_container, is_exception, iscoroutinefunction_wrapped
 from ._internal import _log_exc, _ExcLogger
@@ -211,25 +211,14 @@ async def asafe_call(
         Traceback (most recent call last):
         ValueError: boom
     """
-    if return_exc and raise_exc:
-        msg = "asafe_call: return_exc and raise_exc cannot both be True -- raise_exc means the exception is never returned, only re-raised"
-        raise TypeError(msg)
-
-    if exclude_exc is not None:
-        for exc_type in exclude_exc if isinstance(exclude_exc, tuple) else (exclude_exc,):
-            if issubclass(exc_type, _HARD_PROPAGATE):
-                msg = f"exclude_exc: {exc_type.__name__} always propagates already -- no need to list it"
-                raise TypeError(msg)
+    _check_swallow_options("asafe_call", return_exc, raise_exc, exclude_exc)
 
     try:
         return await awaitable
     except _HARD_PROPAGATE:
         raise
     except BaseException as e:
-        if exclude_exc is not None and isinstance(e, exclude_exc):
-            raise
-
-        if include_exc is not None and not isinstance(e, include_exc):
+        if not _is_swallowed(e, include_exc, exclude_exc):
             raise
 
         if log_exc:

@@ -3,15 +3,12 @@
 from __future__ import annotations as _annotations
 
 import os
-from typing import TYPE_CHECKING, cast, overload
+from typing import TYPE_CHECKING, overload
 
 from .._internal import _is_dir
-from ..iter_tools import dedupe, iter_flat_cont
 from ._internal import _remove, _rmtree
-from .paths import ensure_path
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
     from pathlib import Path
 
     from ..typings import NestedContainer, PathLike, _False, _True
@@ -105,6 +102,8 @@ def remove_paths(
 ) -> list[Path] | list[Path | OSError]:
     """Remove each path whatever it is: a real directory as a tree, anything else as one entry.
 
+    Same contract as `remove_files`; logged failures carry the `remove_paths` prefix.
+
     Args:
         *paths: Paths, or containers of them, at any depth.
         return_exc: Whether to collect failures and carry on; otherwise the first one is raised.
@@ -116,17 +115,13 @@ def remove_paths(
     Raises:
         OSError: The first failure, unless `return_exc` is set.
     """
-    removed: list[Path | OSError] = []
-
-    # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
-    # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
-    leaves = cast("Iterator[PathLike]", iter_flat_cont(paths))
-
-    for path in dedupe(ensure_path(path) for path in leaves):
-        remover = remove_folders if _is_dir(path) else remove_files
-        removed.extend(remover(path, return_exc=return_exc, log_exc=log_exc))
-
-    return removed
+    return _remove(
+        paths,
+        lambda path: (_rmtree if _is_dir(path) else os.unlink)(path),
+        "remove_paths",
+        return_exc,
+        log_exc,
+    )
 
 
 remove_file = remove_files

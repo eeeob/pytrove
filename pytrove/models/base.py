@@ -228,21 +228,13 @@ class BaseDataClass:
 
         private = cls.__private_field_names__
         public = cls.__public_field_names__
-        renamed = {k: v for k, v in data.items() if k in private or k in public}
+        raw = {
+            (f"_{k}" if k in private else k): v
+            for k, v in data.items()
+            if k in private or k in public
+        }
 
-        for name in private:
-            if name in renamed:
-                renamed[f"_{name}"] = renamed.pop(name)
-
-        kept: Mapping[str, Any] = renamed
-
-        if without_none_values:
-            kept = clean_none_values(kept)
-
-        if values_to_enums and cls.__enums_types__:
-            kept = value_to_enum(kept, cls.__enums_types__, "v")
-
-        return cls(**kept)
+        return cls.from_raw_dict(raw, without_none_values, values_to_enums)
 
     def copy(self) -> Self:
         """Return a deep copy, rebuilt through `to_raw_dict()`.

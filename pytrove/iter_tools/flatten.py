@@ -32,11 +32,7 @@ def iter_flat_cont(*containers: Any, exclude_none: bool = True) -> Generator[Any
     Yields:
         Each leaf, depth first, in order.
     """
-    for item in containers:
-        if is_container(item):
-            yield from iter_flat_cont(*item, exclude_none=exclude_none)
-        elif not exclude_none or item is not None:
-            yield item
+    yield from iter_flat_cont_by(*containers, exclude_none=exclude_none)
 
 
 @overload

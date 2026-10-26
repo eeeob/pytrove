@@ -286,7 +286,7 @@ def test_remove_paths_forwards_return_exc_and_log_exc(
 
     assert result[0] == good
     assert isinstance(result[1], OSError)
-    assert "remove_folders: could not remove" in caplog.text
+    assert "remove_paths: could not remove" in caplog.text
 
 
 def test_every_exception_carries_its_own_path(tmp_path: Path) -> None:
