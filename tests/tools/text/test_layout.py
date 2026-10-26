@@ -1,5 +1,9 @@
 from __future__ import annotations as _annotations
 
+import random
+
+import pytest
+
 from pytrove.enums import TgMessageLength
 from pytrove.text_tools import chunk_text, format_exc_tree, numbering
 
@@ -32,6 +36,38 @@ def test_chunk_text_breaks_at_a_late_space_but_not_an_early_one() -> None:
 
 def test_chunk_text_drops_blank_pieces() -> None:
     assert chunk_text("abc\n\n\n   \ndef", max_length=4) == ["abc", "def"]
+
+
+def test_chunk_text_uses_a_break_just_past_the_limit() -> None:
+    assert chunk_text("aa\nbb\ncc", 5) == ["aa\nbb", "cc"]
+    assert chunk_text("aaa bbb", 3) == ["aaa", "bbb"]
+    assert chunk_text("hello world foo", 10) == ["hello", "world foo"]
+
+
+def test_chunk_text_in_reverse_cuts_from_the_end() -> None:
+    assert chunk_text("aa\nbb\ncc", 5, reverse=True) == ["bb\ncc", "aa"]
+    assert chunk_text("foo world hello", 10, reverse=True) == ["hello", "foo world"]
+    assert chunk_text("abcdefgh", 3, reverse=True) == ["fgh", "cde", "ab"]
+    assert chunk_text("short", 10, reverse=True) == ["short"]
+
+
+def test_chunk_text_rejects_a_limit_below_one() -> None:
+    with pytest.raises(ValueError, match="max_length"):
+        chunk_text("abc", 0)
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_chunk_text_pieces_fit_and_keep_every_non_space_character(reverse: bool) -> None:
+    rng = random.Random(0)
+
+    for _ in range(2000):
+        text = "".join(rng.choice("ab \n") for _ in range(rng.randint(0, 30)))
+        limit = rng.randint(1, 8)
+        pieces = chunk_text(text, limit, reverse=reverse)
+        ordered = pieces[::-1] if reverse else pieces
+
+        assert all(len(p) <= limit for p in pieces)
+        assert "".join("".join(ordered).split()) == "".join(text.split())
 
 
 def test_format_exc_tree_shows_cause_chain() -> None:
