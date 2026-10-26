@@ -18,6 +18,7 @@ def random_device(
     to_tuple: _False = False,
     unique_id: str | None = None,
     *,
+    to_dict: _False = False,
     os: str | None = None,
 ) -> DeviceInfo: ...
 @overload
@@ -26,6 +27,7 @@ def random_device(
     to_tuple: _True,
     unique_id: str | None = None,
     *,
+    to_dict: _False = False,
     os: str | None = None,
 ) -> tuple[str, str]: ...
 @overload
@@ -34,15 +36,26 @@ def random_device(
     *,
     to_tuple: _True,
     unique_id: str | None = None,
+    to_dict: _False = False,
     os: str | None = None,
 ) -> tuple[str, str]: ...
+@overload
+def random_device(
+    platform_device: PlatformDevice | None = None,
+    to_tuple: _False = False,
+    unique_id: str | None = None,
+    *,
+    to_dict: _True,
+    os: str | None = None,
+) -> dict[str, str]: ...
 def random_device(
     platform_device: PlatformDevice | None = None,
     to_tuple: bool = False,
     unique_id: str | None = None,
     *,
+    to_dict: bool = False,
     os: str | None = None,
-) -> DeviceInfo | tuple[str, str]:
+) -> DeviceInfo | tuple[str, str] | dict[str, str]:
     """Draw a device a real Telegram client could report, with an OS version it runs.
 
     The platform is drawn by share of real clients unless pinned; the device
@@ -53,6 +66,7 @@ def random_device(
         platform_device: Pin the platform.
         to_tuple: Whether to return `DeviceInfo.to_tuple()` instead of a `DeviceInfo`.
         unique_id: Makes the draw reproducible, so one account keeps one device.
+        to_dict: Whether to return `DeviceInfo.to_dict()` instead of a `DeviceInfo`.
         os: Pin the OS, one of `device_oses(platform_device)`; without a platform, only the
             platforms that report it are drawn.
 
@@ -60,6 +74,7 @@ def random_device(
         The device.
 
     Raises:
+        TypeError: If `to_tuple` and `to_dict` are both set.
         ValueError: If no platform, or not the pinned one, reports `os`.
 
     Example:
@@ -71,6 +86,10 @@ def random_device(
         >>> random_device(os="linux") in known_devices(PlatformDevice.DESKTOP, os="linux")
         True
     """
+    if to_tuple and to_dict:
+        msg = "random_device: to_tuple and to_dict cannot both be True; pick one shape"
+        raise TypeError(msg)
+
     if platform_device is not None:
         family = _DEVICES[platform_device]
     else:
@@ -83,7 +102,10 @@ def random_device(
         family = random_family(families, unique_id)
 
     device = family.random_device(unique_id, os=os)
-    return device.to_tuple() if to_tuple else device
+    if to_tuple:
+        return device.to_tuple()
+
+    return device.to_dict() if to_dict else device
 
 
 __all__ = ("random_device",)
