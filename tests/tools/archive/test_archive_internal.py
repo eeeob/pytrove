@@ -231,7 +231,11 @@ def test_backends_fall_back_to_none_when_nothing_is_installed(
     for blocked in ("compression", "zstandard", "pathspec", "fastzip", "fastzip.write"):
         monkeypatch.setitem(sys.modules, blocked, None)
 
-    spec = importlib.util.spec_from_file_location("_backends_probe", backends.__file__)
+    spec = importlib.util.spec_from_file_location(
+        # Named inside the package, so its relative import of `pytrove._internal` resolves.
+        "pytrove.archive_tools._internal._backends_probe",
+        backends.__file__,
+    )
     assert spec is not None
     assert spec.loader is not None
     probe = importlib.util.module_from_spec(spec)
@@ -259,7 +263,7 @@ def test_is_hidden_reads_the_windows_attribute_only_where_stat_reports_it(
     ("version", "cure"),
     [
         ((3, 14), "pip install zstandard"),
-        ((3, 13), r"pip install 'pytrove\[archive\]'"),
+        ((3, 13), r"pip install -U 'pytrove\[archive\]'"),
     ],
 )
 def test_require_zstd_names_the_cure_for_the_running_version(

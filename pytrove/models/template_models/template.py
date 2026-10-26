@@ -19,7 +19,7 @@ except ImportError:
 else:
     HAS_PYROGRAM = True
 
-from ..._internal import _unavailable_class
+from ..._internal import _has_requirement, _unavailable_class
 from ...data_tools import clean_none_values
 from ...date_tools import arabic_time
 from ...files_tools import load_ref_json, read_json
@@ -47,6 +47,9 @@ if TYPE_CHECKING:
         _False,
         _True,
     )
+
+# Importable is not enough: a release older than the extra allows may be installed outside it.
+HAS_PYROGRAM = HAS_PYROGRAM and _has_requirement("tg", "kurigram")
 
 if HAS_PYROGRAM:
 
@@ -314,7 +317,7 @@ if HAS_PYROGRAM:
             }
 
 else:
-    CompiledTemplate = _unavailable_class("CompiledTemplate", ("kurigram>=2.2.24", "tg"))
+    CompiledTemplate = _unavailable_class("CompiledTemplate", "tg")
 
 
 __all__ = ("CompiledTemplate",)

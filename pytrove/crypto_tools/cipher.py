@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from ..typings import _T
 
 
-@_optional_import(("cryptography", "crypto"))
+@_optional_import("crypto")
 def encrypt(data: bytes | str, password: str) -> bytes:
     """Encrypt with AES-GCM under a fresh random salt and nonce.
 
@@ -47,7 +47,7 @@ def encrypt(data: bytes | str, password: str) -> bytes:
 def decrypt(encrypted_data: bytes, password: str, data_resolver: None = None) -> bytes: ...
 @overload
 def decrypt(encrypted_data: bytes, password: str, data_resolver: Callable[[bytes], _T]) -> _T: ...
-@_optional_import(("cryptography", "crypto"))
+@_optional_import("crypto")
 def decrypt(
     encrypted_data: bytes, password: str, data_resolver: Callable[[bytes], Any] | None = None
 ) -> Any:
@@ -81,7 +81,7 @@ def decrypt(
     return data_bytes if data_resolver is None else data_resolver(data_bytes)
 
 
-@_optional_import(("cryptography", "crypto"))
+@_optional_import("crypto")
 def d_encrypt(data: bytes | str, password: str) -> bytes:
     """Encrypt deterministically with AES-SIV: the same input always gives the same output.
 
@@ -105,7 +105,7 @@ def d_encrypt(data: bytes | str, password: str) -> bytes:
 def d_decrypt(encrypted_data: bytes, password: str, data_resolver: None = None) -> bytes: ...
 @overload
 def d_decrypt(encrypted_data: bytes, password: str, data_resolver: Callable[[bytes], _T]) -> _T: ...
-@_optional_import(("cryptography", "crypto"))
+@_optional_import("crypto")
 def d_decrypt(
     encrypted_data: bytes, password: str, data_resolver: Callable[[bytes], Any] | None = None
 ) -> Any:

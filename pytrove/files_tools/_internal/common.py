@@ -18,7 +18,7 @@ except ImportError:
 else:
     HAS_ORJSON = True
 
-from ..._internal import _is_link, _COPY_BUF
+from ..._internal import _has_requirement, _is_link, _COPY_BUF
 from ...callable_tools import safe_call
 from ...enums import TruncateSide
 from ...iter_tools import dedupe, iter_flat_cont
@@ -29,6 +29,9 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from ...typings import NestedContainer, PathLike
+
+# Importable is not enough: a release older than the extra allows may be installed outside it.
+HAS_ORJSON = HAS_ORJSON and _has_requirement("json", "orjson")
 
 _SPILL_PARTS: Final[int] = 10
 """How many parts `truncate_file` spills into when `size` is 0 and names no part length."""

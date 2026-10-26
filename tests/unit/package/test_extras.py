@@ -140,7 +140,7 @@ def test_a_missing_extra_breaks_only_its_own_feature(name: str) -> None:
         assert output.strip() == "no gate"
         return
 
-    assert f"Run: pip install 'pytrove[{name}]'" in output
+    assert f"Run: pip install -U 'pytrove[{name}]'" in output
     missing = re.search(r"^Missing  : (.+)$", output, re.MULTILINE)
     assert missing is not None, output
     named = set(re.findall(r"'([A-Za-z0-9_.-]+)", missing.group(1)))

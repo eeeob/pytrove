@@ -8,7 +8,7 @@ import sys
 from concurrent.futures import Executor
 from typing import TYPE_CHECKING, Any, Final, TypeAlias
 
-from ..._internal import _build_error_msg, _HAS_FILE_ATTRIBUTES
+from ..._internal import _build_error_msg, _unmet, _HAS_FILE_ATTRIBUTES
 from ...enums import ArchiveFormat
 from ...errors import ValidationError
 from . import backends
@@ -157,7 +157,7 @@ def _require_zstd() -> None:
         )
         raise ImportError(msg)
 
-    msg = _build_error_msg((("zstandard", "archive"),), [(("zstandard",), "archive")])
+    msg = _build_error_msg(("archive",), _unmet("archive"))
     raise ImportError(msg)
 
 

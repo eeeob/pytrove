@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from ..typings import CountryInfo, StrInt
 
 
-@_optional_import((("pycountry", "phonenumbers"), "country"))
+@_optional_import("country")
 def get_cinfo(rc_or_cc: StrInt) -> CountryInfo:
     """Look one country up by region code or calling code.
 
@@ -35,7 +35,7 @@ def get_cinfo(rc_or_cc: StrInt) -> CountryInfo:
     return by_cc[rc_or_cc][0]
 
 
-@_optional_import((("pycountry", "phonenumbers"), "country"))
+@_optional_import("country")
 def get_cfullname(rc_or_cc: StrInt) -> str:
     """Return a country's English name followed by its flag.
 
@@ -52,7 +52,7 @@ def get_cfullname(rc_or_cc: StrInt) -> str:
     return f"{info['name']} {info['flag']}"
 
 
-@_optional_import((("pycountry", "phonenumbers"), "country"))
+@_optional_import("country")
 def get_countries() -> dict[str, CountryInfo]:
     """Return every country by lowercase region code.
 
@@ -62,7 +62,7 @@ def get_countries() -> dict[str, CountryInfo]:
     return _country_tables()[0]
 
 
-@_optional_import((("pycountry", "phonenumbers"), "country"))
+@_optional_import("country")
 def get_countries_by_cc() -> dict[int, tuple[CountryInfo, ...]]:
     """Return every country grouped by calling code, each group sorted by region code.
 

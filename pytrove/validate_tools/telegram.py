@@ -31,7 +31,7 @@ _OTP_LENGTH: Final[int] = 5
 log = logging.getLogger(__name__)
 
 
-@_optional_import(("kurigram", "tg"))
+@_optional_import("tg")
 def is_tg_channel_id(value: Any) -> TypeIs[int]:
     """Tell whether `value` is a channel or supergroup id (`-100...`).
 
@@ -47,7 +47,7 @@ def is_tg_channel_id(value: Any) -> TypeIs[int]:
         return False
 
 
-@_optional_import(("kurigram", "tg"))
+@_optional_import("tg")
 def is_tg_user_id(value: Any) -> TypeIs[int]:
     """Tell whether `value` is a user id.
 
@@ -85,7 +85,7 @@ def is_tg_bot_token(bot_token: Any) -> TypeIs[str]:
     return len(parts) == 2 and parts[0].isdecimal()
 
 
-@_optional_import(("kurigram", "tg"))
+@_optional_import("tg")
 def is_tg_bot_command(message: Message | str) -> TypeIs[str]:
     """Tell whether a message, or its text, is exactly one bot command.
 
@@ -162,7 +162,7 @@ def is_tg_otp_code(code: Any, with_str: bool = True, remove_spaces: bool = False
     return False
 
 
-@_optional_import(("kurigram", "tg"))
+@_optional_import("tg")
 async def is_valid_tg_app(api_id: StrInt, api_hash: str) -> bool:
     """Tell whether an `api_id`/`api_hash` pair works, by connecting with it.
 

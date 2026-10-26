@@ -46,7 +46,7 @@ def parse_phone(
     *,
     return_numobj: _True,
 ) -> PhoneNumberObj: ...
-@_optional_import(("phonenumbers", "phone"))
+@_optional_import("phone")
 def parse_phone(phone_number: Any, clean: bool = True, return_numobj: bool = False) -> Any:
     """Parse and validate an international phone number.
 
@@ -92,7 +92,7 @@ def parse_phone(phone_number: Any, clean: bool = True, return_numobj: bool = Fal
     return numobj if return_numobj else format_number(numobj, PhoneNumberFormat.E164)
 
 
-@_optional_import(("phonenumbers", "phone"))
+@_optional_import("phone")
 def cc_from_rc(rc: RegionCode) -> int:
     """Return a region's international calling code: `"sa"` gives 966.
 
@@ -112,7 +112,7 @@ def cc_from_rc(rc: RegionCode) -> int:
         raise ValidationError(msg) from exc
 
 
-@_optional_import(("phonenumbers", "phone"))
+@_optional_import("phone")
 def cc_from_phone(phone_number: PhoneNumber | int | PhoneNumberObj) -> int:
     """Return a phone number's calling code.
 
@@ -137,7 +137,7 @@ def cc_from_phone(phone_number: PhoneNumber | int | PhoneNumberObj) -> int:
     return cc
 
 
-@_optional_import(("phonenumbers", "phone"))
+@_optional_import("phone")
 def rc_from_cc(cc: int) -> RegionCode:
     """Return the main region using a calling code: 966 gives `"sa"`.
 
@@ -155,7 +155,7 @@ def rc_from_cc(cc: int) -> RegionCode:
     return rc.lower()
 
 
-@_optional_import(("phonenumbers", "phone"))
+@_optional_import("phone")
 def rc_from_phone(phone_number: PhoneNumber | int | PhoneNumberObj) -> RegionCode:
     """Return the region a phone number belongs to.
 
@@ -180,7 +180,7 @@ def rc_from_phone(phone_number: PhoneNumber | int | PhoneNumberObj) -> RegionCod
     return rc.lower()
 
 
-@_optional_import(("phonenumbers", "phone"))
+@_optional_import("phone")
 def resolve_rc(value: RegionCode | PhoneNumber | PhoneNumberObj | int) -> RegionCode | None:
     """Find a region from a region code, a calling code or a phone number.
 

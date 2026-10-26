@@ -12,13 +12,16 @@ except ImportError:
 else:
     HAS_WRAPT = True
 
-from .._internal import _unavailable_class
+from .._internal import _has_requirement, _unavailable_class
 from ..iter_tools import to_frozenset
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from ..typings import MaybeContainer, _T
+
+# Importable is not enough: a release older than the extra allows may be installed outside it.
+HAS_WRAPT = HAS_WRAPT and _has_requirement("proxy", "wrapt")
 
 if HAS_WRAPT:
 
@@ -118,8 +121,8 @@ if HAS_WRAPT:
             super().__init__(weakref.proxy(obj, callback), blocked, allowed)
 
 else:
-    RestrictedProxy = _unavailable_class("RestrictedProxy", ("wrapt", "proxy"))
-    WeakRestrictedProxy = _unavailable_class("WeakRestrictedProxy", ("wrapt", "proxy"))
+    RestrictedProxy = _unavailable_class("RestrictedProxy", "proxy")
+    WeakRestrictedProxy = _unavailable_class("WeakRestrictedProxy", "proxy")
 
 __all__ = (
     "RestrictedProxy",

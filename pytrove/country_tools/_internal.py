@@ -20,7 +20,7 @@ from ..typings import CountryInfo, RegionCode
 from ..validate_tools import is_rc
 
 
-@_optional_import((("pycountry", "phonenumbers"), "country"))
+@_optional_import("country")
 @cache
 def _country_tables() -> tuple[dict[str, CountryInfo], dict[int, tuple[CountryInfo, ...]]]:
     """Build the country tables on first use, then reuse them.
@@ -48,7 +48,7 @@ def _country_tables() -> tuple[dict[str, CountryInfo], dict[int, tuple[CountryIn
     }
 
 
-@_optional_import(("babel", "locale"))
+@_optional_import("locale")
 def _primary_official_language(rc: RegionCode) -> str | None:
     """Pick a region's primary official language from Babel's CLDR data.
 

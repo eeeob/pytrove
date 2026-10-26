@@ -235,7 +235,7 @@ def test_parse_tg_target_keeps_a_joinchat_link_as_it_is() -> None:
 def test_tools_without_the_tg_extra_raise_a_clear_import_error(
     tool: Callable[..., object], args: tuple[object, ...]
 ) -> None:
-    with pytest.raises(ImportError, match=r"pip install 'pytrove\[tg\]'"):
+    with pytest.raises(ImportError, match=r"pip install -U 'pytrove\[tg\]'"):
         tool(*args)
 
 

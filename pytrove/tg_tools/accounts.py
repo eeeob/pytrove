@@ -37,7 +37,7 @@ def tg_account_created_at(user_id: int) -> float:
     return _interpolate_time(user_id, *points[-2], *points[-1])
 
 
-@_optional_import(("aioimaplib", "imap"), ("beautifulsoup4", "bs4"))
+@_optional_import("imap", "bs4")
 async def fetch_tg_email_code(
     email: str, password: str, full_name: str, code_length: int
 ) -> str | None:

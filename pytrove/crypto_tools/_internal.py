@@ -26,7 +26,7 @@ _TAG_LEN: Final[int] = 16
 """Bytes of AES-GCM authentication tag; with salt and nonce, the shortest valid ciphertext is 44."""
 
 
-@_optional_import(("cryptography", "crypto"))
+@_optional_import("crypto")
 def _derive_key(master_key: str, salt: bytes) -> bytes:
     """Derive a 256-bit AES-GCM key from a password and a random salt.
 
@@ -47,7 +47,7 @@ def _derive_key(master_key: str, salt: bytes) -> bytes:
     return kdf.derive(master_key.encode())
 
 
-@_optional_import(("cryptography", "crypto"))
+@_optional_import("crypto")
 def _derive_deterministic_key(password: str) -> bytes:
     """Derive an AES-SIV key from a password alone, salted with the password's own hash.
 

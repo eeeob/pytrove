@@ -38,6 +38,20 @@ except ImportError:
     PathSpec: Any = None
     GitIgnoreSpec: Any = None
 
+from ..._internal import _has_requirement
+
+# Importable is not enough: a release older than the extra allows may be installed outside it,
+# and an unusable backend is dropped to `None` so the caller takes its usual fallback.
+if not _has_requirement("archive", "zstandard"):
+    zstandard = None
+
+if not _has_requirement("archive", "fastzip"):
+    WZip = None
+
+if not _has_requirement("archive", "pathspec"):
+    PathSpec = None
+    GitIgnoreSpec = None
+
 __all__ = (
     "GitIgnoreSpec",
     "PathSpec",
