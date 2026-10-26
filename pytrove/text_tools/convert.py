@@ -37,12 +37,12 @@ def to_str(value: _T) -> str | _T:
     return str(value)
 
 
-def clean_spaces(text: Any, with_lines: bool = True) -> str:
+def clean_spaces(text: Any, include_newlines: bool = True) -> str:
     r"""Remove whitespace from text.
 
     Args:
         text: The text, or a value `to_str` turns into text.
-        with_lines: Whether line breaks go too; otherwise only other whitespace is removed.
+        include_newlines: Whether line breaks go too; otherwise only other whitespace is removed.
 
     Returns:
         The text without whitespace.
@@ -53,14 +53,14 @@ def clean_spaces(text: Any, with_lines: bool = True) -> str:
     Example:
         >>> clean_spaces(" a b\nc ")
         'abc'
-        >>> clean_spaces(" a b\nc ", with_lines=False)
+        >>> clean_spaces(" a b\nc ", include_newlines=False)
         'ab\nc'
     """
     text = to_str(text)
     if not isinstance(text, str):
         msg = f"clean_spaces: text must be a str or a value `to_str` turns into one, not {type(text).__name__!r}"
         raise TypeError(msg)
-    return re.sub(r"\s+", "", text) if with_lines else re.sub(r"[^\S\n]+", "", text)
+    return re.sub(r"\s+", "", text) if include_newlines else re.sub(r"[^\S\n]+", "", text)
 
 
 def split_part(

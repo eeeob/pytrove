@@ -81,11 +81,11 @@ def test_extract_pyro_update_text() -> None:
 @needs_tg
 def test_format_tg_username() -> None:
     assert format_tg_username("https://t.me/Name") == "@name"
-    assert format_tg_username("@name", with_at=False) == "name"
+    assert format_tg_username("@name", prefix_at=False) == "name"
     assert format_tg_username(User(id=1, username="u")) == "@u"
     assert format_tg_username(User(id=1)) is None
     assert format_tg_username("https://t.me/+abc", default="x") == "x"
-    assert format_tg_username("https://t.me/+abc", with_invite_link=True) == "https://t.me/+abc"
+    assert format_tg_username("https://t.me/+abc", allow_invite_link=True) == "https://t.me/+abc"
 
 
 @needs_tg
@@ -161,7 +161,7 @@ def test_format_tg_username_of_a_chat_and_of_nothing() -> None:
 
 @needs_tg
 def test_format_tg_username_reads_other_telegram_domains() -> None:
-    assert format_tg_username("telegram.dog/x", with_at=False) == "x"
+    assert format_tg_username("telegram.dog/x", prefix_at=False) == "x"
 
 
 @needs_tg
@@ -207,7 +207,7 @@ JOINCHAT_LINK = "https://t.me/joinchat/AbC-d"
 @needs_tg
 def test_format_tg_username_treats_a_joinchat_link_as_an_invite_link() -> None:
     assert format_tg_username(JOINCHAT_LINK) is None
-    assert format_tg_username(JOINCHAT_LINK, with_invite_link=True) == JOINCHAT_LINK
+    assert format_tg_username(JOINCHAT_LINK, allow_invite_link=True) == JOINCHAT_LINK
 
 
 @needs_tg

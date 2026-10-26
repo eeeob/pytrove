@@ -108,7 +108,7 @@ def test_is_tg_channel_message_link(link: Any, expected: bool) -> None:
         ("12 345", {}, False),
         ("12 345", {"remove_spaces": True}, True),
         ("1234a", {}, False),
-        ("12345", {"with_str": False}, False),
+        ("12345", {"allow_str": False}, False),
         (12345.0, {}, False),
     ],
 )

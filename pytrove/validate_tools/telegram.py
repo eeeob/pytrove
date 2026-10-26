@@ -123,33 +123,33 @@ def is_tg_channel_message_link(message_link: Any) -> TypeIs[str]:
 
 @overload
 def is_tg_otp_code(
-    code: Any, with_str: _True = True, remove_spaces: bool = False
+    code: Any, allow_str: _True = True, remove_spaces: bool = False
 ) -> TypeIs[StrInt]: ...
 @overload
-def is_tg_otp_code(code: Any, with_str: _False, remove_spaces: bool = False) -> TypeIs[int]: ...
-def is_tg_otp_code(code: Any, with_str: bool = True, remove_spaces: bool = False) -> bool:
+def is_tg_otp_code(code: Any, allow_str: _False, remove_spaces: bool = False) -> TypeIs[int]: ...
+def is_tg_otp_code(code: Any, allow_str: bool = True, remove_spaces: bool = False) -> bool:
     """Tell whether `code` looks like a five-digit Telegram login code.
 
     Args:
         code: The value to test.
-        with_str: Whether a numeric string counts as well as an int.
+        allow_str: Whether a numeric string counts as well as an int.
         remove_spaces: Whether to strip whitespace from a string first.
 
     Returns:
-        Whether it is a five-digit int, or (with `with_str`) a five-character numeric string.
+        Whether it is a five-digit int, or (with `allow_str`) a five-character numeric string.
 
     Example:
         >>> is_tg_otp_code(12345)
         True
         >>> is_tg_otp_code("1 2 3 4 5", remove_spaces=True)
         True
-        >>> is_tg_otp_code("12345", with_str=False)
+        >>> is_tg_otp_code("12345", allow_str=False)
         False
     """
     if isinstance(code, int):
         return len(str(code)) == _OTP_LENGTH
 
-    if isinstance(code, str) and with_str:
+    if isinstance(code, str) and allow_str:
         if remove_spaces:
             from ..text_tools import clean_spaces  # noqa: PLC0415 - `text_tools` sits above `validate_tools` in the import layering
 

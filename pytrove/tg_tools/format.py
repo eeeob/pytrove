@@ -50,33 +50,33 @@ def extract_pyro_update_text(update: Message | Query) -> str | bytes:
 
 @overload
 def format_tg_username(
-    target: str | Chat | User, with_invite_link: bool = False, with_at: bool = True
+    target: str | Chat | User, allow_invite_link: bool = False, prefix_at: bool = True
 ) -> str | None: ...
 @overload
 def format_tg_username(
-    target: str | Chat | User, with_invite_link: bool, with_at: bool, default: _T
+    target: str | Chat | User, allow_invite_link: bool, prefix_at: bool, default: _T
 ) -> str | _T: ...
 @overload
 def format_tg_username(
     target: str | Chat | User,
-    with_invite_link: bool = False,
-    with_at: bool = True,
+    allow_invite_link: bool = False,
+    prefix_at: bool = True,
     *,
     default: _T,
 ) -> str | _T: ...
 @_optional_import("tg")
 def format_tg_username(
     target: str | Chat | User,
-    with_invite_link: bool = False,
-    with_at: bool = True,
+    allow_invite_link: bool = False,
+    prefix_at: bool = True,
     default: Any = None,
 ) -> Any:
     """Normalise a username, `t.me` link or chat into a username.
 
     Args:
         target: A username, a link, or a `User`/`Chat`.
-        with_invite_link: Whether an invite link is returned as it is instead of `default`.
-        with_at: Whether to prefix `@`.
+        allow_invite_link: Whether an invite link is returned as it is instead of `default`.
+        prefix_at: Whether to prefix `@`.
         default: Returned when there is no username.
 
     Returns:
@@ -90,7 +90,7 @@ def format_tg_username(
 
     # The invite pattern goes first: `TG_CHAT_LINK_PATTERN` also matches a `joinchat/` link.
     if TG_INVITE_LINK_PATTERN.match(text.lower()):
-        return text if with_invite_link else default
+        return text if allow_invite_link else default
 
     # A private channel has no username; `TG_CHAT_LINK_PATTERN` would capture its id as one.
     if _PRIVATE_CHAT_LINK_PATTERN.match(text):
@@ -98,7 +98,7 @@ def format_tg_username(
 
     match = TG_CHAT_LINK_PATTERN.match(text.lower())
     name = (match.group(1) if match else text.replace("@", "")).strip()
-    return "@" + name if with_at else name
+    return "@" + name if prefix_at else name
 
 
 @overload

@@ -109,15 +109,15 @@ def test_multi_level_inheritance_each_class_gets_its_own_fields() -> None:
     assert child.to_dict() == {"x": 10, "y": 20}
 
 
-def test_without_none_values_and_enums_to_values() -> None:
+def test_exclude_none_and_enums_to_values() -> None:
     @dataclass
     class WithEnum(BaseDataClass):
         status: Status = Status.OK
         note: str | None = None
 
     inst = WithEnum()
-    assert inst.to_dict(without_none_values=True, enums_to_values=True) == {"status": "ok"}
-    assert inst.to_raw_dict(without_none_values=True, enums_to_values=True) == {"status": "ok"}
+    assert inst.to_dict(exclude_none=True, enums_to_values=True) == {"status": "ok"}
+    assert inst.to_raw_dict(exclude_none=True, enums_to_values=True) == {"status": "ok"}
     assert WithEnum.__enums_types__ == frozenset({Status})
     assert json.loads(str(inst)) == {"status": "ok"}
 
@@ -133,12 +133,10 @@ def test_from_dicts_drop_unknown_keys_and_restore_enums() -> None:
     )
     assert model.status is Status.OK and model.secret == "s"
 
-    raw = Model.from_raw_dict(
-        {"status": None, "_secret": "r", "secret": "x"}, without_none_values=True
-    )
+    raw = Model.from_raw_dict({"status": None, "_secret": "r", "secret": "x"}, exclude_none=True)
     assert raw.status is None and raw.secret == "r"
     assert Model.from_raw_dict({"status": "ok"}, values_to_enums=True).status is Status.OK
-    assert Model.from_dict({"status": None}, without_none_values=True).status is None
+    assert Model.from_dict({"status": None}, exclude_none=True).status is None
 
 
 def test_from_dict_renames_the_keys_and_builds_through_from_raw_dict() -> None:
@@ -152,7 +150,7 @@ def test_from_dict_renames_the_keys_and_builds_through_from_raw_dict() -> None:
         assert Model.from_dict(public, *options) == Model.from_raw_dict(
             {"status": "ok", "_secret": None}, *options
         )
-    assert Model.from_dict(public, without_none_values=True).secret == "default"
+    assert Model.from_dict(public, exclude_none=True).secret == "default"
 
 
 def test_field_meta_requires_a_dataclass() -> None:

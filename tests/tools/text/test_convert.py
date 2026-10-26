@@ -24,7 +24,7 @@ def test_to_str_converts_only_plain_scalars() -> None:
 
 def test_clean_spaces_can_keep_line_breaks() -> None:
     assert clean_spaces(" a \t b\n c ") == "abc"
-    assert clean_spaces(" a \t b\n c ", with_lines=False) == "ab\nc"
+    assert clean_spaces(" a \t b\n c ", include_newlines=False) == "ab\nc"
     assert clean_spaces(12) == "12"
 
 

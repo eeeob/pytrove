@@ -18,11 +18,11 @@ def stamp_to_date(
     stamp_time: Number,
     tz: timezone | None = timezone.utc,
     as_str: _False = False,
-    with_tzinfo: bool = False,
+    keep_tzinfo: bool = False,
 ) -> datetime: ...
 @overload
 def stamp_to_date(
-    stamp_time: Number, tz: timezone | None, as_str: _True, with_tzinfo: bool = False
+    stamp_time: Number, tz: timezone | None, as_str: _True, keep_tzinfo: bool = False
 ) -> str: ...
 @overload
 def stamp_to_date(
@@ -30,13 +30,13 @@ def stamp_to_date(
     tz: timezone | None = timezone.utc,
     *,
     as_str: _True,
-    with_tzinfo: bool = False,
+    keep_tzinfo: bool = False,
 ) -> str: ...
 def stamp_to_date(
     stamp_time: Number,
     tz: timezone | None = timezone.utc,
     as_str: bool = False,
-    with_tzinfo: bool = False,
+    keep_tzinfo: bool = False,
 ) -> datetime | str:
     """Turn a Unix timestamp into a date in a time zone.
 
@@ -44,7 +44,7 @@ def stamp_to_date(
         stamp_time: Seconds since the epoch.
         tz: The zone to express it in; `None` for the machine's local zone.
         as_str: Whether to return `str(date)` instead of the `datetime`.
-        with_tzinfo: Whether to keep the zone and microseconds; otherwise both are dropped.
+        keep_tzinfo: Whether to keep the zone and microseconds; otherwise both are dropped.
 
     Returns:
         The date, or its string form.
@@ -54,12 +54,12 @@ def stamp_to_date(
         datetime.datetime(1970, 1, 1, 0, 0)
         >>> stamp_to_date(0, as_str=True)
         '1970-01-01 00:00:00'
-        >>> stamp_to_date(0.5, with_tzinfo=True)
+        >>> stamp_to_date(0.5, keep_tzinfo=True)
         datetime.datetime(1970, 1, 1, 0, 0, 0, 500000, tzinfo=datetime.timezone.utc)
     """
     date = datetime.fromtimestamp(stamp_time, tz)
 
-    if not with_tzinfo:
+    if not keep_tzinfo:
         date = date.replace(tzinfo=None, microsecond=0)
 
     return str(date) if as_str else date
@@ -117,37 +117,37 @@ def date_to_stamp(
 
 
 @overload
-def date_utc_3(as_str: _False = False, with_tzinfo: bool = False) -> datetime: ...
+def date_utc_3(as_str: _False = False, keep_tzinfo: bool = False) -> datetime: ...
 @overload
-def date_utc_3(as_str: _True, with_tzinfo: bool = False) -> str: ...
-def date_utc_3(as_str: bool = False, with_tzinfo: bool = False) -> datetime | str:
+def date_utc_3(as_str: _True, keep_tzinfo: bool = False) -> str: ...
+def date_utc_3(as_str: bool = False, keep_tzinfo: bool = False) -> datetime | str:
     """Return the current date and time in UTC+3.
 
     Args:
         as_str: Whether to return `str(date)` instead of the `datetime`.
-        with_tzinfo: Whether to keep the zone and microseconds.
+        keep_tzinfo: Whether to keep the zone and microseconds.
 
     Returns:
         The current date in UTC+3, or its string form.
     """
-    return stamp_to_date(time.time(), TZ_UTC_PLUS_3, as_str, with_tzinfo)
+    return stamp_to_date(time.time(), TZ_UTC_PLUS_3, as_str, keep_tzinfo)
 
 
 @overload
-def date_utc(as_str: _False = False, with_tzinfo: bool = False) -> datetime: ...
+def date_utc(as_str: _False = False, keep_tzinfo: bool = False) -> datetime: ...
 @overload
-def date_utc(as_str: _True, with_tzinfo: bool = False) -> str: ...
-def date_utc(as_str: bool = False, with_tzinfo: bool = False) -> datetime | str:
+def date_utc(as_str: _True, keep_tzinfo: bool = False) -> str: ...
+def date_utc(as_str: bool = False, keep_tzinfo: bool = False) -> datetime | str:
     """Return the current date and time in UTC.
 
     Args:
         as_str: Whether to return `str(date)` instead of the `datetime`.
-        with_tzinfo: Whether to keep the zone and microseconds.
+        keep_tzinfo: Whether to keep the zone and microseconds.
 
     Returns:
         The current date in UTC, or its string form.
     """
-    return stamp_to_date(time.time(), timezone.utc, as_str, with_tzinfo)
+    return stamp_to_date(time.time(), timezone.utc, as_str, keep_tzinfo)
 
 
 @overload
