@@ -18,8 +18,8 @@ if TYPE_CHECKING:
 TemplateButtonType: TypeAlias = Literal["url", "callback_data"]
 """Which `InlineKeyboardButton` argument a button's `value` fills."""
 
-TemplateParseMode: TypeAlias = Literal["html", "markdown"]
-"""The parse mode a template's message is written in."""
+TemplateParseMode: TypeAlias = Literal["html", "markdown", "disabled"]
+"""The parse mode a template's message is written in; `"disabled"` sends it unparsed."""
 
 
 class TemplateDefaultsDict(TypedDict, total=False):

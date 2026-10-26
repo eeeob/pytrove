@@ -13,7 +13,7 @@ else:
 
 from ...validate_tools import is_container, is_mapping
 from ..base import BaseDataClass
-from ._internal import _chain_mappings, _CompiledEachLineDict
+from ._internal import _chain_mappings, _check_each, _CompiledEachLineDict
 from .conditions import CompiledConditional
 
 if TYPE_CHECKING:
@@ -93,7 +93,11 @@ class CompiledEachLine(BaseDataClass):
 
         Returns:
             The compiled line.
+
+        Raises:
+            ValueError: If `each` is not a non-empty string.
         """
+        _check_each(item)
         # The dict is rewritten in place into its compiled shape.
         compiled = cast("_CompiledEachLineDict", item)
         compiled["item"] = CompiledLine.compile(item["item"])

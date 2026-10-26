@@ -18,28 +18,17 @@ try:
 except ImportError:
     pass
 
-if TYPE_CHECKING:
-    from pyrogram.enums import ButtonStyle  # type: ignore[import-not-found]  # Optional: the `tg` extra.
-else:
-    # `BaseDataClass` resolves field annotations at runtime, so `ButtonStyle`
-    # must be a name here even when the installed pyrogram lacks it.
-    try:
-        from pyrogram.enums import ButtonStyle
-    except ImportError:
-        ButtonStyle = str
-
 from ..._internal import _optional_import
 from ...object_tools import classproperty
 from ...typings import (
     MaybeList,
-    StrInt,
     TemplateButtonDict,
     TemplateButtonType,
     TemplateEachButtonDict,
 )
 from ...validate_tools import is_container, is_mapping
 from ..base import BaseDataClass
-from ._internal import _chain_mappings, _CompiledEachButtonDict
+from ._internal import _chain_mappings, _check_each, _CompiledButtonMeta, _CompiledEachButtonDict
 from .conditions import CompiledConditional
 
 if TYPE_CHECKING:
@@ -59,12 +48,15 @@ class CompiledButton(CompiledConditional):
     value: str
     """The URL or callback data, a `str.format` template."""
 
-    meta: dict[str, StrInt | ButtonStyle] | None = None
+    meta: _CompiledButtonMeta | None = None
     """Extra `InlineKeyboardButton` arguments, such as its `ButtonStyle`; unknown keys are dropped with a warning."""
 
     @classmethod
     def compile(cls, item: TemplateButtonDict) -> Self:
-        """Compile a button definition, turning enum values back into members.
+        """Compile a button definition, turning the raw `meta` style back into a `ButtonStyle`.
+
+        The annotations decide what is converted, so only `meta["style"]` is: every other
+        field and `meta` key stays as written, even when it equals a value such as `"danger"`.
 
         Args:
             item: The definition.
@@ -76,9 +68,9 @@ class CompiledButton(CompiledConditional):
 
     @classproperty(cached=True)
     @_optional_import("tg")
-    def _buttons_params(cls: type[CompiledButton]) -> frozenset[str]:
-        """The parameter names `InlineKeyboardButton` accepts."""
-        return frozenset(inspect.signature(InlineKeyboardButton).parameters.keys())
+    def _buttons_params(cls: type[CompiledButton]) -> tuple[str, ...]:
+        """The parameter names `InlineKeyboardButton` accepts, in order; the first takes the label."""
+        return tuple(inspect.signature(InlineKeyboardButton).parameters)
 
     @_optional_import("tg")
     def format(self, kw: Mapping[str, Any]) -> InlineKeyboardButton | None:
@@ -91,23 +83,26 @@ class CompiledButton(CompiledConditional):
             The button, or `None` if its conditions are not met.
 
         Raises:
-            ValueError: If `type` is not an `InlineKeyboardButton` argument.
+            ValueError: If `type` names the label argument or none of `InlineKeyboardButton`.
         """
-        parameters = self._buttons_params
+        _label, *parameters = self._buttons_params  # The label is passed positionally.
 
         if self.type not in parameters:
             msg = f"Unsupported InlineKeyboardButton type: {self.type!r}"
             raise ValueError(msg)
 
+        # The label and `type` are already passed, so a `meta` key repeating one is dropped too.
+        allowed = set(parameters) - {self.type}
         meta = self.meta or {}
-        if invalid_meta := meta.keys() - parameters:
+        if invalid_meta := meta.keys() - allowed:
             warnings.warn(
                 "Ignoring unsupported InlineKeyboardButton meta keys: "
                 + ", ".join(sorted(invalid_meta)),
                 UserWarning,
-                stacklevel=2,
+                # Past this method and the `_optional_import` wrapper, to the caller.
+                stacklevel=3,
             )
-            meta = {key: value for key, value in meta.items() if key in parameters}
+            meta = {key: value for key, value in meta.items() if key in allowed}
 
         kw = self.with_defaults(kw)
 
@@ -138,7 +133,19 @@ class CompiledEachButton(BaseDataClass):
     """The button rendered for every element."""
 
     row_width: int | None = None
-    """Buttons per row; `DEFAULT_ROW_WIDTH` when `None`."""
+    """Buttons per row, at least 1; `DEFAULT_ROW_WIDTH` when `None`."""
+
+    def __post_init__(self) -> None:
+        """Reject a `row_width` below 1.
+
+        Raises:
+            ValueError: If `row_width` is set and below 1.
+        """
+        if self.row_width is not None and self.row_width < 1:
+            msg = f"row_width must be at least 1, not {self.row_width}"
+            raise ValueError(msg)
+
+        super(CompiledEachButton, self).__post_init__()
 
     @classmethod
     def compile(cls, item: TemplateEachButtonDict) -> Self:
@@ -149,7 +156,11 @@ class CompiledEachButton(BaseDataClass):
 
         Returns:
             The compiled button block.
+
+        Raises:
+            ValueError: If `each` is not a non-empty string or `row_width` is below 1.
         """
+        _check_each(item)
         # The dict is rewritten in place into its compiled shape.
         compiled = cast("_CompiledEachButtonDict", item)
         compiled["item"] = CompiledButton.compile(item["item"])
@@ -173,7 +184,7 @@ class CompiledEachButton(BaseDataClass):
         rows, current = [], []
 
         item = self.item
-        row_width = self.row_width or self.DEFAULT_ROW_WIDTH
+        row_width = self.DEFAULT_ROW_WIDTH if self.row_width is None else self.row_width
 
         for raw_each in each:
             if not is_mapping(raw_each):
