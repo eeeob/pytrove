@@ -66,9 +66,9 @@ def test_validate_type_accepts_a_container_for_a_bare_alias(alias: Any, value: A
 @needs_typeguard
 @pytest.mark.parametrize("alias", [Container, ContainerWithoutMapping])
 @pytest.mark.parametrize("value", ["abc", b"x"])
-def test_validate_type_rejects_str_and_bytes_for_a_bare_alias(alias: Any, value: Any) -> None:
-    with pytest.raises(ValidationError, match=f"^{type(value).__name__} is not container$"):
-        validate_type(value, alias)
+def test_validate_type_follows_the_annotation_for_a_bare_alias(alias: Any, value: Any) -> None:
+    # A `str` or `bytes` is the `Sequence` the expanded alias names; `is_container` is what excludes it.
+    validate_type(value, alias)
 
 
 @needs_typeguard
