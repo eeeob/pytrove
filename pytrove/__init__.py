@@ -18,6 +18,7 @@ from .text_tools import *
 from .async_tools import *
 from .mongo_tools import *
 from .object_tools import *
+from .device_tools import *
 from .tg_tools import *
 from .phone_tools import *
 from .country_tools import *
@@ -38,6 +39,7 @@ __all__ = (
     *async_tools.__all__,
     *mongo_tools.__all__,
     *object_tools.__all__,
+    *device_tools.__all__,
     *tg_tools.__all__,
     *phone_tools.__all__,
     *country_tools.__all__,

@@ -189,7 +189,7 @@ class ImapEmailProvider(Enum):
 
 
 class PlatformDevice(StrEnum):
-    """A Telegram client platform, as `rand_tg_device` draws them."""
+    """A Telegram client platform, as `random_device` draws them."""
 
     ANDROID = auto()
     """Telegram for Android; the likeliest draw."""

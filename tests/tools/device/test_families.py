@@ -6,14 +6,13 @@ import pytest
 
 from pytrove.enums import PlatformDevice
 from pytrove.models import DeviceInfo
-from pytrove.tg_tools._internal.catalog import _catalog, _load, OS_SHARES
-from pytrove.tg_tools._internal.families import (
+from pytrove.device_tools._internal.catalog import _catalog, _load, OS_SHARES
+from pytrove.device_tools.families import (
     _DEVICES,
     AndroidDevice,
     DesktopDevice,
     SystemInfo,
     WebDevice,
-    _rng,
     iOSDevice,
     random_family,
 )
@@ -148,20 +147,9 @@ def test_unknown_platform_raises() -> None:
         Nope.random_device()
 
 
-def test_families_and_rng() -> None:
+def test_families_cover_every_platform() -> None:
     assert set(_DEVICES) == set(PlatformDevice)
-    assert _rng("a").random() == _rng("a").random()
-    assert _rng(5).random() == _rng("5").random()
     assert random_family(_DEVICES.values(), "a") is random_family(_DEVICES.values(), "a")
-
-
-def test_rng_seeds_bytes_and_text_alike() -> None:
-    assert _rng(b"a").random() == _rng("a").random()
-    assert _rng(bytearray(b"a")).random() == _rng("a").random()
-
-
-def test_rng_without_a_seed_differs_each_time() -> None:
-    assert _rng().random() != _rng().random()
 
 
 def test_devices_map_each_platform_to_its_family() -> None:

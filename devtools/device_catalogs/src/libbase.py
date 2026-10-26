@@ -1,6 +1,6 @@
 """A port of desktop-app/lib_base's own device-model rules.
 
-Imports nothing from the package on purpose: `tests/tools/tg/test_devices_data.py`
+Imports nothing from the package on purpose: `tests/tools/device/test_devices_data.py`
 loads this file by path to check the stored models against it.
 """
 
