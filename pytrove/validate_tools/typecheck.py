@@ -16,7 +16,7 @@ except ImportError:
 
 from .._internal import _optional_import
 from ..errors import ValidationError
-from ._internal import _checker_lookup, _is_container, _CONTAINER_ALIASES, HAS_TYPEGUARD
+from ._internal import _checker_lookup, HAS_TYPEGUARD
 
 
 @_optional_import(("typeguard", "typecheck"))
@@ -28,8 +28,11 @@ def validate_type(value: Any, annotation: Any) -> None:
     the aliases are plain unions typeguard expands itself, so a `str` passes as
     a `Sequence` there, and `NestedContainer` is checked one level deep only:
     its recursive reference is a string typeguard cannot resolve, and it warns.
-    A bare `Container` or `ContainerWithoutMapping` rejects a `NotContainer`
-    such as `str` on every version.
+
+    The check follows the annotation, not the package's container rule: a bare
+    `Container` is expanded by typeguard into its union, so a `str` passes as
+    the `Sequence` it is. To exclude strings, bytes and the other `NotContainer`
+    types, test the value with `is_container`.
 
     Args:
         value: The value to check.
@@ -38,11 +41,6 @@ def validate_type(value: Any, annotation: Any) -> None:
     Raises:
         ValidationError: If it does not match.
     """
-    # typeguard expands a bare alias before `_checker_lookup` sees it, so the package rule is applied here.
-    if annotation in _CONTAINER_ALIASES and not _is_container(value):
-        msg = f"{type(value).__name__} is not container"
-        raise ValidationError(msg)
-
     try:
         check_type(
             value,
