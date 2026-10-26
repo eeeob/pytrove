@@ -18,16 +18,21 @@ UTC_PLUS_3: Final[timezone] = timezone(timedelta(seconds=TimeUnit.HOUR * 3))
 @overload
 def stamp_to_date(
     stamp_time: Number,
-    tz: timezone | None = ...,
-    as_str: _False = ...,
-    with_tzinfo: bool = ...,
+    tz: timezone | None = timezone.utc,
+    as_str: _False = False,
+    with_tzinfo: bool = False,
 ) -> datetime: ...
 @overload
 def stamp_to_date(
+    stamp_time: Number, tz: timezone | None, as_str: _True, with_tzinfo: bool = False
+) -> str: ...
+@overload
+def stamp_to_date(
     stamp_time: Number,
-    tz: timezone | None = ...,
-    as_str: _True = ...,
-    with_tzinfo: bool = ...,
+    tz: timezone | None = timezone.utc,
+    *,
+    as_str: _True,
+    with_tzinfo: bool = False,
 ) -> str: ...
 def stamp_to_date(
     stamp_time: Number,
@@ -64,11 +69,20 @@ def stamp_to_date(
 
 @overload
 def date_to_stamp(
-    date: str, tz: timezone | None = ..., format: str = ..., as_int: _True = ...
+    date: str,
+    tz: timezone | None = timezone.utc,
+    format: str = "%d %b %Y, %H:%M",
+    as_int: _True = True,
 ) -> int: ...
 @overload
+def date_to_stamp(date: str, tz: timezone | None, format: str, as_int: _False) -> float: ...
+@overload
 def date_to_stamp(
-    date: str, tz: timezone | None = ..., format: str = ..., as_int: _False = ...
+    date: str,
+    tz: timezone | None = timezone.utc,
+    format: str = "%d %b %Y, %H:%M",
+    *,
+    as_int: _False,
 ) -> float: ...
 def date_to_stamp(
     date: str,
@@ -105,9 +119,9 @@ def date_to_stamp(
 
 
 @overload
-def date_utc_3(as_str: _False = ..., with_tzinfo: bool = ...) -> datetime: ...
+def date_utc_3(as_str: _False = False, with_tzinfo: bool = False) -> datetime: ...
 @overload
-def date_utc_3(as_str: _True = ..., with_tzinfo: bool = ...) -> str: ...
+def date_utc_3(as_str: _True, with_tzinfo: bool = False) -> str: ...
 def date_utc_3(as_str: bool = False, with_tzinfo: bool = False) -> datetime | str:
     """Return the current date and time in UTC+3.
 
@@ -118,18 +132,13 @@ def date_utc_3(as_str: bool = False, with_tzinfo: bool = False) -> datetime | st
     Returns:
         The current date in UTC+3, or its string form.
     """
-    date = datetime.now(UTC_PLUS_3)
-
-    if not with_tzinfo:
-        date = date.replace(tzinfo=None, microsecond=0)
-
-    return str(date) if as_str else date
+    return stamp_to_date(time.time(), UTC_PLUS_3, as_str, with_tzinfo)
 
 
 @overload
-def date_utc(as_str: _False = ..., with_tzinfo: bool = ...) -> datetime: ...
+def date_utc(as_str: _False = False, with_tzinfo: bool = False) -> datetime: ...
 @overload
-def date_utc(as_str: _True = ..., with_tzinfo: bool = ...) -> str: ...
+def date_utc(as_str: _True, with_tzinfo: bool = False) -> str: ...
 def date_utc(as_str: bool = False, with_tzinfo: bool = False) -> datetime | str:
     """Return the current date and time in UTC.
 
@@ -140,16 +149,11 @@ def date_utc(as_str: bool = False, with_tzinfo: bool = False) -> datetime | str:
     Returns:
         The current date in UTC, or its string form.
     """
-    date = datetime.now(timezone.utc)
-
-    if not with_tzinfo:
-        date = date.replace(tzinfo=None, microsecond=0)
-
-    return str(date) if as_str else date
+    return stamp_to_date(time.time(), timezone.utc, as_str, with_tzinfo)
 
 
 @overload
-def time_utc_3(as_int: _False = ...) -> float: ...
+def time_utc_3(as_int: _False = False) -> float: ...
 @overload
 def time_utc_3(as_int: _True) -> int: ...
 def time_utc_3(as_int: bool = False) -> int | float:
@@ -169,7 +173,7 @@ def time_utc_3(as_int: bool = False) -> int | float:
 
 
 @overload
-def time_utc(as_int: _False = ...) -> float: ...
+def time_utc(as_int: _False = False) -> float: ...
 @overload
 def time_utc(as_int: _True) -> int: ...
 def time_utc(as_int: bool = False) -> int | float:

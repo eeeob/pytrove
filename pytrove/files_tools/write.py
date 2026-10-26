@@ -124,14 +124,23 @@ def write_file(
 
 @overload
 def truncate_file(
-    path: PathLike, size: int, cut: TruncateSide = ..., spill: _False = False, fsync: bool = True
+    path: PathLike,
+    size: int,
+    cut: TruncateSide = TruncateSide.HEAD,
+    spill: _False = False,
+    fsync: bool = True,
 ) -> Path: ...
+@overload
+def truncate_file(
+    path: PathLike, size: int, cut: TruncateSide, spill: _True | PathLike, fsync: bool = True
+) -> list[Path]: ...
 @overload
 def truncate_file(
     path: PathLike,
     size: int,
-    cut: TruncateSide = ...,
-    spill: _True | PathLike = ...,
+    cut: TruncateSide = TruncateSide.HEAD,
+    *,
+    spill: _True | PathLike,
     fsync: bool = True,
 ) -> list[Path]: ...
 def truncate_file(
