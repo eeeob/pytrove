@@ -62,6 +62,21 @@ def linked(tmp_path: Path) -> tuple[Path, Path]:
     return link, target
 
 
+@pytest.fixture
+def file_link(tmp_path: Path) -> tuple[Path, Path]:
+    """A symlink to a file that holds something worth not losing."""
+    target = tmp_path / "precious.txt"
+    target.write_text("precious", encoding="utf-8")
+    link = tmp_path / "link.txt"
+
+    try:
+        link.symlink_to(target)
+    except (OSError, NotImplementedError):
+        pytest.skip("cannot make a symlink here")
+
+    return link, target
+
+
 def test_the_short_names_are_the_same_functions() -> None:
     assert remove_file is remove_files
     assert remove_folder is remove_folders
@@ -83,6 +98,32 @@ def test_a_link_to_a_directory_is_removed_and_its_target_is_not(
 
     assert not os.path.lexists(link)
     assert (target / "precious.txt").read_text(encoding="utf-8") == "precious"
+
+
+@pytest.mark.parametrize("remove", [remove_file, remove_folder, remove_path])
+def test_a_link_to_a_file_is_removed_and_its_target_is_not(
+    file_link: tuple[Path, Path],
+    remove: Callable[..., Any],
+) -> None:
+    # `remove_folders` too: a link is unlinked, never followed, and never refused.
+    link, target = file_link
+
+    assert remove(link) == [link]
+
+    assert not os.path.lexists(link)
+    assert target.read_text(encoding="utf-8") == "precious"
+
+
+@pytest.mark.parametrize("remove", [remove_file, remove_folder, remove_path])
+def test_a_dangling_link_is_removed(
+    file_link: tuple[Path, Path],
+    remove: Callable[..., Any],
+) -> None:
+    link, target = file_link
+    target.unlink()
+
+    assert remove(link) == [link]
+    assert not os.path.lexists(link)
 
 
 @pytest.mark.parametrize("remove", [remove_file, remove_folder, remove_path])

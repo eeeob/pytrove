@@ -1,11 +1,10 @@
-"""`files_tools._internal.common`: JSON codecs, tree removal and spill parts."""
+"""`files_tools._internal.common`: tree removal and spill parts."""
 
 from __future__ import annotations as _annotations
 
 import inspect
-import json
+import math
 import os
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -15,42 +14,19 @@ from pytrove.enums import TruncateSide
 from pytrove.files_tools._internal import (
     common,
     _MkdirOptions,
-    _json_dumps,
-    _json_loads,
     _next_part,
     _on_exc_remove_folders,
     _remove,
     _rmtree,
     _spill_parts,
-    _ORJSON_COMPAT,
-    _ORJSON_DUMP_KEYS,
     _SPILL_PARTS,
-    HAS_ORJSON,
 )
-
-needs_orjson = pytest.mark.skipif(not HAS_ORJSON, reason="needs the json extra")
-
 
 # --- constants and the options TypedDict -----------------------------------
 
 
 def test_spill_parts_constant() -> None:
     assert _SPILL_PARTS == 10
-
-
-def test_orjson_constants_follow_the_extra() -> None:
-    assert _ORJSON_DUMP_KEYS == {"ensure_ascii", "indent", "sort_keys", "default"}
-
-    if HAS_ORJSON:
-        orjson = pytest.importorskip("orjson")
-        assert _ORJSON_COMPAT == (
-            orjson.OPT_PASSTHROUGH_DATETIME
-            | orjson.OPT_PASSTHROUGH_DATACLASS
-            | orjson.OPT_NON_STR_KEYS
-        )
-    else:
-        assert _ORJSON_COMPAT == 0
-        assert "orjson" not in sys.modules or sys.modules["orjson"] is None
 
 
 def test_mkdir_options_lists_exactly_what_mkdir_takes() -> None:
@@ -78,71 +54,15 @@ def test_every_mkdir_option_is_optional() -> None:
 
 
 def test_next_part_counts_only_numeric_suffixes(tmp_path: Path) -> None:
-    for name in ("app.log.1", "app.log.7", "app.log.bak", "other.log.9"):
+    # `²` and `٣` pass `str.isdigit`; `int` refuses the first, and neither is a part we wrote.
+    for name in ("app.log.1", "app.log.7", "app.log.bak", "app.log.²", "app.log.٣"):
         (tmp_path / name).write_text("", encoding="utf-8")
+
+    (tmp_path / "other.log.9").write_text("", encoding="utf-8")
 
     assert _next_part(tmp_path, "app.log") == 8
     assert _next_part(tmp_path, "new.log") == 1
     assert _next_part(tmp_path / "missing", "app.log") == 1
-
-
-# --- JSON codecs -----------------------------------------------------------
-
-
-def test_json_codecs_round_trip_on_either_backend() -> None:
-    encoded = _json_dumps({"a": 1}, {})
-    assert _json_loads(encoded, {}) == {"a": 1}
-    assert _json_loads(b'{"a": 1}', {}) == {"a": 1}
-    assert _json_dumps({"a": 1}, {"indent": 4}) == '{\n    "a": 1\n}'
-    assert _json_loads('{"a": 1.5}', {"parse_float": str}) == {"a": "1.5"}
-
-
-@needs_orjson
-def test_orjson_takes_the_fast_path_only_for_keywords_it_honours() -> None:
-    assert isinstance(_json_dumps({"a": 1}, {"indent": 2, "sort_keys": True}), bytes)
-    assert isinstance(_json_dumps({"a": 1}, {}), bytes)
-    # a keyword orjson cannot honour, or a value it cannot produce, means plain `json`
-    assert isinstance(_json_dumps({"a": 1}, {"separators": (",", ":")}), str)
-    assert isinstance(_json_dumps({"a": 1}, {"ensure_ascii": True}), str)
-    assert isinstance(_json_dumps({"a": 1}, {"indent": 4}), str)
-
-
-@needs_orjson
-def test_orjson_output_matches_json_byte_for_byte() -> None:
-    data = {"b": [1, 2.5, None, True], "a": {"é": "ü"}}
-    assert (
-        _json_dumps({1: "x", None: "y"}, {})
-        == json.dumps({1: "x", None: "y"}, separators=(",", ":")).encode()
-    )
-
-    for kw in ({}, {"indent": 2}, {"sort_keys": True}, {"indent": 2, "sort_keys": True}):
-        fast = _json_dumps(data, dict(kw))
-        assert isinstance(fast, bytes)
-        # orjson writes compact JSON without spaces when it does not indent.
-        separators = None if "indent" in kw else (",", ":")
-        assert fast.decode() == json.dumps(data, ensure_ascii=False, separators=separators, **kw)
-
-
-@needs_orjson
-def test_orjson_hands_unknown_types_to_default_like_json() -> None:
-    class Thing:
-        pass
-
-    with pytest.raises(TypeError):
-        _json_dumps(Thing(), {})
-
-    assert _json_dumps(Thing(), {"default": lambda _: "thing"}) == b'"thing"'
-
-
-@needs_orjson
-def test_orjson_parses_only_when_no_keyword_is_given() -> None:
-    orjson = pytest.importorskip("orjson")
-
-    with pytest.raises(orjson.JSONDecodeError):
-        _json_loads("{bad", {})
-
-    with pytest.raises(json.JSONDecodeError):
-        _json_loads("{bad", {"parse_int": int})
 
 
 # --- removal helpers -------------------------------------------------------
@@ -175,6 +95,15 @@ def test_on_exc_remove_folders_unlinks_a_link_and_tolerates_it_vanishing(
 
     _on_exc_remove_folders(os.path.islink, str(link), PermissionError(), base_path=str(tmp_path))
     assert unlinked == [str(link)]
+
+    # A dangling root link fails in `os.open` on POSIX; it is unlinked, not read as missing.
+    _on_exc_remove_folders(os.open, str(link), FileNotFoundError(), base_path=str(link))
+    assert unlinked == [str(link)] * 2
+
+    with pytest.raises(
+        PermissionError
+    ):  # a link inside the tree failing elsewhere is no link error
+        _on_exc_remove_folders(os.open, str(link), PermissionError(), base_path=str(tmp_path))
 
     with pytest.raises(PermissionError):  # not a link: the error stands
         _on_exc_remove_folders(
@@ -222,6 +151,14 @@ def test_remove_collects_or_raises_with_the_path_named(
 
     assert _remove(((present, tmp_path / "missing"),), os.unlink, "t", False, False) == [present]
 
+    def refuse_without_a_name(path: Path) -> None:
+        """Fail with no `filename` set at all."""
+        raise OSError(5, "io")
+
+    unnamed = _remove((tmp_path / "y",), refuse_without_a_name, "t", True, False)[0]
+    assert isinstance(unnamed, OSError)
+    assert unnamed.filename == str(tmp_path / "y")
+
     with caplog.at_level("ERROR"):
         result = _remove((tmp_path / "x",), refuse, "t", True, False)
 
@@ -263,6 +200,16 @@ def test_spill_parts_with_size_zero_uses_a_tenth_of_the_spill(tmp_path: Path) ->
 
     parts = _spill_parts(target, TruncateSide.HEAD, 0, 25, True, False)
     assert [p.stat().st_size for p in parts] == [3] * 8 + [1]
+
+
+def test_spill_parts_never_writes_more_than_ten_parts(tmp_path: Path) -> None:
+    # Keeping 2 bytes of 1000 would otherwise mean 499 parts of 2 bytes.
+    target = tmp_path / "f.log"
+    target.write_bytes(bytes(1000))
+
+    parts = _spill_parts(target, TruncateSide.HEAD, 2, 998, True, False)
+    assert len(parts) == _SPILL_PARTS
+    assert [p.stat().st_size for p in parts] == [math.ceil(998 / 10)] * 9 + [98]
 
 
 def test_spill_parts_stops_short_when_the_file_shrinks_under_it(tmp_path: Path) -> None:

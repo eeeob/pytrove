@@ -4,41 +4,34 @@ from __future__ import annotations as _annotations
 
 import os
 import stat
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import IO, TYPE_CHECKING, Any, Literal
+from unittest.mock import Mock, call
 
 import pytest
 
 from pytrove.enums import TruncateSide
 from pytrove.errors import ValidationError
-from pytrove.files_tools import atomic_write, truncate_file, write_file
+from pytrove.files_tools import atomic_write, truncate_file, write, write_file
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 #: Content with no repeating window, so a wrongly ordered or wrongly cut
 #: part cannot pass a comparison by accident.
 _DATA = bytes(range(256)) * 40  # 10240 bytes
 
-
-class _Lock:
-    """A lock that records every acquire and release."""
-
-    def __init__(self) -> None:
-        self.calls: list[str] = []
-
-    def acquire(self) -> bool:
-        self.calls.append("acquire")
-        return True
-
-    def release(self) -> None:
-        self.calls.append("release")
+#: What a lock that was taken and given back records.
+_HELD = [call.acquire(), call.release()]
 
 
-class _FailingLock(_Lock):
-    """A lock whose `acquire` raises, recording any `release` it is wrongly given."""
-
-    def acquire(self) -> bool:
-        self.calls.append("acquire")
-        msg = "lock timed out"
-        raise TimeoutError(msg)
+def _symlink(link: Path, target: Path) -> None:
+    """Point `link` at `target`, or skip where this account may not make symlinks."""
+    try:
+        link.symlink_to(target)
+    except (OSError, NotImplementedError):
+        pytest.skip("cannot make a symlink here")
 
 
 @pytest.fixture
@@ -114,21 +107,86 @@ def test_atomic_write_does_not_let_its_cleanup_mask_the_blocks_error(
 def test_atomic_write_holds_the_lock_and_releases_it_even_when_the_block_raises(
     tmp_path: Path,
 ) -> None:
-    lock = _Lock()
+    lock = Mock()
 
     with atomic_write(tmp_path / "out.txt", lock=lock, fsync=False) as f:
-        assert lock.calls == ["acquire"]
+        assert lock.mock_calls == [call.acquire()]
         f.write("x")
 
-    assert lock.calls == ["acquire", "release"]
+    assert lock.mock_calls == _HELD
 
-    failing = _Lock()
+    lock.reset_mock()
 
-    with pytest.raises(RuntimeError), atomic_write(tmp_path / "out.txt", lock=failing, fsync=False):
+    with pytest.raises(RuntimeError), atomic_write(tmp_path / "out.txt", lock=lock, fsync=False):
         msg = "boom"
         raise RuntimeError(msg)
 
-    assert failing.calls == ["acquire", "release"]
+    assert lock.mock_calls == _HELD
+
+
+def test_atomic_write_into_a_missing_directory_raises_and_releases_the_lock(tmp_path: Path) -> None:
+    lock = Mock()
+
+    with (
+        pytest.raises(FileNotFoundError),
+        atomic_write(tmp_path / "missing" / "out.txt", lock=lock, fsync=False),
+    ):
+        pass
+
+    assert lock.mock_calls == _HELD
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_new_file_gets_0o644_and_an_existing_one_keeps_its_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    modes: list[int] = []
+    real_chmod = os.chmod
+    monkeypatch.setattr(
+        os, "chmod", lambda p, m, *a, **k: (modes.append(m), real_chmod(p, m, *a, **k))
+    )
+    target = tmp_path / "out.txt"
+
+    with atomic_write(target, fsync=False) as f:
+        f.write("x")
+
+    assert modes == [0o644]  # `mkstemp` makes it `0o600`; a new file is opened up to `0o644`.
+
+    with atomic_write(target, fsync=False) as f:
+        f.write("y")
+
+    assert modes == [0o644, stat.S_IMODE(target.stat().st_mode)]
+
+
+def test_writing_through_a_symlink_replaces_the_target_and_keeps_the_link(tmp_path: Path) -> None:
+    target = tmp_path / "real.txt"
+    target.write_text("old", encoding="utf-8")
+    link = tmp_path / "link.txt"
+    _symlink(link, target)
+
+    with atomic_write(link, fsync=False) as f:
+        f.write("new")
+
+    assert link.is_symlink()
+    assert target.read_text(encoding="utf-8") == "new"
+
+
+def test_a_successful_write_does_not_try_to_remove_the_renamed_temp_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    removed: list[object] = []
+    monkeypatch.setattr(write, "remove_file", lambda *a, **k: removed.append(a))
+
+    with atomic_write(tmp_path / "out.txt", fsync=False) as f:
+        f.write("x")
+
+    assert removed == []
+
+    with pytest.raises(RuntimeError), atomic_write(tmp_path / "out.txt", fsync=False):
+        msg = "boom"
+        raise RuntimeError(msg)
+
+    assert len(removed) == 1
 
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX permission bits")
@@ -236,6 +294,26 @@ def test_atomic_write_survives_a_directory_that_cannot_be_opened(
     assert target.read_text(encoding="utf-8") == "x"
 
 
+def test_text_is_written_with_the_platforms_newlines(tmp_path: Path) -> None:
+    # Text mode, as `open` gives: only bytes are written exactly as they are.
+    write_file(tmp_path / "t.txt", "a\nb", fsync=False)
+    write_file(tmp_path / "b.bin", b"a\nb", fsync=False)
+
+    assert (tmp_path / "t.txt").read_bytes() == os.linesep.join(["a", "b"]).encode()
+    assert (tmp_path / "b.bin").read_bytes() == b"a\nb"
+
+
+def test_write_file_forwards_fsync(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    synced: list[int] = []
+    monkeypatch.setattr(os, "fsync", synced.append)
+
+    write_file(tmp_path / "t.txt", "x", fsync=False)
+    assert synced == []
+
+    write_file(tmp_path / "t.txt", "x")
+    assert synced  # the file, and the directory where the platform allows it
+
+
 def test_write_file_picks_binary_from_the_content(tmp_path: Path) -> None:
     text = tmp_path / "t.txt"
     raw = tmp_path / "r.bin"
@@ -255,13 +333,13 @@ def test_write_file_forwards_encoding_lock_and_mode(
     monkeypatch.setattr(
         os, "chmod", lambda p, m, *a, **k: (modes.append(m), real_chmod(p, m, *a, **k))
     )
-    lock = _Lock()
+    lock = Mock()
     target = tmp_path / "t.txt"
 
     write_file(target, "é", encoding="latin-1", mode=0o600, lock=lock, fsync=False)
 
     assert target.read_bytes() == b"\xe9"
-    assert lock.calls == ["acquire", "release"]
+    assert lock.mock_calls == _HELD
     assert modes == [0o600]
 
 
@@ -331,10 +409,12 @@ def test_a_file_already_small_enough_is_left_alone(sample: Path) -> None:
 
 
 @pytest.mark.parametrize("cut", ["tail", "head"])
-def test_the_parts_and_the_file_put_the_original_back_together(sample: Path, cut: str) -> None:
+def test_the_parts_and_the_file_put_the_original_back_together(
+    sample: Path, cut: Literal["tail", "head"]
+) -> None:
     # The whole promise of spilling: nothing is lost, and reassembly is a
     # concatenation in numbered order and nothing cleverer.
-    parts = truncate_file(sample, 3000, cut=cut, spill=True)  # type: ignore[arg-type]  # The raw string is accepted.
+    parts = truncate_file(sample, 3000, cut=cut, spill=True)
 
     assert [p.name for p in parts] == ["app.log.1", "app.log.2", "app.log.3"]
     assert [p.stat().st_size for p in parts] == [3000, 3000, 1240]
@@ -415,6 +495,15 @@ def test_size_zero_cuts_the_spill_into_ten_parts_at_most(tmp_path: Path, length:
     assert path.stat().st_size == 0
 
 
+def test_a_small_size_still_spills_into_ten_parts_at_most(sample: Path) -> None:
+    # Keeping 10 bytes of a 10 KiB file would otherwise mean 1023 parts of 10 bytes.
+    parts = truncate_file(sample, 10, spill=True)
+
+    assert len(parts) == 10
+    assert [p.stat().st_size for p in parts] == [1023] * 10
+    assert b"".join(p.read_bytes() for p in parts) + sample.read_bytes() == _DATA
+
+
 def test_size_zero_spills_the_whole_file(sample: Path) -> None:
     # Nothing is kept, so there is no part size to read off the argument
     # and the copy buffer is the only number left.
@@ -445,8 +534,103 @@ def test_the_raw_string_picks_the_same_end_as_the_enum(tmp_path: Path) -> None:
     for spelling in ("head", TruncateSide.HEAD):
         path = tmp_path / f"x{spelling!s}.bin"
         path.write_bytes(_DATA)
-        truncate_file(path, 500, cut=spelling)  # type: ignore[arg-type]  # The raw string is the point.
+        truncate_file(path, 500, cut=spelling)
         assert path.read_bytes() == _DATA[-500:]
+
+
+def test_an_unknown_cut_is_refused_before_anything_changes(sample: Path) -> None:
+    with pytest.raises(ValueError, match="middle"):
+        truncate_file(sample, 10, cut="middle")  # type: ignore[arg-type]  # The wrong value is the point.
+
+    assert sample.read_bytes() == _DATA
+
+
+def test_size_zero_without_spill_empties_the_file(sample: Path, tmp_path: Path) -> None:
+    assert truncate_file(sample, 0) == sample
+    assert sample.read_bytes() == b""
+    assert [p.name for p in tmp_path.iterdir()] == ["app.log"]
+
+
+def test_spill_takes_a_str_directory(sample: Path, tmp_path: Path) -> None:
+    parts = truncate_file(sample, 4096, spill=str(tmp_path / "into"))
+
+    assert {p.parent for p in parts} == {tmp_path / "into"}
+    assert b"".join(p.read_bytes() for p in parts) == _DATA[:-4096]
+
+
+def test_an_empty_spill_path_is_the_current_directory(
+    sample: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # `""` is falsy but a directory all the same; reading it as `False` lost the bytes.
+    into = tmp_path / "cwd"
+    into.mkdir()
+    monkeypatch.chdir(into)
+
+    parts = truncate_file(sample, 4096, spill="")
+
+    assert isinstance(parts, list)
+    assert {p.parent for p in parts} == {into.resolve()}
+    assert b"".join(p.read_bytes() for p in parts) + sample.read_bytes() == _DATA
+
+    assert truncate_file(sample, len(_DATA), spill="") == []
+
+
+def test_a_spill_path_that_is_a_file_is_refused_and_nothing_is_cut(
+    sample: Path, tmp_path: Path
+) -> None:
+    taken = tmp_path / "taken"
+    taken.write_bytes(b"keep")
+
+    with pytest.raises(FileExistsError):
+        truncate_file(sample, 10, spill=taken)
+
+    assert sample.read_bytes() == _DATA
+    assert taken.read_bytes() == b"keep"
+
+
+@pytest.mark.parametrize("cut", [TruncateSide.HEAD, TruncateSide.TAIL])
+def test_a_spill_that_fails_midway_leaves_the_file_whole(
+    sample: Path, monkeypatch: pytest.MonkeyPatch, cut: TruncateSide
+) -> None:
+    # The parts are written first, so a failure there can only leave extra copies behind.
+    real = write.atomic_write
+    opened: list[object] = []
+
+    @contextmanager
+    def fail_on_the_second_part(*args: Any, **kwargs: Any) -> Iterator[IO[Any]]:
+        opened.append(args[0])
+
+        if len(opened) == 2:
+            msg = "disk full"
+            raise OSError(28, msg)
+
+        with real(*args, **kwargs) as f:
+            yield f
+
+    monkeypatch.setattr(write, "atomic_write", fail_on_the_second_part)
+
+    with pytest.raises(OSError, match="disk full"):
+        truncate_file(sample, 3000, cut=cut, spill=True)
+
+    assert sample.read_bytes() == _DATA
+    assert len(opened) == 2
+
+
+def test_a_head_cut_without_fsync_never_syncs(
+    sample: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    synced: list[int] = []
+    monkeypatch.setattr(os, "fsync", synced.append)
+
+    truncate_file(sample, 1500, cut=TruncateSide.HEAD, fsync=False)
+
+    assert sample.read_bytes() == _DATA[-1500:]
+    assert synced == []
+
+    sample.write_bytes(_DATA)
+    truncate_file(sample, 1500, cut=TruncateSide.HEAD)
+
+    assert synced
 
 
 @pytest.mark.parametrize("bad", [-1, 3.5, True, "1000", None])
@@ -483,7 +667,7 @@ def test_a_head_cut_keeps_the_file_mode(sample: Path) -> None:
 
 
 def test_atomic_write_raises_a_failed_acquire_as_is_and_leaves_nothing(tmp_path: Path) -> None:
-    lock = _FailingLock()
+    lock = Mock(**{"acquire.side_effect": TimeoutError("lock timed out")})
 
     with (
         pytest.raises(TimeoutError, match="lock timed out"),
@@ -491,5 +675,5 @@ def test_atomic_write_raises_a_failed_acquire_as_is_and_leaves_nothing(tmp_path:
     ):
         pass
 
-    assert lock.calls == ["acquire"]
+    assert lock.mock_calls == [call.acquire()]
     assert list(tmp_path.iterdir()) == []

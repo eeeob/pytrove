@@ -45,6 +45,12 @@ def test_ensure_path_converts_a_non_path_str_pathlike() -> None:
     assert ensure_path(PurePosixPath("a/b")) == Path("a/b")
 
 
+@pytest.mark.parametrize("bad", [None, 1, ["x"]])
+def test_ensure_path_refuses_what_is_not_a_path(bad: object) -> None:
+    with pytest.raises(TypeError):
+        ensure_path(bad)  # type: ignore[arg-type]  # The wrong type is the point.
+
+
 # --- resolve_path ----------------------------------------------------------
 
 
@@ -61,6 +67,20 @@ def test_resolve_path_takes_str_and_bytes(tmp_path: Path) -> None:
     assert resolve_path(os.fsencode(tmp_path)) == tmp_path.resolve()
 
 
+def test_resolve_path_follows_symlinks(tmp_path: Path) -> None:
+    target = tmp_path / "real"
+    target.mkdir()
+    link = tmp_path / "link"
+
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("cannot make a symlink here")
+
+    assert resolve_path(link) == target.resolve()
+    assert resolve_path(link / "f.txt") == target.resolve() / "f.txt"
+
+
 # --- ensure_dir ------------------------------------------------------------
 
 
@@ -71,6 +91,16 @@ def test_ensure_dir_makes_the_directory_and_hands_the_path_back(tmp_path: Path) 
 
     assert got == target
     assert got.is_dir()
+
+
+def test_ensure_dir_for_a_bare_file_name_needs_nothing_made(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The parent of `f.txt` is `.`, which exists, so `exist_ok` lets it through.
+    monkeypatch.chdir(tmp_path)
+
+    assert ensure_dir("f.txt", for_file=True) == Path("f.txt")
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_ensure_dir_makes_every_missing_level(tmp_path: Path) -> None:

@@ -24,6 +24,12 @@ def remove_files(
     return_exc: _True,
     log_exc: bool = False,
 ) -> list[Path | OSError]: ...
+@overload
+def remove_files(
+    *files: NestedContainer[PathLike],
+    return_exc: bool,
+    log_exc: bool = False,
+) -> list[Path] | list[Path | OSError]: ...
 def remove_files(
     *files: NestedContainer[PathLike],
     return_exc: bool = False,
@@ -61,6 +67,12 @@ def remove_folders(
     return_exc: _True,
     log_exc: bool = False,
 ) -> list[Path | OSError]: ...
+@overload
+def remove_folders(
+    *folders: NestedContainer[PathLike],
+    return_exc: bool,
+    log_exc: bool = False,
+) -> list[Path] | list[Path | OSError]: ...
 def remove_folders(
     *folders: NestedContainer[PathLike],
     return_exc: bool = False,
@@ -68,8 +80,8 @@ def remove_folders(
 ) -> list[Path] | list[Path | OSError]:
     """Remove each real directory with everything under it.
 
-    A file, symlink or junction passed here is refused. A junction found
-    inside a tree is unlinked, never followed. Same contract as `remove_files`.
+    A file passed here is refused; a symlink or junction, passed here or found
+    inside a tree, is unlinked, never followed. Same contract as `remove_files`.
 
     Args:
         *folders: Paths, or containers of them, at any depth.
@@ -95,6 +107,12 @@ def remove_paths(
     return_exc: _True,
     log_exc: bool = False,
 ) -> list[Path | OSError]: ...
+@overload
+def remove_paths(
+    *paths: NestedContainer[PathLike],
+    return_exc: bool,
+    log_exc: bool = False,
+) -> list[Path] | list[Path | OSError]: ...
 def remove_paths(
     *paths: NestedContainer[PathLike],
     return_exc: bool = False,
