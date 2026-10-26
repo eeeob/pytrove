@@ -224,7 +224,8 @@ thing is drawn. Keep that line:
   browser's share on Windows says nothing about its share on Linux. Counting
   rows instead would skew the mix: Google lists every regional Samsung variant
   and one Pixel.
-- `platform_weight` picks the platform.
+- `DeviceCatalog.weight`, set per platform in `pytrove/device_tools/draw.py`,
+  picks the platform.
 - On a multi-OS platform the **OS is drawn first**, by `OS_SHARES`, and only then
   a device that can report it. Letting device weights decide would tie the
   Windows/Linux mix to how many models each OS happens to list.

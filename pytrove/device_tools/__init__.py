@@ -2,10 +2,8 @@
 
 from .draw import *
 from .families import *
-from .lookup import *
 
 __all__ = (
     *draw.__all__,
     *families.__all__,
-    *lookup.__all__,
 )

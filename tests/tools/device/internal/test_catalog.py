@@ -16,13 +16,15 @@ if TYPE_CHECKING:
 
 LAZY_PROBE = """
 import pytrove
-import pytrove.enums
-from pytrove.device_tools._internal import catalog
-assert catalog._catalog.cache_info().currsize == 0
-pytrove.random_device(pytrove.enums.PlatformDevice.IOS, unique_id="probe")
-assert catalog._catalog.cache_info().currsize == 1
-pytrove.device_oses(pytrove.enums.PlatformDevice.ANDROID)
-assert catalog._catalog.cache_info().currsize == 2
+from pytrove.device_tools.draw import _DEVICES
+from pytrove.enums import PlatformDevice
+ios = pytrove.get_device_catalog(PlatformDevice.IOS)
+android = pytrove.get_device_catalog(PlatformDevice.ANDROID)
+assert not any("_data" in c.__dict__ for c in _DEVICES.values())
+pytrove.random_device(PlatformDevice.IOS, unique_id="probe")
+assert "_data" in ios.__dict__ and "_data" not in android.__dict__
+android.oses()
+assert "_data" in android.__dict__
 """
 
 TODAY = date(2026, 1, 1)
@@ -39,10 +41,10 @@ def _write(directory: Path, platform: str, **data: Any) -> None:
 
 
 def _resolve(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, **data: Any) -> _Catalog:
-    """Resolve a catalog written to `tmp_path`, bypassing the cache of the bundled ones."""
+    """Resolve a catalog written to `tmp_path` instead of a bundled one."""
     monkeypatch.setattr(catalog, "DEVICE_CATALOGS_DIR", tmp_path)
     _write(tmp_path, "fake", **data)
-    return catalog._catalog.__wrapped__("fake")
+    return catalog._build_catalog("fake")
 
 
 # --- constants -------------------------------------------------------------
@@ -110,11 +112,14 @@ def test_load_refuses_another_schema(
         catalog._load("old")
 
 
-# --- _catalog --------------------------------------------------------------
+# --- _build_catalog --------------------------------------------------------
 
 
-def test_catalog_is_cached_per_platform() -> None:
-    assert catalog._catalog("ios") is catalog._catalog("ios")
+def test_build_catalog_builds_a_fresh_catalog_each_call() -> None:
+    first = catalog._build_catalog("ios")
+
+    assert first is not catalog._build_catalog("ios")
+    assert first == catalog._build_catalog("ios")
 
 
 def test_catalog_offers_explicit_versions_else_every_version(

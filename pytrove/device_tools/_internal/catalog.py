@@ -4,7 +4,6 @@ from __future__ import annotations as _annotations
 
 from dataclasses import dataclass, field
 from datetime import date
-from functools import cache
 from typing import Any, Final, cast
 
 from ...constants import DEVICE_CATALOGS_DIR
@@ -180,9 +179,8 @@ def _load(platform: str) -> dict[str, Any]:
     return data
 
 
-@cache
-def _catalog(platform: str) -> _Catalog:
-    """Load a platform's catalog on first use and resolve every weight once.
+def _build_catalog(platform: str) -> _Catalog:
+    """Load a platform's catalog and resolve every weight; `DeviceCatalog` keeps the result.
 
     A device runs its explicit version list, else every version of the OSes
     it reports, else every version. Within a group, newer devices take more of
@@ -298,7 +296,7 @@ __all__ = (
     "_Device",
     "_OsView",
     "_age_weight",
-    "_catalog",
+    "_build_catalog",
     "_load",
     "_HALF_LIFE_DAYS",
     "_MIN_WEIGHT",
