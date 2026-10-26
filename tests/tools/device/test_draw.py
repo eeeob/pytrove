@@ -51,6 +51,17 @@ def test_random_device_to_tuple_is_model_then_version() -> None:
     assert (model, version) == device.to_tuple()
 
 
+def test_random_device_to_dict_is_the_device_dict() -> None:
+    assert random_device(PlatformDevice.WEB, to_dict=True, unique_id="u") == (
+        random_device(PlatformDevice.WEB, unique_id="u").to_dict()
+    )
+
+
+def test_random_device_refuses_both_shapes() -> None:
+    with pytest.raises(TypeError, match="cannot both be True"):
+        random_device(to_tuple=True, to_dict=True)
+
+
 def test_random_device_pinning_an_os_draws_only_platforms_that_report_it() -> None:
     allowed = set(known_devices(PlatformDevice.DESKTOP, os="linux"))
 
@@ -64,6 +75,7 @@ def test_random_device_pinning_an_os_matches_the_family_draw() -> None:
     assert random_device(PlatformDevice.DESKTOP, unique_id="a", os="linux") == expected
     assert random_device(unique_id="a", os="linux") == expected
     assert random_device(to_tuple=True, unique_id="a", os="linux") == expected.to_tuple()
+    assert random_device(to_dict=True, unique_id="a", os="linux") == expected.to_dict()
 
 
 def test_random_device_refuses_an_os_no_platform_reports() -> None:
