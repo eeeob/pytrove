@@ -33,7 +33,7 @@ def platform(request: pytest.FixtureRequest) -> type[SystemInfo]:
 
 
 def test_random_device_only_returns_pairs_the_catalog_allows(platform: type[SystemInfo]) -> None:
-    allowed = {(d.model, v) for d in platform.catalog().devices for v in d.versions}
+    allowed = {(d.model, v) for d in platform._get_catalog().devices for v in d.versions}
 
     for _ in range(200):
         device = platform.random_device()
@@ -57,7 +57,7 @@ def test_random_device_without_an_id_varies(platform: type[SystemInfo]) -> None:
 @pytest.mark.parametrize("os", DESKTOP_OSES)
 def test_pinning_an_os_only_draws_that_os(os: str) -> None:
     allowed = {
-        (d.model, v) for d in DesktopDevice.catalog().by_os[os].devices for v in d.by_os[os][0]
+        (d.model, v) for d in DesktopDevice._get_catalog().by_os[os].devices for v in d.by_os[os][0]
     }
 
     for i in range(120):
@@ -114,7 +114,7 @@ def test_random_family_is_deterministic_with_a_unique_id() -> None:
 
 
 def test_find_device_matches_model_and_optional_version() -> None:
-    device = AndroidDevice.catalog().devices[0]
+    device = AndroidDevice._get_catalog().devices[0]
 
     assert AndroidDevice.find_device(device.model) is not None
     assert AndroidDevice.find_device(device.model, device.versions[0]) == DeviceInfo(
@@ -164,14 +164,14 @@ def test_devices_map_each_platform_to_its_family() -> None:
 
 
 def test_catalog_is_the_cached_platform_catalog(platform: type[SystemInfo]) -> None:
-    assert platform.catalog() is _catalog(platform.platform)
+    assert platform._get_catalog() is _catalog(platform.platform)
 
 
 def test_devices_lists_every_model_and_version_pair(platform: type[SystemInfo]) -> None:
     pairs = platform.devices()
 
     assert pairs == tuple(
-        DeviceInfo(d.model, v) for d in platform.catalog().devices for v in d.versions
+        DeviceInfo(d.model, v) for d in platform._get_catalog().devices for v in d.versions
     )
     assert all(isinstance(pair, DeviceInfo) for pair in pairs)
 

@@ -65,7 +65,7 @@ def test_lookups_refuse_an_unknown_platform(lister: Callable[..., object]) -> No
 
 
 def test_find_device_matches_the_family_lookup() -> None:
-    device = AndroidDevice.catalog().devices[0]
+    device = AndroidDevice._get_catalog().devices[0]
 
     assert find_device(PlatformDevice.ANDROID, device.model) == DeviceInfo(
         device.model, device.versions[0]

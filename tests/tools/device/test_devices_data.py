@@ -225,7 +225,7 @@ def test_every_web_draw_is_a_real_browser_release() -> None:
 
 
 def test_catalog_has_devices_and_versions(platform: type[SystemInfo]) -> None:
-    catalog = platform.catalog()
+    catalog = platform._get_catalog()
 
     assert catalog.devices
     assert platform.versions()
@@ -235,7 +235,7 @@ def test_catalog_has_devices_and_versions(platform: type[SystemInfo]) -> None:
 def test_every_device_version_is_a_known_platform_version(platform: type[SystemInfo]) -> None:
     known = {v["version"] for v in _load(platform.platform)["versions"]}
 
-    for device in platform.catalog().devices:
+    for device in platform._get_catalog().devices:
         unknown = set(device.versions) - known
         assert not unknown, f"{device.model} lists unknown versions {unknown}"
 
@@ -244,14 +244,14 @@ def test_a_device_only_offers_versions_of_an_os_it_reports() -> None:
     data = _load("desktop")
     os_of = {v["version"]: v["os"] for v in data["versions"]}
 
-    for device in DesktopDevice.catalog().devices:
+    for device in DesktopDevice._get_catalog().devices:
         assert device.oses
         for version in device.versions:
             assert os_of[version] in device.oses, (device.model, version)
 
 
 def test_weights_are_positive_and_aligned(platform: type[SystemInfo]) -> None:
-    catalog = platform.catalog()
+    catalog = platform._get_catalog()
 
     assert len(catalog.weights) == len(catalog.devices)
     assert all(w > 0 for w in catalog.weights)
@@ -262,7 +262,7 @@ def test_weights_are_positive_and_aligned(platform: type[SystemInfo]) -> None:
 
 
 def test_desktop_os_views_cover_every_device_and_version() -> None:
-    catalog = DesktopDevice.catalog()
+    catalog = DesktopDevice._get_catalog()
 
     assert set(catalog.oses) == set(DESKTOP_OSES)
     assert set(catalog.by_os) == set(DESKTOP_OSES)
@@ -279,7 +279,7 @@ def test_desktop_os_views_cover_every_device_and_version() -> None:
 
 
 def test_no_device_lists_a_version_twice(platform: type[SystemInfo]) -> None:
-    for device in platform.catalog().devices:
+    for device in platform._get_catalog().devices:
         assert _duplicates(device.versions) == []
 
 
@@ -317,7 +317,7 @@ def test_android_versions_are_sdk_levels_in_range() -> None:
 
 
 def test_android_device_sdk_ranges_are_contiguous() -> None:
-    for device in AndroidDevice.catalog().devices:
+    for device in AndroidDevice._get_catalog().devices:
         levels = sorted(int(v.split()[1]) for v in device.versions)
         assert levels == list(range(levels[0], levels[-1] + 1)), device.model
 
