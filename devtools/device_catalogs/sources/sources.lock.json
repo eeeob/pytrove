@@ -43,7 +43,7 @@
    "first_seen": "2026-10-13",
    "failing": {
     "state": "flaky",
-    "consecutive": 1,
+    "consecutive": 2,
     "since": "2026-10-26",
     "last_error": "HTTP 502"
    }
@@ -136,10 +136,10 @@
    "first_seen": "2026-10-13"
   },
   "play_catalog": {
-   "fingerprint": 54271,
+   "fingerprint": 54288,
    "http": {
-    "etag": "\"3037e4b33573a722eaaf14b4b4b7fb11\"",
-    "last_modified": "Sun, 25 Oct 2026 12:05:28 GMT"
+    "etag": "\"bb729114893df2fc217ab38b69730b8a\"",
+    "last_modified": "Mon, 26 Oct 2026 12:05:43 GMT"
    },
    "contract": "ok",
    "declaration": "b8fa63c3f3f0",
@@ -157,9 +157,9 @@
    "last_changed": "2026-10-26"
   },
   "xiaomi_latest": {
-   "fingerprint": 3659,
+   "fingerprint": 3664,
    "http": {
-    "etag": "\"9888c64a8988c50a79a0e95d8da4f550960ff38c831fead868793b1e321659ab\""
+    "etag": "\"4344260d353ccb671fc55bb6a34893397d98639c5d5a811f6f40f66e56789f4c\""
    },
    "contract": "ok",
    "declaration": "2c98d014106e",
@@ -187,7 +187,13 @@
    "contract": "ok",
    "declaration": "1128ccee612e",
    "first_seen": "2026-10-14",
-   "last_changed": "2026-10-26"
+   "last_changed": "2026-10-26",
+   "failing": {
+    "state": "flaky",
+    "consecutive": 1,
+    "since": "2026-10-26",
+    "last_error": "HTTP 429"
+   }
   },
   "gecko_user_agent": {
    "sha256": "320c2e106d44dd86fe778a5fa3ffb67d2f18090149a6d2d54606cdb71bc9b6b4",
