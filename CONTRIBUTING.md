@@ -27,7 +27,7 @@ One cohesive change per branch, never on `main`, ending in a pull request (5.8).
 |---|---|---|
 | a public tool | a public module of its section's package, under 300 lines | 1.4, 3.1, 3.2 |
 | an enum, a type, a model, an exception | `enums`, `typings`, `models`, `errors`; never a tool file | 1.4 |
-| a constant more than one section reads, or one about the package itself | `constants`; a constant one module alone uses stays beside its use | 1.4, 4.3 |
+| a public constant (listed in an `__all__`) | the module of its kind in `constants`, under a name that says what it is; a private constant stays beside its use | 1.4, 4.3 |
 | a helper one section uses | that section's own `_internal.py` (or `_internal/` package) | 1.5 |
 | a helper two or more sections use | `pytrove/_internal/` | 1.5 |
 | an external dependency | an extra in `pyproject.toml`, guarded through `pytrove/_internal/_optional.py`; then `uv lock`, and `uv.lock` is committed with it | 2.1–2.4 |
@@ -99,7 +99,7 @@ from pytrove.constants import *  # all public constants
 
 **1.3 Compatibility.** The names in `__all__`, their signatures and their observable behaviour are the public interface. None is removed or changed in a breaking way without documenting the change, its impact and a migration path; gradual deprecation with a transition period is preferred whenever practical, and a break is never silent.
 
-**1.4 Sections by responsibility.** Code goes in the section its nature dictates: `enums`, `typings`, `models`, `errors`, `constants`, or the tools. Enum, type, model and error code never lives in a tool or helper file. `constants` holds the constants more than one section reads and the ones that describe the package itself, starting with where its bundled data lives; a constant one module alone uses stays in that module (4.3). The one exception is a tool-specific internal helper, placed by 1.5.
+**1.4 Sections by responsibility.** Code goes in the section its nature dictates: `enums`, `typings`, `models`, `errors`, `constants`, or the tools. Enum, type, model and error code never lives in a tool or helper file. Every public constant, one listed in an `__all__` and so importable by a user, lives in `constants`, grouped by kind in a module of its own (bundled-data paths, patterns, time zones, ...), under a name that says what it is (`TG_CHAT_LINK_PATTERN`, not `CHAT_LINK_PATTERN`); a private constant (`_NAME`) stays beside its use (4.3). The one exception is a tool-specific internal helper, placed by 1.5.
 
 **1.5 Internal helpers.** A helper shared by two or more sections lives in `pytrove/_internal/`, neither duplicated nor exported. A helper specific to one section lives in its own file inside that section's package (`_internal.py`, or an `_internal/` package), apart from the tool module even when that module is short; a section without a package gets one.
 
@@ -162,7 +162,7 @@ from .source import (
 
 **4.2 Deferred annotations.** Every module has `from __future__ import annotations as _annotations` right after its docstring. The `_annotations` alias stays even though nothing uses it: it marks the import as there for its side effect. Types imported under `TYPE_CHECKING` are therefore used unquoted, and a quoted annotation is prohibited (`I002`, `UP037`). Three exceptions: an aggregation `__init__.py` (1.9) omits the import; the target of `typing.cast` is a quoted string, as in `cast("Iterator[Leaf]", x)`, because `cast` evaluates its first argument at runtime, so a quoted target lets its names stay under `TYPE_CHECKING` (`TC006` enforces it; the casts exist mostly because `ty` cannot yet solve the recursive `NestedContainer`, astral-sh/ty#1703); and before 3.12 a self-referential alias defined by plain assignment may quote its own name, as in `NestedContainer: TypeAlias = Container["NestedContainer[_T]"] | _T`, because the right-hand side is evaluated at import and nothing else lets it refer to itself; on 3.12 and later the same alias is a PEP 695 `type` statement with no quotes.
 
-**4.3 Constants.** A module constant is `NAME: Final[T] = value`. A class constant is `NAME: ClassVar[T] = value`, upper-case with an explicit type, never `ClassVar[Final[T]]`. `__version__` takes no `Final`, because the build backend reads only the plain `__version__ = "..."` form. A class attribute meant to be overridden is a setting, not a constant: lower-case name, plain annotation.
+**4.3 Constants.** A module constant is `NAME: Final[T] = value`; a public one lives in `constants` (1.4). A class constant is `NAME: ClassVar[T] = value`, upper-case with an explicit type, never `ClassVar[Final[T]]`. `__version__` takes no `Final`, because the build backend reads only the plain `__version__ = "..."` form. A class attribute meant to be overridden is a setting, not a constant: lower-case name, plain annotation.
 
 **4.4 Omitted versus `None`.** When a parameter has to tell "not passed" from `None`, its default is the `object` class itself, not an instance of it. Check how the surrounding code already does this and reuse that pattern rather than introducing another.
 

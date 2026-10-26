@@ -1,12 +1,12 @@
-"""`pytrove.constants`: the bundled-data paths point at files that ship in the package."""
+"""`pytrove.constants.paths`: the bundled-data paths point at files that ship in the package."""
 
 from __future__ import annotations as _annotations
 
 from pathlib import Path
 
 import pytrove
-from pytrove import constants
-from pytrove.constants import DATA_DIR, DEVICE_CATALOGS_DIR, TG_ACCOUNT_POINTS_FILE
+from pytrove.constants import paths
+from pytrove.constants.paths import DATA_DIR, DEVICE_CATALOGS_DIR, TG_ACCOUNT_POINTS_FILE
 from pytrove.enums import PlatformDevice
 
 
@@ -28,4 +28,4 @@ def test_tg_account_points_file_ships_in_the_data_folder() -> None:
 
 
 def test_all_lists_exactly_the_paths() -> None:
-    assert constants.__all__ == ("DATA_DIR", "DEVICE_CATALOGS_DIR", "TG_ACCOUNT_POINTS_FILE")
+    assert paths.__all__ == ("DATA_DIR", "DEVICE_CATALOGS_DIR", "TG_ACCOUNT_POINTS_FILE")

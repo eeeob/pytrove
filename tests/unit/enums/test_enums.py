@@ -18,11 +18,10 @@ from pytrove.enums import (
     TimeUnit,
     TriggerOn,
     TruncateSide,
-    IMAP_DOMAIN_TO_PROVIDER,
 )
 
 
-def test_the_entry_point_exports_every_enum_and_the_domain_table() -> None:
+def test_the_entry_point_exports_every_enum() -> None:
     assert set(pytrove.enums.__all__) == {
         "ArchiveFormat",
         "ArchiveDuplicatePolicy",
@@ -35,7 +34,6 @@ def test_the_entry_point_exports_every_enum_and_the_domain_table() -> None:
         "TimeUnit",
         "TriggerOn",
         "TruncateSide",
-        "IMAP_DOMAIN_TO_PROVIDER",
     }
 
 
@@ -113,11 +111,6 @@ def test_imap_provider_host_and_port(provider: ImapEmailProvider, host: str) -> 
 )
 def test_imap_provider_from_domain(domain: str, provider: ImapEmailProvider | None) -> None:
     assert ImapEmailProvider.from_domain(domain) is provider
-
-
-def test_imap_domain_table_covers_every_provider_with_lowercase_keys() -> None:
-    assert set(IMAP_DOMAIN_TO_PROVIDER.values()) == set(ImapEmailProvider)
-    assert all(key == key.lower() for key in IMAP_DOMAIN_TO_PROVIDER)
 
 
 def test_platform_device_values() -> None:

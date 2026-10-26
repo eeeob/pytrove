@@ -3,16 +3,14 @@
 from __future__ import annotations as _annotations
 
 import time
-from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Final, overload
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, overload
 
+from .constants import TZ_UTC_PLUS_3
 from .enums import TimeUnit
 
 if TYPE_CHECKING:
     from .typings import Number, _False, _True
-
-UTC_PLUS_3: Final[timezone] = timezone(timedelta(seconds=TimeUnit.HOUR * 3))
-"""A fixed UTC+3 offset, independent of the machine's local zone."""
 
 
 @overload
@@ -132,7 +130,7 @@ def date_utc_3(as_str: bool = False, with_tzinfo: bool = False) -> datetime | st
     Returns:
         The current date in UTC+3, or its string form.
     """
-    return stamp_to_date(time.time(), UTC_PLUS_3, as_str, with_tzinfo)
+    return stamp_to_date(time.time(), TZ_UTC_PLUS_3, as_str, with_tzinfo)
 
 
 @overload
@@ -224,5 +222,4 @@ __all__ = (
     "time_utc_3",
     "time_utc",
     "arabic_time",
-    "UTC_PLUS_3",
 )

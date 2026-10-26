@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast, overload
 
-from .date_tools import UTC_PLUS_3
+from .constants import TZ_UTC_PLUS_3
 from .iter_tools import iter_flat_cont
 
 if TYPE_CHECKING:
@@ -33,7 +33,7 @@ class UTC3LogFormatter(logging.Formatter):
             The time tuple in UTC+3.
         """
         stamp = time.time() if stamp is None else stamp
-        return datetime.fromtimestamp(stamp, tz=UTC_PLUS_3).timetuple()
+        return datetime.fromtimestamp(stamp, tz=TZ_UTC_PLUS_3).timetuple()
 
     # `Formatter.converter` is a writable attribute, so it is overridden as one, not as a method.
     converter: Callable[[float | None], time.struct_time] = _to_utc3

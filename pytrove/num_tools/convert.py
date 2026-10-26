@@ -4,17 +4,15 @@ from __future__ import annotations as _annotations
 
 import ast
 import logging
-from typing import TYPE_CHECKING, Any, Final, overload
+from typing import TYPE_CHECKING, Any, overload
 
+from ..constants import CALC_EXPRESSION_CHARS
 from ..data_tools import map_deep
 from ..text_tools import clean_spaces
 from ._internal import _eval_calc_ast
 
 if TYPE_CHECKING:
     from ..typings import NestedContainer, StrInt, _False, _T, _True
-
-CALC_ALLOWED_CHARS: Final[frozenset[str]] = frozenset("0123456789*/-+.")
-"""The only characters `calc` will evaluate; whitespace is removed first."""
 
 log = logging.getLogger(__name__)
 
@@ -84,7 +82,7 @@ def calc(value: _T, as_int: bool = False) -> _T: ...
 def calc(value: Any, as_int: bool = False) -> Any:
     """Evaluate a string of simple arithmetic (`+ - * /`) safely, or read a plain number.
 
-    Only `CALC_ALLOWED_CHARS` are evaluated, through an allow-listed syntax
+    Only `CALC_EXPRESSION_CHARS` are evaluated, through an allow-listed syntax
     tree, never `eval`. A failed evaluation is logged and the text returned.
 
     Args:
@@ -112,7 +110,7 @@ def calc(value: Any, as_int: bool = False) -> Any:
     if isinstance(result, str):
         text = clean_spaces(result)
 
-        if all(i in CALC_ALLOWED_CHARS for i in text):
+        if all(i in CALC_EXPRESSION_CHARS for i in text):
             try:
                 result = _eval_calc_ast(ast.parse(text, mode="eval"))
             except Exception as e:
@@ -128,5 +126,4 @@ __all__ = (
     "to_int",
     "to_int_deep",
     "calc",
-    "CALC_ALLOWED_CHARS",
 )

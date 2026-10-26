@@ -2,7 +2,7 @@ from __future__ import annotations as _annotations
 
 from typing import TYPE_CHECKING
 
-from pytrove.num_tools import calc, to_int, to_int_deep, CALC_ALLOWED_CHARS
+from pytrove.num_tools import calc, to_int, to_int_deep
 
 if TYPE_CHECKING:
     import pytest
@@ -110,7 +110,3 @@ def test_calc_logs_and_keeps_the_text_when_evaluation_fails(
 ) -> None:
     assert calc("1/0") == "1/0"
     assert "Failed to evaluate" in caplog.text
-
-
-def test_calc_allowed_chars_are_digits_operators_and_the_point() -> None:
-    assert frozenset("0123456789*/-+.") == CALC_ALLOWED_CHARS

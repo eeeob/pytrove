@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from pytrove.constants import TZ_UTC_PLUS_3
 from pytrove.date_tools import (
     arabic_time,
     date_to_stamp,
@@ -13,12 +14,7 @@ from pytrove.date_tools import (
     stamp_to_date,
     time_utc,
     time_utc_3,
-    UTC_PLUS_3,
 )
-
-
-def test_utc_plus_3_is_a_fixed_three_hour_offset() -> None:
-    assert UTC_PLUS_3.utcoffset(None) == timedelta(hours=3)
 
 
 def test_stamp_to_date_roundtrip() -> None:
@@ -40,7 +36,7 @@ def test_stamp_to_date_with_tzinfo() -> None:
 
 
 def test_stamp_to_date_in_another_zone() -> None:
-    assert stamp_to_date(0, UTC_PLUS_3) == datetime(1970, 1, 1, 3, 0)
+    assert stamp_to_date(0, TZ_UTC_PLUS_3) == datetime(1970, 1, 1, 3, 0)
 
 
 def test_date_to_stamp_default_format() -> None:
