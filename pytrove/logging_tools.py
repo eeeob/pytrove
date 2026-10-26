@@ -163,12 +163,14 @@ def set_loggers(
     return loggers[0] if len(loggers) == 1 else loggers
 
 
-def get_rotating_log_files(handler: RotatingFileHandler, with_base: bool = True) -> Iterator[Path]:
+def get_rotating_log_files(
+    handler: RotatingFileHandler, include_base: bool = True
+) -> Iterator[Path]:
     """List a rotating handler's files, oldest backup first.
 
     Args:
         handler: The handler.
-        with_base: Whether to end with the current file.
+        include_base: Whether to end with the current file.
 
     Yields:
         `<file>.N` down to `<file>.1`, then the file itself.
@@ -178,7 +180,7 @@ def get_rotating_log_files(handler: RotatingFileHandler, with_base: bool = True)
     for i in range(handler.backupCount, 0, -1):
         yield base.with_name(f"{base.name}.{i}")
 
-    if with_base:
+    if include_base:
         yield base
 
 

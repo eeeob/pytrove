@@ -131,12 +131,12 @@ class BaseDataClass:
         self.__class__._ensure_field_meta()
 
     def to_raw_dict(
-        self, without_none_values: bool = False, enums_to_values: bool = False
+        self, exclude_none: bool = False, enums_to_values: bool = False
     ) -> dict[str, Any]:
         """Return the fields under their raw names, as `dataclasses.asdict()` does.
 
         Args:
-            without_none_values: Drop `None` values.
+            exclude_none: Drop `None` values.
             enums_to_values: Replace enum members with their values.
 
         Returns:
@@ -144,20 +144,18 @@ class BaseDataClass:
         """
         dct = asdict(self)
 
-        if without_none_values:
+        if exclude_none:
             dct = clean_none_values(dct)
         if enums_to_values:
             dct = enum_to_value(dct)
 
         return dct
 
-    def to_dict(
-        self, without_none_values: bool = False, enums_to_values: bool = False
-    ) -> dict[str, Any]:
+    def to_dict(self, exclude_none: bool = False, enums_to_values: bool = False) -> dict[str, Any]:
         """Return the fields under their public names.
 
         Args:
-            without_none_values: Drop `None` values.
+            exclude_none: Drop `None` values.
             enums_to_values: Replace enum members with their values.
 
         Returns:
@@ -169,7 +167,7 @@ class BaseDataClass:
             name: getattr(self, name) for name in self.__class__.__private_field_names__
         }
 
-        if without_none_values:
+        if exclude_none:
             dct = clean_none_values(dct)
         if enums_to_values:
             dct = enum_to_value(dct)
@@ -180,14 +178,14 @@ class BaseDataClass:
     def from_raw_dict(
         cls,
         data: Mapping[str, Any],
-        without_none_values: bool = False,
+        exclude_none: bool = False,
         values_to_enums: bool = False,
     ) -> Self:
         """Build an instance from fields under their raw names; unknown keys are ignored.
 
         Args:
             data: The fields, private ones with their leading underscore.
-            without_none_values: Drop `None` values first, so their fields take their defaults.
+            exclude_none: Drop `None` values first, so their fields take their defaults.
             values_to_enums: Turn raw values back into the enum members the annotations name.
 
         Returns:
@@ -199,7 +197,7 @@ class BaseDataClass:
         public = cls.__public_field_names__
         kept: Mapping[str, Any] = {k: v for k, v in data.items() if k in private or k in public}
 
-        if without_none_values:
+        if exclude_none:
             kept = clean_none_values(kept)
 
         if values_to_enums and cls.__enums_types__:
@@ -211,14 +209,14 @@ class BaseDataClass:
     def from_dict(
         cls,
         data: Mapping[str, Any],
-        without_none_values: bool = False,
+        exclude_none: bool = False,
         values_to_enums: bool = False,
     ) -> Self:
         """Build an instance from fields under their public names; unknown keys are ignored.
 
         Args:
             data: The fields, private ones without their leading underscore.
-            without_none_values: Drop `None` values first, so their fields take their defaults.
+            exclude_none: Drop `None` values first, so their fields take their defaults.
             values_to_enums: Turn raw values back into the enum members the annotations name.
 
         Returns:
@@ -234,7 +232,7 @@ class BaseDataClass:
             if k in private or k in public
         }
 
-        return cls.from_raw_dict(raw, without_none_values, values_to_enums)
+        return cls.from_raw_dict(raw, exclude_none, values_to_enums)
 
     def copy(self) -> Self:
         """Return a deep copy, rebuilt through `to_raw_dict()`.

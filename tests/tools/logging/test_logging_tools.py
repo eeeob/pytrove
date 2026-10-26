@@ -111,7 +111,7 @@ def test_rotating_files_oldest_first(tmp_path: Path) -> None:
     try:
         names = [p.name for p in get_rotating_log_files(handler)]
         assert names == ["app.log.2", "app.log.1", "app.log"]
-        assert [p.name for p in get_rotating_log_files(handler, with_base=False)] == [
+        assert [p.name for p in get_rotating_log_files(handler, include_base=False)] == [
             "app.log.2",
             "app.log.1",
         ]

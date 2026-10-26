@@ -21,7 +21,7 @@ def test_stamp_to_date_roundtrip() -> None:
     stamp = 1700000000
     date = stamp_to_date(stamp)
     assert isinstance(date, datetime)
-    assert date.tzinfo is None  # `with_tzinfo` defaults to `False`
+    assert date.tzinfo is None  # `keep_tzinfo` defaults to `False`
 
 
 def test_stamp_to_date_as_str() -> None:
@@ -30,8 +30,8 @@ def test_stamp_to_date_as_str() -> None:
     assert isinstance(date_str, str)
 
 
-def test_stamp_to_date_with_tzinfo() -> None:
-    date = stamp_to_date(1700000000, with_tzinfo=True)
+def test_stamp_to_date_keep_tzinfo() -> None:
+    date = stamp_to_date(1700000000, keep_tzinfo=True)
     assert date.tzinfo is not None
 
 
@@ -68,18 +68,18 @@ def test_date_utc_returns_naive_datetime_by_default() -> None:
 
 
 def test_date_utc_keeps_the_zone_when_asked() -> None:
-    assert date_utc(with_tzinfo=True).tzinfo is timezone.utc
+    assert date_utc(keep_tzinfo=True).tzinfo is timezone.utc
     assert isinstance(date_utc(as_str=True), str)
 
 
 def test_date_utc_3_is_labelled_three_hours_ahead() -> None:
-    value = date_utc_3(with_tzinfo=True)
+    value = date_utc_3(keep_tzinfo=True)
 
     assert value.utcoffset() == timedelta(hours=3)
 
 
 def test_date_utc_3_variants() -> None:
-    aware = date_utc_3(with_tzinfo=True)
+    aware = date_utc_3(keep_tzinfo=True)
     assert aware.utcoffset() == timedelta(hours=3)
     assert isinstance(date_utc_3(as_str=True), str)
     assert date_utc_3().tzinfo is None
