@@ -54,7 +54,7 @@ class DmiHarvest:
     RECORDS_FILE: ClassVar[str] = "dmi_records.json"
     CLONE_DIR: ClassVar[str] = "dmi-repo"
 
-    #: linuxhw/DMI vendor folder -> the group weighted in _devices.GROUP_SHARES.
+    #: linuxhw/DMI vendor folder -> the group weighted in `pytrove/device_tools/_internal/catalog.py::GROUP_SHARES`.
     #: A folder absent from here is skipped entirely.
     VENDORS: ClassVar[dict[str, str]] = {
         "Lenovo": "Lenovo",

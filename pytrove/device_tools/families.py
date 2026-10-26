@@ -1,15 +1,12 @@
-"""The device families `rand_tg_device` draws from; sampling policy is code, facts are data."""
+"""The per-platform device families `random_device` draws from; sampling policy is code, facts are data."""
 
 from __future__ import annotations as _annotations
 
-import hashlib
-import os as _os
-import random
 from typing import TYPE_CHECKING, Any, ClassVar, Final
 
-from ...enums import PlatformDevice
-from ...models.device_models import DeviceInfo
-from .catalog import _catalog, _Catalog, _Device, OS_SHARES
+from ..enums import PlatformDevice
+from ..models.device_models import DeviceInfo
+from ._internal import _catalog, _Catalog, _Device, _rng, OS_SHARES
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -21,6 +18,7 @@ class SystemInfo:
     `random_device` draws a device and then an OS version it really runs,
     weighted towards current hardware and releases. A multi-OS platform draws
     the OS first, by `OS_SHARES`. A `unique_id` makes the draw reproducible.
+    Subclass it with a `platform` that names a bundled catalog.
     """
 
     platform: ClassVar[str]
@@ -44,6 +42,12 @@ class SystemInfo:
 
         Returns:
             The OSes; empty for a single-OS platform.
+
+        Example:
+            >>> DesktopDevice.oses()
+            ('windows', 'linux')
+            >>> AndroidDevice.oses()
+            ()
         """
         return cls.catalog().oses
 
@@ -213,27 +217,6 @@ _DEVICES: Final[dict[PlatformDevice, type[SystemInfo]]] = {
 """The family for each platform. Defined after the classes it holds."""
 
 
-def _rng(unique_id: Any = None) -> random.Random:
-    """Build a generator seeded from `unique_id`, or from system entropy.
-
-    Args:
-        unique_id: Any value; the same value always gives the same stream.
-
-    Returns:
-        The generator.
-    """
-    if unique_id is None:
-        return random.Random(_os.urandom(32))
-
-    if not isinstance(unique_id, (str, bytes, bytearray)):
-        unique_id = str(unique_id)
-
-    if isinstance(unique_id, str):
-        unique_id = unique_id.encode("utf-8")
-
-    return random.Random(int(hashlib.sha256(unique_id).hexdigest(), 16))
-
-
 def random_family(families: Iterable[type[SystemInfo]], unique_id: Any = None) -> type[SystemInfo]:
     """Pick a platform, weighted by `platform_weight`.
 
@@ -243,6 +226,10 @@ def random_family(families: Iterable[type[SystemInfo]], unique_id: Any = None) -
 
     Returns:
         The family.
+
+    Example:
+        >>> random_family([iOSDevice]) is iOSDevice
+        True
     """
     families = tuple(families)
     return _rng(unique_id).choices(families, weights=[f.platform_weight for f in families], k=1)[0]
@@ -254,7 +241,5 @@ __all__ = (
     "SystemInfo",
     "WebDevice",
     "iOSDevice",
-    "_rng",
     "random_family",
-    "_DEVICES",
 )

@@ -14,7 +14,7 @@ import pytest
 
 from pytrove.constants import DEVICE_CATALOGS_DIR
 from pytrove.device_tools._internal.catalog import _load, _SCHEMA, GROUP_SHARES
-from pytrove.device_tools._internal.families import (
+from pytrove.device_tools.families import (
     AndroidDevice,
     DesktopDevice,
     SystemInfo,

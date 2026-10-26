@@ -232,7 +232,7 @@ a weight, a ceiling, a hand-estimated share.
 id = "glibc_versions"
 url = "https://example.org/glibc.json"
 value = 43                           # what the decision currently assumes
-used_by = "pytrove/tg_tools/_internal/catalog.py :: LIBC"
+used_by = "pytrove/device_tools/_internal/catalog.py :: LIBC"
 decision = """
 Why this value, and what changing it would mean."""
 
@@ -316,7 +316,7 @@ or `gone`; the last two are fatal, `flaky` is transient, the rest are clear.
 ```sh
 pytest tests/devtools/preflight/test_preflight.py          # the machinery and the folder contract
 pytest tests/devtools/device_catalogs/test_device_catalogs.py    # the catalogs tool's own logic
-pytest tests/tools/tg/test_devices_data.py       # the generated data, against its sources
+pytest tests/tools/device/test_devices_data.py   # the generated data, against its sources
 ```
 
 `tests/devtools/preflight/test_preflight.py` also guards the structure itself: the layering above,

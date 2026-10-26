@@ -267,7 +267,7 @@ on_removal = """
 The newest shipped Android release per Xiaomi device -- the only dating signal
 for Xiaomi, Redmi and POCO, since endoflife.date tracks no Chinese brand. About
 235 devices leave the catalog, and GROUP_SHARES xiaomi / redmi / poco in
-pytrove/tg_tools/_internal/catalog.py become dead weights."""
+pytrove/device_tools/_internal/catalog.py become dead weights."""
 notes = """
 Read by a hand-written YAML reader rather than PyYAML, which is why the
 contract counts entries instead of trusting a parse: a layout change upstream

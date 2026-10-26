@@ -11,7 +11,7 @@ pytrove/data/devices/web.json
 
 Those four files are the **only** thing it writes, which is the point: the data
 goes stale constantly — new phones, new OS releases, new browsers — and none of
-the library code has to change when it does. `pytrove/tg_tools/_internal/catalog.py` reads them
+the library code has to change when it does. `pytrove/device_tools/_internal/catalog.py` reads them
 and samples from them; see [the sampling split](#sampling-is-code-facts-are-data).
 
 > Read `src/__init__.py` first. It lists every module and every source, and it
@@ -70,7 +70,7 @@ one place and never a search through a function body.
 | `cli.py`      | which builders exist, and the argument parsing                  |
 
 `libbase.py` imports nothing from the package on purpose, so
-`tests/tools/tg/test_devices_data.py` can load it alone and feed the shipped data back
+`tests/tools/device/test_devices_data.py` can load it alone and feed the shipped data back
 through the client's own rules.
 
 A new platform is a `Builder` subclass with a `key`, a `platform` and a
@@ -92,7 +92,7 @@ several — desktop, where the same PC reports Windows or Linux — fills an `os
 block instead, with those keys per OS, because the formats and caveats are
 genuinely different and flattening them would lose that.
 
-`shared.SCHEMA` is 1 and must equal `pytrove/tg_tools/_internal/catalog.py::_SCHEMA`. Bump both
+`shared.SCHEMA` is 1 and must equal `pytrove/device_tools/_internal/catalog.py::_SCHEMA`. Bump both
 together, and only when the JSON layout itself changes.
 
 ---
@@ -121,7 +121,7 @@ Two consequences worth knowing before editing anything:
   Google's `Retail Branding + Marketing Name`, which is exactly this catalog's
   `brand` + `name`, and the version mapping is `AndroidBuilder.API_LEVELS` — so
   the server independently confirms both. Every code must still resolve to a
-  real device; `tests/tools/tg/test_devices_data.py` checks that against the cached Play
+  real device; `tests/tools/device/test_devices_data.py` checks that against the cached Play
   catalog when it is present.
 - **Three identity fields are not ours to generate.** `platform`, `app_name` and
   `official_app` are read by the server from the `api_id`'s registration and
@@ -215,7 +215,7 @@ the pool. Delete `dmi_records.json` by hand when you want it rebuilt.
 
 ## Sampling is code, facts are data
 
-The catalogs state what exists; `pytrove/tg_tools/_internal/catalog.py` decides how often each
+The catalogs state what exists; `pytrove/device_tools/_internal/catalog.py` decides how often each
 thing is drawn. Keep that line:
 
 - `_HALF_LIFE_DAYS` weights devices and versions by recency.
@@ -232,7 +232,7 @@ thing is drawn. Keep that line:
   while staying weighted — never modulo-indexed.
 
 Every group named in the data needs an explicit share, and
-`tests/tools/tg/test_devices_data.py` fails if one is missing.
+`tests/tools/device/test_devices_data.py` fails if one is missing.
 
 ---
 
@@ -257,11 +257,11 @@ stale.
 ## Tests
 
 ```sh
-pytest tests/tools/tg/test_devices_data.py      # the shipped data, against its sources
+pytest tests/tools/device/test_devices_data.py  # the shipped data, against its sources
 pytest tests/devtools/device_catalogs/test_device_catalogs.py   # this tool's own logic
 ```
 
-`tests/tools/tg/test_devices_data.py` is the one to read before changing a format. It
+`tests/tools/device/test_devices_data.py` is the one to read before changing a format. It
 asserts the string shapes per OS, the `os` tagging, that no device lists an
 unknown version or a version of an OS it does not report, that pinning an OS
 only draws that OS, that the realised OS mix matches `OS_SHARES`, and that

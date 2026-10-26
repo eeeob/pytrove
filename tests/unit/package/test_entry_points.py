@@ -8,7 +8,9 @@ from pathlib import Path
 import pytest
 
 import pytrove
+import pytrove.device_tools
 import pytrove.object_tools
+import pytrove.tg_tools
 import pytrove.constants
 import pytrove.enums
 import pytrove.errors
@@ -66,7 +68,15 @@ def test_tools_entry_point_holds_no_type_error_model_enum_or_constant() -> None:
 
 
 @pytest.mark.parametrize(
-    "package", [pytrove, pytrove.object_tools, pytrove.models, pytrove.typings]
+    "package",
+    [
+        pytrove,
+        pytrove.device_tools,
+        pytrove.object_tools,
+        pytrove.tg_tools,
+        pytrove.models,
+        pytrove.typings,
+    ],
 )
 def test_an_aggregator_is_the_union_of_its_modules(package: object) -> None:
     root = Path(package.__file__).parent

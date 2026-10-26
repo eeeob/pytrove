@@ -16,10 +16,13 @@ if TYPE_CHECKING:
 
 LAZY_PROBE = """
 import pytrove
+import pytrove.enums
 from pytrove.device_tools._internal import catalog
 assert catalog._catalog.cache_info().currsize == 0
-pytrove.rand_tg_device(unique_id="probe")
+pytrove.random_device(pytrove.enums.PlatformDevice.IOS, unique_id="probe")
 assert catalog._catalog.cache_info().currsize == 1
+pytrove.device_oses(pytrove.enums.PlatformDevice.ANDROID)
+assert catalog._catalog.cache_info().currsize == 2
 """
 
 TODAY = date(2026, 1, 1)
