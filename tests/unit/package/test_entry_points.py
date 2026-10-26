@@ -74,6 +74,7 @@ def test_tools_entry_point_holds_no_type_error_model_enum_or_constant() -> None:
         pytrove.device_tools,
         pytrove.object_tools,
         pytrove.tg_tools,
+        pytrove.constants,
         pytrove.models,
         pytrove.typings,
     ],

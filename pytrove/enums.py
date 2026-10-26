@@ -4,7 +4,7 @@ from __future__ import annotations as _annotations
 
 import sys
 from enum import Enum, IntEnum, auto
-from typing import Any, Final
+from typing import Any
 
 if sys.version_info >= (3, 11):
     from enum import StrEnum
@@ -178,6 +178,8 @@ class ImapEmailProvider(Enum):
         Returns:
             The provider, or `None` when the domain is not a known one.
         """
+        from .constants import IMAP_DOMAIN_TO_PROVIDER  # noqa: PLC0415  # `constants` imports `enums`: circular at the top.
+
         return IMAP_DOMAIN_TO_PROVIDER.get(domain.lower())
 
 
@@ -219,17 +221,6 @@ class TimeUnit(IntEnum):
     """Twelve 30-day months (360 days), not a calendar year."""
 
 
-IMAP_DOMAIN_TO_PROVIDER: Final[dict[str, ImapEmailProvider]] = {
-    "gmail.com": ImapEmailProvider.GMAIL,
-    "outlook.com": ImapEmailProvider.OUTLOOK,
-    "hotmail.com": ImapEmailProvider.OUTLOOK,
-    "live.com": ImapEmailProvider.OUTLOOK,
-    "yahoo.com": ImapEmailProvider.YAHOO,
-    "zoho.com": ImapEmailProvider.ZOHO,
-}
-"""Lowercase email domain -> its IMAP provider. Defined after the enum because it holds its members."""
-
-
 __all__ = (
     "ArchiveFormat",
     "ArchiveDuplicatePolicy",
@@ -242,5 +233,4 @@ __all__ = (
     "TimeUnit",
     "TriggerOn",
     "TruncateSide",
-    "IMAP_DOMAIN_TO_PROVIDER",
 )

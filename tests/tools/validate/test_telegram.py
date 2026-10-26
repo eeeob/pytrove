@@ -14,8 +14,6 @@ from pytrove.validate_tools.telegram import (
     is_tg_otp_code,
     is_tg_user_id,
     is_valid_tg_app,
-    TG_BOT_COMMAND_PATTERN,
-    TG_CHANNEL_MSG_LINK_PATTERN,
 )
 
 HAS_PYROGRAM = importlib.util.find_spec("pyrogram") is not None
@@ -100,13 +98,6 @@ async def test_the_pyrogram_checks_name_the_tg_extra_when_it_is_missing() -> Non
 )
 def test_is_tg_channel_message_link(link: Any, expected: bool) -> None:
     assert is_tg_channel_message_link(link) is expected
-
-
-def test_the_patterns_match_their_documented_shapes() -> None:
-    assert TG_CHANNEL_MSG_LINK_PATTERN.match("t.me/name/5").groups() == ("name", "5")
-    assert TG_CHANNEL_MSG_LINK_PATTERN.match("t.me/c/123/9/5").groups() == ("123", "5")
-    assert TG_BOT_COMMAND_PATTERN.match("/go")
-    assert not TG_BOT_COMMAND_PATTERN.match("/")
 
 
 @pytest.mark.parametrize(

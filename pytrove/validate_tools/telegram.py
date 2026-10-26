@@ -3,7 +3,6 @@
 from __future__ import annotations as _annotations
 
 import logging
-import re
 import sys
 from typing import TYPE_CHECKING, Any, Final, overload
 
@@ -21,17 +20,10 @@ except ImportError:
     pass
 
 from .._internal import _optional_import
+from ..constants import TG_BOT_COMMAND_PATTERN, TG_CHANNEL_MESSAGE_LINK_PATTERN
 
 if TYPE_CHECKING:
     from ..typings import StrInt, _False, _True
-
-TG_CHANNEL_MSG_LINK_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:c/)?)([\w]+)(?:/\d+)*/(\d+)/?$"
-)
-"""A link to a message in a channel, public (`t.me/name/5`) or private (`t.me/c/123/5`)."""
-
-TG_BOT_COMMAND_PATTERN: Final[re.Pattern[str]] = re.compile(r"^/[A-Za-z][\w\d]*$")
-"""A bot command: a slash, a letter, then letters, digits or underscores."""
 
 _OTP_LENGTH: Final[int] = 5
 """Digits in a Telegram login code."""
@@ -114,7 +106,7 @@ def is_tg_channel_message_link(message_link: Any) -> TypeIs[str]:
         message_link: The value to test.
 
     Returns:
-        Whether it is a string matching `TG_CHANNEL_MSG_LINK_PATTERN`.
+        Whether it is a string matching `TG_CHANNEL_MESSAGE_LINK_PATTERN`.
 
     Example:
         >>> is_tg_channel_message_link("https://t.me/durov/5")
@@ -125,7 +117,7 @@ def is_tg_channel_message_link(message_link: Any) -> TypeIs[str]:
         False
     """
     return isinstance(message_link, str) and bool(
-        TG_CHANNEL_MSG_LINK_PATTERN.match(message_link.lower())
+        TG_CHANNEL_MESSAGE_LINK_PATTERN.match(message_link.lower())
     )
 
 
@@ -214,6 +206,4 @@ __all__ = (
     "is_tg_channel_message_link",
     "is_tg_otp_code",
     "is_valid_tg_app",
-    "TG_CHANNEL_MSG_LINK_PATTERN",
-    "TG_BOT_COMMAND_PATTERN",
 )

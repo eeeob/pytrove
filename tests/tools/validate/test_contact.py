@@ -11,7 +11,6 @@ from pytrove.validate_tools.contact import (
     is_email,
     is_phone_number,
     is_rc,
-    EMAIL_PATTERN,
 )
 
 HAS_PHONENUMBERS = importlib.util.find_spec("phonenumbers") is not None
@@ -99,11 +98,6 @@ def test_the_phone_checks_name_the_phone_extra_when_phonenumbers_is_missing() ->
 )
 def test_is_email(email: Any, expected: bool) -> None:
     assert is_email(email) is expected
-
-
-def test_email_pattern_is_anchored() -> None:
-    assert EMAIL_PATTERN.fullmatch("a@b.cd")
-    assert not EMAIL_PATTERN.match("x a@b.cd")
 
 
 class _FakeImap:

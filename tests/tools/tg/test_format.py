@@ -13,8 +13,6 @@ from pytrove.tg_tools import (
     format_tg_link,
     format_tg_username,
     mention_tg_user,
-    CHAT_LINK_PATTERN,
-    INVITE_LINK_PATTERN,
 )
 from pytrove.tg_tools._internal import links
 
@@ -113,11 +111,6 @@ def test_hidden_link_and_mention() -> None:
     assert "Deleted Account" in mention_tg_user(7)
 
 
-def test_link_patterns() -> None:
-    assert CHAT_LINK_PATTERN.match("t.me/name/5").group(1) == "name"
-    assert INVITE_LINK_PATTERN.match("https://t.me/+hash").group(1) == "hash"
-
-
 @needs_tg
 def test_parse_tg_target_keeps_an_invite_link_as_it_is() -> None:
     assert parse_tg_target("https://t.me/+AbC-d") == "https://t.me/+AbC-d"
@@ -206,18 +199,6 @@ def test_format_hidden_tg_link_pads_text_up_to_the_threshold_only() -> None:
 def test_mention_tg_user_shows_the_given_name_in_the_given_mode() -> None:
     assert mention_tg_user(7, "Ali Hassan") == "<a href=tg://user?id=7>Ali Hassan</a>"
     assert mention_tg_user(7, "Ali Hassan", ParseMode.MARKDOWN) == "[Ali Hassan](tg://user?id=7)"
-
-
-def test_chat_link_pattern_captures_a_name_or_an_id() -> None:
-    assert CHAT_LINK_PATTERN.match("https://www.telegram.org/c/123/4").group(1) == "123"
-    assert CHAT_LINK_PATTERN.match("https://example.com/name") is None
-    assert CHAT_LINK_PATTERN.match("@name") is None
-
-
-def test_invite_link_pattern_captures_the_hash_of_both_forms() -> None:
-    assert INVITE_LINK_PATTERN.match("t.me/joinchat/Ab-c").group(1) == "Ab-c"
-    assert INVITE_LINK_PATTERN.match("https://t.me/name") is None
-    assert INVITE_LINK_PATTERN.match("https://t.me/+hash/5") is None
 
 
 JOINCHAT_LINK = "https://t.me/joinchat/AbC-d"

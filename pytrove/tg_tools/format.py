@@ -3,7 +3,7 @@
 from __future__ import annotations as _annotations
 
 import re
-from typing import TYPE_CHECKING, Any, Final, overload
+from typing import TYPE_CHECKING, Any, overload
 
 try:
     from pyrogram.enums import ParseMode  # type: ignore[import-not-found]  # Optional: the `tg` extra.
@@ -14,6 +14,7 @@ except ImportError:
     pass
 
 from .._internal import _optional_import
+from ..constants import TG_CHAT_LINK_PATTERN, TG_INVITE_LINK_PATTERN
 from ..errors import ValidationError
 from ..num_tools import to_int
 from ..text_tools import clean_spaces
@@ -22,16 +23,6 @@ from ._internal import _HIDDEN_PADDING, _PRIVATE_CHAT_LINK_PATTERN, _SHORT_LINK_
 
 if TYPE_CHECKING:
     from ..typings import StrInt, _T
-
-CHAT_LINK_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:c/)?)([\w]+)(?:.+)?$"
-)
-"""A `t.me` chat or message link; group 1 is the username or numeric id."""
-
-INVITE_LINK_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:joinchat/|\+))([\w-]+)$"
-)
-"""A `t.me/+hash` or `joinchat` invite link; group 1 is the hash (the same as Pyrogram's `Client.INVITE_LINK_RE`)."""
 
 
 @_optional_import(("kurigram", "tg"))
@@ -97,15 +88,15 @@ def format_tg_username(
     if not text:
         return default
 
-    # The invite pattern goes first: `CHAT_LINK_PATTERN` also matches a `joinchat/` link.
-    if INVITE_LINK_PATTERN.match(text.lower()):
+    # The invite pattern goes first: `TG_CHAT_LINK_PATTERN` also matches a `joinchat/` link.
+    if TG_INVITE_LINK_PATTERN.match(text.lower()):
         return text if with_invite_link else default
 
-    # A private channel has no username; `CHAT_LINK_PATTERN` would capture its id as one.
+    # A private channel has no username; `TG_CHAT_LINK_PATTERN` would capture its id as one.
     if _PRIVATE_CHAT_LINK_PATTERN.match(text):
         return default
 
-    match = CHAT_LINK_PATTERN.match(text.lower())
+    match = TG_CHAT_LINK_PATTERN.match(text.lower())
     name = (match.group(1) if match else text.replace("@", "")).strip()
     return "@" + name if with_at else name
 
@@ -145,17 +136,17 @@ def format_tg_link(target: StrInt | Message | Chat | User, default: Any = None) 
     # Stripped first: the anchored patterns below would miss a padded link.
     text = str(key).strip()
 
-    # The invite pattern goes first: `CHAT_LINK_PATTERN` also matches a `joinchat/` link.
-    if INVITE_LINK_PATTERN.match(text):
+    # The invite pattern goes first: `TG_CHAT_LINK_PATTERN` also matches a `joinchat/` link.
+    if TG_INVITE_LINK_PATTERN.match(text):
         return text
 
-    # Before `CHAT_LINK_PATTERN` too: its capture of a `/c/` link is a channel id, not a user id.
+    # Before `TG_CHAT_LINK_PATTERN` too: its capture of a `/c/` link is a channel id, not a user id.
     private = _PRIVATE_CHAT_LINK_PATTERN.match(text)
 
     if private:
         return f"https://t.me/c/{private.group(1)}"
 
-    match = CHAT_LINK_PATTERN.match(text.lower())
+    match = TG_CHAT_LINK_PATTERN.match(text.lower())
     value = to_int((match.group(1) if match else text.replace("@", "")).strip())
 
     if not isinstance(value, int):
@@ -191,11 +182,11 @@ def parse_tg_target(target: StrInt) -> StrInt:
     if phone.isdigit():
         return int(phone)
 
-    # The invite pattern goes first: `CHAT_LINK_PATTERN` also matches a `joinchat/` link.
-    if INVITE_LINK_PATTERN.match(target):
+    # The invite pattern goes first: `TG_CHAT_LINK_PATTERN` also matches a `joinchat/` link.
+    if TG_INVITE_LINK_PATTERN.match(target):
         return target
 
-    match = CHAT_LINK_PATTERN.match(target.lower())
+    match = TG_CHAT_LINK_PATTERN.match(target.lower())
 
     if not match:
         return re.sub(r"[@+\s]", "", target.lower())
@@ -249,6 +240,4 @@ __all__ = (
     "parse_tg_target",
     "format_hidden_tg_link",
     "mention_tg_user",
-    "CHAT_LINK_PATTERN",
-    "INVITE_LINK_PATTERN",
 )
