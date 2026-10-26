@@ -173,6 +173,8 @@ def _checker_lookup(origin_type: Any, args: tuple[Any, ...], *_: Any) -> Callabl
                 exc.append_path_element(f"item {i}")
                 raise exc
 
+    # Caught before `validate_alias`: unwrapped, `NestedContainer[X]` reaches typeguard's own `Sequence`
+    # checker, which takes a `str` as a sequence and walks its characters, each a `str`, to `RecursionError`.
     if origin_type in _CONTAINER_ALIASES:
         return validate_container
 
@@ -184,6 +186,8 @@ def _checker_lookup(origin_type: Any, args: tuple[Any, ...], *_: Any) -> Callabl
     if isinstance(origin_type, type) and issubclass(origin_type, Enum):
         return validate_enum
 
+    # typeguard's own checkers come first and win for `list`, `tuple`, `set`, `dict`, `Sequence`, `Set` and
+    # `Mapping`, so this reaches only the container types it has none for, such as `deque` or `Iterator`.
     if (
         isinstance(origin_type, type)
         and issubclass(origin_type, _CONTAINER)
