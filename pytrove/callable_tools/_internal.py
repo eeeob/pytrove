@@ -1,10 +1,12 @@
-"""Helpers private to `callable_tools`: the protocols that spell decorator return types."""
+"""Helpers private to `callable_tools`: async detection and the protocols that spell decorator return types."""
 
 from __future__ import annotations as _annotations
 
-from collections.abc import Awaitable, Callable, Coroutine
+import inspect
+from collections.abc import Callable, Coroutine
 from typing import Any, Protocol, TypeAlias, TypeVar, overload
 
+from .._internal import _iter_unwrap_layers
 from ..typings import _False, _P, _T, _True, _VT
 
 _Coro: TypeAlias = Coroutine[Any, Any, _T]
@@ -36,16 +38,13 @@ class _WaitOnErrorDecorator(Protocol[_P, _ET_co]):
 
 
 class _AwaitOnErrorDecorator(Protocol[_P, _ET_co]):
-    """What `middleware(on_error=...)` returns for an async `on_error`."""
+    """What `middleware(on_error=...)` returns for an async `on_error`, which only an async function takes."""
 
-    @overload
     def __call__(self, func: Callable[_P, _Coro[_T]]) -> Callable[_P, _Coro[_T | _ET_co]]: ...
-    @overload
-    def __call__(self, func: Callable[_P, _T]) -> Callable[_P, _T | Awaitable[_ET_co]]: ...
 
 
 class _WaitAfterDecorator(Protocol[_P, _T_contra, _AT_co]):
-    """What `middleware(after=...)` returns for a sync `after`."""
+    """What `middleware(after=...)` returns when every hook is sync."""
 
     @overload
     def __call__(self, func: Callable[_P, _Coro[_T_contra]]) -> Callable[_P, _Coro[_AT_co]]: ...
@@ -53,13 +52,19 @@ class _WaitAfterDecorator(Protocol[_P, _T_contra, _AT_co]):
     def __call__(self, func: Callable[_P, _T_contra]) -> Callable[_P, _AT_co]: ...
 
 
-class _AwaitAfterDecorator(Protocol[_P, _T, _AT_co]):
-    """What `middleware(after=...)` returns for an async `after`."""
+class _AwaitAfterDecorator(Protocol[_P, _T_contra, _AT_co]):
+    """What `middleware(after=...)` returns when `after` or `on_error` is async, which only an async function takes."""
+
+    def __call__(self, func: Callable[_P, _Coro[_T_contra]]) -> Callable[_P, _Coro[_AT_co]]: ...
+
+
+class _ConstantDecorator(Protocol[_T_co]):
+    """What `return_constant(value=...)` returns: a coroutine function keeps returning a coroutine."""
 
     @overload
-    def __call__(self, func: Callable[_P, _Coro[_T]]) -> Callable[_P, _Coro[_AT_co]]: ...
+    def __call__(self, func: Callable[_P, _Coro[Any]]) -> Callable[_P, _Coro[_T_co]]: ...
     @overload
-    def __call__(self, func: Callable[_P, _T]) -> Callable[_P, _T | Awaitable[_AT_co]]: ...
+    def __call__(self, func: Callable[_P, Any]) -> Callable[_P, _T_co]: ...
 
 
 class _LazyCallAll(Protocol[_T_co]):
@@ -73,12 +78,36 @@ class _LazyCallAll(Protocol[_T_co]):
     def __call__(self, *funcs: Callable[[], _VT], lazy: _True) -> _LazyCallAll[_T_co | _VT]: ...
 
 
+def _is_async_callable(func: Callable[..., Any]) -> bool:
+    """Tell whether calling `func` gives a coroutine.
+
+    Sees through `__wrapped__` and partial layers, as `iscoroutinefunction_wrapped`
+    does, and also counts an object whose class has an async `__call__`.
+
+    Args:
+        func: The callable to test.
+
+    Returns:
+        Whether `func`, or a layer under it, is a coroutine function or an async callable object.
+
+    Raises:
+        ValueError: If the layers loop back on themselves, as `_iter_unwrap_layers` reports.
+    """
+    return any(
+        inspect.iscoroutinefunction(layer)
+        or (callable(layer) and inspect.iscoroutinefunction(type(layer).__call__))
+        for layer in _iter_unwrap_layers(func, unwrap_properties=False)
+    )
+
+
 __all__ = (
     "_AwaitAfterDecorator",
     "_AwaitOnErrorDecorator",
+    "_ConstantDecorator",
     "_LazyCallAll",
     "_WaitAfterDecorator",
     "_WaitOnErrorDecorator",
+    "_is_async_callable",
     "_Coro",
     "_ExcLogger",
     "_AT_co",

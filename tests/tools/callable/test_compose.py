@@ -1,5 +1,7 @@
 from __future__ import annotations as _annotations
 
+import inspect
+
 import pytest
 
 from pytrove.callable_tools import call_all, ignore_arguments, juxt, return_constant, set_func_attrs
@@ -74,3 +76,93 @@ def test_return_constant_directly_and_as_a_decorator() -> None:
         return x
 
     assert anything(1) == "fixed"
+
+
+def test_set_func_attrs_sets_several_attributes_or_none() -> None:
+    def f() -> None:
+        """Do nothing."""
+
+    assert set_func_attrs(f, a=1, b="two") is f
+    assert (f.a, f.b) == (1, "two")
+    assert set_func_attrs()(f) is f
+
+
+def test_call_all_stops_at_the_first_raise() -> None:
+    calls: list[int] = []
+
+    def boom() -> None:
+        """Fail."""
+        raise KeyError
+
+    with pytest.raises(KeyError):
+        call_all(lambda: calls.append(1), boom, lambda: calls.append(3))
+
+    assert calls == [1]
+
+
+def test_call_all_with_nothing_to_call() -> None:
+    assert call_all() == ()
+    assert call_all(lazy=True)() == ()
+
+
+def test_ignore_arguments_keeps_the_function_identity() -> None:
+    def named() -> str:
+        """Return a constant."""
+        return "ok"
+
+    wrapped = ignore_arguments(named)
+    assert wrapped.__name__ == "named"
+    assert wrapped.__wrapped__ is named
+
+
+def test_return_constant_defaults_to_none_and_keeps_the_function_identity() -> None:
+    calls: list[int] = []
+
+    def record(x: int) -> int:
+        """Record `x`."""
+        calls.append(x)
+        return x
+
+    wrapped = return_constant(record)
+    assert wrapped(1) is None
+    assert calls == [1]
+    assert wrapped.__name__ == "record"
+    assert wrapped.__wrapped__ is record
+    assert return_constant()(record)(2) is None
+    assert calls == [1, 2]
+
+
+async def test_return_constant_awaits_a_coroutine_function() -> None:
+    ran: list[int] = []
+
+    async def work(x: int) -> int:
+        """Record `x`."""
+        ran.append(x)
+        return x
+
+    wrapped = return_constant(work, value="done")
+    assert inspect.iscoroutinefunction(wrapped)
+    assert await wrapped(1) == "done"
+    assert ran == [1]
+
+    @return_constant
+    async def decorated() -> int:
+        """Record a call."""
+        ran.append(2)
+        return 2
+
+    assert await decorated() is None
+    assert ran == [1, 2]
+
+
+async def test_return_constant_sees_an_async_callable_object() -> None:
+    class Work:
+        """An object whose `__call__` is a coroutine function."""
+
+        async def __call__(self) -> int:
+            """Return one."""
+            return 1
+
+    wrapped = return_constant(Work(), value=5)
+    assert inspect.iscoroutinefunction(wrapped)
+    assert await wrapped() == 5
