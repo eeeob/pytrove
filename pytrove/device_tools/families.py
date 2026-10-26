@@ -28,7 +28,7 @@ class SystemInfo:
     """Relative likelihood when no platform is requested."""
 
     @classmethod
-    def catalog(cls) -> _Catalog:
+    def _get_catalog(cls) -> _Catalog:
         """Return this platform's catalog, loaded on first use.
 
         Returns:
@@ -49,7 +49,7 @@ class SystemInfo:
             >>> AndroidDevice.oses()
             ()
         """
-        return cls.catalog().oses
+        return cls._get_catalog().oses
 
     @classmethod
     def _devices_for(cls, os: str | None) -> tuple[_Device, ...]:
@@ -64,7 +64,7 @@ class SystemInfo:
         Raises:
             ValueError: If the platform has no device for `os`.
         """
-        catalog = cls.catalog()
+        catalog = cls._get_catalog()
 
         if os is None:
             return catalog.devices
@@ -132,7 +132,7 @@ class SystemInfo:
         Returns:
             The device, or `None` when absent.
         """
-        for device in cls.catalog().devices:
+        for device in cls._get_catalog().devices:
             if device.model != model:
                 continue
 
@@ -158,7 +158,7 @@ class SystemInfo:
         Raises:
             ValueError: If the platform has no device for `os`.
         """
-        catalog = cls.catalog()
+        catalog = cls._get_catalog()
         rng = _rng(unique_id)
 
         if os is None and catalog.oses:
