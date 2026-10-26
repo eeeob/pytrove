@@ -60,7 +60,7 @@ def flush_logger_handler(handler: logging.Handler | None = None) -> None:
 
 @overload
 def attach_logger_handlers(
-    hdlrs_options: LogHandlerOptions, return_loggers: _False = ...
+    hdlrs_options: LogHandlerOptions, return_loggers: _False = False
 ) -> logging.Handler: ...
 @overload
 def attach_logger_handlers(
@@ -70,7 +70,7 @@ def attach_logger_handlers(
 @overload
 def attach_logger_handlers(
     hdlrs_options: Container[NestedContainer[LogHandlerOptions]],
-    return_loggers: _False = ...,
+    return_loggers: _False = False,
 ) -> list[logging.Handler]: ...
 @overload
 def attach_logger_handlers(

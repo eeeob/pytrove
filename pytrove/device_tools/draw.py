@@ -14,27 +14,27 @@ if TYPE_CHECKING:
 
 @overload
 def random_device(
-    platform_device: PlatformDevice | None = ...,
+    platform_device: PlatformDevice | None = None,
     to_tuple: _False = False,
-    unique_id: str | None = ...,
+    unique_id: str | None = None,
     *,
-    os: str | None = ...,
+    os: str | None = None,
 ) -> DeviceInfo: ...
 @overload
 def random_device(
     platform_device: PlatformDevice | None,
     to_tuple: _True,
-    unique_id: str | None = ...,
+    unique_id: str | None = None,
     *,
-    os: str | None = ...,
+    os: str | None = None,
 ) -> tuple[str, str]: ...
 @overload
 def random_device(
-    platform_device: PlatformDevice | None = ...,
+    platform_device: PlatformDevice | None = None,
     *,
     to_tuple: _True,
-    unique_id: str | None = ...,
-    os: str | None = ...,
+    unique_id: str | None = None,
+    os: str | None = None,
 ) -> tuple[str, str]: ...
 def random_device(
     platform_device: PlatformDevice | None = None,
