@@ -5,7 +5,7 @@ import pytest
 from pytrove import rand_tg_device
 from pytrove.enums import PlatformDevice
 from pytrove.models import DeviceInfo
-from pytrove.tg_tools._internal.families import _DEVICES, random_family
+from pytrove.device_tools._internal.families import _DEVICES, random_family
 
 
 @pytest.mark.parametrize("platform", list(PlatformDevice))

@@ -6,8 +6,8 @@ import pytest
 
 from pytrove.enums import PlatformDevice
 from pytrove.models import DeviceInfo
-from pytrove.tg_tools._internal.catalog import _catalog, _load, OS_SHARES
-from pytrove.tg_tools._internal.families import (
+from pytrove.device_tools._internal.catalog import _catalog, _load, OS_SHARES
+from pytrove.device_tools._internal.families import (
     _DEVICES,
     AndroidDevice,
     DesktopDevice,
