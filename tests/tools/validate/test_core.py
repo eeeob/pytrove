@@ -1,8 +1,12 @@
 from __future__ import annotations as _annotations
 
+import asyncio
 import functools
+import inspect
+import sys
 from collections import OrderedDict, UserString
-from typing import TYPE_CHECKING, Any, Union
+from enum import Enum
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import pytest
 
@@ -24,7 +28,13 @@ from pytrove.validate_tools.core import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import AsyncIterator, Callable
+
+
+class _Color(Enum):
+    """An enum class, which is iterable but not a container."""
+
+    RED = 1
 
 
 @pytest.mark.parametrize(
@@ -36,6 +46,10 @@ if TYPE_CHECKING:
         (1, Union[str, int], True),  # noqa: UP007 - `typing.Union` is the case under test.
         ("x", (bytes, (Union[int, str],)), True),  # noqa: UP007 - same, nested inside tuples.
         (1.0, (int, (str, bytes)), False),
+        (None, Optional[int], True),  # noqa: UP045 - `typing.Optional` is the case under test.
+        (1, Optional[int], True),  # noqa: UP045
+        ("x", Optional[int], False),  # noqa: UP045
+        (1, (), False),
     ],
 )
 def test_is_instance_accepts_every_spelling_of_a_union(
@@ -48,6 +62,18 @@ def test_is_subclass_accepts_every_spelling_of_a_union() -> None:
     assert is_subclass(OrderedDict, Union[list, dict])  # noqa: UP007 - `typing.Union` is the case under test.
     assert is_subclass(bool, (str, int | float))
     assert not is_subclass(str, (int, Union[list, dict]))  # noqa: UP007
+    assert is_subclass(type(None), Optional[int])  # noqa: UP045 - `typing.Optional` is the case under test.
+    assert not is_subclass(int, ())
+
+
+def test_is_instance_and_is_subclass_raise_for_a_non_type() -> None:
+    bad: Any = 5
+
+    with pytest.raises(TypeError):
+        is_instance(1, bad)
+
+    with pytest.raises(TypeError):
+        is_subclass(int, bad)
 
 
 def test_is_exception_is_true_only_for_exception_instances() -> None:
@@ -87,6 +113,19 @@ def test_is_container_rejects_not_container_types() -> None:
     assert not is_container(memoryview(b"abc"))
     assert not is_container(1)
     assert not is_container(None)
+    assert not is_container(_Color)
+
+
+def test_is_container_rejects_awaitables() -> None:
+    coro = asyncio.sleep(0)
+    loop = asyncio.new_event_loop()
+
+    try:
+        assert not is_container(coro)
+        assert not is_container(loop.create_future())
+    finally:
+        coro.close()
+        loop.close()
 
 
 def test_is_mapping() -> None:
@@ -99,6 +138,9 @@ def test_is_sub_container_and_is_sub_mapping() -> None:
     assert is_sub_container(dict)
     assert not is_sub_container(str)
     assert not is_sub_container([])
+    assert not is_sub_container(bytes)
+    assert not is_sub_container(_Color)
+    assert not is_sub_container(asyncio.Future)
     assert is_sub_mapping(dict)
     assert not is_sub_mapping(list)
     assert not is_sub_mapping({})
@@ -172,6 +214,22 @@ def test_iscoroutinefunction_wrapped_sees_through_classmethods_and_staticmethods
     assert not iscoroutinefunction_wrapped(kind(_sync))
 
 
+def test_iscoroutinefunction_wrapped_is_false_for_an_async_generator_function() -> None:
+    async def agen() -> AsyncIterator[int]:
+        """Yield one value."""
+        yield 1
+
+    assert not iscoroutinefunction_wrapped(agen)
+    assert not iscoroutinefunction_wrapped(functools.partialmethod(_sync))
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="`markcoroutinefunction` exists from 3.12")
+def test_iscoroutinefunction_wrapped_sees_a_marked_function() -> None:
+    marked = inspect.markcoroutinefunction(lambda: None)  # ty: ignore[unresolved-attribute]  # Exists from 3.12, the branch under test.
+    assert iscoroutinefunction_wrapped(marked)
+    assert iscoroutinefunction_wrapped(_wrap(marked))
+
+
 def test_iscoroutinefunction_wrapped_does_not_peel_a_class() -> None:
     class Holder:
         """A class whose `__wrapped__` is a coroutine function."""
@@ -193,6 +251,36 @@ def test_iscoroutinefunction_wrapped_raises_on_a_sync_wrapper_loop() -> None:
 
 def test_validation_passes_silently_when_the_condition_holds() -> None:
     assert validation(True, "never raised") is None
+
+
+@pytest.mark.parametrize("cond", [1, "x", [0], object()])
+def test_validation_takes_any_truthy_value(cond: object) -> None:
+    assert validation(cond, "never raised") is None
+
+
+@pytest.mark.parametrize("cond", [0, "", [], None])
+def test_validation_raises_for_any_falsy_value(cond: object) -> None:
+    with pytest.raises(ValidationError, match="falsy"):
+        validation(cond, "falsy")
+
+
+def test_validation_raises_an_exception_class() -> None:
+    with pytest.raises(KeyError) as caught:
+        validation(False, KeyError)
+
+    assert type(caught.value) is KeyError
+    assert caught.value.__cause__ is None
+
+
+def test_validation_raises_the_given_exception_without_its_old_cause() -> None:
+    error = KeyError("k")
+    error.__cause__ = ValueError()
+
+    with pytest.raises(KeyError) as caught:
+        validation(False, error)
+
+    assert caught.value.__cause__ is None
+    assert caught.value.__suppress_context__
 
 
 def test_validation_raises_a_validation_error_with_the_message() -> None:
@@ -232,6 +320,20 @@ def test_all_deep_and_any_deep_flatten_and_skip_none() -> None:
     assert not all_deep([1, [0]])
     assert any_deep([0, [None, ("", 5)]])
     assert not any_deep([0, [None, ""]])
+
+
+def test_all_deep_and_any_deep_without_values_or_with_a_bare_none() -> None:
+    assert all_deep() is True
+    assert any_deep() is False
+    assert all_deep(None) is True
+    assert any_deep(None) is False
+
+
+def test_all_deep_and_any_deep_read_a_mapping_as_its_keys() -> None:
+    assert all_deep({0: 1}) is False
+    assert all_deep({1: 0}) is True
+    assert any_deep({"a": 0}) is True
+    assert any_deep({0: 1}) is False
 
 
 def test_a_user_string_is_a_leaf_for_the_deep_checks() -> None:

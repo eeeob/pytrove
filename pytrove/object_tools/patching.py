@@ -6,6 +6,7 @@ import inspect
 from typing import TYPE_CHECKING, Any, overload
 
 from .._internal import _iter_unwrap_layers
+from ._internal import _install
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -16,20 +17,54 @@ if TYPE_CHECKING:
 def unwrap_cls(cls: type) -> int:
     """Replace every wrapped attribute of a class with what it wraps, in place.
 
+    Inherited members are unwrapped too: each is set on `cls` itself, so its base
+    keeps the wrapped one. Members are read raw (`inspect.getattr_static`), so no
+    descriptor getter runs. A `classmethod` or `staticmethod` keeps its kind around
+    the unwrapped function. A nested class and a property are left as they are.
+
     Args:
         cls: The class.
 
     Returns:
         How many attributes were unwrapped.
+
+    Example:
+        >>> import functools
+        >>> def logged(func):
+        ...     @functools.wraps(func)
+        ...     def wrapper(*args):
+        ...         return func(*args)
+        ...     return wrapper
+        >>> class Thing:
+        ...     @staticmethod
+        ...     @logged
+        ...     def one():
+        ...         return 1
+        >>> unwrap_cls(Thing), Thing.one(), hasattr(Thing.one, "__wrapped__")
+        (1, 1, False)
     """
     count = 0
 
     for name in dir(cls):
-        method = getattr(cls, name)
+        member = inspect.getattr_static(cls, name)
 
-        if hasattr(method, "__wrapped__"):
-            setattr(cls, name, inspect.unwrap(method))
-            count += 1
+        if isinstance(member, type):
+            continue
+
+        if isinstance(member, (classmethod, staticmethod)):
+            func = member.__func__
+
+            if not hasattr(func, "__wrapped__"):
+                continue
+
+            unwrapped: Any = type(member)(inspect.unwrap(func))
+        elif hasattr(member, "__wrapped__"):
+            unwrapped = inspect.unwrap(member)
+        else:
+            continue
+
+        setattr(cls, name, unwrapped)
+        count += 1
 
     return count
 
@@ -68,7 +103,8 @@ def patch_into(
 
     A member is copied when it, or any layer `unwrap` peels from it, has a truthy
     `patch_key` attribute.
-    The decorated class itself is returned unchanged.
+    The decorated class itself is returned unchanged. A replaced member is kept
+    raw (a `staticmethod` stays one), as `inspect.getattr_static` reads it.
 
     Args:
         target: The class to patch.
@@ -111,10 +147,7 @@ def patch_into(
             if not any(getattr(layer, patch_key, False) for layer in layers):
                 continue
 
-            if preserve_old and hasattr(target, name):
-                setattr(target, f"old{name}", getattr(target, name))
-
-            setter(target, name, member)
+            _install(target, name, member, preserve_old=preserve_old, setter=setter)
 
         return current_class
 
@@ -139,7 +172,17 @@ def patch_cls(
 ) -> Any:
     """Copy a class body onto its single base and return the base, directly or as a decorator.
 
-    Dunders are skipped unless listed in `include_dunders`.
+    Dunders are skipped unless listed in `include_dunders`. A replaced member is
+    kept raw (a `staticmethod` stays one), as `inspect.getattr_static` reads it.
+
+    A copied method that calls zero-argument `super()` breaks once on the base:
+    its `__class__` cell still names the patch class, which the base's instances
+    are not instances of, so `super()` raises `TypeError`. Call `self.old<name>()`
+    instead, as the example does, or `super(Base, self)` with the base named.
+
+    The result is typed as the patch class, whose members the base now carries,
+    so a type checker sees them; at runtime it is the base itself, and an
+    instance of the base is not an instance of the patch class.
 
     Args:
         patch_class: The class holding the patches; omit it to get a decorator.
@@ -189,10 +232,7 @@ def patch_cls(
             if name.startswith("__") and name.endswith("__") and name not in include_dunders:
                 continue
 
-            if preserve_old and hasattr(target, name):
-                setattr(target, f"old{name}", getattr(target, name))
-
-            setter(target, name, member)
+            _install(target, name, member, preserve_old=preserve_old, setter=setter)
 
         return target
 
@@ -200,7 +240,9 @@ def patch_cls(
 
 
 def walk_subclasses(cls: type, include_base: bool = False) -> Iterator[type]:
-    """Yield every subclass at any depth, each once even in a diamond.
+    """Yield every subclass at any depth, each once even in a diamond, lazily.
+
+    A metaclass such as `type` or `abc.ABCMeta` works too.
 
     Args:
         cls: The root class.
@@ -217,7 +259,9 @@ def walk_subclasses(cls: type, include_base: bool = False) -> Iterator[type]:
         ['B', 'C']
     """
     seen: set[type] = set()
-    stack = [cls] if include_base else list(cls.__subclasses__())
+    # `type.__subclasses__(cls)`, not `cls.__subclasses__()`: on a metaclass the latter finds the
+    # unbound `type.__subclasses__` and raises `TypeError` for want of an argument.
+    stack = [cls] if include_base else type.__subclasses__(cls)
 
     while stack:
         current = stack.pop()
@@ -227,7 +271,7 @@ def walk_subclasses(cls: type, include_base: bool = False) -> Iterator[type]:
 
         seen.add(current)
         yield current
-        stack.extend(current.__subclasses__())
+        stack.extend(type.__subclasses__(current))
 
 
 __all__ = (

@@ -3,13 +3,7 @@
 from __future__ import annotations as _annotations
 
 import logging
-import sys
-from typing import TYPE_CHECKING, Any
-
-if sys.version_info >= (3, 13):
-    from typing import TypeIs
-else:
-    from typing import TypeGuard as TypeIs
+from typing import TYPE_CHECKING, Any, TypeGuard
 
 try:
     import phonenumbers  # type: ignore[import-not-found]  # Optional: the `phone` extra.
@@ -35,8 +29,11 @@ def is_phone_number(
     phone_number: StrInt | phonenumbers.PhoneNumber,
     remove_spaces: bool = True,
     resolve: bool = True,
-) -> TypeIs[StrInt]:
+) -> bool:
     """Tell whether `phone_number` is a possible and valid international number.
+
+    Returns a plain `bool`, not a type guard: a valid parsed `PhoneNumber` is
+    `True` as well, so `True` does not mean the value is a `StrInt`.
 
     Args:
         phone_number: A number as an int, a string or a parsed `PhoneNumber`.
@@ -79,7 +76,7 @@ def is_phone_number(
 
 
 @_optional_import("phone")
-def is_rc(rc: Any) -> TypeIs[str]:
+def is_rc(rc: Any) -> TypeGuard[str]:
     """Tell whether `rc` is a two-letter region code with a calling code, in any letter case.
 
     Args:
@@ -97,7 +94,7 @@ def is_rc(rc: Any) -> TypeIs[str]:
     )
 
 
-def is_email(email: Any) -> TypeIs[str]:
+def is_email(email: Any) -> TypeGuard[str]:
     """Tell whether `email` is a plain email address.
 
     Args:
@@ -124,7 +121,8 @@ async def is_accessible_received_email(email: str, password: str) -> bool:
         password: The password or app password.
 
     Returns:
-        Whether the login succeeded; `False` for an unknown provider or any failure.
+        Whether the server answered `OK` to the login; `False` for a rejected
+        login, an unknown provider or any failure.
     """
     from ..email_tools import detect_email_provider  # noqa: PLC0415 - `email_tools` sits above `validate_tools` in the import layering
 
@@ -137,11 +135,22 @@ async def is_accessible_received_email(email: str, password: str) -> bool:
 
     try:
         await c.wait_hello_from_server()
-        await c.login(email, password)
+    except Exception:
+        # No session to log out of: close whatever connection was made.
+        transport = getattr(c.protocol, "transport", None)
+
+        if transport is not None:
+            transport.close()
+
+        return False
+
+    try:
+        # aioimaplib does not raise on a rejected login: the server's `NO` comes back as the result.
+        response = await c.login(email, password)
     except Exception:
         return False
     else:
-        return True
+        return response.result == "OK"
     finally:
         try:
             await c.logout()

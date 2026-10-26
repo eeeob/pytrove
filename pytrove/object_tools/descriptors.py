@@ -2,6 +2,7 @@
 
 from __future__ import annotations as _annotations
 
+import inspect
 import sys
 from functools import partial
 from types import MethodType
@@ -115,11 +116,10 @@ class classproperty(Generic[_T, _VT]):
 
         value = self.call(owner)
 
-        try:
-            return value
-        finally:
-            if value is self and isinstance(self.call, KeyDefaultWeakKeyDict):
-                self.call.pop(owner, None)
+        if value is self and isinstance(self.call, KeyDefaultWeakKeyDict):
+            self.call.pop(owner, None)
+
+        return value
 
 
 if TYPE_CHECKING:
@@ -157,6 +157,10 @@ else:
 class FrozenClassAttrs:
     """A base whose instances cannot shadow a class attribute.
 
+    A data descriptor is not shadowed by an assignment, so it stays assignable:
+    a property with a setter and a `__slots__` member work as usual. Assigning on
+    the class itself (`Config.name = ...`) is not affected.
+
     Example:
         >>> class Config(FrozenClassAttrs):
         ...     name = "default"
@@ -174,11 +178,18 @@ class FrozenClassAttrs:
             value: Its value.
 
         Raises:
-            AttributeError: If the class defines `name`.
+            AttributeError: If the class defines `name` as anything but a data descriptor.
         """
-        if hasattr(self.__class__, name):
-            msg = f"Cannot override class attribute '{name}' from instance"
-            raise AttributeError(msg)
+        try:
+            # Read raw: `hasattr` would run a `classproperty` getter, and treat one that raises
+            # `AttributeError` as absent.
+            attr = inspect.getattr_static(type(self), name)
+        except AttributeError:
+            pass
+        else:
+            if not hasattr(type(attr), "__set__"):
+                msg = f"Cannot override class attribute '{name}' from instance"
+                raise AttributeError(msg)
 
         super().__setattr__(name, value)
 

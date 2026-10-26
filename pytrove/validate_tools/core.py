@@ -19,7 +19,7 @@ else:
 
 from .._internal import _iter_unwrap_layers
 from ..errors import ValidationError
-from ._internal import _ClassInfo, _flatten_class_info, _is_container, _CONTAINER, _NOT_CONTAINER
+from ._internal import _ClassInfo, _flatten_class_info, _is_container, _is_sub_container
 
 if TYPE_CHECKING:
     from ..typings import Container, NestedContainer, _False, _KT, _T, _True, _VT
@@ -123,11 +123,7 @@ def is_sub_container(obj: Any) -> TypeIs[type[Container]]:
     Returns:
         Whether it is a class deriving from a container class and from no `NotContainer` one.
     """
-    return (
-        isinstance(obj, type)
-        and issubclass(obj, _CONTAINER)
-        and not issubclass(obj, _NOT_CONTAINER)
-    )
+    return _is_sub_container(obj)
 
 
 def iscoroutinefunction_wrapped(f: Callable[..., Any], *, unwrap_properties: bool = False) -> bool:
@@ -155,20 +151,29 @@ def iscoroutinefunction_wrapped(f: Callable[..., Any], *, unwrap_properties: boo
 
 
 @overload
-def validation(cond: _True, custom_exc: BaseException | str | None = None) -> None: ...
+def validation(
+    cond: _True, custom_exc: BaseException | type[BaseException] | str | None = None
+) -> None: ...
 @overload
-def validation(cond: _False, custom_exc: BaseException | str | None = None) -> Never: ...
+def validation(
+    cond: _False, custom_exc: BaseException | type[BaseException] | str | None = None
+) -> Never: ...
 @overload
-def validation(cond: bool, custom_exc: BaseException | str | None = None) -> None: ...
-def validation(cond: bool, custom_exc: BaseException | str | None = None) -> None:
-    """Raise unless `cond` holds.
+def validation(
+    cond: object, custom_exc: BaseException | type[BaseException] | str | None = None
+) -> None: ...
+def validation(
+    cond: object, custom_exc: BaseException | type[BaseException] | str | None = None
+) -> None:
+    """Raise unless `cond` is truthy.
 
     Args:
-        cond: The condition that must be true.
-        custom_exc: The exception to raise, or a message for a `ValidationError`.
+        cond: The condition that must hold; any value, tested for truth.
+        custom_exc: The exception (instance or class) to raise, or a message for
+            a `ValidationError`.
 
     Raises:
-        BaseException: `custom_exc` itself, when it is an exception.
+        BaseException: `custom_exc` itself, when it is an exception or an exception class.
         ValidationError: When `cond` is false and `custom_exc` is a message or `None`.
 
     Example:
@@ -181,11 +186,18 @@ def validation(cond: bool, custom_exc: BaseException | str | None = None) -> Non
         Traceback (most recent call last):
             ...
         KeyError: 'k'
+        >>> validation([], KeyError)
+        Traceback (most recent call last):
+            ...
+        KeyError
     """
     if cond:
         return
 
     if is_exception(custom_exc):
+        raise custom_exc from None
+
+    if isinstance(custom_exc, type) and issubclass(custom_exc, BaseException):
         raise custom_exc from None
 
     if isinstance(custom_exc, str):
@@ -221,6 +233,8 @@ def any_of(*values: Any) -> bool:
 def all_deep(*values: NestedContainer[Any]) -> bool:
     """Tell whether every leaf is truthy, flattening nested containers; `None` leaves are skipped.
 
+    A mapping counts as its keys, as in `iter_flat_cont`: its values are not tested.
+
     Args:
         *values: Leaves or containers of them, at any depth.
 
@@ -240,6 +254,8 @@ def all_deep(*values: NestedContainer[Any]) -> bool:
 
 def any_deep(*values: NestedContainer[Any]) -> bool:
     """Tell whether any leaf is truthy, flattening nested containers; `None` leaves are skipped.
+
+    A mapping counts as its keys, as in `iter_flat_cont`: its values are not tested.
 
     Args:
         *values: Leaves or containers of them, at any depth.

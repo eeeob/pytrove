@@ -30,6 +30,15 @@ if HAS_WRAPT:
 
         Built on `wrapt.ObjectProxy`, so dunders, `isinstance` and operators pass
         through. The proxy's own state lives under wrapt's `_self_` prefix.
+
+        Reading, setting and deleting a refused name all raise `AttributeError`.
+        So does reading `__dict__` (and `vars(proxy)` raises `TypeError`) whenever
+        a list is given, since it would show a refused name too; an allow-list may
+        name `__dict__` to let it through. An empty allow-list allows nothing.
+
+        It guards against mistakes, not against hostile code: Python has no
+        private attributes, and `proxy.__wrapped__` still returns the target,
+        since wrapt and `inspect.unwrap` rely on it.
         """
 
         def __init__(
@@ -46,18 +55,15 @@ if HAS_WRAPT:
                 allowed: The only attributes to allow.
 
             Raises:
-                ValueError: If both lists are given.
+                ValueError: If both lists are given, even empty.
             """
-            blocked = to_frozenset(blocked)
-            allowed = to_frozenset(allowed)
-
-            if blocked and allowed:
+            if blocked is not None and allowed is not None:
                 msg = "blocked and allowed cannot both be provided"
                 raise ValueError(msg)
 
             super().__init__(obj)
-            self._self_blocked = blocked
-            self._self_allowed = allowed or None
+            self._self_blocked = to_frozenset(blocked)
+            self._self_allowed = None if allowed is None else to_frozenset(allowed)
 
         def _check(self, name: str) -> None:
             """Refuse a name the lists do not allow.
@@ -72,9 +78,16 @@ if HAS_WRAPT:
                 if name not in self._self_allowed:
                     msg = f"Attribute '{name}' is not allowed"
                     raise AttributeError(msg)
-            elif name in self._self_blocked:
+            # `__dict__` holds every attribute, so a deny-list refuses it as a whole.
+            elif name in self._self_blocked or (name == "__dict__" and self._self_blocked):
                 msg = f"Attribute '{name}' is blocked"
                 raise AttributeError(msg)
+
+        @property
+        def __dict__(self) -> dict[str, Any]:
+            """The target's `__dict__`, if the lists let it through."""
+            self._check("__dict__")
+            return self.__wrapped__.__dict__
 
         def __getattr__(self, name: str) -> Any:
             """Read an attribute of the wrapped object, if allowed.
@@ -100,6 +113,17 @@ if HAS_WRAPT:
 
             super().__setattr__(name, value)
 
+        def __delattr__(self, name: str) -> None:
+            """Delete an attribute of the wrapped object, if allowed; `_self_` names are the proxy's own.
+
+            Args:
+                name: The attribute.
+            """
+            if not name.startswith("_self_"):
+                self._check(name)
+
+            super().__delattr__(name)
+
     class WeakRestrictedProxy(RestrictedProxy):
         """A `RestrictedProxy` over a weak reference, so it never keeps its target alive."""
 
@@ -108,7 +132,7 @@ if HAS_WRAPT:
             obj: _T,
             blocked: MaybeContainer[str] | None = None,
             allowed: MaybeContainer[str] | None = None,
-            callback: Callable[[_T], Any] | None = None,
+            callback: Callable[[Any], Any] | None = None,
         ) -> None:
             """Wrap a weak proxy of `obj`.
 
@@ -116,7 +140,8 @@ if HAS_WRAPT:
                 obj: The object.
                 blocked: Attributes to refuse.
                 allowed: The only attributes to allow.
-                callback: Called when `obj` is collected.
+                callback: Called when `obj` is collected, with the now dead weak
+                    proxy (`weakref.proxy` passes it), not with `obj`.
             """
             super().__init__(weakref.proxy(obj, callback), blocked, allowed)
 

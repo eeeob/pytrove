@@ -3,18 +3,11 @@
 from __future__ import annotations as _annotations
 
 import logging
-import sys
-from typing import TYPE_CHECKING, Any, Final, overload
-
-if sys.version_info >= (3, 13):
-    from typing import TypeIs
-else:
-    from typing import TypeGuard as TypeIs
+from typing import TYPE_CHECKING, Any, Final, TypeGuard, overload
 
 try:
     from pyrogram import Client  # type: ignore[import-not-found]  # Optional: the `tg` extra.
     from pyrogram.errors import BadRequest  # type: ignore[import-not-found]  # Optional: the `tg` extra.
-    from pyrogram.types import Message  # type: ignore[import-not-found]  # Optional: the `tg` extra.
     from pyrogram.utils import get_peer_type  # type: ignore[import-not-found]  # Optional: the `tg` extra.
 except ImportError:
     pass
@@ -23,6 +16,8 @@ from .._internal import _optional_import
 from ..constants import TG_BOT_COMMAND_PATTERN, TG_CHANNEL_MESSAGE_LINK_PATTERN
 
 if TYPE_CHECKING:
+    from pyrogram.types import Message  # type: ignore[import-not-found]  # Optional: the `tg` extra.
+
     from ..typings import StrInt, _False, _True
 
 _OTP_LENGTH: Final[int] = 5
@@ -32,45 +27,52 @@ log = logging.getLogger(__name__)
 
 
 @_optional_import("tg")
-def is_tg_channel_id(value: Any) -> TypeIs[int]:
+def is_tg_channel_id(value: Any) -> TypeGuard[int]:
     """Tell whether `value` is a channel or supergroup id (`-100...`).
 
     Args:
         value: The value to test.
 
     Returns:
-        Whether it is an int Pyrogram reads as a channel peer.
+        Whether it is an int, not a `bool`, that Pyrogram reads as a channel peer.
     """
+    if not isinstance(value, int) or isinstance(value, bool):
+        return False
+
     try:
-        return isinstance(value, int) and get_peer_type(value) == "channel"
+        return get_peer_type(value) == "channel"
     except ValueError:
         return False
 
 
 @_optional_import("tg")
-def is_tg_user_id(value: Any) -> TypeIs[int]:
+def is_tg_user_id(value: Any) -> TypeGuard[int]:
     """Tell whether `value` is a user id.
 
     Args:
         value: The value to test.
 
     Returns:
-        Whether it is an int Pyrogram reads as a user peer.
+        Whether it is an int, not a `bool`, that Pyrogram reads as a user peer.
     """
+    if not isinstance(value, int) or isinstance(value, bool):
+        return False
+
     try:
-        return isinstance(value, int) and get_peer_type(value) == "user"
+        return get_peer_type(value) == "user"
     except ValueError:
         return False
 
 
-def is_tg_bot_token(bot_token: Any) -> TypeIs[str]:
+def is_tg_bot_token(bot_token: Any) -> TypeGuard[str]:
     """Tell whether `bot_token` has the shape of a bot token: `<digits>:<secret>`.
 
     Args:
         bot_token: The value to test.
 
     Returns:
-        Whether it is a string of exactly two `:`-separated parts, the first all digits.
+        Whether it is a string of exactly two `:`-separated parts, the first ASCII
+        digits and the second not empty.
 
     Example:
         >>> is_tg_bot_token("123456:ABC-def")
@@ -78,31 +80,38 @@ def is_tg_bot_token(bot_token: Any) -> TypeIs[str]:
         >>> is_tg_bot_token("abc:def")
         False
     """
-    if not isinstance(bot_token, str) or ":" not in bot_token:
+    if not isinstance(bot_token, str):
         return False
 
-    parts = bot_token.split(":")
-    return len(parts) == 2 and parts[0].isdecimal()
+    bot_id, sep, secret = bot_token.partition(":")
+    return bool(sep and secret and ":" not in secret and bot_id.isascii() and bot_id.isdigit())
 
 
-@_optional_import("tg")
-def is_tg_bot_command(message: Message | str) -> TypeIs[str]:
+def is_tg_bot_command(message: Message | str) -> bool:
     """Tell whether a message, or its text, is exactly one bot command.
 
     The command may carry the `@botname` suffix Telegram adds in groups
     (`/start@my_bot`); arguments after it, or a trailing newline, make it false.
+    A plain `str` needs no extra; a message is read through its `text`, so a
+    message with only a caption is false.
 
     Args:
         message: A Pyrogram `Message` or its text.
 
     Returns:
         Whether the text matches `TG_BOT_COMMAND_PATTERN`.
+
+    Example:
+        >>> is_tg_bot_command("/start@my_bot")
+        True
+        >>> is_tg_bot_command("/start now")
+        False
     """
-    text = (message.text or "") if isinstance(message, Message) else message
-    return isinstance(text, str) and bool(text) and bool(TG_BOT_COMMAND_PATTERN.match(text))
+    text = getattr(message, "text", message)
+    return isinstance(text, str) and bool(TG_BOT_COMMAND_PATTERN.match(text))
 
 
-def is_tg_channel_message_link(message_link: Any) -> TypeIs[str]:
+def is_tg_channel_message_link(message_link: Any) -> TypeGuard[str]:
     """Tell whether `message_link` links to a message in a channel, in any letter case.
 
     Args:
@@ -127,9 +136,13 @@ def is_tg_channel_message_link(message_link: Any) -> TypeIs[str]:
 @overload
 def is_tg_otp_code(
     code: Any, allow_str: _True = True, remove_spaces: bool = False
-) -> TypeIs[StrInt]: ...
+) -> TypeGuard[StrInt]: ...
 @overload
-def is_tg_otp_code(code: Any, allow_str: _False, remove_spaces: bool = False) -> TypeIs[int]: ...
+def is_tg_otp_code(code: Any, allow_str: _False, remove_spaces: bool = False) -> TypeGuard[int]: ...
+@overload
+def is_tg_otp_code(
+    code: Any, allow_str: bool = True, remove_spaces: bool = False
+) -> TypeGuard[StrInt]: ...
 def is_tg_otp_code(code: Any, allow_str: bool = True, remove_spaces: bool = False) -> bool:
     """Tell whether `code` looks like a five-digit Telegram login code.
 
@@ -139,7 +152,8 @@ def is_tg_otp_code(code: Any, allow_str: bool = True, remove_spaces: bool = Fals
         remove_spaces: Whether to strip whitespace from a string first.
 
     Returns:
-        Whether it is a five-digit int, or (with `allow_str`) a five-character numeric string.
+        Whether it is a five-digit int (`10000` to `99999`, never a `bool`), or
+        (with `allow_str`) a string of exactly five ASCII digits.
 
     Example:
         >>> is_tg_otp_code(12345)
@@ -150,7 +164,7 @@ def is_tg_otp_code(code: Any, allow_str: bool = True, remove_spaces: bool = Fals
         False
     """
     if isinstance(code, int):
-        return len(str(code)) == _OTP_LENGTH
+        return not isinstance(code, bool) and 10 ** (_OTP_LENGTH - 1) <= code < 10**_OTP_LENGTH
 
     if isinstance(code, str) and allow_str:
         if remove_spaces:
@@ -158,9 +172,7 @@ def is_tg_otp_code(code: Any, allow_str: bool = True, remove_spaces: bool = Fals
 
             code = clean_spaces(code)
 
-        from ..num_tools import to_int  # noqa: PLC0415 - `num_tools` sits above `validate_tools` in the import layering
-
-        return len(code) == _OTP_LENGTH and isinstance(to_int(code, False), int)
+        return len(code) == _OTP_LENGTH and code.isascii() and code.isdigit()
 
     return False
 
@@ -196,7 +208,12 @@ async def is_valid_tg_app(api_id: StrInt, api_hash: str) -> bool:
         return True
     finally:
         try:
-            await c.disconnect()
+            # `connect` marks the client connected only once the session is up, and `disconnect`
+            # refuses a client that is not, so a rejected pair closes only the storage it opened.
+            if c.is_connected:
+                await c.disconnect()
+            else:
+                await c.storage.close()
         except Exception as e:
             log.error("Failed to disconnect the Telegram client", exc_info=e)
 

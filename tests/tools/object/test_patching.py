@@ -1,11 +1,21 @@
 from __future__ import annotations as _annotations
 
+import abc
 import functools
+import inspect
+from enum import EnumMeta
 from typing import Any
 
 import pytest
 
-from pytrove.object_tools import patch_cls, patch_into, unwrap, unwrap_cls, walk_subclasses
+from pytrove.object_tools import (
+    classproperty,
+    patch_cls,
+    patch_into,
+    unwrap,
+    unwrap_cls,
+    walk_subclasses,
+)
 
 
 def _decorate(func: Any) -> Any:
@@ -31,6 +41,102 @@ def test_unwrap_cls_replaces_wrapped_methods() -> None:
     raw = Thing.__dict__["method"].__wrapped__
     assert unwrap_cls(Thing) == 1
     assert Thing.method is raw
+
+
+def test_unwrap_cls_keeps_classmethods_and_staticmethods_callable() -> None:
+    class Thing:
+        """Wrapped class and static methods."""
+
+        @classmethod
+        @_decorate
+        def cm(cls) -> type:
+            """Return the class."""
+            return cls
+
+        @staticmethod
+        @_decorate
+        def sm() -> int:
+            """Return one."""
+            return 1
+
+    class Sub(Thing):
+        """Binds `cm` to itself."""
+
+    assert unwrap_cls(Thing) == 2
+    assert isinstance(Thing.__dict__["cm"], classmethod)
+    assert isinstance(Thing.__dict__["sm"], staticmethod)
+    assert not hasattr(Thing.__dict__["cm"].__func__, "__wrapped__")
+    assert not hasattr(Thing.__dict__["sm"].__func__, "__wrapped__")
+    assert Thing.cm() is Thing
+    assert Sub.cm() is Sub
+    assert Thing().sm() == 1
+
+
+def test_unwrap_cls_leaves_unwrapped_class_and_static_methods_alone() -> None:
+    class Thing:
+        """Plain class and static methods."""
+
+        @classmethod
+        def cm(cls) -> int:
+            """Return one."""
+            return 1
+
+        @staticmethod
+        def sm() -> int:
+            """Return two."""
+            return 2
+
+    members = dict(vars(Thing))
+    assert unwrap_cls(Thing) == 0
+    assert Thing.__dict__["cm"] is members["cm"]
+    assert Thing.__dict__["sm"] is members["sm"]
+
+
+def test_unwrap_cls_unwraps_inherited_members_on_the_subclass_only() -> None:
+    class Base:
+        """Owns the wrapped method."""
+
+        @_decorate
+        def method(self) -> int:
+            """Return one."""
+            return 1
+
+    class Child(Base):
+        """Inherits it."""
+
+    assert unwrap_cls(Child) == 1
+    assert not hasattr(Child.__dict__["method"], "__wrapped__")
+    assert Child().method() == 1
+    assert hasattr(Base.__dict__["method"], "__wrapped__")
+
+
+def test_unwrap_cls_does_not_run_descriptor_getters_or_touch_properties() -> None:
+    calls: list[type] = []
+
+    class Thing:
+        """A class property, a property and a nested class carrying `__wrapped__`."""
+
+        @classproperty
+        def counted(cls) -> int:
+            """Record the call."""
+            calls.append(cls)
+            return 1
+
+        @property
+        def prop(self) -> int:
+            """Return one."""
+            return 1
+
+        class Nested:
+            """A class-level `__wrapped__`."""
+
+            __wrapped__ = staticmethod(_decorate(len))
+
+    prop = Thing.__dict__["prop"]
+    assert unwrap_cls(Thing) == 0
+    assert calls == []
+    assert Thing.__dict__["prop"] is prop
+    assert isinstance(Thing.__dict__["Nested"], type)
 
 
 def test_unwrap_peels_properties_partialmethods_and_wrappers() -> None:
@@ -256,6 +362,120 @@ def test_patch_into_honours_the_key_the_setter_and_preserve_old() -> None:
     assert not hasattr(Target, "oldkept")
 
 
+def test_patch_into_preserves_the_raw_old_member() -> None:
+    class Target:
+        """Static and class members."""
+
+        @staticmethod
+        def s() -> str:
+            """Return the original."""
+            return "old-s"
+
+        @classmethod
+        def c(cls) -> type:
+            """Return the class it is bound to."""
+            return cls
+
+    class Sub(Target):
+        """Binds `oldc` to itself."""
+
+    def new(*_: Any) -> str:
+        """The patch."""
+        return "new"
+
+    new.should_patch = True
+
+    @patch_into(Target)
+    class Patches:
+        """Holds the patches."""
+
+        s = staticmethod(new)
+        c = classmethod(new)
+
+    assert isinstance(Target.__dict__["olds"], staticmethod)
+    assert Target().olds() == "old-s"
+    assert Sub.oldc() is Sub
+
+
+def test_patch_into_propagates_a_wrapper_loop() -> None:
+    class Target:
+        """The class being patched."""
+
+    def func() -> None:
+        """Wrap a partial of itself."""
+
+    func.__wrapped__ = functools.partial(func)
+
+    with pytest.raises(ValueError, match="wrapper loop when unwrapping"):
+
+        @patch_into(Target)
+        class Patches:
+            """Holds the looping member."""
+
+            looping = func
+
+
+def test_patch_cls_preserves_the_raw_old_member() -> None:
+    calls: list[type] = []
+
+    class Base:
+        """A static method and a class property."""
+
+        @staticmethod
+        def s() -> str:
+            """Return the original."""
+            return "old"
+
+        @classproperty
+        def p(cls) -> str:
+            """Record the call."""
+            calls.append(cls)
+            return "old-p"
+
+    @patch_cls
+    class Patch(Base):
+        """Holds the patches."""
+
+        @staticmethod
+        def s() -> str:
+            """Return the patch."""
+            return "new"
+
+        @classproperty
+        def p(cls) -> str:
+            """Return the patch."""
+            return "new-p"
+
+    assert calls == []
+    assert Patch is Base
+    assert isinstance(Base.__dict__["olds"], staticmethod)
+    assert Base().s() == "new"
+    assert Base().olds() == "old"
+    assert isinstance(Base.__dict__["oldp"], classproperty)
+    assert Base.oldp == "old-p"
+    assert Base.p == "new-p"
+
+
+def test_patch_cls_breaks_zero_argument_super_as_documented() -> None:
+    class Root:
+        """The class being patched."""
+
+        def __init__(self) -> None:
+            """Original init."""
+            self.v = 1
+
+    @patch_cls
+    class Patch(Root):
+        """Uses `super()`, which still names `Patch` after the copy."""
+
+        def __init__(self) -> None:
+            """Patched init."""
+            super().__init__()
+
+    with pytest.raises(TypeError, match="super"):
+        Root()
+
+
 def test_patch_cls_merges_methods_into_base() -> None:
     class Base:
         """The class being patched."""
@@ -366,3 +586,36 @@ def test_walk_subclasses_can_start_with_the_base() -> None:
 
     assert list(walk_subclasses(Base, include_base=True)) == [Base, Child]
     assert list(walk_subclasses(Child)) == []
+
+
+def test_walk_subclasses_yields_the_base_once_in_a_diamond() -> None:
+    class Base: ...
+
+    class Left(Base): ...
+
+    class Right(Base): ...
+
+    class Bottom(Left, Right): ...
+
+    walked = list(walk_subclasses(Base, include_base=True))
+
+    assert walked[0] is Base
+    assert sorted(c.__name__ for c in walked) == ["Base", "Bottom", "Left", "Right"]
+
+
+@pytest.mark.parametrize("meta", [type, abc.ABCMeta, EnumMeta])
+def test_walk_subclasses_works_on_a_metaclass(meta: type) -> None:
+    class Custom(meta): ...  # ty: ignore[unsupported-base]  # A parametrised metaclass base.
+
+    assert Custom in set(walk_subclasses(meta))
+
+
+def test_walk_subclasses_is_lazy() -> None:
+    class Base: ...
+
+    class Child(Base): ...
+
+    walked = walk_subclasses(Base)
+
+    assert inspect.isgenerator(walked)
+    assert next(walked) is Child

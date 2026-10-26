@@ -52,3 +52,72 @@ def test_weak_registry_inherits_the_duplicate_policy_when_not_given() -> None:
 
     with pytest.raises(ValueError, match="duplicate keys"):
         Child("x")
+
+
+def test_weak_registry_accepts_a_key_again_once_its_owner_is_collected() -> None:
+    class Strict(WeakRegistry[str], allow_duplicate_keys=False):
+        """Refuses live duplicates."""
+
+    first = Strict("k")
+    assert Strict.__instances__["k"] is first
+    del first
+    gc.collect()
+
+    second = Strict("k")
+    assert Strict.__instances__["k"] is second
+
+
+def test_weak_registry_lets_an_instance_re_register_its_own_key() -> None:
+    class Strict(WeakRegistry[str], allow_duplicate_keys=False):
+        """Refuses live duplicates, but not the same instance."""
+
+    obj = Strict("k")
+    obj.__init__("k")
+    assert Strict.__instances__["k"] is obj
+
+
+def test_weak_registry_uses_the_id_for_an_explicit_none_key() -> None:
+    class Loose(WeakRegistry[str], allow_duplicate_keys=False):
+        """Keys by id when given `None`."""
+
+    a = Loose(None)
+    b = Loose(None)
+    assert Loose.__instances__[id(a)] is a
+    assert Loose.__instances__[id(b)] is b
+
+
+def test_weak_registry_passes_other_class_keywords_on() -> None:
+    seen: list[dict[str, object]] = []
+
+    class Hooked(WeakRegistry[str]):
+        """Records the keywords its subclasses receive."""
+
+        def __init_subclass__(cls, **kwargs: object) -> None:
+            """Record, then hand on to `WeakRegistry`."""
+            seen.append(dict(kwargs))
+            super().__init_subclass__(**kwargs)
+
+    class Child(Hooked, allow_duplicate_keys=False):
+        """Passes the keyword through `Hooked`."""
+
+    assert seen == [{"allow_duplicate_keys": False}]
+    assert Child.__allow_duplicate_keys__ is False
+
+    with pytest.raises(TypeError):
+
+        class Bad(WeakRegistry[str], unknown=True):  # ty: ignore[unknown-argument]  # The error under test.
+            """`object.__init_subclass__` refuses the stray keyword."""
+
+
+def test_weak_registry_keeps_separate_id_tables_per_subclass() -> None:
+    class One(WeakRegistry):
+        """Keyed by id."""
+
+    class Two(WeakRegistry):
+        """Keyed by id."""
+
+    one = One()
+    two = Two()
+    assert One.__instances__ is not Two.__instances__
+    assert id(one) not in Two.__instances__
+    assert id(two) not in One.__instances__
