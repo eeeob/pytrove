@@ -2,9 +2,10 @@
 
 from __future__ import annotations as _annotations
 
-import functools
 import inspect
 from typing import TYPE_CHECKING, Any, overload
+
+from .._internal import _iter_unwrap_layers
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -34,22 +35,23 @@ def unwrap_cls(cls: type) -> int:
 
 
 def unwrap(obj: Any, with_prop: bool = True) -> Any:
-    """Peel an object down to its underlying function, through properties, partialmethods and `__wrapped__`.
+    """Peel an object down to its underlying function, through properties, partials and `__wrapped__`.
+
+    The layers may nest in any order: each turn peels whichever one is outermost,
+    until none is left. A class is returned as it is.
 
     Args:
         obj: The object.
         with_prop: Whether to take a property's getter.
 
     Returns:
-        The innermost callable.
+        The innermost callable, or `None` for a property without a getter.
+
+    Raises:
+        ValueError: If the layers loop back on themselves.
     """
-    if with_prop and isinstance(obj, property):
-        obj = obj.fget
-
-    while isinstance(obj, functools.partialmethod):
-        obj = obj.func
-
-    return inspect.unwrap(obj)
+    *_, innermost = _iter_unwrap_layers(obj, with_prop=with_prop)
+    return innermost
 
 
 def patch_into(
@@ -61,7 +63,8 @@ def patch_into(
 ) -> Callable[[_CT], _CT]:
     """Build a class decorator that copies only marked members onto `target`.
 
-    A member is copied when it (unwrapped) has a truthy `patch_key` attribute.
+    A member is copied when it, or any layer `unwrap` peels from it, has a truthy
+    `patch_key` attribute.
     The decorated class itself is returned unchanged.
 
     Args:
@@ -98,7 +101,9 @@ def patch_into(
             `current_class` unchanged.
         """
         for name, member in current_class.__dict__.items():
-            if not getattr(unwrap(member), patch_key, False):
+            layers = _iter_unwrap_layers(member, with_prop=True)
+
+            if not any(getattr(layer, patch_key, False) for layer in layers):
                 continue
 
             if preserve_old and hasattr(target, name):

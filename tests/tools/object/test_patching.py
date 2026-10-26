@@ -44,6 +44,91 @@ def test_unwrap_peels_properties_partialmethods_and_wrappers() -> None:
     assert unwrap(prop, with_prop=False) is prop
 
 
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda f: functools.partial(_decorate(f), None),
+        lambda f: _decorate(functools.partial(f, None)),
+        lambda f: property(functools.partial(_decorate(f), None)),
+        lambda f: _decorate(property(f)),
+        lambda f: _decorate(functools.partialmethod(f, 1)),
+    ],
+    ids=[
+        "partial-of-wraps",
+        "wraps-of-partial",
+        "property-of-partial-of-wraps",
+        "wraps-of-property",
+        "wraps-of-partialmethod",
+    ],
+)
+def test_unwrap_peels_layers_in_any_order(build: Any) -> None:
+    def base(self: Any, x: int = 0) -> int:
+        """Return `x`."""
+        return x
+
+    assert unwrap(build(base)) is base
+
+
+def test_unwrap_returns_none_for_a_property_without_a_getter() -> None:
+    assert unwrap(property()) is None
+
+
+def test_unwrap_returns_a_class_unpeeled() -> None:
+    class Proxyish:
+        """Carries `__wrapped__` as a class-level property."""
+
+        @property
+        def __wrapped__(self) -> int:
+            """The wrapped value."""
+            return 1
+
+    assert unwrap(Proxyish) is Proxyish
+
+
+def test_unwrap_raises_on_a_wrapper_loop() -> None:
+    def func() -> None:
+        """Wrap a partial of itself."""
+
+    func.__wrapped__ = functools.partial(func)
+
+    with pytest.raises(ValueError, match="wrapper loop when unwrapping"):
+        unwrap(func)
+
+
+def test_patch_into_reads_the_marker_on_any_layer() -> None:
+    class Target:
+        """The class being patched."""
+
+    def base(self: Any) -> str:
+        """Return the patch."""
+        return "new"
+
+    def inner(self: Any) -> str:
+        """Return the inner patch."""
+        return "inner"
+
+    marked_partial = functools.partial(base)
+    marked_partial.should_patch = True
+    marked_wrapper = _decorate(base)
+    marked_wrapper.should_patch = True
+    marked_inner = _decorate(inner)
+    marked_inner.should_patch = True
+
+    @patch_into(Target)
+    class Patches:
+        """Holds the patches."""
+
+        by_partial = marked_partial
+        by_wrapper = marked_wrapper
+        by_inner = functools.partialmethod(_decorate(marked_inner))
+        unmarked = functools.partial(_decorate(base))
+
+    assert Target.__dict__["by_partial"] is marked_partial
+    assert Target.__dict__["by_wrapper"] is marked_wrapper
+    assert Target().by_inner() == "inner"
+    assert not hasattr(Target, "unmarked")
+
+
 def test_patch_into_copies_only_marked_members() -> None:
     class Target:
         """The class being patched."""

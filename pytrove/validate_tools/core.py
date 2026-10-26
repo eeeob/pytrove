@@ -17,6 +17,7 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import Never
 
+from .._internal import _iter_unwrap_layers
 from ..errors import ValidationError
 from ._internal import _ClassInfo, _flatten_class_info, _is_container, _CONTAINER, _NOT_CONTAINER
 
@@ -130,10 +131,11 @@ def is_sub_container(obj: Any) -> TypeIs[type[Container]]:
 
 
 def iscoroutinefunction_wrapped(f: Callable[..., Any]) -> bool:
-    """Check `inspect.iscoroutinefunction`, seeing through `functools.wraps` wrappers.
+    """Check `inspect.iscoroutinefunction`, seeing through wrappers and partials.
 
     A sync wrapper around an async function reads as a plain function to
-    `inspect`; this walks the `__wrapped__` chain and stops at the first
+    `inspect`. This walks every `__wrapped__`, `functools.partial` and
+    `functools.partialmethod` layer, in any nesting order, and stops at the first
     coroutine function it meets.
 
     Args:
@@ -141,28 +143,14 @@ def iscoroutinefunction_wrapped(f: Callable[..., Any]) -> bool:
 
     Returns:
         Whether `f` or anything it wraps is a coroutine function.
+
+    Raises:
+        ValueError: If the layers loop back on themselves before a coroutine
+            function is met.
     """
-    is_coro = False
-
-    def _stop(func: Callable[..., Any]) -> bool:
-        """Record and stop at the first coroutine function in the chain.
-
-        Args:
-            func: One callable in the `__wrapped__` chain.
-
-        Returns:
-            Whether to stop unwrapping here.
-        """
-        nonlocal is_coro
-
-        if inspect.iscoroutinefunction(func):
-            is_coro = True
-            return True
-
-        return False
-
-    unwrapped = inspect.unwrap(f, stop=_stop)
-    return is_coro or inspect.iscoroutinefunction(unwrapped)
+    return any(
+        inspect.iscoroutinefunction(layer) for layer in _iter_unwrap_layers(f, with_prop=False)
+    )
 
 
 @overload
