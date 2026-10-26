@@ -21,6 +21,12 @@ def test_clean_spaces_can_keep_line_breaks() -> None:
     assert clean_spaces(12) == "12"
 
 
+@pytest.mark.parametrize("value", [None, True, [1], {"a": 1}])
+def test_clean_spaces_refuses_what_to_str_leaves_unconverted(value: object) -> None:
+    with pytest.raises(TypeError, match="clean_spaces: text must be a str"):
+        clean_spaces(value)
+
+
 def test_split_part_selects_and_cleans_a_part() -> None:
     assert split_part("a, b ,c", ",", 1) == "b"
     assert split_part("a, b c ,d", ",", 1, remove_spaces=True) == "bc"

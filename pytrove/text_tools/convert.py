@@ -46,6 +46,9 @@ def clean_spaces(text: Any, with_lines: bool = True) -> str:
     Returns:
         The text without whitespace.
 
+    Raises:
+        TypeError: If `text` is not a string and `to_str` leaves it unconverted.
+
     Example:
         >>> clean_spaces(" a b\nc ")
         'abc'
@@ -53,6 +56,9 @@ def clean_spaces(text: Any, with_lines: bool = True) -> str:
         'ab\nc'
     """
     text = to_str(text)
+    if not isinstance(text, str):
+        msg = f"clean_spaces: text must be a str or a value `to_str` turns into one, not {type(text).__name__!r}"
+        raise TypeError(msg)
     return re.sub(r"\s+", "", text) if with_lines else re.sub(r"[^\S\n]+", "", text)
 
 
