@@ -146,6 +146,36 @@ def test_iscoroutinefunction_wrapped_stops_at_the_first_coroutine_function() -> 
     assert iscoroutinefunction_wrapped(_wrap(_async_wrap(_sync)))
 
 
+def test_iscoroutinefunction_wrapped_sees_through_partials_in_any_order() -> None:
+    assert iscoroutinefunction_wrapped(functools.partial(_wrap(_coro)))
+    assert iscoroutinefunction_wrapped(_wrap(functools.partial(_wrap(_coro))))
+    assert iscoroutinefunction_wrapped(functools.partialmethod(_wrap(_coro)))
+    assert not iscoroutinefunction_wrapped(functools.partial(_wrap(_sync)))
+
+
+def test_iscoroutinefunction_wrapped_does_not_take_a_property_getter() -> None:
+    assert not iscoroutinefunction_wrapped(property(_coro))
+
+
+def test_iscoroutinefunction_wrapped_does_not_peel_a_class() -> None:
+    class Holder:
+        """A class whose `__wrapped__` is a coroutine function."""
+
+        __wrapped__ = _coro
+
+    assert not iscoroutinefunction_wrapped(Holder)
+
+
+def test_iscoroutinefunction_wrapped_raises_on_a_sync_wrapper_loop() -> None:
+    def func() -> None:
+        """Wrap a partial of itself."""
+
+    func.__wrapped__ = functools.partial(func)
+
+    with pytest.raises(ValueError, match="wrapper loop when unwrapping"):
+        iscoroutinefunction_wrapped(func)
+
+
 def test_validation_passes_silently_when_the_condition_holds() -> None:
     assert validation(True, "never raised") is None
 
