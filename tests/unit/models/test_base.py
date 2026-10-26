@@ -141,6 +141,20 @@ def test_from_dicts_drop_unknown_keys_and_restore_enums() -> None:
     assert Model.from_dict({"status": None}, without_none_values=True).status is None
 
 
+def test_from_dict_renames_the_keys_and_builds_through_from_raw_dict() -> None:
+    @dataclass
+    class Model(BaseDataClass):
+        status: Status | None = Status.OK
+        _secret: str | None = "default"
+
+    public = {"status": "ok", "secret": None, "_secret": "ignored"}
+    for options in ((False, False), (True, False), (False, True), (True, True)):
+        assert Model.from_dict(public, *options) == Model.from_raw_dict(
+            {"status": "ok", "_secret": None}, *options
+        )
+    assert Model.from_dict(public, without_none_values=True).secret == "default"
+
+
 def test_field_meta_requires_a_dataclass() -> None:
     # Every subclass inherits `__dataclass_fields__`, so call the method on a plain class directly.
     class Plain:

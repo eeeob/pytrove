@@ -4,7 +4,14 @@ import sys
 from collections.abc import Iterable, Iterator
 from typing import Any, Generic, TypeVar
 
-from pytrove import flat_cont, flat_cont_by, flat_map, iter_flat_cont_by, iter_flat_map
+from pytrove import (
+    flat_cont,
+    flat_cont_by,
+    flat_map,
+    iter_flat_cont,
+    iter_flat_cont_by,
+    iter_flat_map,
+)
 
 _T = TypeVar("_T")
 
@@ -93,6 +100,20 @@ def test_flat_cont_by_ignores_none_entries() -> None:
 
 def test_flat_cont_by_keeps_none_when_asked() -> None:
     assert flat_cont_by(_Box(1, None, 2), is_container=_is_box, exclude_none=False) == [1, None, 2]
+
+
+def test_iter_flat_cont_is_a_generator() -> None:
+    result = iter_flat_cont([1, [2, None]], 3)
+    assert list(result) == [1, 2, 3]
+    assert list(result) == []  # exhausted, like any generator
+
+
+def test_iter_flat_cont_matches_iter_flat_cont_by_with_the_default_predicate() -> None:
+    data = ([1, (2, None)], {"a": 1}, "xy", None)
+    for exclude_none in (True, False):
+        assert list(iter_flat_cont(*data, exclude_none=exclude_none)) == list(
+            iter_flat_cont_by(*data, exclude_none=exclude_none)
+        )
 
 
 def test_iter_flat_cont_by_is_a_generator() -> None:

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from .._internal import _is_given
 from ..validate_tools import is_container
 from ._internal import _SNAKE1_PATTERN, _SNAKE2_PATTERN
+from .split import smart_split
 
 if TYPE_CHECKING:
     from ..typings import _T
@@ -92,17 +93,9 @@ def split_part(
         True
     """
     try:
-        selected = value.split(sep)[part]
+        return smart_split(value, part, strip=strip, remove_spaces=remove_spaces, separator=sep)
     except IndexError:
         return default if _is_given(default) else value
-
-    if strip:
-        selected = selected.strip()
-
-    if remove_spaces:
-        selected = clean_spaces(selected)
-
-    return selected
 
 
 def to_snake_case(text: str) -> str:
