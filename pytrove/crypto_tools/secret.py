@@ -4,6 +4,12 @@ from __future__ import annotations as _annotations
 
 import secrets
 import string
+from typing import Final
+
+_SYMBOLS: Final[str] = "!@#$%^&*()-_=+[]{};:,.<>?/"
+"""The 26 symbols `use_symbols` draws from: `string.punctuation` without `~`, `` ` ``,
+`'`, `"`, `|` and `\\`. The rest is neither shell-safe nor URL-safe (`$`, `!`, `&`, `#`,
+`?`, `/` and others remain), so quote or encode a secret before using it there."""
 
 
 def generate_secret(
@@ -20,7 +26,8 @@ def generate_secret(
         use_upper: Whether to use uppercase letters.
         use_lower: Whether to use lowercase letters.
         use_digits: Whether to use digits.
-        use_symbols: Whether to use punctuation.
+        use_symbols: Whether to use a fixed set of 26 symbols from
+            `string.punctuation` (see `_SYMBOLS`).
 
     Returns:
         The secret, drawn with `secrets`.
@@ -36,7 +43,7 @@ def generate_secret(
         True
     """
     if length <= 0:
-        msg = "Password length must be greater than 0"
+        msg = "Secret length must be greater than 0"
         raise ValueError(msg)
 
     sets = [
@@ -45,7 +52,7 @@ def generate_secret(
             (use_lower, string.ascii_lowercase),
             (use_upper, string.ascii_uppercase),
             (use_digits, string.digits),
-            (use_symbols, "!@#$%^&*()-_=+[]{};:,.<>?/"),
+            (use_symbols, _SYMBOLS),
         )
         if enabled
     ]

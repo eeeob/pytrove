@@ -6,6 +6,7 @@ import os
 from typing import TYPE_CHECKING, Any, overload
 
 try:
+    from cryptography.exceptions import InvalidTag  # type: ignore[import-not-found]  # Optional: the `crypto` extra.
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM, AESSIV  # type: ignore[import-not-found]  # Optional: the `crypto` extra.
 except ImportError:
     pass
@@ -21,12 +22,15 @@ if TYPE_CHECKING:
 
 
 @_optional_import("crypto")
-def encrypt(data: bytes | str, password: str) -> bytes:
+def encrypt(data: bytes | bytearray | memoryview | str, password: str) -> bytes:
     """Encrypt with AES-GCM under a fresh random salt and nonce.
 
     The same input encrypts differently every time, so ciphertexts reveal
     nothing about equal plaintexts; use `d_encrypt` only when equality must
     stay checkable.
+
+    Each call runs a 200,000-round PBKDF2 (tens of milliseconds) and blocks
+    the calling thread; from async code, run it in a thread.
 
     Args:
         data: The plaintext; text is UTF-8 encoded.
@@ -44,14 +48,24 @@ def encrypt(data: bytes | str, password: str) -> bytes:
 
 
 @overload
-def decrypt(encrypted_data: bytes, password: str, data_resolver: None = None) -> bytes: ...
+def decrypt(
+    encrypted_data: bytes | bytearray | memoryview, password: str, data_resolver: None = None
+) -> bytes: ...
 @overload
-def decrypt(encrypted_data: bytes, password: str, data_resolver: Callable[[bytes], _T]) -> _T: ...
+def decrypt(
+    encrypted_data: bytes | bytearray | memoryview,
+    password: str,
+    data_resolver: Callable[[bytes], _T],
+) -> _T: ...
 @_optional_import("crypto")
 def decrypt(
-    encrypted_data: bytes, password: str, data_resolver: Callable[[bytes], Any] | None = None
+    encrypted_data: bytes | bytearray | memoryview,
+    password: str,
+    data_resolver: Callable[[bytes], Any] | None = None,
 ) -> Any:
     """Decrypt what `encrypt` produced.
+
+    Costs and blocks like `encrypt`.
 
     Args:
         encrypted_data: `salt + nonce + ciphertext`.
@@ -74,7 +88,7 @@ def decrypt(
 
     try:
         data_bytes = AESGCM(_derive_key(password, salt)).decrypt(nonce, ciphertext, None)
-    except Exception as e:
+    except InvalidTag as e:
         msg = "Decryption failed. Wrong password or corrupted data."
         raise ValidationError(msg) from e
 
@@ -82,15 +96,24 @@ def decrypt(
 
 
 @_optional_import("crypto")
-def d_encrypt(data: bytes | str, password: str) -> bytes:
+def d_encrypt(
+    data: bytes | bytearray | memoryview | str, password: str, *, context: bytes = b""
+) -> bytes:
     """Encrypt deterministically with AES-SIV: the same input always gives the same output.
 
     That lets equal plaintexts be matched (as a lookup key, say) and also
     reveals that they are equal; use `encrypt` for everything else.
 
+    The key depends only on `password` and `context`, yet each call re-derives
+    it with a 200,000-round PBKDF2 (tens of milliseconds) and blocks the
+    calling thread; from async code, run it in a thread.
+
     Args:
         data: The plaintext; text is UTF-8 encoded.
         password: The password.
+        context: Application-specific bytes (an app, field or tenant name) mixed
+            into the key, so the same password in another context gives an
+            unrelated ciphertext; empty keeps the password-only key.
 
     Returns:
         The ciphertext.
@@ -98,33 +121,54 @@ def d_encrypt(data: bytes | str, password: str) -> bytes:
     if isinstance(data, str):
         data = data.encode()
 
-    return AESSIV(_derive_deterministic_key(password)).encrypt(data, [])
+    return AESSIV(_derive_deterministic_key(password, context)).encrypt(data, [])
 
 
 @overload
-def d_decrypt(encrypted_data: bytes, password: str, data_resolver: None = None) -> bytes: ...
+def d_decrypt(
+    encrypted_data: bytes | bytearray | memoryview,
+    password: str,
+    data_resolver: None = None,
+    *,
+    context: bytes = b"",
+) -> bytes: ...
 @overload
-def d_decrypt(encrypted_data: bytes, password: str, data_resolver: Callable[[bytes], _T]) -> _T: ...
+def d_decrypt(
+    encrypted_data: bytes | bytearray | memoryview,
+    password: str,
+    data_resolver: Callable[[bytes], _T],
+    *,
+    context: bytes = b"",
+) -> _T: ...
 @_optional_import("crypto")
 def d_decrypt(
-    encrypted_data: bytes, password: str, data_resolver: Callable[[bytes], Any] | None = None
+    encrypted_data: bytes | bytearray | memoryview,
+    password: str,
+    data_resolver: Callable[[bytes], Any] | None = None,
+    *,
+    context: bytes = b"",
 ) -> Any:
     """Decrypt what `d_encrypt` produced.
+
+    Costs and blocks like `d_encrypt`.
 
     Args:
         encrypted_data: The ciphertext.
         password: The password.
         data_resolver: Converts the plaintext bytes.
+        context: The `context` given to `d_encrypt`.
 
     Returns:
         The plaintext, converted when `data_resolver` is given.
 
     Raises:
-        ValidationError: If the password is wrong or the data was altered.
+        ValidationError: If the password or context is wrong or the data was altered.
     """
     try:
-        decrypted_data = AESSIV(_derive_deterministic_key(password)).decrypt(encrypted_data, [])
-    except Exception as e:
+        decrypted_data = AESSIV(_derive_deterministic_key(password, context)).decrypt(
+            encrypted_data, []
+        )
+    except InvalidTag as e:
         msg = "Decryption failed. Check your password or data integrity."
         raise ValidationError(msg) from e
 
