@@ -20,13 +20,13 @@ def _rng(unique_id: Any = None) -> random.Random:
     if unique_id is None:
         return random.Random(_os.urandom(32))
 
-    if not isinstance(unique_id, (str, bytes, bytearray)):
-        unique_id = str(unique_id)
+    if isinstance(unique_id, (bytes, bytearray)):
+        seed = unique_id
+    else:
+        text = unique_id if isinstance(unique_id, str) else str(unique_id)
+        seed = text.encode("utf-8")
 
-    if isinstance(unique_id, str):
-        unique_id = unique_id.encode("utf-8")
-
-    return random.Random(int(hashlib.sha256(unique_id).hexdigest(), 16))
+    return random.Random(int(hashlib.sha256(seed).hexdigest(), 16))
 
 
 __all__ = ("_rng",)

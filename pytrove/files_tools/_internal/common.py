@@ -211,7 +211,7 @@ def _remove(
     # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
     leaves = cast("Iterator[PathLike]", iter_flat_cont(paths))
 
-    for path in dedupe(ensure_path(path) for path in leaves):
+    for path in dedupe(map(ensure_path, leaves)):
         try:
             remover(path)
         except FileNotFoundError:

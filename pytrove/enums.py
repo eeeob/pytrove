@@ -31,16 +31,9 @@ else:
 
         __str__ = str.__str__
 
-        def __format__(self, format_spec: str) -> str:
-            """Format the member as its string value, as `str.__format__` does.
-
-            Args:
-                format_spec: The format specification.
-
-            Returns:
-                The formatted value.
-            """
-            return str.__format__(self, format_spec)
+        # typeshed makes `format_spec` positional-only in `str.__format__` but names it in
+        # `Enum.__format__`, so `ty` sees the alias as an incompatible override.
+        __format__ = str.__format__  # ty: ignore[invalid-method-override]
 
 
 class TriggerOn(StrEnum):

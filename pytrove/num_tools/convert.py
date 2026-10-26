@@ -107,24 +107,21 @@ def calc(value: Any, as_int: bool = False) -> Any:
     if not isinstance(value, str):
         return value
 
-    value = to_int(value, False)
+    result = to_int(value, False)
 
-    if isinstance(value, str):
-        c_value: Any = clean_spaces(value)
+    if isinstance(result, str):
+        text = clean_spaces(result)
 
-        if all(i in CALC_ALLOWED_CHARS for i in c_value):
+        if all(i in CALC_ALLOWED_CHARS for i in text):
             try:
-                c_value = _eval_calc_ast(ast.parse(c_value, mode="eval"))
+                result = _eval_calc_ast(ast.parse(text, mode="eval"))
             except Exception as e:
-                log.error("Failed to evaluate calculation expression: %s", c_value, exc_info=e)
+                log.error("Failed to evaluate calculation expression: %s", text, exc_info=e)
 
-        if isinstance(c_value, (int, float)):
-            value = c_value
+    if as_int and isinstance(result, float):
+        return int(result)
 
-    if as_int and isinstance(value, float):
-        value = int(value)
-
-    return value
+    return result
 
 
 __all__ = (

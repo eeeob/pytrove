@@ -59,7 +59,7 @@ def generate_secret(
         raise ValueError(msg)
 
     all_chars = "".join(sets)
-    password = [secrets.choice(chars) for chars in sets]
+    password = list(map(secrets.choice, sets))
     password += [secrets.choice(all_chars) for _ in range(length - len(sets))]
     secrets.SystemRandom().shuffle(password)
     return "".join(password)
