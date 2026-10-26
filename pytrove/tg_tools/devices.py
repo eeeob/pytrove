@@ -42,7 +42,7 @@ def rand_tg_device(
 
     Args:
         platform_device: Pin the platform.
-        to_tuple: Whether to return `(model, version)` instead of a `DeviceInfo`.
+        to_tuple: Whether to return `DeviceInfo.to_tuple()` instead of a `DeviceInfo`.
         unique_id: Makes the draw reproducible, so one account keeps one device.
 
     Returns:
@@ -54,7 +54,7 @@ def rand_tg_device(
         else _DEVICES[platform_device]
     )
     device = family.random_device(unique_id)
-    return (device.model, device.version) if to_tuple else device
+    return device.to_tuple() if to_tuple else device
 
 
 __all__ = ("rand_tg_device",)

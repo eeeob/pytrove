@@ -73,7 +73,7 @@ class SystemInfo:
 
     @classmethod
     def devices(cls, os: str | None = None) -> tuple[DeviceInfo, ...]:
-        """Return every (model, version) pair this platform can report.
+        """Return every (device_model, system_version) pair this platform can report.
 
         Args:
             os: Restrict to one OS.
