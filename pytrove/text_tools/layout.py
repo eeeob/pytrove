@@ -20,13 +20,14 @@ def chunk_text(
 ) -> list[str]:
     r"""Split text into pieces of at most `max_length` characters, avoiding mid-word cuts.
 
-    Each piece breaks at the last newline that fits, else at the last space
-    that leaves it longer than `max_length // 10` (an earlier one would leave a
-    near-empty piece), else hard at `max_length`. A break just past the limit
-    counts too, since the break character itself is dropped. With `reverse`,
-    the search is mirrored: pieces are cut from the end, at the first fitting
-    break, so the piece holding the end of the text is the full one. Pieces are
-    stripped, and blank ones dropped.
+    The whole text is stripped first, so surrounding whitespace takes no room
+    in a piece. Each piece breaks at the last newline that fits, else at the
+    last space that leaves it longer than `max_length // 10` (an earlier one
+    would leave a near-empty piece), else hard at `max_length`. A break just
+    past the limit counts too, since the break character itself is dropped.
+    With `reverse`, the search is mirrored: pieces are cut from the end, at
+    the first fitting break, so the piece holding the end of the text is the
+    full one. Pieces are stripped, and blank ones dropped.
 
     Only `\n` and the space are break characters: `\r\n` works, since the
     `\r` is stripped, but a lone `\r`, `\v`, `\f` or other line separator
@@ -39,7 +40,8 @@ def chunk_text(
 
     Returns:
         The pieces in the order they were cut: from the end of the text first
-        when `reverse` is set; `[text]` when it already fits.
+        when `reverse` is set; `[text.strip()]` when that fits, and `[]` when
+        the text is blank.
 
     Raises:
         ValueError: If `max_length` is less than 1.
@@ -54,8 +56,10 @@ def chunk_text(
         msg = f"max_length must be at least 1, not {max_length!r}"
         raise ValueError(msg)
 
+    text = text.strip()
+
     if len(text) <= max_length:
-        return [text]
+        return [text] if text else []
 
     chunks = []
     remaining = text

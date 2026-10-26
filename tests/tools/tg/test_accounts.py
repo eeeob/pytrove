@@ -6,9 +6,10 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from pytrove import device_tools, tg_tools
 from pytrove.enums import ImapEmailProvider
 from pytrove.errors import ValidationError
-from pytrove.tg_tools import fetch_tg_email_code, tg_account_created_at
+from pytrove.tg_tools import accounts, fetch_tg_email_code, tg_account_created_at
 from pytrove.tg_tools._internal import points
 
 if TYPE_CHECKING:
@@ -116,3 +117,12 @@ async def test_fetch_tg_email_code_without_its_extras_raises_a_clear_import_erro
 async def test_fetch_tg_email_code_refuses_a_value_that_is_not_an_address() -> None:
     with pytest.raises(ValidationError, match="not valid email"):
         await fetch_tg_email_code("not-an-address", "pw", "Ali Hassan", 6)
+
+
+def test_rand_tg_device_is_random_device() -> None:
+    assert tg_tools.rand_tg_device is device_tools.random_device
+
+
+def test_accounts_exports_only_the_telegram_device_name() -> None:
+    assert "rand_tg_device" in accounts.__all__
+    assert "random_device" not in tg_tools.__all__
