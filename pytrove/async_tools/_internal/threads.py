@@ -1,4 +1,4 @@
-"""Helpers private to `async_tools`: background-thread loops and tracked submissions."""
+"""Helpers private to `async_tools`: closing refused coroutines and driving background-thread loops."""
 
 from __future__ import annotations as _annotations
 
@@ -9,9 +9,20 @@ import warnings
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable, Coroutine
+    from collections.abc import Callable, Coroutine
 
-    from ...typings import _T
+
+def _close_if_unstarted(awaitable: object) -> None:
+    """Close a coroutine that never started, so a refused one does not warn it was never awaited.
+
+    Args:
+        awaitable: Any awaitable; anything but a coroutine not yet started is left alone.
+    """
+    if (
+        inspect.iscoroutine(awaitable)
+        and inspect.getcoroutinestate(awaitable) == inspect.CORO_CREATED
+    ):
+        awaitable.close()
 
 
 def _check_loop_factory(loop_factory: Callable[[], asyncio.AbstractEventLoop] | None) -> None:
@@ -44,69 +55,20 @@ def _run_loop(
         coro: The coroutine.
         loop_factory: The loop factory; ignored before 3.12.
     """
-    if sys.version_info < (3, 12):
-        asyncio.run(coro)
-    else:
-        asyncio.run(coro, loop_factory=loop_factory)
-
-
-async def _run_tracked(
-    func: Callable[..., Awaitable[_T]],
-    args: tuple[Any, ...],
-    kwargs: dict[str, Any],
-    tasks: set[asyncio.Task[Any]] | None,
-    slots: asyncio.Semaphore | None,
-) -> _T:
-    """Run one submission on the worker's loop, tracked for the drain and bounded by the semaphore.
-
-    `func` is called here, on the worker's loop, so it may touch that loop. The
-    task registers before waiting for a slot, so a drain sees it even while parked.
-
-    Args:
-        func: The awaitable function.
-        args: Its positional arguments.
-        kwargs: Its keyword arguments.
-        tasks: The worker's live task set.
-        slots: The concurrency cap, or `None` for none.
-
-    Returns:
-        The result.
-
-    Raises:
-        TypeError: If calling `func` does not give an awaitable.
-    """
-    awaitable = func(*args, **kwargs)
-
-    if not inspect.isawaitable(awaitable):
-        msg = (
-            f"func must be an awaitable function; calling it returned {type(awaitable).__name__!r}"
-        )
-        raise TypeError(msg)
-
-    task = asyncio.current_task()
-
-    # Always a task in practice (`submit` awaits it in a task or schedules it as one); the
-    # check only narrows `current_task`'s `Task | None` for the set.
-    if tasks is not None and task is not None:
-        tasks.add(task)
-
     try:
-        if slots is None:
-            return await awaitable
-
-        await slots.acquire()
-
-        try:
-            return await awaitable
-        finally:
-            slots.release()  # Synchronous, so a cancellation cannot leak the slot.
-    finally:
-        if tasks is not None and task is not None:
-            tasks.discard(task)
+        if sys.version_info < (3, 12):
+            asyncio.run(coro)
+        else:
+            asyncio.run(coro, loop_factory=loop_factory)
+    except BaseException:
+        # `asyncio.run` can fail before it takes `coro` (a raising `loop_factory`): close it,
+        # so it does not warn that it was never awaited.
+        _close_if_unstarted(coro)
+        raise
 
 
 __all__ = (
+    "_close_if_unstarted",
     "_check_loop_factory",
     "_run_loop",
-    "_run_tracked",
 )

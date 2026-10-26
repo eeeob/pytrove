@@ -2,6 +2,8 @@ from __future__ import annotations as _annotations
 
 import asyncio
 import functools
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 import pytest
@@ -202,3 +204,77 @@ async def test_maybe_awaitable_rejects_bad_input() -> None:
         await maybe_awaitable(5)
 
     await awaitable
+
+
+async def test_safe_await_skips_none_and_flattens_any_depth() -> None:
+    assert await safe_await([_value(1), None]) == [1]
+    assert await safe_await([[_value(1)], ([_value(2), None],)], _value(3)) == [1, 2, 3]
+
+
+async def test_safe_await_treats_a_returned_exception_as_a_result(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    returned = ValueError("v")
+
+    assert await safe_await(_value(returned), return_exc=False) is returned
+    assert await safe_await(_value(returned)) is returned
+    assert "error in safe_await" not in caplog.text
+
+
+async def test_asafe_call_takes_a_tuple_of_exceptions_to_swallow() -> None:
+    assert await asafe_call(_fail(KeyError()), include_exc=(ValueError, KeyError)) is None
+
+    with pytest.raises(OSError):  # noqa: PT011 - the awaitable raises a bare `OSError`
+        await asafe_call(_fail(OSError()), include_exc=(ValueError, KeyError))
+
+
+@pytest.mark.parametrize("include_exc", [KeyError, (KeyError, ValueError)])
+async def test_asafe_call_returns_an_included_exception(
+    include_exc: type[Exception] | tuple[type[Exception], ...],
+) -> None:
+    result = await asafe_call(_fail(KeyError("k")), return_exc=True, include_exc=include_exc)
+    assert isinstance(result, KeyError)
+
+
+async def test_asafe_call_lets_an_error_of_the_log_callback_propagate_with_context() -> None:
+    original = KeyError("original")
+
+    def broken_logger(_exc: BaseException) -> None:
+        """Fail while logging."""
+        msg = "logger broke"
+        raise RuntimeError(msg)
+
+    with pytest.raises(RuntimeError, match="logger broke") as caught:
+        await asafe_call(_fail(original), log_exc=broken_logger)
+
+    assert caught.value.__context__ is original
+
+
+async def test_asafe_call_swallows_a_cancelled_task_by_default() -> None:
+    task = asyncio.create_task(asyncio.sleep(10))
+    task.cancel()
+    await asyncio.sleep(0)
+
+    assert isinstance(await asafe_call(task, return_exc=True), asyncio.CancelledError)
+
+
+async def test_maybe_awaitable_runs_a_sync_callable_in_the_given_executor() -> None:
+    def thread_name() -> str:
+        """Return the name of the thread this runs on."""
+        return threading.current_thread().name
+
+    with ThreadPoolExecutor(1, thread_name_prefix="maybe") as executor:
+        assert (await maybe_awaitable(thread_name, executor=executor)).startswith("maybe")
+
+
+async def test_maybe_awaitable_logs_a_failure_when_asked(caplog: pytest.LogCaptureFixture) -> None:
+    def boom() -> None:
+        """Fail."""
+        raise KeyError
+
+    assert isinstance(await maybe_awaitable(boom, return_exc=True), KeyError)
+    assert "error in to_thread" in caplog.text
+    caplog.clear()
+
+    assert isinstance(await maybe_awaitable(_fail(KeyError()), return_exc=True), KeyError)
+    assert "error in safe_await" in caplog.text

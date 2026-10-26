@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, cast, overload
 
 from .._internal import _HARD_PROPAGATE, _check_swallow_options, _is_swallowed
 from ..iter_tools import iter_flat_cont
-from ..validate_tools import is_container, is_exception, iscoroutinefunction_wrapped
+from ..validate_tools import is_container, iscoroutinefunction_wrapped
 from ._internal import _log_exc, _ExcLogger
 from .run import call_sync_or_await, to_thread
 
@@ -101,15 +101,14 @@ async def safe_await(*awaitables: Any, return_exc: bool = True, log_exc: bool = 
 
         try:
             result = await awaitable
-        except Exception as e:
-            result = e
-
-        if is_exception(result):
+        except Exception as e:  # Only a raise is a failure: a returned exception is a result.
             if log_exc:
-                _log_exc("error in safe_await", caller_stack, result, index=i if is_multi else None)
+                _log_exc("error in safe_await", caller_stack, e, index=i if is_multi else None)
 
             if not return_exc:
-                raise result
+                raise
+
+            result = e
 
         results.append(result)
 

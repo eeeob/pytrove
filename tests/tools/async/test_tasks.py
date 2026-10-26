@@ -101,3 +101,65 @@ async def test_waiting_on_a_task_keeps_the_callers_own_cancellation(
     assert not reached
     await asyncio.gather(target, return_exceptions=True)
     assert target.cancelled()  # The caller's cancellation still reaches the task it waited on.
+
+
+async def test_cancel_task_passes_its_message_to_the_task() -> None:
+    seen: list[tuple[Any, ...]] = []
+
+    async def record() -> None:
+        """Record the cancellation's arguments, then let it through."""
+        try:
+            await asyncio.sleep(10)
+        except asyncio.CancelledError as e:
+            seen.append(e.args)
+            raise
+
+    task = asyncio.ensure_future(record())
+    await asyncio.sleep(0)
+
+    assert await cancel_task(task, "why") is True
+    assert seen == [("why",)]
+
+
+async def test_cancel_task_raises_what_the_task_raised_instead() -> None:
+    async def convert() -> None:
+        """Turn the cancellation into another error."""
+        try:
+            await asyncio.sleep(10)
+        except asyncio.CancelledError:
+            msg = "converted"
+            raise ValueError(msg) from None
+
+    task = asyncio.ensure_future(convert())
+    await asyncio.sleep(0)
+
+    with pytest.raises(ValueError, match="converted"):
+        await cancel_task(task)
+
+
+async def test_cancel_task_reports_a_swallowed_cancellation() -> None:
+    async def swallow() -> int:
+        """Catch the cancellation and return normally."""
+        try:
+            await asyncio.sleep(10)
+        except asyncio.CancelledError:
+            return 1
+
+        return 0
+
+    task = asyncio.ensure_future(swallow())
+    await asyncio.sleep(0)
+
+    assert await cancel_task(task) is False
+    assert not task.cancelled()
+    assert task.result() == 1
+
+
+async def test_safe_wait_task_never_tolerates_a_base_exception() -> None:
+    class _Abort(BaseException):
+        """A failure that is not an `Exception`."""
+
+    task = asyncio.ensure_future(_fail(_Abort()))
+
+    with pytest.raises(_Abort):
+        await safe_wait_task(task, exc_ok=True)

@@ -1,12 +1,39 @@
 from __future__ import annotations as _annotations
 
 import asyncio
+import inspect
 import sys
 import warnings
-
 import pytest
 
-from pytrove.async_tools._internal import _check_loop_factory, _run_loop, _run_tracked
+from pytrove.async_tools import AioThreadWorker
+from pytrove.async_tools._internal import (
+    _close_if_unstarted,
+    _check_loop_factory,
+    _run_loop,
+)
+
+
+async def _noop() -> None:
+    """Do nothing."""
+
+
+def test_close_if_unstarted_closes_only_a_fresh_coroutine() -> None:
+    fresh = _noop()
+    _close_if_unstarted(fresh)
+    assert inspect.getcoroutinestate(fresh) == inspect.CORO_CLOSED
+
+    async def suspended() -> None:
+        """Suspend once."""
+        await asyncio.sleep(0)
+
+    started = suspended()
+    started.send(None)
+    _close_if_unstarted(started)
+    assert inspect.getcoroutinestate(started) == inspect.CORO_SUSPENDED
+    started.close()
+
+    _close_if_unstarted(asyncio.sleep)  # Not a coroutine: left alone.
 
 
 def test_check_loop_factory() -> None:
@@ -24,6 +51,14 @@ def test_check_loop_factory_accepts_none_silently() -> None:
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         _check_loop_factory(None)
+
+
+@pytest.mark.skipif(sys.version_info >= (3, 12), reason="the factory is honoured from 3.12 on")
+def test_check_loop_factory_warns_at_the_users_constructor_call() -> None:
+    with pytest.warns(UserWarning, match="loop_factory is ignored") as caught:
+        AioThreadWorker(loop_factory=asyncio.new_event_loop, run_now=False)
+
+    assert caught[0].filename == __file__
 
 
 def test_run_loop_drives_a_coroutine() -> None:
@@ -59,36 +94,16 @@ def test_run_loop_uses_the_factory_where_python_allows_it() -> None:
         assert built == used
 
 
-async def test_run_tracked_registers_and_bounds_the_task() -> None:
-    tasks: set[asyncio.Task[object]] = set()
-    slots = asyncio.Semaphore(1)
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="the factory is ignored before 3.12")
+def test_run_loop_closes_the_coroutine_when_the_factory_raises() -> None:
+    def factory() -> asyncio.AbstractEventLoop:
+        """Fail to build a loop."""
+        msg = "no loop"
+        raise OSError(msg)
 
-    async def probe() -> int:
-        """Report how many tasks are tracked while it runs."""
-        return len(tasks)
+    coro = _noop()
 
-    assert await _run_tracked(probe, (), {}, tasks, slots) == 1
-    assert not tasks
-    assert await _run_tracked(probe, (), {}, None, None) == 0
+    with pytest.raises(OSError, match="no loop"):
+        _run_loop(coro, factory)
 
-    with pytest.raises(TypeError, match="awaitable"):
-        await _run_tracked(lambda: None, (), {}, tasks, None)
-
-
-async def test_run_tracked_releases_the_slot_even_when_cancelled() -> None:
-    slots = asyncio.Semaphore(1)
-    tasks: set[asyncio.Task[object]] = set()
-
-    async def hang() -> None:
-        """Wait until cancelled."""
-        await asyncio.Event().wait()
-
-    task = asyncio.ensure_future(_run_tracked(hang, (), {}, tasks, slots))
-    await asyncio.sleep(0)
-    assert slots.locked()
-    assert task in tasks
-
-    task.cancel()
-    await asyncio.gather(task, return_exceptions=True)
-    assert not slots.locked()
-    assert not tasks
+    assert inspect.getcoroutinestate(coro) == inspect.CORO_CLOSED

@@ -95,3 +95,58 @@ async def test_gather_abort_returns_failures_when_asked(caplog: pytest.LogCaptur
 async def test_gather_helpers_take_an_explicit_false_return_exc() -> None:
     assert await gather_helper(_value(1), return_exc=False) == [1]
     assert await gather_abort([_value(1), _value(2)], return_exc=False) == [1, 2]
+
+
+async def test_gather_helper_raises_the_first_failure_by_default(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with pytest.raises(KeyError):
+        await gather_helper(_value(1), _fail(KeyError()))
+
+    assert "error in gather_helper" not in caplog.text  # A raised failure is not logged too.
+
+
+async def test_gather_helper_of_nothing_is_an_empty_list() -> None:
+    assert await gather_helper() == []
+
+
+async def test_gather_helper_runs_a_repeated_awaitable_once() -> None:
+    calls: list[int] = []
+
+    async def count() -> int:
+        """Count the run."""
+        calls.append(1)
+        return len(calls)
+
+    coro = count()
+    assert await gather_helper(coro, coro) == [1, 1]
+    assert calls == [1]
+
+
+@pytest.mark.parametrize("gather", [gather_helper, gather_abort])
+async def test_gathering_without_log_exc_stays_silent(
+    gather: Any, caplog: pytest.LogCaptureFixture
+) -> None:
+    results = await gather(_fail(KeyError()), return_exc=True, log_exc=False)
+
+    assert isinstance(results[0], KeyError)
+    assert not caplog.text
+
+
+async def test_gather_abort_skips_none_and_handles_nothing() -> None:
+    assert await gather_abort([_value(1), None], None) == [1]
+    assert await gather_abort() == []
+
+
+async def test_cancelling_gather_abort_cancels_its_children() -> None:
+    first = asyncio.ensure_future(_value(1, delay=5))
+    second = asyncio.ensure_future(_value(2, delay=5))
+    gathering = asyncio.ensure_future(gather_abort(first, second))
+    await asyncio.sleep(0)
+    gathering.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await gathering
+
+    assert first.cancelled()
+    assert second.cancelled()

@@ -3,7 +3,7 @@
 from __future__ import annotations as _annotations
 
 import asyncio
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ._internal import _wait_done
 from .safety import asafe_call
@@ -52,7 +52,7 @@ async def safe_wait_task(
     return None
 
 
-async def cancel_task(task: asyncio.Task, msg: str | None = None) -> bool:
+async def cancel_task(task: asyncio.Task[Any], msg: str | None = None) -> bool:
     """Cancel a task and wait until the cancellation has been processed.
 
     Avoid cancelling a parent that is waiting on a child through another task:
@@ -64,7 +64,7 @@ async def cancel_task(task: asyncio.Task, msg: str | None = None) -> bool:
 
     Returns:
         `True` once the task accepted and processed the cancellation, `False`
-        if it was already done.
+        if it was already done or caught the cancellation and returned.
 
     Raises:
         RuntimeError: If `task` is the current task.
@@ -89,7 +89,7 @@ async def cancel_task(task: asyncio.Task, msg: str | None = None) -> bool:
     await asafe_call(
         task, include_exc=asyncio.CancelledError, log_exc=False
     )  # Done: reads the outcome at once.
-    return True
+    return task.cancelled()
 
 
 __all__ = (
