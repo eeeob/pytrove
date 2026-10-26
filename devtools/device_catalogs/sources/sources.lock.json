@@ -13,10 +13,11 @@
    "first_seen": "2026-10-13"
   },
   "chrome_releases_linux": {
-   "fingerprint": 155,
+   "fingerprint": 156,
    "contract": "ok",
    "declaration": "c8a1cb37a2ee",
-   "first_seen": "2026-10-13"
+   "first_seen": "2026-10-13",
+   "last_changed": "2026-10-26"
   },
   "chrome_releases_mac": {
    "fingerprint": 156,
@@ -25,10 +26,11 @@
    "first_seen": "2026-10-13"
   },
   "chrome_releases_win": {
-   "fingerprint": 156,
+   "fingerprint": 157,
    "contract": "ok",
    "declaration": "c8a1cb37a2ee",
-   "first_seen": "2026-10-13"
+   "first_seen": "2026-10-13",
+   "last_changed": "2026-10-26"
   },
   "dumps_gitlab_api": {
    "sha256": "12b2c0638e53e6791048c1d8088623d05f12cd7d7774c8d9940c12f35deb21a3",
@@ -38,13 +40,20 @@
    },
    "contract": "ok",
    "declaration": "356eeeb0d839",
-   "first_seen": "2026-10-13"
+   "first_seen": "2026-10-13",
+   "failing": {
+    "state": "flaky",
+    "consecutive": 1,
+    "since": "2026-10-26",
+    "last_error": "HTTP 502"
+   }
   },
   "edge_releases": {
-   "fingerprint": 157,
+   "fingerprint": 158,
    "contract": "ok",
    "declaration": "9b8d96841949",
-   "first_seen": "2026-10-13"
+   "first_seen": "2026-10-13",
+   "last_changed": "2026-10-26"
   },
   "eol_motorola_mobility": {
    "fingerprint": 155,
@@ -127,34 +136,35 @@
    "first_seen": "2026-10-13"
   },
   "play_catalog": {
-   "fingerprint": 54157,
+   "fingerprint": 54271,
    "http": {
-    "etag": "\"43af4be8c94c6443e10b73078f4c3383\"",
-    "last_modified": "Wed, 14 Oct 2026 12:05:51 GMT"
+    "etag": "\"3037e4b33573a722eaaf14b4b4b7fb11\"",
+    "last_modified": "Sun, 25 Oct 2026 12:05:28 GMT"
    },
    "contract": "ok",
    "declaration": "b8fa63c3f3f0",
    "first_seen": "2026-10-13",
-   "last_changed": "2026-10-14"
+   "last_changed": "2026-10-26"
   },
   "xiaomi_devices": {
-   "fingerprint": 1441,
+   "fingerprint": 1445,
    "http": {
-    "etag": "\"14a01f747f9eb7373b3b4a49dd66fb8ad913f68c0007246c9b304fe0bbaf4638\""
+    "etag": "\"a80f0af545ac4eaaa2dca90e20213913ae9a00363c5a85dd5fc697f44b80d0f6\""
    },
    "contract": "ok",
    "declaration": "af694553cf23",
-   "first_seen": "2026-10-13"
+   "first_seen": "2026-10-13",
+   "last_changed": "2026-10-26"
   },
   "xiaomi_latest": {
-   "fingerprint": 3672,
+   "fingerprint": 3659,
    "http": {
-    "etag": "\"14ba90c7c4117b0a7306b8ee005570b8db92a9e9a8b9b2b528e5477abb2a4d6f\""
+    "etag": "\"9888c64a8988c50a79a0e95d8da4f550960ff38c831fead868793b1e321659ab\""
    },
    "contract": "ok",
    "declaration": "2c98d014106e",
    "first_seen": "2026-10-13",
-   "last_changed": "2026-10-14"
+   "last_changed": "2026-10-26"
   }
  },
  "citations": {
@@ -169,14 +179,15 @@
    "first_seen": "2026-10-14"
   },
   "chromium_user_agent": {
-   "sha256": "ef18c93ab393e38414b35bf860af05aa07bf16499690de330706963202aead94",
-   "bytes": 32618,
+   "sha256": "b3eb390912deec66b1f56117e3164f25365938fc8b8748972b73403ecd5b1365",
+   "bytes": 32725,
    "http": {
-    "etag": "\"04fb390d9954b4281befb93217963df65f1b2f750d17e1320234f57306a6a94c\""
+    "etag": "\"5b16bd03aef3cf5759d369098baf817c3b586d94be903c0a31bdb01aa8600951\""
    },
    "contract": "ok",
    "declaration": "1128ccee612e",
-   "first_seen": "2026-10-14"
+   "first_seen": "2026-10-14",
+   "last_changed": "2026-10-26"
   },
   "gecko_user_agent": {
    "sha256": "320c2e106d44dd86fe778a5fa3ffb67d2f18090149a6d2d54606cdb71bc9b6b4",
@@ -239,14 +250,15 @@
    "first_seen": "2026-10-14"
   },
   "telegram_ios_model_source": {
-   "sha256": "dbeaf0f708fbf7c40d35f706ba7b45d85c4596b612adf931e707f81f3ee0f241",
-   "bytes": 174966,
+   "sha256": "80c33608e1ad3982150be06f8d5175654b1d5f5ce0601afc9829739a3307e976",
+   "bytes": 177875,
    "http": {
-    "etag": "\"59dce24c712b8ee72bed100b4643868504c81ac8e712b988aee15a31d7ecef83\""
+    "etag": "\"19578d7c063feb7963f40eadbda7ac91aad7bc9a0ba24b3787728d66b4361b77\""
    },
    "contract": "ok",
    "declaration": "c9833f84ad89",
-   "first_seen": "2026-10-14"
+   "first_seen": "2026-10-14",
+   "last_changed": "2026-10-26"
   },
   "webkit_navigator_platform": {
    "sha256": "b5592bcd151f70136a13e5db8317f3bcc735a4f4bcc1be9d0939521c11e4a5d9",
