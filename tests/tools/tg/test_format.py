@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from pytrove import parse_tg_target
+from pytrove import parse_tg_target, text_tools, tg_tools
 from pytrove.errors import ValidationError
 from pytrove.tg_tools import (
     extract_pyro_update_text,
@@ -14,6 +14,7 @@ from pytrove.tg_tools import (
     format_tg_username,
     mention_tg_user,
 )
+from pytrove.tg_tools import format as tg_format
 from pytrove.tg_tools._internal import links
 
 if TYPE_CHECKING:
@@ -266,3 +267,8 @@ def test_format_tg_link_ignores_surrounding_whitespace() -> None:
 def test_format_tg_username_of_a_private_channel_link_is_the_default() -> None:
     assert format_tg_username("https://t.me/c/1234567890/5") is None
     assert format_tg_username("T.ME/C/1234567890", default="none") == "none"
+
+
+def test_split_tg_message_is_chunk_text() -> None:
+    assert tg_tools.split_tg_message is text_tools.chunk_text
+    assert "split_tg_message" in tg_format.__all__

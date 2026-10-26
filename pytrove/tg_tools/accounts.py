@@ -1,4 +1,4 @@
-"""Facts about Telegram accounts: their age, and login codes sent by email."""
+"""Facts about Telegram accounts: their age, email login codes, and the client device."""
 
 from __future__ import annotations as _annotations
 
@@ -6,6 +6,7 @@ import re
 from itertools import pairwise
 
 from .._internal import _optional_import
+from ..device_tools import random_device as rand_tg_device
 from ..email_tools import detect_email_provider, fetch_emails_from
 from ..errors import ValidationError
 from ._internal import _interpolate_time, _points
@@ -73,4 +74,5 @@ async def fetch_tg_email_code(
 __all__ = (
     "tg_account_created_at",
     "fetch_tg_email_code",
+    "rand_tg_device",
 )

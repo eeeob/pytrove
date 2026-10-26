@@ -13,6 +13,18 @@ def test_chunk_text_under_limit_returns_single_chunk() -> None:
     assert chunk_text("x" * TgMessageLength.TEXT) == ["x" * TgMessageLength.TEXT]
 
 
+def test_chunk_text_strips_the_whole_text_first() -> None:
+    assert chunk_text(" short ") == ["short"]
+    assert chunk_text("  hi  ", 10) == ["hi"]
+    # Without its surrounding spaces the text fits, so it stays one piece.
+    assert chunk_text("  a b  ", 3) == ["a b"]
+
+
+def test_chunk_text_returns_no_pieces_for_blank_text() -> None:
+    assert chunk_text("   ") == []
+    assert chunk_text("") == []
+
+
 def test_chunk_text_splits_on_newline_when_possible() -> None:
     text = ("a" * 50 + "\n") + ("b" * 50)
     chunks = chunk_text(text, max_length=60)

@@ -1,4 +1,4 @@
-"""Reading and writing Telegram usernames, links, targets and mentions."""
+"""Reading and writing Telegram usernames, links, targets and mentions; splitting messages."""
 
 from __future__ import annotations as _annotations
 
@@ -17,7 +17,7 @@ from .._internal import _optional_import
 from ..constants import TG_CHAT_LINK_PATTERN, TG_INVITE_LINK_PATTERN
 from ..errors import ValidationError
 from ..num_tools import to_int
-from ..text_tools import clean_spaces
+from ..text_tools import chunk_text, clean_spaces
 from ..validate_tools import is_tg_user_id
 from ._internal import _HIDDEN_PADDING, _PRIVATE_CHAT_LINK_PATTERN, _SHORT_LINK_TEXT
 
@@ -233,6 +233,8 @@ def mention_tg_user(
     return format_hidden_tg_link(f"tg://user?id={user_id}", name, parse_mode)
 
 
+split_tg_message = chunk_text
+
 __all__ = (
     "extract_pyro_update_text",
     "format_tg_username",
@@ -240,4 +242,5 @@ __all__ = (
     "parse_tg_target",
     "format_hidden_tg_link",
     "mention_tg_user",
+    "split_tg_message",
 )
