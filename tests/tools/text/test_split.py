@@ -1,5 +1,7 @@
 from __future__ import annotations as _annotations
 
+from typing import Any
+
 import pytest
 
 from pytrove.text_tools import smart_split
@@ -52,3 +54,48 @@ def test_smart_split_raises_when_the_selected_part_is_filtered_out_or_missing() 
 
     with pytest.raises(IndexError):
         smart_split("a,b", 5, separator=",")
+
+
+@pytest.mark.parametrize(
+    ("args", "kwargs", "expected"),
+    [
+        # Empty text: `str.split` semantics.
+        (("",), {"separator": ","}, [""]),
+        (("",), {"separator": None}, []),
+        # Negative and stepped indexing.
+        (("a,b,c,d,e", -2), {"separator": ","}, "d"),
+        (("a,b,c,d,e", slice(-2, None)), {"separator": ","}, ["d", "e"]),
+        (("a,b,c,d,e", slice(None, None, 2)), {"separator": ","}, ["a", "c", "e"]),
+        (("a,b,c,d,e", slice(None, None, -1)), {"separator": ","}, ["e", "d", "c", "b", "a"]),
+        # The slice runs on the raw parts, before the filter.
+        (("a,,b,c", slice(0, 2)), {"part_filter": bool, "separator": ","}, ["a"]),
+        # `max_split` limits a string, and is ignored for a container.
+        (("a,b,c",), {"max_split": 0, "separator": ","}, ["a,b,c"]),
+        ((["a", ["b", "c"]],), {"max_split": 0, "separator": ","}, ["a", "b", "c"]),
+        # A container drops `None` leaves and gives a mapping's keys.
+        ((["a", None, "b"], 1), {"separator": ","}, "b"),
+        (({"k": "v"},), {"separator": ","}, ["k"]),
+        # `remove_spaces` wins over `strip`.
+        ((" a b , c ",), {"strip": True, "remove_spaces": True, "separator": ","}, ["ab", "c"]),
+        # A resolver on a slice.
+        (("1,2,3", slice(1, None), int), {"separator": ","}, [2, 3]),
+        # A callable separator with indexing, and one returning `None`.
+        (("a;b", 1), {"separator": lambda: ";"}, "b"),
+        (("a b,c", 1), {"separator": lambda: None}, "b,c"),
+        # Every parameter positionally.
+        (("a, b", 1, None, True), {"separator": ","}, "b"),
+        (("1,2", None, int), {"separator": ","}, [1, 2]),
+    ],
+)
+def test_smart_split_cases(args: tuple[Any, ...], kwargs: dict[str, Any], expected: object) -> None:
+    assert smart_split(*args, **kwargs) == expected
+
+
+def test_smart_split_refuses_an_empty_separator() -> None:
+    with pytest.raises(ValueError, match="empty separator"):
+        smart_split("a,b", separator="")
+
+
+def test_smart_split_propagates_a_resolver_error() -> None:
+    with pytest.raises(ValueError, match="invalid literal"):
+        smart_split("1,x", separator=",", part_resolver=int)
