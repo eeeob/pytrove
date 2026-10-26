@@ -54,6 +54,7 @@ def test_constants() -> None:
     assert catalog._SCHEMA == 1
     assert catalog._HALF_LIFE_DAYS == 730.0
     assert catalog._MIN_WEIGHT == 1e-4
+    assert catalog._ISO_DATE.pattern == r"\d{4}-\d{2}-\d{2}"
     assert all(share > 0 for share in catalog.GROUP_SHARES.values())
     assert set(catalog.OS_SHARES) == {"windows", "linux"}
 
@@ -63,6 +64,12 @@ def test_constants() -> None:
 
 @pytest.mark.parametrize("released", [None, "", "not a date", "2024-13-40"])
 def test_age_weight_of_an_unknown_or_unreadable_date_is_one(released: str | None) -> None:
+    assert catalog._age_weight(released, TODAY) == 1.0
+
+
+# 3.11+ `date.fromisoformat` reads these and 3.10 does not; both must weigh them alike.
+@pytest.mark.parametrize("released", ["20240101", "2024-W01-1", "2024-001", "2024-1-1"])
+def test_age_weight_reads_only_the_extended_date_form(released: str) -> None:
     assert catalog._age_weight(released, TODAY) == 1.0
 
 
@@ -101,6 +108,17 @@ def test_load_refuses_a_missing_file(monkeypatch: pytest.MonkeyPatch, tmp_path: 
         catalog._load("nope")
 
 
+@pytest.mark.parametrize("payload", [[], "catalog", 1, None])
+def test_load_refuses_a_file_that_is_not_an_object(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, payload: object
+) -> None:
+    monkeypatch.setattr(catalog, "DEVICE_CATALOGS_DIR", tmp_path)
+    (tmp_path / "list.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="list.json: expected a JSON object, got"):
+        catalog._load("list")
+
+
 @pytest.mark.parametrize("schema", [None, 0, 2, "1"])
 def test_load_refuses_another_schema(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, schema: object
@@ -128,26 +146,45 @@ def test_catalog_offers_explicit_versions_else_every_version(
     resolved = _resolve(
         monkeypatch,
         tmp_path,
-        updated="2026-01-01",
         versions=[{"version": "1"}, {"version": "2"}],
         devices=[{"model": "A", "versions": ["2"]}, {"model": "B"}],
     )
 
     assert resolved.platform == "fake"
-    assert resolved.updated == "2026-01-01"
     assert [(d.model, d.versions) for d in resolved.devices] == [("A", ("2",)), ("B", ("1", "2"))]
     assert resolved.oses == () and resolved.by_os == {}
     assert all(d.oses == () and d.by_os == {} for d in resolved.devices)
 
 
-def test_catalog_without_an_update_date_reads_as_empty(
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"devices": [{"model": "A"}]},
+        {"versions": [{"version": "1"}]},
+        {"versions": [{"name": "1"}], "devices": [{"model": "A"}]},
+        {"versions": [{"version": "1"}], "devices": [{"name": "A"}]},
+    ],
+    ids=["no-versions", "no-devices", "version-without-version", "device-without-model"],
+)
+def test_catalog_missing_a_required_key_raises_key_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, data: dict[str, Any]
+) -> None:
+    with pytest.raises(KeyError):
+        _resolve(monkeypatch, tmp_path, **data)
+
+
+def test_catalog_weighs_a_listed_but_undescribed_version_as_one(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     resolved = _resolve(
-        monkeypatch, tmp_path, versions=[{"version": "1"}], devices=[{"model": "A"}]
+        monkeypatch,
+        tmp_path,
+        versions=[{"version": "1", "weight": 4}],
+        devices=[{"model": "A", "versions": ["1", "ghost"]}],
     )
 
-    assert resolved.updated == ""
+    assert resolved.devices[0].versions == ("1", "ghost")
+    assert resolved.devices[0].version_weights == (4.0, 1.0)
 
 
 def test_catalog_offers_a_device_the_versions_of_the_oses_it_reports(
@@ -222,7 +259,7 @@ def test_catalog_uses_explicit_weights_raised_to_the_floor(
     )
 
     assert resolved.weights == (5.0, catalog._MIN_WEIGHT)
-    assert resolved.devices[0].version_weights == (3.0, 0.0)
+    assert resolved.devices[0].version_weights == (3.0, catalog._MIN_WEIGHT)
 
 
 def test_catalog_splits_a_group_share_by_recency(
@@ -253,9 +290,41 @@ def test_catalog_splits_a_group_share_by_recency(
     assert resolved.devices[0].version_weights == pytest.approx((1.0, 0.5))
 
 
-def test_catalog_version_count_counts_distinct_versions() -> None:
-    device_a = _Device("A", ("1", "2"), (1.0, 1.0), 1.0)
-    device_b = _Device("B", ("2", "3"), (1.0, 1.0), 1.0)
+def test_catalog_splits_a_group_share_only_across_its_scaled_kept_devices(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setitem(catalog.GROUP_SHARES, "acme", 30.0)
+    resolved = _resolve(
+        monkeypatch,
+        tmp_path,
+        versions=[{"version": "W", "os": "windows"}],
+        devices=[
+            {"model": "A", "vendor": "acme", "os": ["windows"]},
+            {"model": "B", "vendor": "acme", "os": ["windows"]},
+            {"model": "Pinned", "vendor": "acme", "os": ["windows"], "weight": 7},
+            {"model": "Mac", "vendor": "acme", "os": ["macos"]},
+        ],
+    )
 
-    assert _Catalog("p", "", (device_a, device_b), (1.0, 1.0)).version_count() == 3
-    assert _Catalog("p", "", (), ()).version_count() == 0
+    assert [d.model for d in resolved.devices] == ["A", "B", "Pinned"]
+    a, b, pinned = resolved.weights
+    assert a + b == pytest.approx(30.0)
+    assert a == pytest.approx(b)
+    assert pinned == 7.0
+
+
+def test_device_os_versions_narrows_to_one_os_or_returns_all() -> None:
+    device = _Device(
+        "PC",
+        ("W", "L"),
+        (1.0, 1.0),
+        1.0,
+        ("linux", "windows"),
+        {"windows": (("W",), (1.0,)), "linux": (("L",), (1.0,))},
+    )
+
+    assert device.os_versions(None) == ("W", "L")
+    assert device.os_versions("linux") == ("L",)
+
+    with pytest.raises(KeyError):
+        device.os_versions("haiku")

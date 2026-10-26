@@ -2,9 +2,10 @@
 
 from __future__ import annotations as _annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Any, Final, cast
+from typing import Any, Final
 
 from ...constants import DEVICE_CATALOGS_DIR
 from ...files_tools import load_json
@@ -16,7 +17,10 @@ _HALF_LIFE_DAYS: Final[float] = 730.0
 """Days over which a device's or version's recency weight halves."""
 
 _MIN_WEIGHT: Final[float] = 1e-4
-"""The floor every weight is raised to, so nothing becomes impossible."""
+"""The floor every device and version weight is raised to, so nothing becomes impossible."""
+
+_ISO_DATE: Final[re.Pattern[str]] = re.compile(r"\d{4}-\d{2}-\d{2}")
+"""The one date form read alike on every Python; 3.11+ `date.fromisoformat` also takes others."""
 
 GROUP_SHARES: dict[str, float] = {
     # Android retail brands
@@ -54,11 +58,16 @@ GROUP_SHARES: dict[str, float] = {
 """Approximate installed-base share per brand, vendor or browser-on-OS, split across its own devices.
 
 Counting catalog rows instead would skew the mix (every regional Samsung
-variant is listed, one Pixel). Not `Final`: reassign entries to change the mix.
+variant is listed, one Pixel). Not `Final`: reassign entries to change the mix,
+before a catalog's first draw or lookup. A catalog applies the shares once, when
+it is built, and keeps the result, so a later edit does not reach a loaded one.
 """
 
 OS_SHARES: dict[str, float] = {"windows": 20.0, "linux": 3.0}
-"""Relative OS shares on a multi-OS platform, drawn before the device. Not `Final`: meant to be adjusted."""
+"""Relative OS shares on a multi-OS platform, drawn before the device; a missing OS weighs 1.0.
+
+Not `Final`: meant to be adjusted. Read on every draw, so an edit applies at once.
+"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,7 +81,7 @@ class _Device:
     """The OS versions it can run."""
 
     version_weights: tuple[float, ...]
-    """One weight per entry of `versions`: explicit in the data, or by recency."""
+    """One weight per entry of `versions`: explicit in the data, or by recency; floored."""
 
     weight: float
     """The device's own weight, scaled by its group share and floored at `_MIN_WEIGHT`."""
@@ -84,6 +93,20 @@ class _Device:
         default_factory=dict, compare=False
     )
     """Per OS, the subset of `versions` and their weights; empty on a single-OS platform."""
+
+    def os_versions(self, os: str | None) -> tuple[str, ...]:
+        """Return the versions it runs under `os`.
+
+        Args:
+            os: An OS in `by_os`, or `None` for every version.
+
+        Returns:
+            The versions.
+
+        Raises:
+            KeyError: If `os` is not in `by_os`.
+        """
+        return self.versions if os is None else self.by_os[os][0]
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,9 +127,6 @@ class _Catalog:
     platform: str
     """The platform name, also the data file's stem."""
 
-    updated: str
-    """When the data was generated, as the file states it; empty if it does not."""
-
     devices: tuple[_Device, ...]
     """Every usable device."""
 
@@ -119,26 +139,18 @@ class _Catalog:
     by_os: dict[str, _OsView] = field(default_factory=dict, compare=False)
     """Per OS, the devices that can report it; only OSes with at least one device."""
 
-    def version_count(self) -> int:
-        """Count the distinct OS versions across all devices.
-
-        Returns:
-            The count.
-        """
-        return len({v for d in self.devices for v in d.versions})
-
 
 def _age_weight(released: str | None, today: date) -> float:
     """Weigh by recency: 1.0 when new, halving every `_HALF_LIFE_DAYS`.
 
     Args:
-        released: An ISO date, or `None`.
+        released: A `YYYY-MM-DD` date, optionally followed by a time, or `None`.
         today: The reference day.
 
     Returns:
         The weight; 1.0 for an unknown or unreadable date.
     """
-    if not released:
+    if not released or not _ISO_DATE.fullmatch(released[:10]):
         return 1.0
 
     try:
@@ -160,7 +172,7 @@ def _load(platform: str) -> dict[str, Any]:
 
     Raises:
         FileNotFoundError: If the file is missing.
-        ValueError: If its schema is not `_SCHEMA`.
+        ValueError: If it is not a JSON object, or its schema is not `_SCHEMA`.
     """
     path = DEVICE_CATALOGS_DIR / f"{platform}.json"
 
@@ -168,9 +180,11 @@ def _load(platform: str) -> dict[str, Any]:
         msg = f"no device catalog for {platform!r}: {path} is missing"
         raise FileNotFoundError(msg)
 
-    # `load_json` returns any `JsonValue`; every bundled catalog is a JSON object (checked by
-    # `test_devices_data`), and its schema is verified just below.
-    data = cast("dict[str, Any]", load_json(path))
+    data = load_json(path)
+
+    if not isinstance(data, dict):
+        msg = f"{platform}.json: expected a JSON object, got {type(data).__name__}"
+        raise ValueError(msg)
 
     if data.get("schema") != _SCHEMA:
         msg = f"{platform}.json: unsupported schema {data.get('schema')!r}, expected {_SCHEMA}"
@@ -182,9 +196,11 @@ def _load(platform: str) -> dict[str, Any]:
 def _build_catalog(platform: str) -> _Catalog:
     """Load a platform's catalog and resolve every weight; `DeviceCatalog` keeps the result.
 
-    A device runs its explicit version list, else every version of the OSes
-    it reports, else every version. Within a group, newer devices take more of
-    the group's `GROUP_SHARES` slice; versions are split per OS for OS-first draws.
+    A device runs its explicit version list, else every version of the OSes it
+    reports, else every version; a device with none to run is skipped. Within a
+    group, the kept devices without an explicit `weight` split the group's
+    `GROUP_SHARES` slice, newer ones taking more. Versions are split per OS for
+    OS-first draws.
 
     Args:
         platform: The platform name.
@@ -193,7 +209,9 @@ def _build_catalog(platform: str) -> _Catalog:
         The resolved catalog.
 
     Raises:
-        ValueError: If no device is usable.
+        KeyError: If the file lacks `versions` or `devices`, a version entry its
+            `version`, or a device its `model`.
+        ValueError: If the file is not a catalog `_load` accepts, or no device is usable.
     """
     data = _load(platform)
     today = date.today()
@@ -201,28 +219,25 @@ def _build_catalog(platform: str) -> _Catalog:
     all_versions = tuple(versions)
     os_of = {name: entry.get("os") for name, entry in versions.items()}
     oses = tuple(dict.fromkeys(o for o in os_of.values() if o))
-    group_totals: dict[str, float] = {}
 
     def version_weight(name: str) -> float:
-        """Return a version's weight: explicit in the data, or by recency.
+        """Return a version's weight: explicit in the data, or by recency, then floored.
 
         Args:
             name: The version.
 
         Returns:
-            Its weight.
+            Its weight; 1.0 for a version the catalog does not describe.
         """
         entry = versions.get(name, {})
         weight = entry.get("weight")
-        return float(weight) if weight is not None else _age_weight(entry.get("released"), today)
+        weight = float(weight) if weight is not None else _age_weight(entry.get("released"), today)
+        return max(weight, _MIN_WEIGHT)
 
-    for raw in data["devices"]:
-        if group := raw.get("brand") or raw.get("vendor"):
-            group_totals[group] = group_totals.get(group, 0.0) + _age_weight(
-                raw.get("released"), today
-            )
-
-    devices, weights = [], []
+    # Each kept device: the raw entry, its versions, its OSes, its group (`None` when its
+    # weight is explicit, which no share scales) and its unscaled weight.
+    kept: list[tuple[dict[str, Any], tuple[str, ...], tuple[str, ...], str | None, float]] = []
+    group_totals: dict[str, float] = {}
 
     for raw in data["devices"]:
         # Declared apart: `ty` solves `sorted(<Any> or ())` from the `()` arm alone and
@@ -240,16 +255,23 @@ def _build_catalog(platform: str) -> _Catalog:
         if not names:
             continue
 
-        weight = raw.get("weight")
+        explicit = raw.get("weight")
+        group = None if explicit is not None else raw.get("brand") or raw.get("vendor")
+        weight = (
+            float(explicit) if explicit is not None else _age_weight(raw.get("released"), today)
+        )
+        kept.append((raw, names, device_oses, group, weight))
 
-        if weight is None:
-            weight = _age_weight(raw.get("released"), today)
-            group = raw.get("brand") or raw.get("vendor")
+        if group:
+            group_totals[group] = group_totals.get(group, 0.0) + weight
 
-            if group and group_totals.get(group):
-                weight *= GROUP_SHARES.get(group, 1.0) / group_totals[group]
+    devices, weights = [], []
 
-        weight = max(float(weight), _MIN_WEIGHT)
+    for raw, names, device_oses, group, own_weight in kept:
+        weight = (
+            own_weight * GROUP_SHARES.get(group, 1.0) / group_totals[group] if group else own_weight
+        )
+        weight = max(weight, _MIN_WEIGHT)
         version_weights = tuple(map(version_weight, names))
         by_os: dict[str, tuple[tuple[str, ...], tuple[float, ...]]] = {}
 
@@ -281,14 +303,7 @@ def _build_catalog(platform: str) -> _Catalog:
         if (members := [d for d in devices if system in d.by_os])
     }
 
-    return _Catalog(
-        platform,
-        data.get("updated", ""),
-        tuple(devices),
-        tuple(weights),
-        tuple(by_os_view),
-        by_os_view,
-    )
+    return _Catalog(platform, tuple(devices), tuple(weights), tuple(by_os_view), by_os_view)
 
 
 __all__ = (
@@ -299,6 +314,7 @@ __all__ = (
     "_build_catalog",
     "_load",
     "_HALF_LIFE_DAYS",
+    "_ISO_DATE",
     "_MIN_WEIGHT",
     "_SCHEMA",
     "GROUP_SHARES",

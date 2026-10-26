@@ -2,15 +2,17 @@
 
 from __future__ import annotations as _annotations
 
+import math
 from dataclasses import dataclass
 from functools import cached_property
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from ..enums import PlatformDevice
 from ..models.device_models import DeviceInfo
-from ._internal import _Catalog, _Device, _build_catalog, _rng, OS_SHARES
+from ._internal import _Catalog, _Device, _OsView, _build_catalog, _rng, OS_SHARES
 
 if TYPE_CHECKING:
+    import random
     from collections.abc import Iterable
 
 
@@ -33,7 +35,17 @@ class DeviceCatalog:
     """The platform, which names its bundled catalog file."""
 
     weight: float = 1.0
-    """Relative likelihood when no platform is requested."""
+    """Relative likelihood when no platform is requested; finite and not negative."""
+
+    def __post_init__(self) -> None:
+        """Refuse a weight no draw can use.
+
+        Raises:
+            ValueError: If `weight` is negative, infinite or NaN.
+        """
+        if not (math.isfinite(self.weight) and self.weight >= 0):
+            msg = f"DeviceCatalog weight must be finite and not negative, got {self.weight!r}"
+            raise ValueError(msg)
 
     @cached_property
     def _data(self) -> _Catalog:
@@ -60,6 +72,26 @@ class DeviceCatalog:
         """
         return self._data.oses
 
+    def _view(self, os: str) -> _OsView:
+        """Return the devices that can report an OS, with their weights.
+
+        Args:
+            os: The OS.
+
+        Returns:
+            The view.
+
+        Raises:
+            ValueError: If the platform has no device for `os`.
+        """
+        catalog = self._data
+
+        if (view := catalog.by_os.get(os)) is None:
+            msg = f"{self.platform} has no {os!r} devices; known: {catalog.oses or '()'}"
+            raise ValueError(msg)
+
+        return view
+
     def _devices_for(self, os: str | None) -> tuple[_Device, ...]:
         """Return the devices that can report an OS, or all of them.
 
@@ -72,19 +104,14 @@ class DeviceCatalog:
         Raises:
             ValueError: If the platform has no device for `os`.
         """
-        catalog = self._data
-
-        if os is None:
-            return catalog.devices
-
-        if (view := catalog.by_os.get(os)) is None:
-            msg = f"{self.platform} has no {os!r} devices; known: {catalog.oses or '()'}"
-            raise ValueError(msg)
-
-        return view.devices
+        return self._data.devices if os is None else self._view(os).devices
 
     def devices(self, *, os: str | None = None) -> tuple[DeviceInfo, ...]:
         """Return every `(device_model, system_version)` pair this platform can report.
+
+        It pairs every model with every version that model runs, which on desktop is
+        hundreds of thousands of pairs; to test one pair, use `find_device` or
+        `is_known_device` instead.
 
         Args:
             os: Restrict to this OS.
@@ -98,7 +125,7 @@ class DeviceCatalog:
         return tuple(
             DeviceInfo(device.model, version)
             for device in self._devices_for(os)
-            for version in (device.by_os[os][0] if os else device.versions)
+            for version in device.os_versions(os)
         )
 
     def models(self, *, os: str | None = None) -> tuple[str, ...]:
@@ -129,9 +156,7 @@ class DeviceCatalog:
         """
         return tuple(
             dict.fromkeys(
-                version
-                for device in self._devices_for(os)
-                for version in (device.by_os[os][0] if os else device.versions)
+                version for device in self._devices_for(os) for version in device.os_versions(os)
             )
         )
 
@@ -165,11 +190,27 @@ class DeviceCatalog:
 
         return None
 
-    def random_device(self, unique_id: Any = None, os: str | None = None) -> DeviceInfo:
+    def random_device(self, unique_id: object = None, os: str | None = None) -> DeviceInfo:
         """Draw a weighted device and a version it runs.
 
         Args:
-            unique_id: Seeds the draw, so one identity always gets one device.
+            unique_id: Seeds the draw, so one identity always gets one device; bytes
+                as they are, any other value by its `str`.
+            os: Pin the OS on a multi-OS platform.
+
+        Returns:
+            The device.
+
+        Raises:
+            ValueError: If the platform has no device for `os`.
+        """
+        return self._draw(_rng(unique_id), os)
+
+    def _draw(self, rng: random.Random, os: str | None) -> DeviceInfo:
+        """Draw a device and a version it runs, continuing the stream `rng` is on.
+
+        Args:
+            rng: The generator; `random_device` may already have used it to pick this catalog.
             os: Pin the OS on a multi-OS platform.
 
         Returns:
@@ -179,7 +220,6 @@ class DeviceCatalog:
             ValueError: If the platform has no device for `os`.
         """
         catalog = self._data
-        rng = _rng(unique_id)
 
         if os is None and catalog.oses:
             os = rng.choices(
@@ -190,25 +230,29 @@ class DeviceCatalog:
             device = rng.choices(catalog.devices, weights=catalog.weights, k=1)[0]
             names, version_weights = device.versions, device.version_weights
         else:
-            if (view := catalog.by_os.get(os)) is None:
-                msg = f"{self.platform} has no {os!r} devices; known: {catalog.oses or '()'}"
-                raise ValueError(msg)
-
+            view = self._view(os)
             device = rng.choices(view.devices, weights=view.weights, k=1)[0]
             names, version_weights = device.by_os[os]
 
         return DeviceInfo(device.model, rng.choices(names, weights=version_weights, k=1)[0])
 
 
-def random_family(catalogs: Iterable[DeviceCatalog], unique_id: Any = None) -> DeviceCatalog:
+def random_family(catalogs: Iterable[DeviceCatalog], unique_id: object = None) -> DeviceCatalog:
     """Pick a platform's catalog, weighted by `weight`.
 
+    Drawing from the picked catalog with the same `unique_id` reuses the same stream
+    and correlates the two picks; for a seeded draw across platforms, use
+    `random_device(unique_id=...)` instead.
+
     Args:
-        catalogs: The catalogs to choose from.
-        unique_id: Seeds the draw.
+        catalogs: The catalogs to choose from; any iterable, read once.
+        unique_id: Seeds the draw; bytes as they are, any other value by its `str`.
 
     Returns:
         The catalog.
+
+    Raises:
+        ValueError: If no catalog has a positive weight, an empty `catalogs` included.
 
     Example:
         >>> from pytrove import get_device_catalog
@@ -218,6 +262,11 @@ def random_family(catalogs: Iterable[DeviceCatalog], unique_id: Any = None) -> D
         True
     """
     catalogs = tuple(catalogs)
+
+    if not any(c.weight > 0 for c in catalogs):
+        msg = "random_family: needs at least one catalog with a positive weight"
+        raise ValueError(msg)
+
     return _rng(unique_id).choices(catalogs, weights=[c.weight for c in catalogs], k=1)[0]
 
 

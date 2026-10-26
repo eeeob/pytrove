@@ -5,14 +5,14 @@ from __future__ import annotations as _annotations
 import hashlib
 import os as _os
 import random
-from typing import Any
 
 
-def _rng(unique_id: Any = None) -> random.Random:
+def _rng(unique_id: object = None) -> random.Random:
     """Build a generator seeded from `unique_id`, or from system entropy.
 
     Args:
-        unique_id: Any value; the same value always gives the same stream.
+        unique_id: Any value: bytes as they are, anything else by its UTF-8 `str`; the same
+            value always gives the same stream.
 
     Returns:
         The generator.
