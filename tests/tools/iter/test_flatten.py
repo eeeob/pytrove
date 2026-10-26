@@ -1,9 +1,13 @@
 from __future__ import annotations as _annotations
 
+import itertools
 import sys
 from collections import UserString
-from collections.abc import Iterable, Iterator
+from collections.abc import Generator, Iterable, Iterator
+from enum import Enum
 from typing import Any, Generic, TypeVar
+
+import pytest
 
 from pytrove import (
     flat_cont,
@@ -60,9 +64,8 @@ class _Box(Iterable[_T], Generic[_T]):
     """A container the built-in `is_container` does not recognise.
 
     It is not a `Collection`, an `Iterator`, a `Sequence` or a `Mapping`, so it
-    can only be unwrapped by a caller-supplied predicate. Generic with a typed
-    `__iter__` on purpose: that is what lets a type checker walk through it and
-    land on the real element type.
+    can only be unwrapped by a caller-supplied predicate. `flat_cont_by` types
+    its leaves `Any`, since the predicate decides the depth.
     """
 
     def __init__(self, *items: _T) -> None:
@@ -125,8 +128,7 @@ def test_iter_flat_cont_by_is_a_generator() -> None:
 
 def test_flat_cont_by_accepts_a_type_guard_predicate() -> None:
     # `TypeGuard`/`TypeIs` return types are subtypes of `bool`, so a narrowing
-    # predicate is accepted wherever a plain `bool` one is -- and neither
-    # changes what the element type is inferred to be.
+    # predicate is accepted wherever a plain `bool` one is; the leaves stay `Any`.
     if sys.version_info >= (3, 13):
         from typing import TypeIs  # noqa: PLC0415 - `typing.TypeIs` exists only from 3.13
     else:
@@ -139,9 +141,8 @@ def test_flat_cont_by_accepts_a_type_guard_predicate() -> None:
 
 
 def test_a_narrowing_predicate_really_does_stop_at_the_first_layer() -> None:
-    # The runtime half of the caveat in the docstring: a predicate that
-    # refuses what `is_container` would have taken leaves the inner
-    # structure whole, whatever a type checker reads the call as.
+    # The predicate alone decides the depth, as the docstring says: one that
+    # refuses what `is_container` would have taken leaves the inner structure whole.
     nested = [1, [2, 3]]
 
     assert flat_cont_by(nested, is_container=_is_box) == [nested]
@@ -188,3 +189,84 @@ def test_every_flattener_keeps_a_user_string_whole() -> None:
     assert flat_map([text]) == [text]
     assert list(iter_flat_cont_by(text)) == [text]
     assert flat_cont_by([text]) == [text]
+
+
+def _first_then_fail() -> Generator[int, None, None]:
+    yield 1
+    msg = "read past the first leaf"
+    raise RuntimeError(msg)
+
+
+@pytest.mark.parametrize(
+    "first_leaf",
+    [
+        lambda: next(iter_flat_cont(_first_then_fail())),
+        lambda: next(iter_flat_cont([_first_then_fail()])),
+        lambda: next(iter_flat_cont_by(_first_then_fail())),
+        lambda: next(iter_flat_map(_first_then_fail())),
+        lambda: next(iter_flat_map([_first_then_fail()])),
+        lambda: next(iter_flat_cont(itertools.count(1))),
+        lambda: next(iter_flat_map({1: itertools.count()})),
+    ],
+)
+def test_the_iterating_flatteners_yield_a_leaf_before_reading_further(
+    first_leaf: Any,
+) -> None:
+    # Each level is iterated, not star-unpacked into a tuple first, so the
+    # first leaf comes out of a failing or endless source.
+    assert first_leaf() == 1
+
+
+@pytest.mark.parametrize("flatten", [flat_cont, flat_map, flat_cont_by])
+def test_the_flatteners_with_no_arguments_give_nothing(flatten: Any) -> None:
+    assert flatten() == []
+
+
+def test_the_flatteners_take_generators_and_iterators() -> None:
+    assert flat_cont((v for v in [1, [2]]), iter([3])) == [1, 2, 3]
+    assert flat_map(iter([{"a": 1}]), (v for v in [2])) == ["a", 1, 2]
+
+
+class _Shade(Enum):
+    DARK = 1
+
+
+class _AwaitableList(list):  # type: ignore[type-arg]  # Only the awaitable shape matters here.
+    """A list that is also awaitable, so `NotContainer` makes it a leaf."""
+
+    def __await__(self) -> Iterator[None]:
+        return iter(())
+
+
+@pytest.mark.parametrize(
+    "leaf",
+    [b"ab", bytearray(b"ab"), memoryview(b"ab"), _Shade, _AwaitableList([1]), UserString("ab")],
+)
+def test_every_flattener_keeps_a_not_container_whole(leaf: Any) -> None:
+    assert flat_cont([leaf]) == [leaf]
+    assert flat_map({"k": [leaf]}) == ["k", leaf]
+    assert flat_cont_by([leaf]) == [leaf]
+
+
+def test_flat_map_flattens_a_tuple_key_and_drops_a_none_key() -> None:
+    assert flat_map({(1, 2): "v"}) == [1, 2, "v"]
+    assert flat_map({None: 1}) == [1]
+    assert flat_map({None: 1}, exclude_none=False) == [None, 1]
+
+
+def test_flat_map_keeps_none_inside_a_list_when_asked() -> None:
+    assert flat_map([{"a": None}, None], exclude_none=False) == ["a", None, None]
+
+
+def test_a_predicate_that_takes_strings_never_reaches_a_leaf() -> None:
+    # Each character of a `str` is a `str` again, as the docstring warns.
+    with pytest.raises(RecursionError):
+        flat_cont_by(["ab"], is_container=lambda x: isinstance(x, (str, list)))
+
+
+def test_deep_nesting_well_inside_the_recursion_limit_flattens() -> None:
+    nested: list[Any] = [0]
+    for depth in range(1, 200):
+        nested = [depth, nested]
+
+    assert sorted(flat_cont(nested)) == list(range(200))

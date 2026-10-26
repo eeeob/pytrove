@@ -5,6 +5,7 @@ from __future__ import annotations as _annotations
 
 import array
 import contextlib
+import dataclasses
 import logging
 import types
 from collections import (
@@ -19,7 +20,7 @@ from collections import (
     namedtuple,
 )
 from collections.abc import Callable, Iterator, Mapping
-from enum import Enum
+from enum import Enum, IntEnum
 from typing import Any
 
 import pytest
@@ -164,6 +165,40 @@ def test_map_deep_kv_applies_value_func_to_a_bare_leaf() -> None:
     assert map_deep_kv("x", str.upper) == "X"
 
 
+def test_map_deep_kv_walks_a_container_key_through_value_func_without_key_func() -> None:
+    assert map_deep_kv({(1, 2): "x"}, lambda v: v * 2) == {(2, 4): "xx"}
+
+
+def test_map_deep_kv_reaches_a_mapping_nested_in_a_list() -> None:
+    assert map_deep_kv([{"a": 1}], lambda v: v + 1, str.upper) == [{"A": 2}]
+
+
+def test_map_deep_is_map_deep_kv_with_the_same_function_on_both_sides() -> None:
+    data = {("a", "b"): [1, {"c"}], "d": deque([2]), "e": OrderedDict(f=3)}
+    assert map_deep(data, str) == map_deep_kv(data, str, str)
+
+
+def test_map_deep_collapses_keys_that_transform_to_the_same_value() -> None:
+    def upper(v: Any) -> Any:
+        return v.upper() if isinstance(v, str) else v
+
+    assert map_deep({"a": 1, "A": 2}, upper) == {"A": 2}
+
+
+def test_map_deep_refuses_a_key_transformed_into_something_unhashable() -> None:
+    with pytest.raises(TypeError, match="unhashable"):
+        map_deep({"a": 1}, lambda v: [v])
+
+
+def test_map_deep_on_an_iterator_is_lazy_and_raises_on_consumption() -> None:
+    out = map_deep(iter(["a", 1]), str.upper)  # no error yet
+
+    assert next(out) == "A"
+
+    with pytest.raises(TypeError):
+        next(out)
+
+
 def test_map_deep_kv_preserves_the_container_type() -> None:
     result = map_deep_kv(("a", "b"), str.upper)
     assert type(result) is tuple
@@ -225,6 +260,31 @@ def test_snapshot_preserves_dict_and_list_subclasses() -> None:
     assert result_dq[1] is not dq[1]
 
 
+def test_snapshot_keeps_a_deques_maxlen() -> None:
+    result = snapshot(deque([1, 2], maxlen=2))
+
+    assert result.maxlen == 2
+    result.append(3)
+    assert list(result) == [2, 3]
+
+
+def test_snapshot_rebuilds_the_items_of_a_set() -> None:
+    item = (1, (2,))
+    result = snapshot({item})
+
+    got = next(iter(result))
+    assert got == item and got is not item
+    assert type(snapshot(frozenset({item}))) is frozenset
+
+
+def test_snapshot_of_an_iterator_shares_its_source() -> None:
+    source = iter([[1], [2]])
+    result = snapshot(source)
+
+    assert next(source) == [1]
+    assert list(result) == [[2]]
+
+
 def test_snapshot_preserves_tuple_and_recurses_into_it() -> None:
     data = (1, [2, 3], (4, 5))
     result = snapshot(data)
@@ -273,8 +333,10 @@ def test_snapshot_returns_a_range_untouched() -> None:
     # first place, so getting the same object back is the correct answer,
     # not a fallback that happened to be good enough.
     r = range(3)
-    with caplog_at_warning():
+    with caplog_at_warning() as records:
         assert snapshot(r) is r
+
+    assert [record.levelno for record in records] == [logging.WARNING]
 
 
 def test_enum_to_value_replaces_members_recursively() -> None:
@@ -282,6 +344,25 @@ def test_enum_to_value_replaces_members_recursively() -> None:
     assert enum_to_value({"k": Color.RED}) == {"k": "red"}
     assert enum_to_value([Color.RED, [Color.BLUE]]) == ["red", ["blue"]]
     assert enum_to_value("plain") == "plain"
+
+
+class _Level(IntEnum):
+    HIGH = 3
+
+
+def test_enum_to_value_converts_int_enum_members_to_plain_ints() -> None:
+    out = enum_to_value([_Level.HIGH])
+
+    assert out == [3]
+    assert type(out[0]) is int
+
+
+def test_enum_to_value_leaves_an_enum_class_alone() -> None:
+    assert enum_to_value([Color]) == [Color]
+
+
+def test_enum_to_value_reaches_into_a_tuple_key() -> None:
+    assert enum_to_value({(Color.RED, 1): "x"}) == {("red", 1): "x"}
 
 
 def test_enum_to_value_converts_a_mapping_key_as_well_as_its_value() -> None:
@@ -319,6 +400,82 @@ def test_value_to_enum_rejects_an_unknown_side() -> None:
         value_to_enum({}, [], "x")
 
 
+@pytest.mark.parametrize("side", [1, None, b"k"])
+def test_value_to_enum_rejects_a_side_that_is_not_a_str(side: Any) -> None:
+    with pytest.raises(ValidationError, match="must be k or v"):
+        value_to_enum([1], Color, side)
+
+
+class _First(Enum):
+    X = 1
+
+
+class _Second(Enum):
+    Y = 1
+
+
+@pytest.mark.parametrize(
+    ("classes", "expected"),
+    [
+        ([_First, _Second], _Second.Y),
+        ([_Second, _First], _First.X),
+        ([_First, _Second, _First], _First.X),
+    ],
+)
+def test_value_to_enum_lets_the_later_class_win_a_collision(
+    classes: list[type[Enum]], expected: Enum
+) -> None:
+    assert value_to_enum(1, classes) is expected
+    assert value_to_enum([1], classes) == [expected]
+
+
+@dataclasses.dataclass
+class _Record:
+    n: int
+
+
+@pytest.mark.parametrize("leaf", [bytearray(b"red"), _Record(1)])
+def test_value_to_enum_passes_an_unhashable_leaf_through(leaf: Any) -> None:
+    assert value_to_enum([leaf], Color) == [leaf]
+    assert value_to_enum({"k": leaf}, Color) == {"k": leaf}
+
+
+def test_value_to_enum_in_k_mode_converts_keys_at_every_depth_and_nothing_else() -> None:
+    assert value_to_enum({"red": {"red": "red"}}, Color, "k") == {Color.RED: {Color.RED: "red"}}
+    assert value_to_enum([{"red": "blue"}], Color, "k") == [{Color.RED: "blue"}]
+    assert value_to_enum({"a": [{"blue": "red"}]}, Color, "k") == {"a": [{Color.BLUE: "red"}]}
+    assert value_to_enum(["red"], Color, "k") == ["red"]
+    assert value_to_enum("red", Color, "k") == "red"
+
+
+def test_value_to_enum_converts_a_tuple_key_only_in_k_mode() -> None:
+    assert value_to_enum({("red", 1): "red"}, Color, "v") == {("red", 1): Color.RED}
+    assert value_to_enum({("red", 1): "red"}, Color, "k") == {(Color.RED, 1): "red"}
+
+
+@pytest.mark.parametrize(
+    ("make", "expected"),
+    [
+        (lambda: ("red", "x"), (Color.RED, "x")),
+        (lambda: {"red", "x"}, {Color.RED, "x"}),
+        (lambda: frozenset({"blue"}), frozenset({Color.BLUE})),
+    ],
+)
+def test_value_to_enum_rebuilds_other_container_types(make: Any, expected: Any) -> None:
+    out = value_to_enum(make(), Color)
+    assert type(out) is type(expected)
+    assert out == expected
+
+
+def test_value_to_enum_converts_an_iterator_lazily() -> None:
+    out = value_to_enum(iter(["red", "x"]), Color)
+    assert list(out) == [Color.RED, "x"]
+
+
+def test_value_to_enum_with_no_classes_changes_nothing() -> None:
+    assert value_to_enum({"a": ["red", 1]}, []) == {"a": ["red", 1]}
+
+
 def test_clean_none_values_drops_none_at_every_depth() -> None:
     assert clean_none_values({"a": 1, "b": None, "c": {"d": None, "e": 2}}) == {
         "a": 1,
@@ -335,6 +492,36 @@ def test_clean_none_values_keeps_an_empty_container_but_not_a_none() -> None:
 def test_clean_none_values_returns_a_non_container_as_is() -> None:
     assert clean_none_values(None) is None
     assert clean_none_values(5) == 5
+
+
+def test_clean_none_values_never_judges_keys() -> None:
+    assert clean_none_values({None: 1, (1, None): 2, "a": None}) == {None: 1, (1, None): 2}
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ({1, None}, {1}),
+        ((1, None, (None, 2)), (1, (2,))),
+        (frozenset({None, 2}), frozenset({2})),
+    ],
+)
+def test_clean_none_values_cleans_other_container_types(value: Any, expected: Any) -> None:
+    out = clean_none_values(value)
+    assert type(out) is type(expected)
+    assert out == expected
+
+
+def test_clean_none_values_cleans_an_iterator_lazily() -> None:
+    assert list(clean_none_values(iter([1, None, [None, 2]]))) == [1, [2]]
+
+
+def test_clean_none_values_keeps_a_defaultdicts_factory() -> None:
+    out = clean_none_values(defaultdict(list, {"a": None, "b": 1}))
+
+    assert type(out) is defaultdict
+    assert out.default_factory is list
+    assert dict(out) == {"b": 1}
 
 
 def test_clean_none_kw_leaves_unset_arguments_out() -> None:
@@ -395,6 +582,16 @@ def test_an_array_keeps_its_typecode() -> None:
     assert isinstance(out, array.array)
     assert out.typecode == "i"
     assert list(out) == [1, 2]
+
+
+def test_an_array_whose_items_overflow_comes_back_as_it_was() -> None:
+    source = array.array("b", [1])
+
+    with caplog_at_warning() as records:
+        out = map_deep(source, lambda v: v * 200)
+
+    assert out is source
+    assert records
 
 
 def test_an_array_whose_items_no_longer_fit_comes_back_as_it_was() -> None:

@@ -36,7 +36,10 @@ def map_deep(data: Any, func: Callable[[Any], Any]) -> Any:
 
     Containers and mappings are rebuilt as their own type where possible; a
     container that cannot be rebuilt comes back untransformed with a warning,
-    and a mapping falls back to a plain dict. Whatever `func` raises propagates.
+    and a mapping falls back to a plain dict. Keys that transform to equal
+    values collapse into one, the last winning. Whatever `func` raises
+    propagates; under an iterator, which comes back as a lazy iterator over
+    the same source, that happens only as the result is consumed.
 
     Args:
         data: A leaf, or a container or mapping of them, at any depth.
@@ -49,25 +52,7 @@ def map_deep(data: Any, func: Callable[[Any], Any]) -> Any:
         >>> map_deep({"a": [1, (2,)]}, lambda v: v * 2)
         {'aa': [2, (4,)]}
     """
-
-    def step(value: Any) -> Any:
-        """Recurse into one item.
-
-        Args:
-            value: An item, key or value.
-
-        Returns:
-            It, transformed.
-        """
-        return map_deep(value, func)
-
-    if is_mapping(data):
-        return _reconstruct_mapping(data, step, step)
-
-    if is_container(data):
-        return _reconstruct(data, step)
-
-    return func(data)
+    return map_deep_kv(data, func, func)
 
 
 @overload
@@ -94,8 +79,9 @@ def map_deep_kv(
     """Apply `map_deep` with separate functions for mapping keys and everything else.
 
     `key_func` sees only a key that is itself a leaf; a key that is a
-    container (a tuple) has its items passed to `value_func`, like any
-    container. Values of every shape recurse back through this function.
+    container (a tuple) is walked like any value, its leaves passed to
+    `value_func`. Values of every shape recurse back through this function,
+    and an iterator comes back lazy, as with `map_deep`.
 
     Args:
         data: A leaf, or a container or mapping of them, at any depth.
@@ -120,7 +106,7 @@ def map_deep_kv(
             It, transformed.
         """
         if is_container(key):
-            return _reconstruct(key, value_step)
+            return value_step(key)
 
         return key_func(key) if key_func is not None else key
 
@@ -147,6 +133,10 @@ def map_deep_kv(
 def snapshot(data: _T) -> _T:
     """Copy a structure so the copy shares nothing mutable with it.
 
+    The exception is an iterator, which cannot be copied without consuming it:
+    it comes back as a lazy iterator over the same source, so consuming either
+    one drains the other.
+
     Args:
         data: A leaf, or a container or mapping of them, at any depth.
 
@@ -157,7 +147,7 @@ def snapshot(data: _T) -> _T:
     return cast("_T", map_deep(data, lambda value: value))
 
 
-def enum_to_value(data: _T) -> _T:
+def enum_to_value(data: Any) -> Any:
     """Replace every enum member, keys included, with its `.value`, ready for JSON.
 
     Args:
@@ -172,10 +162,8 @@ def enum_to_value(data: _T) -> _T:
         >>> enum_to_value({Color.RED: [Color.RED, "x"]})
         {1: [1, 'x']}
     """
-    # `map_deep` keeps the shape, which its overloads cannot carry from `_T` to `_T`.
-    return cast(
-        "_T", map_deep(data, lambda value: value.value if isinstance(value, Enum) else value)
-    )
+    # Typed `Any`: the shape survives, but each member turns into its value's type.
+    return map_deep(data, lambda value: value.value if isinstance(value, Enum) else value)
 
 
 @overload
@@ -192,22 +180,34 @@ def value_to_enum(
 ) -> Mapping[_KT, _EnumT | _VT]: ...
 @overload
 def value_to_enum(
-    values: Container[_T], enum_classes: NestedContainer[type[_EnumT]]
+    values: Container[_T],
+    enum_classes: NestedContainer[type[_EnumT]],
+    map_resolve_type: Literal["k", "K", "v", "V"] = "v",
 ) -> Container[_EnumT | _T]: ...
 @overload
-def value_to_enum(values: _T, enum_classes: NestedContainer[type[_EnumT]]) -> _EnumT | _T: ...
+def value_to_enum(
+    values: _T,
+    enum_classes: NestedContainer[type[_EnumT]],
+    map_resolve_type: Literal["k", "K", "v", "V"] = "v",
+) -> _EnumT | _T: ...
 def value_to_enum(
     values: Any, enum_classes: NestedContainer[type[Enum]], map_resolve_type: str = "v"
 ) -> Any:
     """Replace raw values with the enum member that has that value, recursively.
 
-    Values with no matching member pass through. On a value collision the
-    later class wins, and ordinary data equal to a member's value converts too.
+    Values with no matching member, unhashable ones included, pass through.
+    On a value collision the later class wins, and ordinary data equal to a
+    member's value converts too.
+
+    `"v"` converts every leaf except mapping keys. `"k"` converts mapping keys
+    only, a tuple key's items included, at any depth: every other leaf stays,
+    though containers and mapping values are still walked to reach the keys
+    of nested mappings.
 
     Args:
         values: A leaf, or a container or mapping of them, at any depth.
         enum_classes: The enum classes to look values up in.
-        map_resolve_type: `"v"` converts mapping values, `"k"` converts keys; one side per call.
+        map_resolve_type: `"v"` or `"k"`, in either case: the side to convert.
 
     Returns:
         The structure with matching values replaced by members.
@@ -223,11 +223,11 @@ def value_to_enum(
         >>> value_to_enum({1: "x"}, Color, "k")
         {<Color.RED: 1>: 'x'}
     """
-    map_resolve_type = map_resolve_type.lower()
-
-    if map_resolve_type not in ("v", "k"):
-        msg = f"map_resolve_type must be k or v not {map_resolve_type}"
+    if not isinstance(map_resolve_type, str) or map_resolve_type.lower() not in ("v", "k"):
+        msg = f"map_resolve_type must be k or v not {map_resolve_type!r}"
         raise ValidationError(msg)
+
+    keys = map_resolve_type.lower() == "k"
 
     enum_map: dict[Any, Enum] = {}
 
@@ -235,31 +235,43 @@ def value_to_enum(
     # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
     classes = cast("Iterator[type[Enum]]", iter_flat_cont(enum_classes))
 
-    for enum_cls in frozenset(classes):
+    # In argument order, so that on a collision the class passed last wins.
+    for enum_cls in classes:
         enum_map.update(enum_cls._value2member_map_)
 
-    def convert(v: Any) -> Any:
-        """Convert one value, recursing into containers and mappings.
+    def lookup(v: Any) -> Any:
+        """Convert one leaf.
+
+        Args:
+            v: The leaf.
+
+        Returns:
+            Its member, or it unchanged.
+        """
+        try:
+            return enum_map.get(v, v)
+        except TypeError:  # Unhashable, so no member's value.
+            return v
+
+    def walk(v: Any) -> Any:
+        """Convert the chosen side under one value, recursing into containers and mappings.
 
         Args:
             v: The value.
 
         Returns:
-            Its member, or it unchanged.
+            It, converted.
         """
         if is_mapping(v):
-            return _reconstruct_mapping(
-                v,
-                convert if map_resolve_type == "k" else None,
-                convert if map_resolve_type == "v" else None,
-            )
+            key_func = (lambda key: map_deep(key, lookup)) if keys else None
+            return _reconstruct_mapping(v, key_func, walk)
 
         if is_container(v):
-            return _reconstruct(v, convert)
+            return _reconstruct(v, walk)
 
-        return enum_map.get(v, v)
+        return v if keys else lookup(v)
 
-    return convert(values)
+    return walk(values)
 
 
 def clean_none_values(data: _T) -> _T:
@@ -267,7 +279,8 @@ def clean_none_values(data: _T) -> _T:
 
     A mapping loses each entry whose value is `None` (keys are never judged);
     a container loses the item. An entry left empty is kept. A namedtuple that
-    would lose a field comes back whole, `None` included, with a warning.
+    would lose a field comes back whole, `None` included, with a warning. An
+    iterator comes back as a lazy iterator over the same source.
 
     Args:
         data: A container or mapping, at any depth; anything else is returned as is.
@@ -279,14 +292,8 @@ def clean_none_values(data: _T) -> _T:
         >>> clean_none_values({"a": None, "b": [1, None, {"c": None}]})
         {'b': [1, {}]}
     """
-    # Both rebuild `data` as its own type, which their signatures cannot carry to `_T`.
-    if is_mapping(data):
-        return cast("_T", _reconstruct_mapping(data, value_func=_none_cleaner))
-
-    if is_container(data):
-        return cast("_T", _reconstruct(data, _none_cleaner))
-
-    return data
+    # The cleaner rebuilds `data` as its own type, which its signature cannot carry to `_T`.
+    return data if data is None else cast("_T", _none_cleaner(data))
 
 
 def clean_none_kw(**kwargs: Any) -> dict[str, Any]:

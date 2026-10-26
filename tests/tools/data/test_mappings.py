@@ -2,7 +2,9 @@
 
 from __future__ import annotations as _annotations
 
+import copy
 import gc
+import pickle
 import weakref
 from typing import Any
 
@@ -78,8 +80,17 @@ def test_key_default_weak_key_dict_builds_from_the_key_and_drops_it_with_the_key
     assert len(d) == 0
 
 
-@pytest.mark.parametrize("cls", [KeyDefaultWeakValueDict, KeyDefaultWeakKeyDict])
-def test_the_weak_dicts_refuse_a_factory_that_is_not_callable(cls: Any) -> None:
+@pytest.mark.parametrize(
+    "cls",
+    [
+        KeyDefaultDict,
+        KeyDefaultWeakValueDict,
+        DefaultWeakValueDict,
+        KeyDefaultWeakKeyDict,
+        DefaultWeakKeyDict,
+    ],
+)
+def test_every_dict_refuses_a_factory_that_is_not_callable(cls: Any) -> None:
     with pytest.raises(TypeError, match="must be callable"):
         cls("not callable")
 
@@ -104,3 +115,86 @@ def test_default_weak_key_dict_takes_a_zero_argument_factory() -> None:
 
     with pytest.raises(TypeError, match="must be callable"):
         DefaultWeakKeyDict(5)  # type: ignore[arg-type]  # The wrong type is the point.
+
+
+def _fail(_key: Any = None) -> Any:
+    msg = "factory failed"
+    raise LookupError(msg)
+
+
+@pytest.mark.parametrize(
+    ("make", "key"),
+    [
+        (lambda: KeyDefaultDict(_fail), "a"),
+        (lambda: KeyDefaultWeakValueDict(_fail), "a"),
+        (lambda: KeyDefaultWeakKeyDict(_fail), Box(1)),
+    ],
+)
+def test_a_raising_factory_leaves_no_entry(make: Any, key: Any) -> None:
+    d = make()
+
+    with pytest.raises(LookupError, match="factory failed"):
+        d[key]
+
+    assert len(d) == 0
+
+
+def test_key_default_weak_value_dict_refuses_a_value_it_cannot_reference_weakly() -> None:
+    d = KeyDefaultWeakValueDict(len)
+
+    with pytest.raises(TypeError, match="weak reference"):
+        d["abc"]
+
+    assert len(d) == 0
+
+
+def test_key_default_weak_key_dict_keeps_its_factory() -> None:
+    def factory(key: Box) -> int:
+        return key.n
+
+    d = KeyDefaultWeakKeyDict(factory)
+    assert d.default_factory is factory
+
+
+def test_key_default_weak_key_dict_calls_the_factory_once_per_key() -> None:
+    calls: list[Box] = []
+    d = KeyDefaultWeakKeyDict(lambda key: calls.append(key) or key.n)
+    key = Box(5)
+
+    assert d(key) == 5
+    assert d(key) == 5
+    assert d[key] == 5
+    assert calls == [key]
+
+
+def test_the_weak_dicts_do_not_build_on_get_in_or_setdefault() -> None:
+    kept = Box(1)
+    values = KeyDefaultWeakValueDict(lambda key: kept)
+
+    assert values.get("a") is None
+    assert "a" not in values
+    assert values.setdefault("b", kept) is kept
+    assert list(values) == ["b"]
+
+    keys = KeyDefaultWeakKeyDict(lambda key: 1)
+    key = Box(2)
+
+    assert keys.get(key) is None
+    assert key not in keys
+    assert keys.setdefault(key, 9) == 9
+    assert keys[key] == 9
+
+
+def _upper(key: str) -> str:
+    return key.upper()
+
+
+def test_key_default_dict_copies_and_pickles_with_its_factory() -> None:
+    d = KeyDefaultDict(_upper)
+    d["a"] = "x"
+
+    for clone in (copy.copy(d), pickle.loads(pickle.dumps(d))):  # noqa: S301 - our own pickle
+        assert type(clone) is KeyDefaultDict
+        assert dict(clone) == {"a": "x"}
+        assert clone.default_factory is _upper
+        assert clone["b"] == "B"

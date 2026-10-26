@@ -16,11 +16,15 @@ def dedupe(iterable: Iterable[_T], hashable: bool = True) -> list[_T]:
 
     Args:
         iterable: The values to deduplicate; consumed once.
-        hashable: Whether the values are hashable. `False` switches to an
-            equality scan, `O(n^2)`, for values such as dicts and lists.
+        hashable: Whether every value is hashable. `False` accepts unhashable
+            values such as dicts and lists too: hashable ones are still found
+            by hash, and only each unhashable one costs a scan of the result.
 
     Returns:
         Each distinct value once, in the order first seen.
+
+    Raises:
+        TypeError: If a value is unhashable while `hashable` is `True`.
 
     Example:
         >>> dedupe([3, 1, 3, 2, 1])
@@ -32,10 +36,23 @@ def dedupe(iterable: Iterable[_T], hashable: bool = True) -> list[_T]:
         return list(dict.fromkeys(iterable))
 
     result: list[_T] = []
+    seen: set[Any] = set()
+    unhashable: list[_T] = []
 
     for v in iterable:
-        if v not in result:
-            result.append(v)
+        try:
+            # An unhashable value may still equal a hashable one (`{1} == frozenset({1})`).
+            if v in seen or v in unhashable:
+                continue
+
+            seen.add(v)
+        except TypeError:
+            if v in result:
+                continue
+
+            unhashable.append(v)
+
+        result.append(v)
 
     return result
 
@@ -56,12 +73,15 @@ def pad_list(
 
     Args:
         values: The list to pad; it is mutated.
-        length: The length to reach.
+        length: The length to reach; not negative.
         exact: Whether to also truncate a longer list down to `length`.
         default: The value to pad with.
 
     Returns:
         `values` itself.
+
+    Raises:
+        ValueError: If `length` is negative.
 
     Example:
         >>> pad_list([1, 2], 4)
@@ -71,6 +91,10 @@ def pad_list(
     """
     # Padded in place, so the caller's list gains `default`s of another type:
     # the return type states the widened content the input type cannot.
+    if length < 0:
+        msg = f"length must not be negative, not {length}"
+        raise ValueError(msg)
+
     padded = cast("list[_VT | _T | None]", values)
 
     if len(padded) < length:
@@ -82,14 +106,16 @@ def pad_list(
 
 
 @overload
-def shuffle(seq: _MS) -> _MS: ...
+def shuffle(seq: _MS, rng: random.Random | None = None) -> _MS: ...
 @overload
-def shuffle(seq: Iterable[_T]) -> list[_T]: ...
-def shuffle(seq: Iterable[Any]) -> MutableSequence[Any]:
+def shuffle(seq: Iterable[_T], rng: random.Random | None = None) -> list[_T]: ...
+def shuffle(seq: Iterable[Any], rng: random.Random | None = None) -> MutableSequence[Any]:
     """Shuffle a mutable sequence in place, or a copy of any other iterable.
 
     Args:
         seq: The values to shuffle.
+        rng: The generator to draw from, for a reproducible order; `None`
+            uses the global `random` one.
 
     Returns:
         `seq` itself when it is a mutable sequence, otherwise a new shuffled list.
@@ -98,7 +124,7 @@ def shuffle(seq: Iterable[Any]) -> MutableSequence[Any]:
         seq = list(seq)
 
     if seq:
-        random.shuffle(seq)
+        (random if rng is None else rng).shuffle(seq)
 
     return seq
 
