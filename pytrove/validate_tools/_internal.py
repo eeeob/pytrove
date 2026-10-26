@@ -39,7 +39,7 @@ if sys.version_info >= (3, 12):
     _ALIAS_TYPES: Final[tuple[type, ...]] = (TypeAliasType,)
 else:
     _ALIAS_TYPES: Final[tuple[type, ...]] = ()
-"""The classes of PEP 695 aliases, which typeguard cannot see through on its own."""
+"""The classes of PEP 695 aliases, whose parametrised forms typeguard cannot see through on its own."""
 
 _CONTAINER_ALIASES: Final[tuple[Any, ...]] = (Container, ContainerWithoutMapping)
 """The package's container aliases, checked by `is_container` rather than as plain unions.
@@ -94,26 +94,28 @@ def _is_container(obj: Any) -> bool:
 
 
 @_optional_import(("typeguard", "typecheck"))
-def _checker_lookup(origin_type: Any, *_: Any) -> Callable[..., None] | None:
+def _checker_lookup(origin_type: Any, args: tuple[Any, ...], *_: Any) -> Callable[..., None] | None:
     """Teach typeguard the package's three extra checks; registered by `typecheck`.
 
     A value checked against an `Enum` passes if it is any member's value, a
     value checked against `Container[X]` is walked and each item checked
-    against `X`, and a PEP 695 alias (3.12+) is checked as the type it stands
-    for. Returning `None` leaves every other type to typeguard.
+    against `X`, and a parametrised PEP 695 alias (3.12+) is checked as the type
+    it stands for. Returning `None` leaves every other type to typeguard.
 
     Args:
         origin_type: The type typeguard is checking against.
+        args: Its type arguments.
         *_: The rest of typeguard's lookup arguments, unused.
 
     Returns:
-        A checker for an enum, a package container type or a PEP 695 alias, otherwise `None`.
+        A checker for an enum, a package container type or a parametrised PEP 695
+        alias, otherwise `None`.
     """
 
     def validate_alias(
         value: Any, origin_type: Any, args: tuple[Any, ...], memo: TypeCheckMemo, *_: Any
     ) -> None:
-        """Check `value` against the type a PEP 695 alias stands for.
+        """Check `value` against the type a parametrised PEP 695 alias stands for.
 
         Args:
             value: The value being checked.
@@ -122,8 +124,7 @@ def _checker_lookup(origin_type: Any, *_: Any) -> Callable[..., None] | None:
             memo: typeguard's check state.
             *_: The rest of typeguard's checker arguments, unused.
         """
-        target = origin_type.__value__
-        check_type_internal(value, target[args] if args else target, memo)
+        check_type_internal(value, origin_type.__value__[args], memo)
 
     def validate_enum(value: Any, origin_type: EnumType, *_: Any) -> None:
         """Accept any value of the enum, not only its members.
@@ -175,7 +176,9 @@ def _checker_lookup(origin_type: Any, *_: Any) -> Callable[..., None] | None:
     if origin_type in _CONTAINER_ALIASES:
         return validate_container
 
-    if isinstance(origin_type, _ALIAS_TYPES):
+    # typeguard 4.6 unwraps a plain `type X = ...` alias itself, but still accepts a bad value
+    # for a parametrised one such as `Pair[int]`, so only that case is handled here.
+    if args and isinstance(origin_type, _ALIAS_TYPES):
         return validate_alias
 
     if isinstance(origin_type, type) and issubclass(origin_type, Enum):
