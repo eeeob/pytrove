@@ -64,30 +64,32 @@ def parse_phone(phone_number: Any, clean: bool = True, return_numobj: bool = Fal
         ValidationError: If it is not a valid number, including text that
             `phonenumbers` cannot parse at all.
     """
-    if not isinstance(phone_number, PhoneNumberObj):
-        phone_number = to_str(phone_number)
-        validation(isinstance(phone_number, str), f"Invalid PhoneNumber - {phone_number}")
+    if isinstance(phone_number, PhoneNumberObj):
+        numobj = phone_number
+    else:
+        text = to_str(phone_number)
+        validation(isinstance(text, str), f"Invalid PhoneNumber - {text}")
 
         if clean:
-            phone_number = clean_spaces(phone_number).replace("-", "")
+            text = clean_spaces(text).replace("-", "")
 
-        if phone_number.startswith("00"):
-            phone_number = phone_number[2:]
+        if text.startswith("00"):
+            text = text[2:]
 
-        if not phone_number.startswith("+"):
-            phone_number = "+" + phone_number
+        if not text.startswith("+"):
+            text = "+" + text
 
         try:
-            phone_number = parse(phone_number)
+            numobj = parse(text)
         except NumberParseException as exc:
-            msg = f"Invalid PhoneNumber - {phone_number}"
+            msg = f"Invalid PhoneNumber - {text}"
             raise ValidationError(msg) from exc
 
     validation(
-        is_phone_number(phone_number, remove_spaces=False, resolve=False),
-        f"Invalid PhoneNumber - {phone_number}",
+        is_phone_number(numobj, remove_spaces=False, resolve=False),
+        f"Invalid PhoneNumber - {numobj}",
     )
-    return phone_number if return_numobj else format_number(phone_number, PhoneNumberFormat.E164)
+    return numobj if return_numobj else format_number(numobj, PhoneNumberFormat.E164)
 
 
 @_optional_import(("phonenumbers", "phone"))

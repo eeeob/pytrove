@@ -252,7 +252,7 @@ def _catalog(platform: str) -> _Catalog:
                 weight *= GROUP_SHARES.get(group, 1.0) / group_totals[group]
 
         weight = max(float(weight), _MIN_WEIGHT)
-        version_weights = tuple(version_weight(n) for n in names)
+        version_weights = tuple(map(version_weight, names))
         by_os: dict[str, tuple[tuple[str, ...], tuple[float, ...]]] = {}
 
         if oses:

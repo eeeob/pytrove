@@ -103,12 +103,8 @@ def is_tg_bot_command(message: Message | str) -> TypeIs[str]:
     Returns:
         Whether the text matches `TG_BOT_COMMAND_PATTERN`.
     """
-    if isinstance(message, Message):
-        message = message.text or ""
-
-    return (
-        isinstance(message, str) and bool(message) and bool(TG_BOT_COMMAND_PATTERN.match(message))
-    )
+    text = (message.text or "") if isinstance(message, Message) else message
+    return isinstance(text, str) and bool(text) and bool(TG_BOT_COMMAND_PATTERN.match(text))
 
 
 def is_tg_channel_message_link(message_link: Any) -> TypeIs[str]:

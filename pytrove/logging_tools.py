@@ -100,7 +100,7 @@ def attach_logger_handlers(
         ('pytrove.example', 'StreamHandler', 20)
         >>> logger.removeHandler(handler)
     """
-    handlers: list[Any] = []
+    handlers: list[logging.Handler | tuple[logging.Logger, logging.Handler]] = []
 
     # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
     # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.

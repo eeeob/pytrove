@@ -214,9 +214,7 @@ class CompiledButtonRow(BaseDataClass):
         # intersection in one branch and the `TypedDict` in the other.
         buttons = cast("list[TemplateButtonDict]", [item] if is_mapping(item) else item)
 
-        return cls.from_dict(
-            {"buttons": [CompiledButton.compile(button) for button in buttons]}, True
-        )
+        return cls.from_dict({"buttons": list(map(CompiledButton.compile, buttons))}, True)
 
     @_optional_import(("kurigram>=2.2.24", "tg"))
     def format(self, kw: Mapping[str, Any]) -> list[InlineKeyboardButton] | None:
