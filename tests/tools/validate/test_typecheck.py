@@ -76,6 +76,32 @@ def test_validate_type_applies_the_package_container_rules_to_aliases() -> None:
         validate_type([1, ["x"]], NestedContainer[int])
 
 
+@needs_typeguard
+@pytest.mark.skipif(not _ALIAS_TYPES, reason="PEP 695 aliases exist from 3.12")
+def test_validate_type_checks_a_plain_pep_695_alias() -> None:
+    from typing import TypeAliasType  # noqa: PLC0415 - exists only from 3.12, the branch under test
+
+    # typeguard itself checks a plain alias; `_checker_lookup` does not answer for it.
+    plain = TypeAliasType("Plain", int)
+    validate_type(1, plain)
+
+    with pytest.raises(ValidationError):
+        validate_type("x", plain)
+
+
+@needs_typeguard
+@pytest.mark.skipif(not _ALIAS_TYPES, reason="PEP 695 aliases exist from 3.12")
+def test_validate_type_checks_a_parametrised_pep_695_alias() -> None:
+    from typing import TypeAliasType, TypeVar  # noqa: PLC0415 - `TypeAliasType` exists only from 3.12
+
+    t = TypeVar("t")
+    pair = TypeAliasType("Pair", tuple[t, t], type_params=(t,))
+    validate_type((1, 2), pair[int])
+
+    with pytest.raises(ValidationError):
+        validate_type(("x", "y"), pair[int])
+
+
 @pytest.mark.skipif(HAS_TYPEGUARD, reason="the typecheck extra is installed")
 def test_validate_type_names_the_typecheck_extra_when_typeguard_is_missing() -> None:
     with pytest.raises(ImportError, match=r"pytrove\[typecheck\]"):

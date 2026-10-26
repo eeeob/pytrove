@@ -65,19 +65,20 @@ def test_alias_types_exist_only_from_python_312() -> None:
 
 @needs_typeguard
 def test_checker_lookup_answers_only_for_enums_and_containers() -> None:
-    assert _checker_lookup(_Level).__name__ == "validate_enum"
-    assert _checker_lookup(list).__name__ == "validate_container"
-    assert _checker_lookup(Container).__name__ == "validate_container"
-    assert _checker_lookup(ContainerWithoutMapping).__name__ == "validate_container"
-    assert _checker_lookup(str) is None
-    assert _checker_lookup(int) is None
-    assert _checker_lookup(type(Enum)) is None
+    assert _checker_lookup(_Level, ()).__name__ == "validate_enum"
+    assert _checker_lookup(list, ()).__name__ == "validate_container"
+    assert _checker_lookup(Container, ()).__name__ == "validate_container"
+    assert _checker_lookup(ContainerWithoutMapping, ()).__name__ == "validate_container"
+    assert _checker_lookup(str, ()) is None
+    assert _checker_lookup(int, ()) is None
+    assert _checker_lookup(type(Enum), ()) is None
 
 
 @needs_typeguard
 @pytest.mark.skipif(not _ALIAS_TYPES, reason="PEP 695 aliases exist from 3.12")
-def test_checker_lookup_answers_for_a_pep_695_alias() -> None:
-    assert _checker_lookup(MaybeContainer).__name__ == "validate_alias"
+def test_checker_lookup_answers_only_for_a_parametrised_pep_695_alias() -> None:
+    assert _checker_lookup(MaybeContainer, (int,)).__name__ == "validate_alias"
+    assert _checker_lookup(MaybeContainer, ()) is None
 
 
 @needs_typeguard
@@ -90,8 +91,8 @@ def test_the_checkers_enforce_their_rules() -> None:
             collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS,
         ),
     )
-    validate_enum = _checker_lookup(_Level)
-    validate_container = _checker_lookup(list)
+    validate_enum = _checker_lookup(_Level, ())
+    validate_container = _checker_lookup(list, ())
 
     validate_enum(1, _Level, (), memo)
 
@@ -114,11 +115,10 @@ def test_the_checkers_enforce_their_rules() -> None:
 def test_the_alias_checker_checks_against_the_aliased_type() -> None:
     typeguard = pytest.importorskip("typeguard")
     memo = typeguard.TypeCheckMemo(globals(), locals())
-    validate_alias = _checker_lookup(MaybeContainer)
+    validate_alias = _checker_lookup(MaybeContainer, (int,))
 
     validate_alias(1, MaybeContainer, (int,), memo)
     validate_alias([1], MaybeContainer, (int,), memo)
-    validate_alias("x", MaybeContainer, (), memo)
 
     with pytest.raises(typeguard.TypeCheckError):
         validate_alias("x", MaybeContainer, (int,), memo)
@@ -127,4 +127,4 @@ def test_the_alias_checker_checks_against_the_aliased_type() -> None:
 @pytest.mark.skipif(HAS_TYPEGUARD, reason="the typecheck extra is installed")
 def test_checker_lookup_names_the_typecheck_extra_when_typeguard_is_missing() -> None:
     with pytest.raises(ImportError, match=r"pytrove\[typecheck\]"):
-        _checker_lookup(list)
+        _checker_lookup(list, ())
