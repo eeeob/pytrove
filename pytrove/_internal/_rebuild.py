@@ -1,4 +1,4 @@
-"""Helpers private to `data_tools`: rebuilding a container as its own type."""
+"""Rebuilding a container as its own type, its items transformed; behind `data_tools`' walks and `models`' enum conversion."""
 
 from __future__ import annotations as _annotations
 
@@ -8,10 +8,8 @@ from collections import deque
 from collections.abc import Callable, Hashable, Iterator, Mapping, MutableMapping, Sized
 from typing import TYPE_CHECKING, Any, Final, TypeVar, cast
 
-from ...validate_tools import is_container, is_mapping
-
 if TYPE_CHECKING:
-    from ...typings import Container
+    from ..typings import Container
 
 _R = TypeVar("_R")
 """A transform's result type."""
@@ -248,30 +246,8 @@ def _reconstruct_mapping(
     return as_dict
 
 
-def _none_cleaner(value: Any) -> Any:
-    """Drop a `None`, and clean `None`s out of anything else; `clean_none_values`' step.
-
-    Args:
-        value: One item or mapping value.
-
-    Returns:
-        `_MESS` for `None`, otherwise the value cleaned recursively.
-    """
-    if value is None:
-        return _MESS
-
-    if is_mapping(value):
-        return _reconstruct_mapping(value, value_func=_none_cleaner)
-
-    if is_container(value):
-        return _reconstruct(value, _none_cleaner)
-
-    return value
-
-
 __all__ = (
     "_filled",
-    "_none_cleaner",
     "_reconstruct",
     "_reconstruct_mapping",
     "_refilled",

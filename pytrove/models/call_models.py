@@ -95,7 +95,7 @@ class DelayedCallback(Generic[_T]):
     """Called with this instance once the wait ends, however it ended; an error it raises is logged, not raised."""
 
     cancel_event: asyncio.Event = field(default_factory=asyncio.Event)
-    """Set to cancel the callback before it starts; `wait()` blocks on it for `delay`."""
+    """Set to cancel the callback before it starts, by `cancel()` even before `start()`; `wait()` blocks on it for `delay`."""
 
     callback_started: bool = field(default=False, init=False)
     """Whether the delay ran out and the callback began; a non-forced `cancel()` then lets it finish."""
@@ -107,23 +107,27 @@ class DelayedCallback(Generic[_T]):
         """Wait out `delay`, then run `callback`, unless `cancel_event` is set first.
 
         The wait is on `cancel_event`: timing out on it is the path that runs
-        the callback, and the event firing means cancelled.
+        the callback, and the event firing means cancelled. The callback runs
+        after the timeout is handled, so its own error carries no
+        `TimeoutError` context.
 
         Returns:
             What `callback` returns, or `None` if it was cancelled.
         """
         try:
-            await asyncio.wait_for(self.cancel_event.wait(), timeout=self.delay)
-        except asyncio.TimeoutError:
-            self.callback_started = True
+            try:
+                await asyncio.wait_for(self.cancel_event.wait(), timeout=self.delay)
+            except asyncio.TimeoutError:
+                pass
+            else:
+                return None
 
+            self.callback_started = True
             return await maybe_awaitable(self.callback, *(self.args or ()), **(self.kw or {}))
 
         finally:
             if self.on_finished is not None:
                 await maybe_awaitable(self.on_finished, self, return_exc=True)
-
-        return None
 
     def start(self) -> asyncio.Task[_T | None]:
         """Start `wait()` as a task, once.
@@ -139,21 +143,24 @@ class DelayedCallback(Generic[_T]):
     async def cancel(self, force: bool = False) -> None:
         """Stop the callback, and wait for its task to end.
 
-        During the delay this always keeps the callback from starting. Once
-        it has started, it is cancelled only with `force`. `callback_started`
-        is set just before the callback is awaited, so a narrow window exists
-        where a non-forced cancel lets a callback that has not run a line yet
-        go ahead.
+        Before `start()` or during the delay this always keeps the callback
+        from starting. Once it has started, it is cancelled only with `force`.
+        `callback_started` is set just before the callback is awaited, so a
+        narrow window exists where a non-forced cancel lets a callback that
+        has not run a line yet go ahead.
 
         Args:
             force: Cancel the callback even if it has already started.
+
+        Raises:
+            Exception: Whatever a started callback raises, when it is let finish.
         """
+        self.cancel_event.set()
+
         task = self._task
 
         if task is None:
             return
-
-        self.cancel_event.set()
 
         if not task.done():
             if force or not self.callback_started:

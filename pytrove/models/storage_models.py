@@ -2,8 +2,15 @@
 
 from __future__ import annotations as _annotations
 
+import sys
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Generic, cast, overload
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 from ..async_tools import to_thread
 from ..files_tools import read_json, write_json
@@ -33,7 +40,7 @@ class JsonContainer(BaseDataClass, Generic[_KT, _VT]):
         self.data = None
 
     def load(self, **kw: Any) -> None:
-        """Read the file, unless it is already loaded.
+        """Read the file, unless it is already loaded; a missing file loads as `{}`.
 
         Args:
             **kw: Passed to `read_json()`.
@@ -52,6 +59,18 @@ class JsonContainer(BaseDataClass, Generic[_KT, _VT]):
 
         # JSON is untyped: the caller states the shape through `_KT`/`_VT`.
         self.data = cast("dict[_KT, _VT]", data)
+
+    def copy(self) -> Self:
+        """Return a deep copy that shares this container's `lock`.
+
+        The lock guards the file, which the copy shares, so it is not copied:
+        a `threading.Lock` cannot be, and a fresh `asyncio.Lock` would let the
+        two containers write the file at once. Everything else is deep-copied.
+
+        Returns:
+            The copy.
+        """
+        return deepcopy(self, {id(self.lock): self.lock})
 
     def _loaded_data(self) -> dict[_KT, _VT]:
         """Return the loaded object.
@@ -151,12 +170,21 @@ class JsonContainer(BaseDataClass, Generic[_KT, _VT]):
         await to_thread(self.load, **kw)
 
     async def async_save(self, **kw: Any) -> None:
-        """Run `save()` in a thread.
+        """Write the loaded data to the file in a thread.
+
+        The data is deep-copied on the calling thread first, so a change made
+        while the write runs, such as an `async_set()`, can neither tear it
+        nor reach the file.
 
         Args:
             **kw: Passed to `write_json()`.
+
+        Raises:
+            RuntimeError: If nothing is loaded.
         """
-        await to_thread(self.save, **kw)
+        # The data came from JSON, so it is JSON again whatever `_KT`/`_VT` say.
+        data = cast("JsonValue", deepcopy(self._loaded_data()))
+        await to_thread(write_json, self.path, data, self.lock, **kw)
 
     @overload
     async def async_get(self, key: _KT) -> _VT | None: ...

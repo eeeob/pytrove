@@ -44,12 +44,12 @@ from pytrove.errors import ValidationError
 
 @contextlib.contextmanager
 def caplog_at_warning() -> Iterator[list[logging.LogRecord]]:
-    """Collect `pytrove.data_tools._internal.reconstruct` warnings without depending on caplog's
+    """Collect `pytrove._internal._rebuild` warnings without depending on caplog's
     propagation setup, so the records are the assertion."""
     records: list[logging.LogRecord] = []
     handler = logging.Handler()
     handler.emit = records.append  # type: ignore[method-assign]  # The handler only has to collect.
-    logger = logging.getLogger("pytrove.data_tools._internal.reconstruct")
+    logger = logging.getLogger("pytrove._internal._rebuild")
     logger.addHandler(handler)
 
     try:
@@ -569,7 +569,7 @@ def test_a_namedtuple_that_loses_a_field_comes_back_whole(caplog: pytest.LogCapt
     # it, so it comes back untouched -- None still in place -- and says so.
     source = Point(1, None)
 
-    with caplog.at_level(logging.WARNING, logger="pytrove.data_tools._internal.reconstruct"):
+    with caplog.at_level(logging.WARNING, logger="pytrove._internal._rebuild"):
         out = clean_none_values(source)
 
     assert out is source
@@ -783,7 +783,7 @@ def test_a_container_that_cannot_be_rebuilt_comes_back_as_it_was(value: Any) -> 
 
 
 def test_the_warning_names_the_type_that_was_skipped(caplog: pytest.LogCaptureFixture) -> None:
-    with caplog.at_level(logging.WARNING, logger="pytrove.data_tools._internal.reconstruct"):
+    with caplog.at_level(logging.WARNING, logger="pytrove._internal._rebuild"):
         enum_to_value(range(3))
 
     assert "range" in caplog.text

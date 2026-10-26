@@ -1,17 +1,16 @@
-"""`data_tools._internal.reconstruct`: rebuilding a container as its own type."""
+"""`_internal._rebuild`: rebuilding a container as its own type."""
 
 from __future__ import annotations as _annotations
 
 import array
 import logging
 import weakref
-from collections import UserString, defaultdict, deque, namedtuple
+from collections import defaultdict, deque, namedtuple
 from collections.abc import Hashable
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from pytrove.data_tools._internal import (
+from pytrove._internal._rebuild import (
     _filled,
-    _none_cleaner,
     _reconstruct,
     _reconstruct_mapping,
     _refilled,
@@ -132,7 +131,7 @@ def test_reconstruct_falls_through_to_refill_and_then_gives_up(
     out = _reconstruct(source, str)
     assert type(out) is NamedList and list(out) == ["1"] and out.name == "n"
 
-    with caplog.at_level("WARNING", logger="pytrove.data_tools._internal.reconstruct"):
+    with caplog.at_level("WARNING", logger="pytrove._internal._rebuild"):
         bad_array = _reconstruct(array.array("i", [1]), str)
         kept_range = _reconstruct(range(2), str)
 
@@ -154,12 +153,6 @@ def test_reconstruct_mapping_restores_a_factory_or_falls_back_to_a_dict() -> Non
     assert type(out) is dict and out == {"a": 1}  # every rebuild came back empty
 
 
-def test_none_cleaner_drops_none_and_cleans_the_rest() -> None:
-    assert _none_cleaner(None) is _MESS
-    assert _none_cleaner([1, None]) == [1]
-    assert _none_cleaner(0) == 0
-
-
 def test_result_type_variables() -> None:
     assert isinstance(_R, TypeVar)
     assert isinstance(_RK, TypeVar)
@@ -172,7 +165,7 @@ def test_mess_is_a_unique_marker() -> None:
     assert value != object()
 
 
-_LOGGER = "pytrove.data_tools._internal.reconstruct"
+_LOGGER = "pytrove._internal._rebuild"
 
 
 def test_transform_is_lazy() -> None:
@@ -207,7 +200,7 @@ def test_reconstruct_leaves_a_namedtuple_that_cannot_shrink_whole(
     source = Point(1, None)
 
     with caplog.at_level(logging.WARNING, logger=_LOGGER):
-        out = _reconstruct(source, _none_cleaner)
+        out = _reconstruct(source, lambda v: _MESS if v is None else v)
 
     assert out is source
     assert "Point" in caplog.text
@@ -305,9 +298,3 @@ def test_reconstruct_mapping_falls_back_to_a_refilled_copy() -> None:
     assert type(out) is _NamedDict
     assert dict(out) == {"a": "1"}
     assert out.name == "n"
-
-
-def test_none_cleaner_walks_mappings_and_leaves_text_whole() -> None:
-    assert _none_cleaner({"a": None, "b": [None, 1]}) == {"b": [1]}
-    text = UserString("ab")
-    assert _none_cleaner(text) is text
