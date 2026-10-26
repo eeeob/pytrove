@@ -14,7 +14,7 @@ from ...errors import ValidationError
 from . import backends
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable
 
 _LINK_MAX: Final[int] = 4096
 """The longest link destination read from a zip member; no platform stores a longer path."""
@@ -106,6 +106,36 @@ def _is_hidden(rel: str, entry: os.DirEntry | None) -> bool:
         return False
 
 
+def _exact_paths_rule(paths: Iterable[str]) -> Callable[[str, Any], bool]:
+    """Build a rule matching exactly the given relative paths and nothing else.
+
+    A predicate rather than a pattern, so a name holding `[`, `*` or `?` is
+    never read as a glob, and a bare name is never matched at another depth.
+
+    Args:
+        paths: Relative posix paths, anchored at the root.
+
+    Returns:
+        A rule matching only those paths.
+    """
+    wanted = frozenset(paths)
+
+    def rule(rel: str, entry: Any) -> bool:
+        """Match one of the paths.
+
+        Args:
+            rel: The relative path.
+            entry: The entry, unused.
+
+        Returns:
+            Whether `rel` is one of them.
+        """
+        del entry  # A rule receives it; only the path decides here.
+        return rel in wanted
+
+    return rule
+
+
 def _temp_file_rule(folder: str, prefix: str) -> Callable[[str, Any], bool]:
     """Build a rule matching only `atomic_write`'s temp file for one destination.
 
@@ -163,6 +193,7 @@ def _require_zstd() -> None:
 
 __all__ = (
     "_WalkEntry",
+    "_exact_paths_rule",
     "_format_from_suffix",
     "_is_hidden",
     "_require_zstd",

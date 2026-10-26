@@ -24,9 +24,12 @@ class ArchiveJob:
     only then does `PeriodicArchiver` exclude one job's archive from the other's.
 
     The fields from `include` to `delete_source` are passed as-is to
-    `compress_folder()` and documented there. `delete_source=True` deletes
-    `root` once the archive is written, so the next run of a periodic job
-    finds nothing left to archive; it stays opt-in for that reason.
+    `compress_folder()` and documented there. `delete_source=True` empties
+    `root` once the archive is written, keeping only the archive (which
+    lands in `root`) until `on_archive` has had it, so the next run of a
+    periodic job finds nothing left to archive; it stays opt-in for that reason.
+    Such a job cannot share its `root` with another job in one
+    `PeriodicArchiver`, since its cleanup would delete the other's archive.
     """
 
     name: str
@@ -54,7 +57,7 @@ class ArchiveJob:
     """Rules for what to leave out, at any nesting."""
 
     exclude_hidden: bool = True
-    """Whether dot-files and Windows hidden files are left out; an include path or predicate still wins."""
+    """Whether dot-files and Windows hidden files are left out; an include still keeps a hidden file, never a hidden directory's contents."""
 
     stability_retries: int = 0
     """How many times to re-read a guarded file that changed while being read; 0 only warns."""
@@ -75,7 +78,10 @@ class ArchiveJob:
     """Which files are worth guarding, from their `stat` and path; 1 MiB and up by default."""
 
     delete_source: bool = False
-    """Whether to remove `root` once the archive is in place; leaves a periodic job nothing to archive next."""
+    """Whether to empty `root`, all but the archive, once it is in place; leaves a periodic job nothing to archive next.
+
+    `PeriodicArchiver` refuses it on a job whose `root` another of its jobs shares.
+    """
 
     should_run: Callable[[], bool] | None = None
     """Polled by the archiver; truthy runs the job. `None` runs it once `min_interval` has passed since `last_run`."""

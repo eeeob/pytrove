@@ -183,7 +183,8 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
 
         A real directory on both sides is merged into; a link or junction in
         `dest` is never followed; a directory in `dest` is never replaced by
-        anything that is not one; anything else is replaced.
+        anything that is not one, nor a file in `dest` by a directory, each
+        logged and left out as the unstaged run does; anything else is replaced.
 
         Args:
             staged: The staging directory.
@@ -209,6 +210,15 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
                 if _is_dir(target):
                     log.warning(
                         "extract_archive: refused %r from %s, a directory stands at %r",
+                        entry.name,
+                        self.src.name,
+                        str(target),
+                    )
+                    continue
+
+                if _is_dir(entry.path) and os.path.lexists(target) and not _is_link(target):
+                    log.warning(
+                        "extract_archive: refused directory %r from %s, a file stands at %r",
                         entry.name,
                         self.src.name,
                         str(target),

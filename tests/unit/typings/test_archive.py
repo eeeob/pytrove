@@ -33,3 +33,10 @@ def test_permissive_limits_let_either_link_policy_be_overridden() -> None:
     limits = ArchiveLimits.permissive(hardlinks=ArchiveLinkPolicy.ERROR)
     assert limits.symlinks is ArchiveLinkPolicy.ALLOW
     assert limits.hardlinks is ArchiveLinkPolicy.ERROR
+
+
+def test_a_policy_may_be_given_as_its_string_value() -> None:
+    # Stored as given; `extract_archive` coerces it (and refuses a misspelling).
+    limits = ArchiveLimits(symlinks="skip", overwrite="error")
+    assert limits.symlinks == ArchiveLinkPolicy.SKIP
+    assert limits.overwrite == ArchiveOverwritePolicy.ERROR

@@ -6,6 +6,7 @@ import logging
 import ntpath
 import os
 import posixpath
+import secrets
 import tempfile
 from pathlib import Path
 from typing import IO, TYPE_CHECKING
@@ -60,12 +61,21 @@ class _WriteMixin:
             self._built.extend(reversed(fresh))
 
     def _link(self: _Extractor, m: _Member, target: Path) -> None:
-        """Recreate a link member, if the policy allows and it stays inside the destination.
+        """Recreate a link member that stays inside the destination; `_place` already applied the policy.
 
         A symlink resolves from its own directory, a hardlink from the root;
-        either is refused if it would land outside, whatever the policy. A
-        directory at the target is never replaced. The link is built beside the
-        target and renamed onto it, so a failure leaves what was there alone.
+        either is refused if it would land outside, whatever the policy. That
+        is judged on the text, and on the path the operating system really
+        reaches, following every link already extracted, so a target that
+        backs out (`..`) through an earlier link is caught. A symlink whose
+        target climbs (`..`) after descending is refused too: a later member
+        could turn what it descends through into a link (`l -> m/..`, then
+        `m -> .`), which neither check can see yet; its leading `..` climb from
+        a parent already resolved, and each link it descends through was itself
+        checked when it was made. An empty, absolute or drive-letter target is
+        refused. A directory at the target
+        is never replaced. The link is built beside the target and renamed onto
+        it, so a failure leaves what was there alone.
 
         Args:
             m: The link member, with its destination filled in.
@@ -73,21 +83,36 @@ class _WriteMixin:
         """
         raw = m.target
 
-        if (
-            not self._limiter.allows_link(m)
-            or not raw
-            or raw.startswith("/")
-            or ntpath.splitdrive(raw)[0]
-        ):
+        if not raw or raw.startswith(("/", "\\")) or ntpath.splitdrive(raw)[0]:
+            log.warning(
+                "extract_archive: refused %s %r in %s, its destination %r is empty or absolute",
+                m.kind,
+                m.name,
+                self.src.name,
+                raw,
+            )
             return
 
-        inside = (
-            (target.parent if m.kind == "symlink" else self._root)
-            .relative_to(self._root)
-            .as_posix()
-        )
+        base = target.parent if m.kind == "symlink" else self._root
+        inside = base.relative_to(self._root).as_posix()
         rel = posixpath.normpath(f"{inside}/{raw}" if inside != "." else raw)
         resolved = self._under(rel) if self._is_safe_member_name(rel) else None
+
+        if m.kind == "symlink":
+            # `\` counts as a separator too: refusing a rare POSIX name is safer than missing a climb.
+            segs = [s for s in raw.replace("\\", "/").split("/") if s not in ("", ".")]
+            climb = next((i for i, s in enumerate(segs) if s != ".."), len(segs))
+
+            if ".." in segs[climb:]:
+                resolved = None
+
+        if resolved is not None:
+            try:
+                real = (base / raw).resolve(strict=False)
+            except (OSError, RuntimeError, ValueError):  # A loop, an unreadable link, a NUL.
+                resolved = None
+            else:
+                resolved = real if real.is_relative_to(self._root) else None
 
         if resolved is None:
             log.warning(
@@ -141,8 +166,12 @@ class _WriteMixin:
     def _spill(self: _Extractor, m: _Member, data: IO[bytes], target: Path) -> None:
         """Copy a member's bytes into place in bounded chunks, re-weighing its size as it grows.
 
-        A size different from the header is logged, not fatal. An `OSError`
-        skips this member alone.
+        A new path is created exclusively. Whatever already stands at the path
+        (a link, perhaps pointing outside `dest`, or a hardlink shared with a
+        file elsewhere) is never written through: the bytes go to a temp file
+        beside it, created with the mode a new file gets, which then replaces
+        it. A size different from the header is
+        logged, not fatal. An `OSError` skips this member alone.
 
         Args:
             m: The member.
@@ -154,16 +183,33 @@ class _WriteMixin:
             ArchiveLimitError: If it outgrows `max_file_size`.
         """
         grown = 0
+        tmp: str | None = None
 
         try:
-            with open(target, "wb") as out:
-                if self._built is not None:
+            try:
+                out = open(
+                    target, "xb"
+                )  # Closed by the `with` below, as is the temp file's handle.
+            except FileExistsError:
+                # Not `mkstemp`, which forces mode 0600: `xb` gives the temp file the mode a new one gets.
+                tmp = str(target.with_name(f".{target.name}.{secrets.token_hex(8)}.tmp"))
+                out = open(tmp, "xb")  # Closed by the `with` below.
+
+            with out:
+                if self._built is not None and tmp is None:
                     self._built.append(target)
 
                 while chunk := data.read(_COPY_BUF):
                     out.write(chunk)
                     grown += len(chunk)
                     self._limiter.grew(m.name, grown)
+
+            if tmp is not None:
+                os.replace(tmp, target)
+                tmp = None
+
+                if self._built is not None:
+                    self._built.append(target)
         except EOFError:
             msg = (
                 f"extract_archive: {self.src.name}: member {m.name!r} ends before the {m.size} bytes it declares "
@@ -175,6 +221,9 @@ class _WriteMixin:
                 "extract_archive: could not write %r from %s (%s)", m.name, self.src.name, exc
             )
             return
+        finally:
+            if tmp is not None:
+                remove_file(tmp, return_exc=True)
 
         if grown != m.size:
             log.warning(

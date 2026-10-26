@@ -18,8 +18,8 @@ _ExcFilter: TypeAlias = type[BaseException] | tuple[type[BaseException], ...] | 
 _RawEntry: TypeAlias = os.DirEntry | zipfile.ZipInfo | tarfile.TarInfo | None
 """What an archive filter is shown: a folder entry when compressing, a member when extracting."""
 
-_Rule: TypeAlias = str | Callable[[str, _RawEntry], bool]
-"""An archive include/exclude rule: a glob, or a predicate over the relative path and its entry."""
+_Rule: TypeAlias = str | os.PathLike[str] | Callable[[str, _RawEntry], bool]
+"""An archive include/exclude rule: a pattern or path (text or `os.PathLike`), or a predicate over the relative path and its entry."""
 
 __all__ = (
     "_ExcFilter",
