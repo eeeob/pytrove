@@ -1,58 +1,66 @@
-"""The per-platform device families `random_device` draws from; sampling policy is code, facts are data."""
+"""The per-platform device catalogs `random_device` draws from; sampling policy is code, facts are data."""
 
 from __future__ import annotations as _annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar, Final
+from dataclasses import dataclass
+from functools import cached_property
+from typing import TYPE_CHECKING, Any
 
 from ..enums import PlatformDevice
 from ..models.device_models import DeviceInfo
-from ._internal import _catalog, _Catalog, _Device, _rng, OS_SHARES
+from ._internal import _Catalog, _Device, _build_catalog, _rng, OS_SHARES
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
 
-class SystemInfo:
-    """Base for one platform's device catalog.
+# `slots=True` is left out on purpose: `cached_property` stores the loaded catalog in `__dict__`.
+@dataclass(frozen=True)
+class DeviceCatalog:
+    """One platform's device catalog, loaded from its bundled file on first use.
 
     `random_device` draws a device and then an OS version it really runs,
     weighted towards current hardware and releases. A multi-OS platform draws
     the OS first, by `OS_SHARES`. A `unique_id` makes the draw reproducible.
-    Subclass it with a `platform` that names a bundled catalog.
+
+    The bundled platforms follow their official clients: Android reports
+    `Build.MANUFACTURER + Build.MODEL` and `SDK <level>`; iOS an iPhone name
+    and a bare iOS version; desktop a Windows or Linux PC, as Telegram Desktop
+    does; web `navigator.userAgent` and `navigator.platform`.
     """
 
-    platform: ClassVar[str]
-    """The catalog's name; each subclass sets its own."""
+    platform: PlatformDevice
+    """The platform, which names its bundled catalog file."""
 
-    platform_weight: ClassVar[float] = 1.0
+    weight: float = 1.0
     """Relative likelihood when no platform is requested."""
 
-    @classmethod
-    def _get_catalog(cls) -> _Catalog:
-        """Return this platform's catalog, loaded on first use.
+    @cached_property
+    def _data(self) -> _Catalog:
+        """Return this platform's catalog, built on first use and then kept on the instance.
 
         Returns:
             The catalog.
         """
-        return _catalog(cls.platform)
+        return _build_catalog(self.platform)
 
-    @classmethod
-    def oses(cls) -> tuple[str, ...]:
-        """Return every OS this platform covers.
+    def oses(self) -> tuple[str, ...]:
+        """Return the OSes this platform's devices report: the values `os` accepts.
 
         Returns:
-            The OSes; empty for a single-OS platform.
+            The OSes, in catalog order; empty for a single-OS platform.
 
         Example:
-            >>> DesktopDevice.oses()
+            >>> from pytrove import get_device_catalog
+            >>> from pytrove.enums import PlatformDevice
+            >>> get_device_catalog(PlatformDevice.DESKTOP).oses()
             ('windows', 'linux')
-            >>> AndroidDevice.oses()
+            >>> get_device_catalog(PlatformDevice.ANDROID).oses()
             ()
         """
-        return cls._get_catalog().oses
+        return self._data.oses
 
-    @classmethod
-    def _devices_for(cls, os: str | None) -> tuple[_Device, ...]:
+    def _devices_for(self, os: str | None) -> tuple[_Device, ...]:
         """Return the devices that can report an OS, or all of them.
 
         Args:
@@ -64,88 +72,100 @@ class SystemInfo:
         Raises:
             ValueError: If the platform has no device for `os`.
         """
-        catalog = cls._get_catalog()
+        catalog = self._data
 
         if os is None:
             return catalog.devices
 
         if (view := catalog.by_os.get(os)) is None:
-            msg = f"{cls.platform} has no {os!r} devices; known: {catalog.oses or '()'}"
+            msg = f"{self.platform} has no {os!r} devices; known: {catalog.oses or '()'}"
             raise ValueError(msg)
 
         return view.devices
 
-    @classmethod
-    def devices(cls, os: str | None = None) -> tuple[DeviceInfo, ...]:
-        """Return every (device_model, system_version) pair this platform can report.
+    def devices(self, *, os: str | None = None) -> tuple[DeviceInfo, ...]:
+        """Return every `(device_model, system_version)` pair this platform can report.
 
         Args:
-            os: Restrict to one OS.
+            os: Restrict to this OS.
 
         Returns:
-            The pairs.
+            The pairs, one per model and version that model runs.
+
+        Raises:
+            ValueError: If the platform has no device for `os`.
         """
         return tuple(
             DeviceInfo(device.model, version)
-            for device in cls._devices_for(os)
+            for device in self._devices_for(os)
             for version in (device.by_os[os][0] if os else device.versions)
         )
 
-    @classmethod
-    def models(cls, os: str | None = None) -> tuple[str, ...]:
-        """Return every model string.
+    def models(self, *, os: str | None = None) -> tuple[str, ...]:
+        """Return every `device_model` this platform can report.
 
         Args:
-            os: Restrict to one OS.
+            os: Restrict to the devices that report this OS.
 
         Returns:
-            The models.
-        """
-        return tuple(device.model for device in cls._devices_for(os))
+            The models, in catalog order.
 
-    @classmethod
-    def versions(cls, os: str | None = None) -> tuple[str, ...]:
-        """Return every distinct OS version, in first-seen order.
+        Raises:
+            ValueError: If the platform has no device for `os`.
+        """
+        return tuple(device.model for device in self._devices_for(os))
+
+    def versions(self, *, os: str | None = None) -> tuple[str, ...]:
+        """Return every distinct `system_version` this platform's devices run, in first-seen order.
 
         Args:
-            os: Restrict to one OS.
+            os: Restrict to this OS's versions.
 
         Returns:
             The versions.
+
+        Raises:
+            ValueError: If the platform has no device for `os`.
         """
         return tuple(
             dict.fromkeys(
                 version
-                for device in cls._devices_for(os)
+                for device in self._devices_for(os)
                 for version in (device.by_os[os][0] if os else device.versions)
             )
         )
 
-    @classmethod
-    def find_device(cls, model: str, version: str | None = None) -> DeviceInfo | None:
+    def find_device(
+        self, device_model: str, system_version: str | None = None
+    ) -> DeviceInfo | None:
         """Look a model up, optionally with a version it must run.
 
         Args:
-            model: The model string.
-            version: A version to require; its first version when `None`.
+            device_model: The model string, exactly as the client reports it.
+            system_version: A version the model must run; its first listed version when `None`.
 
         Returns:
-            The device, or `None` when absent.
+            The device, or `None` when the model is absent or does not run that version.
+
+        Example:
+            >>> from pytrove import get_device_catalog
+            >>> from pytrove.enums import PlatformDevice
+            >>> get_device_catalog(PlatformDevice.ANDROID).find_device("no such model") is None
+            True
         """
-        for device in cls._get_catalog().devices:
-            if device.model != model:
+        for device in self._data.devices:
+            if device.model != device_model:
                 continue
 
-            if version is None:
+            if system_version is None:
                 return DeviceInfo(device.model, device.versions[0])
 
-            if version in device.versions:
-                return DeviceInfo(device.model, version)
+            if system_version in device.versions:
+                return DeviceInfo(device.model, system_version)
 
         return None
 
-    @classmethod
-    def random_device(cls, unique_id: Any = None, os: str | None = None) -> DeviceInfo:
+    def random_device(self, unique_id: Any = None, os: str | None = None) -> DeviceInfo:
         """Draw a weighted device and a version it runs.
 
         Args:
@@ -158,7 +178,7 @@ class SystemInfo:
         Raises:
             ValueError: If the platform has no device for `os`.
         """
-        catalog = cls._get_catalog()
+        catalog = self._data
         rng = _rng(unique_id)
 
         if os is None and catalog.oses:
@@ -171,7 +191,7 @@ class SystemInfo:
             names, version_weights = device.versions, device.version_weights
         else:
             if (view := catalog.by_os.get(os)) is None:
-                msg = f"{cls.platform} has no {os!r} devices; known: {catalog.oses or '()'}"
+                msg = f"{self.platform} has no {os!r} devices; known: {catalog.oses or '()'}"
                 raise ValueError(msg)
 
             device = rng.choices(view.devices, weights=view.weights, k=1)[0]
@@ -180,66 +200,28 @@ class SystemInfo:
         return DeviceInfo(device.model, rng.choices(names, weights=version_weights, k=1)[0])
 
 
-class DesktopDevice(SystemInfo):
-    """Windows and Linux PCs, which Telegram reports as one platform, following Telegram Desktop."""
-
-    platform = "desktop"
-    platform_weight = 26.0
-
-
-class WebDevice(SystemInfo):
-    """Browsers running Telegram Web: the model is `navigator.userAgent`, the version `navigator.platform`."""
-
-    platform = "web"
-    platform_weight = 5.0
-
-
-class AndroidDevice(SystemInfo):
-    """Android phones: `Build.MANUFACTURER + Build.MODEL` and `SDK <level>`."""
-
-    platform = "android"
-    platform_weight = 50.0
-
-
-class iOSDevice(SystemInfo):
-    """iPhones, named as Telegram iOS names them, with a bare iOS version."""
-
-    platform = "ios"
-    platform_weight = 19.0
-
-
-_DEVICES: Final[dict[PlatformDevice, type[SystemInfo]]] = {
-    PlatformDevice.ANDROID: AndroidDevice,
-    PlatformDevice.IOS: iOSDevice,
-    PlatformDevice.DESKTOP: DesktopDevice,
-    PlatformDevice.WEB: WebDevice,
-}
-"""The family for each platform. Defined after the classes it holds."""
-
-
-def random_family(families: Iterable[type[SystemInfo]], unique_id: Any = None) -> type[SystemInfo]:
-    """Pick a platform, weighted by `platform_weight`.
+def random_family(catalogs: Iterable[DeviceCatalog], unique_id: Any = None) -> DeviceCatalog:
+    """Pick a platform's catalog, weighted by `weight`.
 
     Args:
-        families: The families to choose from.
+        catalogs: The catalogs to choose from.
         unique_id: Seeds the draw.
 
     Returns:
-        The family.
+        The catalog.
 
     Example:
-        >>> random_family([iOSDevice]) is iOSDevice
+        >>> from pytrove import get_device_catalog
+        >>> from pytrove.enums import PlatformDevice
+        >>> ios = get_device_catalog(PlatformDevice.IOS)
+        >>> random_family([ios]) is ios
         True
     """
-    families = tuple(families)
-    return _rng(unique_id).choices(families, weights=[f.platform_weight for f in families], k=1)[0]
+    catalogs = tuple(catalogs)
+    return _rng(unique_id).choices(catalogs, weights=[c.weight for c in catalogs], k=1)[0]
 
 
 __all__ = (
-    "AndroidDevice",
-    "DesktopDevice",
-    "SystemInfo",
-    "WebDevice",
-    "iOSDevice",
+    "DeviceCatalog",
     "random_family",
 )

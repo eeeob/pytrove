@@ -14,13 +14,8 @@ import pytest
 
 from pytrove.constants import DEVICE_CATALOGS_DIR
 from pytrove.device_tools._internal.catalog import _load, _SCHEMA, GROUP_SHARES
-from pytrove.device_tools.families import (
-    AndroidDevice,
-    DesktopDevice,
-    SystemInfo,
-    WebDevice,
-    iOSDevice,
-)
+from pytrove.device_tools import DeviceCatalog, get_device_catalog
+from pytrove.enums import PlatformDevice
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -46,11 +41,16 @@ def _lib_base() -> Any:
     return module.LibBase
 
 
-ALL_PLATFORMS = (DesktopDevice, AndroidDevice, iOSDevice, WebDevice)
-IDS = [p.platform for p in ALL_PLATFORMS]
+DESKTOP = get_device_catalog(PlatformDevice.DESKTOP)
+ANDROID = get_device_catalog(PlatformDevice.ANDROID)
+IOS = get_device_catalog(PlatformDevice.IOS)
+WEB = get_device_catalog(PlatformDevice.WEB)
+
+ALL_PLATFORMS = (DESKTOP, ANDROID, IOS, WEB)
+IDS = [p.platform.value for p in ALL_PLATFORMS]
 
 #: Telegram reports every desktop OS as "desktop". macOS is deliberately not
-#: in the catalog -- see DesktopDevice's docstring.
+#: in the catalog -- see `test_macos_stays_out_of_the_desktop_catalog`.
 DESKTOP_OSES = ("windows", "linux")
 
 # lib_base IsDeviceModelOk: non-empty, at most 15 chars; HP names keep up to 32.
@@ -63,7 +63,7 @@ def _duplicates(items: Iterable[str]) -> list[str]:
 
 
 @pytest.fixture(scope="module", params=ALL_PLATFORMS, ids=IDS)
-def platform(request: pytest.FixtureRequest) -> type[SystemInfo]:
+def platform(request: pytest.FixtureRequest) -> DeviceCatalog:
     return request.param
 
 
@@ -80,7 +80,7 @@ def test_every_platform_has_its_own_data_file() -> None:
     assert files == {p.platform for p in ALL_PLATFORMS}
 
 
-def test_data_file_declares_the_schema_and_update_date(platform: type[SystemInfo]) -> None:
+def test_data_file_declares_the_schema_and_update_date(platform: DeviceCatalog) -> None:
     data = _load(platform.platform)
 
     assert data["schema"] == _SCHEMA
@@ -111,7 +111,7 @@ def test_desktop_documents_every_os_separately(desktop: dict[str, Any]) -> None:
         assert doc["notes"], name
 
 
-def test_data_file_is_valid_json_without_duplicate_models(platform: type[SystemInfo]) -> None:
+def test_data_file_is_valid_json_without_duplicate_models(platform: DeviceCatalog) -> None:
     data = json.loads(
         (DEVICE_CATALOGS_DIR / f"{platform.platform}.json").read_text(encoding="utf-8")
     )
@@ -214,7 +214,7 @@ def test_every_web_draw_is_a_real_browser_release() -> None:
     known = {(d["browser"], d["major"]) for d in _load("web")["devices"]}
 
     for i in range(200):
-        model = WebDevice.random_device(f"web-{i}").device_model
+        model = WEB.random_device(f"web-{i}").device_model
         browser = next(b for b in WEB_AGENTS if WEB_AGENTS[b].fullmatch(model))
         major = int(WEB_AGENTS[browser].fullmatch(model)["major"])
 
@@ -224,18 +224,18 @@ def test_every_web_draw_is_a_real_browser_release() -> None:
 # --- catalog integrity -----------------------------------------------------
 
 
-def test_catalog_has_devices_and_versions(platform: type[SystemInfo]) -> None:
-    catalog = platform._get_catalog()
+def test_catalog_has_devices_and_versions(platform: DeviceCatalog) -> None:
+    catalog = platform._data
 
     assert catalog.devices
     assert platform.versions()
     assert all(d.versions for d in catalog.devices)
 
 
-def test_every_device_version_is_a_known_platform_version(platform: type[SystemInfo]) -> None:
+def test_every_device_version_is_a_known_platform_version(platform: DeviceCatalog) -> None:
     known = {v["version"] for v in _load(platform.platform)["versions"]}
 
-    for device in platform._get_catalog().devices:
+    for device in platform._data.devices:
         unknown = set(device.versions) - known
         assert not unknown, f"{device.model} lists unknown versions {unknown}"
 
@@ -244,14 +244,14 @@ def test_a_device_only_offers_versions_of_an_os_it_reports() -> None:
     data = _load("desktop")
     os_of = {v["version"]: v["os"] for v in data["versions"]}
 
-    for device in DesktopDevice._get_catalog().devices:
+    for device in DESKTOP._data.devices:
         assert device.oses
         for version in device.versions:
             assert os_of[version] in device.oses, (device.model, version)
 
 
-def test_weights_are_positive_and_aligned(platform: type[SystemInfo]) -> None:
-    catalog = platform._get_catalog()
+def test_weights_are_positive_and_aligned(platform: DeviceCatalog) -> None:
+    catalog = platform._data
 
     assert len(catalog.weights) == len(catalog.devices)
     assert all(w > 0 for w in catalog.weights)
@@ -262,7 +262,7 @@ def test_weights_are_positive_and_aligned(platform: type[SystemInfo]) -> None:
 
 
 def test_desktop_os_views_cover_every_device_and_version() -> None:
-    catalog = DesktopDevice._get_catalog()
+    catalog = DESKTOP._data
 
     assert set(catalog.oses) == set(DESKTOP_OSES)
     assert set(catalog.by_os) == set(DESKTOP_OSES)
@@ -278,8 +278,8 @@ def test_desktop_os_views_cover_every_device_and_version() -> None:
     assert seen == {d.model for d in catalog.devices}
 
 
-def test_no_device_lists_a_version_twice(platform: type[SystemInfo]) -> None:
-    for device in platform._get_catalog().devices:
+def test_no_device_lists_a_version_twice(platform: DeviceCatalog) -> None:
+    for device in platform._data.devices:
         assert _duplicates(device.versions) == []
 
 
@@ -287,7 +287,7 @@ def test_no_device_lists_a_version_twice(platform: type[SystemInfo]) -> None:
 
 
 def test_ios_versions_are_current_and_numeric() -> None:
-    for version in iOSDevice.versions():
+    for version in IOS.versions():
         assert re.fullmatch(r"\d+(\.\d+)*", version)
         assert int(version.split(".")[0]) >= 18  # 12-17 dropped as obsolete
 
@@ -311,13 +311,13 @@ def test_ios_device_never_offers_a_version_released_before_it() -> None:
 
 
 def test_android_versions_are_sdk_levels_in_range() -> None:
-    for version in AndroidDevice.versions():
+    for version in ANDROID.versions():
         assert re.fullmatch(r"SDK \d+", version)
         assert 33 <= int(version.split()[1]) <= 37
 
 
 def test_android_device_sdk_ranges_are_contiguous() -> None:
-    for device in AndroidDevice._get_catalog().devices:
+    for device in ANDROID._data.devices:
         levels = sorted(int(v.split()[1]) for v in device.versions)
         assert levels == list(range(levels[0], levels[-1] + 1)), device.model
 
@@ -603,14 +603,14 @@ def test_every_desktop_model_is_a_fixed_point_of_lib_bases_own_rules() -> None:
     # or rejected, so it could never appear in a real session.
     lib_base = _lib_base()
 
-    for model in DesktopDevice.models():
+    for model in DESKTOP.models():
         assert lib_base.simplify_device_model(model) == model, model
         assert lib_base.product_name_to_device_model(model) == model, model
 
 
 @pytest.mark.parametrize("os", ["windows", "linux"])
 def test_pc_models_fit_what_the_client_can_report(os: str) -> None:
-    for model in DesktopDevice.models(os):
+    for model in DESKTOP.models(os=os):
         limit = MAX_HP_MODEL if model.startswith("HP ") else MAX_MODEL
         assert 0 < len(model) <= limit, model
         assert "_" not in model
@@ -620,12 +620,12 @@ def test_pc_models_fit_what_the_client_can_report(os: str) -> None:
 def test_windows_versions_name_the_release_and_optional_architecture() -> None:
     # SystemVersionPretty appends an architecture only for AMD64 and ARM64, so
     # a 32-bit x86 machine reports the bare name.
-    for version in DesktopDevice.versions("windows"):
+    for version in DESKTOP.versions(os="windows"):
         assert re.fullmatch(r"Windows (10|11)( (x64|arm64))?", version)
 
 
 def test_linux_versions_carry_desktop_and_session() -> None:
-    for version in DesktopDevice.versions("linux"):
+    for version in DESKTOP.versions(os="linux"):
         assert re.match(r"^(Linux|FreeBSD \S+) ", version)
         assert re.search(r"\b(Wayland|X11|Xwayland)\b", version)
 
@@ -633,7 +633,7 @@ def test_linux_versions_carry_desktop_and_session() -> None:
 def test_linux_versions_only_carry_glibc_on_glibc_systems() -> None:
     # GetLibcVersion returns nothing outside glibc and SystemVersionPretty then
     # skips the whole clause, so musl and BSD strings end at the session type.
-    for version in DesktopDevice.versions("linux"):
+    for version in DESKTOP.versions(os="linux"):
         libc = re.search(r"\bglibc \d+\.\d+$", version)
         if version.startswith("FreeBSD"):
             assert libc is None, version
@@ -642,7 +642,7 @@ def test_linux_versions_only_carry_glibc_on_glibc_systems() -> None:
 
 
 def test_linux_model_pool_adds_the_fallbacks_windows_has_none_of() -> None:
-    models = set(DesktopDevice.models("linux"))
+    models = set(DESKTOP.models(os="linux"))
 
     assert {"KVM", "QEMU", "VMWARE"} <= models  # systemd-detect-virt
     assert {"Laptop", "Tablet", "Handset"} <= models  # ChassisTypeToString
@@ -650,4 +650,4 @@ def test_linux_model_pool_adds_the_fallbacks_windows_has_none_of() -> None:
     # ChassisTypeToString maps every notebook chassis to "Laptop"
     assert "Notebook" not in models
     # none of these reach a Windows client
-    assert not ({"KVM", "Laptop"} & set(DesktopDevice.models("windows")))
+    assert not ({"KVM", "Laptop"} & set(DESKTOP.models(os="windows")))
