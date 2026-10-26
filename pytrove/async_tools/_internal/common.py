@@ -268,9 +268,9 @@ async def _wait_done(task: asyncio.Task[Any]) -> None:
 
     try:
         await asyncio.wait((task,))
-    except asyncio.CancelledError:
+    except asyncio.CancelledError as exc:
         task.cancel()
-        raise
+        raise exc
 
 
 __all__ = (

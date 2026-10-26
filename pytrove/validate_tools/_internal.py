@@ -171,7 +171,7 @@ def _checker_lookup(origin_type: Any, args: tuple[Any, ...], *_: Any) -> Callabl
                 check_type_internal(v, args[0], memo)
             except TypeCheckError as exc:
                 exc.append_path_element(f"item {i}")
-                raise
+                raise exc
 
     if origin_type in _CONTAINER_ALIASES:
         return validate_container

@@ -42,12 +42,12 @@ async def safe_wait_task(
 
     try:
         return task.result()
-    except asyncio.CancelledError:
+    except asyncio.CancelledError as exc:
         if not canceled_ok:
-            raise
-    except Exception:
+            raise exc
+    except Exception as exc:
         if not exc_ok:
-            raise
+            raise exc
 
     return None
 

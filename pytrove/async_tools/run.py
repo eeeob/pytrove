@@ -81,7 +81,7 @@ async def to_thread(
         if return_exc:
             return e
 
-        raise
+        raise e
 
 
 async def call_sync_or_await(

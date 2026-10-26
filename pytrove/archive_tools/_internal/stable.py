@@ -110,13 +110,13 @@ def _read_stable(path: str, retries: int) -> tuple[str, os.stat_result, bool]:
 
         os.utime(tmp_path, ns=(last_stat.st_atime_ns, last_stat.st_mtime_ns))
         os.chmod(tmp_path, stat.S_IMODE(last_stat.st_mode))
-    except Exception:
+    except Exception as exc:
         if tmp_path is not None:
             try:
                 os.unlink(tmp_path)
             except OSError:
                 pass
-        raise
+        raise exc
 
     return tmp_path, last_stat, settled
 

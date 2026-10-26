@@ -121,11 +121,11 @@ def safe_call(
 
     try:
         return func(*args, **kwargs)
-    except _HARD_PROPAGATE:
-        raise
+    except _HARD_PROPAGATE as exc:
+        raise exc
     except BaseException as e:
         if not _is_swallowed(e, include_exc, exclude_exc):
-            raise
+            raise e
 
         if log_exc:
             if callable(log_exc):
@@ -134,7 +134,7 @@ def safe_call(
                 log.error("error in safe_call(%r)", func, exc_info=e)
 
         if raise_exc:
-            raise
+            raise e
 
         if return_exc:
             return e
