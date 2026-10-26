@@ -1,7 +1,6 @@
 from __future__ import annotations as _annotations
 
 import asyncio
-import importlib.util
 import sys
 import threading
 from collections.abc import Callable, Coroutine
@@ -12,7 +11,8 @@ import pytest
 from pytrove.async_tools import AioThreadWorker
 from pytrove.async_tools._internal import _LoopHost, loop_host
 
-HAS_WRAPT = importlib.util.find_spec("wrapt") is not None
+from pytrove.object_tools.proxies import HAS_WRAPT
+
 needs_proxy = pytest.mark.skipif(not HAS_WRAPT, reason="needs the proxy extra")
 
 _LoopRunner = Callable[

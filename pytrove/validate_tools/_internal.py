@@ -17,11 +17,14 @@ except ImportError:
 else:
     HAS_TYPEGUARD = True
 
-from .._internal import _optional_import
+from .._internal import _has_requirement, _optional_import
 from ..typings import Container, ContainerWithoutMapping, NotContainer
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+# Importable is not enough: a release older than the extra allows may be installed outside it.
+HAS_TYPEGUARD = HAS_TYPEGUARD and _has_requirement("typecheck", "typeguard")
 
 _CONTAINER: Final[tuple[type, ...]] = tuple(
     get_origin(arg) or arg for arg in get_args(getattr(Container, "__value__", Container))
@@ -93,7 +96,7 @@ def _is_container(obj: Any) -> bool:
     return isinstance(obj, _CONTAINER) and not isinstance(obj, _NOT_CONTAINER)
 
 
-@_optional_import(("typeguard", "typecheck"))
+@_optional_import("typecheck")
 def _checker_lookup(origin_type: Any, args: tuple[Any, ...], *_: Any) -> Callable[..., None] | None:
     """Teach typeguard the package's three extra checks; registered by `typecheck`.
 

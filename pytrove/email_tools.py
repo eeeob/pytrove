@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
 
-@_optional_import(("beautifulsoup4", "bs4"))
+@_optional_import("bs4")
 def parse_email_bytes(bytes_msg: bytes | bytearray, multi_part_sep: str = "\n") -> str:
     """Extract the readable text of a raw email, HTML parts converted to plain text.
 
@@ -95,7 +95,7 @@ def detect_email_provider(email: str) -> ImapEmailProvider | None:
     return ImapEmailProvider.from_domain(email.rsplit("@", maxsplit=1)[-1].lower())
 
 
-@_optional_import(("aioimaplib", "imap"), ("beautifulsoup4", "bs4"))
+@_optional_import("imap", "bs4")
 async def fetch_emails_from(
     email: str,
     password: str,

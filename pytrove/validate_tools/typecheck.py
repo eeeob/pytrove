@@ -19,7 +19,7 @@ from ..errors import ValidationError
 from ._internal import _checker_lookup, HAS_TYPEGUARD
 
 
-@_optional_import(("typeguard", "typecheck"))
+@_optional_import("typecheck")
 def validate_type(value: Any, annotation: Any) -> None:
     """Check `value` against a type annotation, every item of a collection included.
 

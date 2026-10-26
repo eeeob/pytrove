@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from ..typings import StrInt, _T
 
 
-@_optional_import(("kurigram", "tg"))
+@_optional_import("tg")
 def extract_pyro_update_text(update: Message | Query) -> str | bytes:
     """Return the text of a message (or its caption) or the data of a callback query.
 
@@ -64,7 +64,7 @@ def format_tg_username(
     *,
     default: _T,
 ) -> str | _T: ...
-@_optional_import(("kurigram", "tg"))
+@_optional_import("tg")
 def format_tg_username(
     target: str | Chat | User,
     with_invite_link: bool = False,
@@ -105,7 +105,7 @@ def format_tg_username(
 def format_tg_link(target: StrInt | Message | Chat | User) -> str | None: ...
 @overload
 def format_tg_link(target: StrInt | Message | Chat | User, default: _T) -> str | _T: ...
-@_optional_import(("kurigram", "tg"))
+@_optional_import("tg")
 def format_tg_link(target: StrInt | Message | Chat | User, default: Any = None) -> Any:
     """Build a link that opens a message, chat or user.
 
@@ -158,7 +158,7 @@ def format_tg_link(target: StrInt | Message | Chat | User, default: Any = None) 
     return f"tg://openmessage?chat_id={get_channel_id(value)}"
 
 
-@_optional_import(("kurigram", "tg"))
+@_optional_import("tg")
 def parse_tg_target(target: StrInt) -> StrInt:
     """Read a chat or user target down to what Pyrogram's methods accept.
 
@@ -197,7 +197,7 @@ def parse_tg_target(target: StrInt) -> StrInt:
         return match.group(1)
 
 
-@_optional_import(("kurigram", "tg"))
+@_optional_import("tg")
 def format_hidden_tg_link(url: str, text: str, parse_mode: ParseMode | None = None) -> str:
     """Format a link, padding very short text with invisible characters so clients keep it.
 
@@ -215,7 +215,7 @@ def format_hidden_tg_link(url: str, text: str, parse_mode: ParseMode | None = No
     return Link(url, text, ParseMode.HTML if parse_mode is None else parse_mode)()
 
 
-@_optional_import(("kurigram", "tg"))
+@_optional_import("tg")
 def mention_tg_user(
     user_id: int, user_full_name: str | None = None, parse_mode: ParseMode | None = None
 ) -> str:

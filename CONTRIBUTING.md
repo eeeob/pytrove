@@ -117,7 +117,7 @@ from pytrove.constants import *  # all public constants
 
 **2.1 Optional by default.** Each dependency is tied to the feature that needs it and never required by the rest of the library, through the single mechanism in `pytrove/_internal/_optional.py`; no copy of it exists elsewhere.
 
-**2.2 Compatibility dependencies.** A dependency a Python version needs, such as `typing_extensions>=4.4; python_version<'3.13'`, is a required dependency under its version marker, not an optional one.
+**2.2 Compatibility dependencies.** A dependency a Python version needs, such as `typing_extensions>=4.4; python_version<'3.13'`, is a required dependency under its version marker, not an optional one. So is `packaging`, which the optional-import mechanism itself needs to evaluate each extra's requirements.
 
 **2.3 Version bounds.** Every dependency has a floor and, by default, no ceiling; the reason for each bound is a comment beside it in `pyproject.toml`. A ceiling is added only for a real break with a major version, with its reason.
 
@@ -126,7 +126,7 @@ from pytrove.constants import *  # all public constants
 1. Add it to `[project.optional-dependencies]` in `pyproject.toml`, in the group of its feature.
 2. Add it to the `full` group, which installs every optional feature.
 3. Import it through the optional-import mechanism, so the base import survives its absence, and end each import line with `# type: ignore[import-not-found]  # Optional: the `<extra>` extra.`, so the editor of a user without the extra shows no warning on it.
-4. Guard the public function or class that needs it, so the error appears only on use.
+4. Guard the public function or class that needs it by the extra's name, `_optional_import("<extra>")`, so the error appears only on use; the gate reads the versions from `pyproject.toml` through the installed metadata, so no version is written in the code. A module that imports the package itself also checks `_has_requirement("<extra>", "<package>")`, since an older release may be importable.
 5. Make the absence message name the extra and the install command.
 
 ### Priority 3 — Files and layout

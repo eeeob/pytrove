@@ -144,7 +144,7 @@ def write_pickle(
     write_file(path, content, lock=lock, fsync=fsync)
 
 
-@_optional_import(("jsonref", "json"))
+@_optional_import("json")
 def load_ref_json(
     path: PathLike,
     default: _T | type[object] = object,

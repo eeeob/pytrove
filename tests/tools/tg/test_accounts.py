@@ -108,7 +108,7 @@ async def test_fetch_tg_email_code_refuses_an_unknown_email_domain() -> None:
 
 @pytest.mark.skipif(HAS_EMAIL, reason="checks the error raised without the imap and bs4 extras")
 async def test_fetch_tg_email_code_without_its_extras_raises_a_clear_import_error() -> None:
-    with pytest.raises(ImportError, match=r"pip install 'pytrove\[imap, bs4\]'"):
+    with pytest.raises(ImportError, match=r"pip install -U 'pytrove\[imap, bs4\]'"):
         await fetch_tg_email_code("a@gmail.com", "pw", "Ali Hassan", 6)
 
 

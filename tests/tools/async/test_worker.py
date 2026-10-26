@@ -1,7 +1,6 @@
 from __future__ import annotations as _annotations
 
 import asyncio
-import importlib.util
 import sys
 import threading
 
@@ -9,7 +8,8 @@ import pytest
 
 from pytrove.async_tools import AioThreadWorker
 
-HAS_WRAPT = importlib.util.find_spec("wrapt") is not None
+from pytrove.object_tools.proxies import HAS_WRAPT
+
 needs_proxy = pytest.mark.skipif(not HAS_WRAPT, reason="needs the proxy extra")
 
 

@@ -65,7 +65,7 @@ class CompiledRichMessage(CompiledDefaults):
 
         return cls.from_dict(compiled, True)
 
-    @_optional_import(("kurigram>=2.2.24", "tg"))
+    @_optional_import("tg")
     def format(self, kw: Mapping[str, Any]) -> InputRichMessage | None:
         """Render the first block that produces text.
 

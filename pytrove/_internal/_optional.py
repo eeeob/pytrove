@@ -3,194 +3,184 @@
 from __future__ import annotations as _annotations
 
 import functools
-import importlib.util
 import inspect
-import operator
-import re
 import sys
-from importlib.metadata import PackageNotFoundError, distribution, version
-from typing import TYPE_CHECKING, Any, Final, TypeAlias, cast
+from importlib.metadata import PackageNotFoundError, requires, version
+from typing import TYPE_CHECKING, Any, cast
 
 if sys.version_info >= (3, 11):
     from typing import Never
 else:
     from typing_extensions import Never
 
+from packaging.requirements import Requirement
+
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
 
     from ..typings import _P, _T
 
-_PackageGroup: TypeAlias = tuple[str | tuple[str, ...], str]
-"""One or more package specs, and the extra that installs them."""
 
-# A package spec may pin a version the same way a requirement string does:
-# `"kurigram>=2.2.24"`, `"wrapt>=1.16,<2"`. Everything up to the first comparison
-# operator is the distribution name; the rest is one or more comma-separated
-# specifiers, all of which must hold.
-_SPEC_RE: Final[re.Pattern[str]] = re.compile(r"^\s*([^<>=!~\s]+)\s*(.*)$")
-_CLAUSE_RE: Final[re.Pattern[str]] = re.compile(r"(==|!=|>=|<=|~=|>|<)\s*([^,\s]+)")
+@functools.cache
+def _requirements(extra: str) -> tuple[Requirement, ...] | None:
+    """Read the requirements `extra` installs from pytrove's own metadata.
 
-_OPERATORS: Final[dict[str, Callable[[Any, Any], bool]]] = {
-    "==": operator.eq,
-    "!=": operator.ne,
-    ">=": operator.ge,
-    "<=": operator.le,
-    ">": operator.gt,
-    "<": operator.lt,
-}
-
-
-def _parse_version(v: str) -> tuple[int, ...]:
-    """Turn `"2.2.24"` or `"1.16.0rc1"` into a comparable tuple of ints.
-
-    Only the numeric release segment is kept: a pre/post/dev suffix is
-    dropped rather than ordered against a final release, since these checks
-    catch "too old to have the API we call", not all of PEP 440.
+    `pyproject.toml` is the one place versions are written: it becomes the
+    `Requires-Dist` lines read here, so no feature repeats a version.
 
     Args:
-        v: The version string.
+        extra: The extra's name, such as `"proxy"`.
 
     Returns:
-        The numeric segments.
+        Its requirements, those its markers exclude on this platform included,
+        or `None` when pytrove has no installed metadata (a source tree on
+        `sys.path`), in which case nothing can be checked.
+
+    Raises:
+        ValueError: If pytrove declares no extra by that name.
     """
-    return tuple(int(m.group()) for part in v.split(".") if (m := re.match(r"\d+", part)))
-
-
-def _split_spec(spec: str) -> tuple[str, str]:
-    """Split `"kurigram>=2.2.24"` into `("kurigram", ">=2.2.24")`.
-
-    Args:
-        spec: A bare name or a pinned spec.
-
-    Returns:
-        The name and its version clauses, empty if none.
-    """
-    m = _SPEC_RE.match(spec)
-
-    return (spec.strip(), "") if m is None else (m.group(1), m.group(2))
-
-
-def _version_ok(name: str, clauses: str) -> bool:
-    """Check the installed version of `name` against every clause.
-
-    A package with no version metadata (a namespace package, a source
-    checkout on `sys.path`) passes: it was found, and refusing it over
-    missing metadata would be stricter than the check is meant to be.
-
-    Args:
-        name: The distribution name.
-        clauses: The version clauses, such as `">=1.16,<2"`.
-
-    Returns:
-        Whether every clause holds.
-    """
-    if not clauses:
-        return True
-
     try:
-        installed = _parse_version(version(name))
+        lines = requires("pytrove") or []
     except PackageNotFoundError:
-        return True
+        return None
 
-    return all(
-        _OPERATORS[op](installed, _parse_version(want)) for op, want in _CLAUSE_RE.findall(clauses)
+    # `packaging` normalises every marker to this spelling, whatever `pyproject.toml` wrote.
+    member = f'extra == "{extra}"'
+    found = tuple(
+        r for r in map(Requirement, lines) if r.marker is not None and member in str(r.marker)
     )
 
+    if not found:
+        msg = f"pytrove declares no extra named {extra!r}"
+        raise ValueError(msg)
 
-def _is_installed(package: str) -> bool:
-    """Return whether `package` is installed and satisfies its version pin, if any.
+    return found
+
+
+def _why_unmet(requirement: Requirement, extra: str) -> str | None:
+    """Tell why `requirement` cannot be used here, if it cannot.
+
+    One its marker excludes on this platform is still used when installed in
+    range: `zstandard` serves a 3.14 built without `compression.zstd`.
 
     Args:
-        package: A bare name or a pinned spec (`"kurigram"`, `"kurigram>=2.2.24"`).
+        requirement: One requirement of `extra`.
+        extra: The extra it belongs to.
 
     Returns:
-        Whether the package is usable.
+        The reason, or `None` when the installed version is in range.
     """
-    name, clauses = _split_spec(package)
-
     try:
-        distribution(name)
+        found = version(requirement.name)
     except PackageNotFoundError:
-        # No distribution metadata: fall back to whether the module itself
-        # can be found. `find_spec()` must be given the name only: a full spec
-        # raises `ModuleNotFoundError` instead of returning `None`.
-        if importlib.util.find_spec(name) is None:
-            return False
+        if requirement.marker is not None and not requirement.marker.evaluate({"extra": extra}):
+            return "not available on this platform"
+        return "not installed"
 
-    return _version_ok(name, clauses)
+    if not requirement.specifier.contains(found, prereleases=True):
+        return f"found {found}"
+
+    return None
 
 
-def _build_error_msg(
-    packages: tuple[_PackageGroup, ...], missing: list[tuple[tuple[str, ...], str]]
-) -> str:
-    """Build the message raised when a feature's packages are missing.
+def _unmet(*extras: str) -> list[tuple[Requirement, str]]:
+    """Return each requirement of `extras` that cannot be used here, with the reason.
 
     Args:
-        packages: Every package group the feature needs.
-        missing: The groups, narrowed to their missing packages.
+        *extras: The extras' names.
+
+    Returns:
+        The unusable requirements and why; empty when pytrove has no metadata.
+    """
+    unmet: list[tuple[Requirement, str]] = []
+
+    for extra in extras:
+        for requirement in _requirements(extra) or ():
+            if (why := _why_unmet(requirement, extra)) is not None:
+                unmet.append((requirement, why))
+
+    return unmet
+
+
+def _has_requirement(extra: str, name: str) -> bool:
+    """Tell whether the package `name` of `extra` is installed in the range `extra` asks for.
+
+    For a module that imports the package itself: importable is not enough,
+    since a user may have installed an older release outside the extra.
+
+    Args:
+        extra: The extra's name.
+        name: The distribution's name, as `pyproject.toml` writes it.
+
+    Returns:
+        Whether it is usable; without pytrove's metadata, whether it is installed.
+
+    Raises:
+        ValueError: If `extra` does not list `name`.
+    """
+    requirements = _requirements(extra)
+
+    if requirements is None:
+        try:
+            version(name)
+        except PackageNotFoundError:
+            return False
+        return True
+
+    for requirement in requirements:
+        if requirement.name == name:
+            return _why_unmet(requirement, extra) is None
+
+    msg = f"the {extra!r} extra does not list {name!r}"
+    raise ValueError(msg)
+
+
+def _build_error_msg(extras: tuple[str, ...], unmet: list[tuple[Requirement, str]]) -> str:
+    """Build the message raised when a feature's requirements are not met.
+
+    Args:
+        extras: Every extra the feature needs.
+        unmet: The requirements that are not met, with the reason.
 
     Returns:
         The message, with the `pip install` command covering every extra.
     """
-    all_extras = ", ".join(extra for _, extra in packages)
-    all_names = ", ".join(
-        f"'{pkg}'" for pkgs, _ in packages for pkg in ((pkgs,) if isinstance(pkgs, str) else pkgs)
+    required = ", ".join(
+        f"'{r.name}{r.specifier}'" for extra in extras for r in _requirements(extra) or ()
     )
-    missing_names = ", ".join(f"'{pkg}'" for pkgs, _ in missing for pkg in pkgs)
+    missing = ", ".join(f"'{r.name}{r.specifier}' ({why})" for r, why in unmet)
 
     return (
         f"To use this feature, all required packages must be installed.\n"
-        f"Run: pip install 'pytrove[{all_extras}]'\n"
+        f"Run: pip install -U 'pytrove[{', '.join(extras)}]'\n"
         f"\n"
-        f"Required : {all_names}\n"
-        f"Missing  : {missing_names}"
+        f"Required : {required}\n"
+        f"Missing  : {missing}"
     )
 
 
-def _get_missing(*packages: _PackageGroup) -> list[tuple[tuple[str, ...], str]]:
-    """Return each package group narrowed to its missing packages, dropping complete groups.
+def _optional_import(*extras: str) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
+    """Gate a sync, async or async-generator function on the requirements of `extras`.
 
-    Args:
-        *packages: The package groups.
-
-    Returns:
-        The incomplete groups, each with only its missing packages.
-    """
-    missing: list[tuple[tuple[str, ...], str]] = []
-
-    for pkgs, extra in packages:
-        group = (pkgs,) if isinstance(pkgs, str) else pkgs
-        missing_in_group = tuple(pkg for pkg in group if not _is_installed(pkg))
-
-        if missing_in_group:
-            missing.append((missing_in_group, extra))
-
-    return missing
-
-
-def _optional_import(*packages: _PackageGroup) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
-    """Gate a sync, async or async-generator function on optional packages.
-
-    What is missing is computed once, when the decorator is applied; the
+    What is unmet is computed once, when the decorator is applied; the
     `ImportError` is raised only when the function is called.
 
     Args:
-        *packages: The package groups the function needs.
+        *extras: The extras the function needs, such as `"proxy"`.
 
     Returns:
         The decorator.
     """
-    missing = _get_missing(*packages)
-    error_msg = _build_error_msg(packages, missing) if missing else None
+    unmet = _unmet(*extras)
+    error_msg = _build_error_msg(extras, unmet) if unmet else None
 
     def decorator(func: Callable[_P, _T]) -> Callable[_P, _T]:
-        """Wrap `func` so a call raises while its packages are missing."""
+        """Wrap `func` so a call raises while its requirements are unmet."""
         if inspect.isasyncgenfunction(func):
 
             @functools.wraps(func)
             async def agen_wrapper(*args: _P.args, **kwargs: _P.kwargs) -> AsyncIterator[Any]:
-                """Raise if packages are missing, otherwise yield from `func`."""
+                """Raise if requirements are unmet, otherwise yield from `func`."""
                 if error_msg is not None:
                     raise ImportError(error_msg)
                 async for item in func(*args, **kwargs):
@@ -204,7 +194,7 @@ def _optional_import(*packages: _PackageGroup) -> Callable[[Callable[_P, _T]], C
 
             @functools.wraps(func)
             async def coro_wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Any:
-                """Raise if packages are missing, otherwise await `func`."""
+                """Raise if requirements are unmet, otherwise await `func`."""
                 if error_msg is not None:
                     raise ImportError(error_msg)
                 return await func(*args, **kwargs)
@@ -215,7 +205,7 @@ def _optional_import(*packages: _PackageGroup) -> Callable[[Callable[_P, _T]], C
 
         @functools.wraps(func)
         def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:
-            """Raise if packages are missing, otherwise call `func`."""
+            """Raise if requirements are unmet, otherwise call `func`."""
             if error_msg is not None:
                 raise ImportError(error_msg)
             return func(*args, **kwargs)
@@ -225,8 +215,8 @@ def _optional_import(*packages: _PackageGroup) -> Callable[[Callable[_P, _T]], C
     return decorator
 
 
-def _unavailable_class(name: str, *packages: _PackageGroup) -> type[Any]:
-    """Build a stand-in for a public class whose optional dependency is missing.
+def _unavailable_class(name: str, *extras: str) -> type[Any]:
+    """Build a stand-in for a public class whose optional dependency is unusable.
 
     The module can still define the name and import cleanly; only using the
     class raises. A raising `__new__` alone would leave `SomeClass.attr`,
@@ -236,21 +226,12 @@ def _unavailable_class(name: str, *packages: _PackageGroup) -> type[Any]:
 
     Args:
         name: The class name.
-        *packages: The package groups the class needs.
+        *extras: The extras the class needs.
 
     Returns:
         The stand-in class.
-
-    Raises:
-        RuntimeError: If nothing is actually missing.
     """
-    missing = _get_missing(*packages)
-
-    if not missing:
-        msg = "No missing packages for unavailable class"
-        raise RuntimeError(msg)
-
-    msg = _build_error_msg(packages, missing)
+    msg = _build_error_msg(extras, _unmet(*extras))
 
     class _Unavailable:
         """The body every operation on the stand-in raises from."""
@@ -298,4 +279,10 @@ def _unavailable_class(name: str, *packages: _PackageGroup) -> type[Any]:
     return _UnavailableMeta(name, (), dict(_Unavailable.__dict__))
 
 
-__all__ = ("_build_error_msg", "_optional_import", "_unavailable_class")
+__all__ = (
+    "_build_error_msg",
+    "_has_requirement",
+    "_optional_import",
+    "_unavailable_class",
+    "_unmet",
+)

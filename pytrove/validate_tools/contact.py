@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-@_optional_import(("phonenumbers", "phone"))
+@_optional_import("phone")
 def is_phone_number(
     phone_number: StrInt | phonenumbers.PhoneNumber,
     remove_spaces: bool = True,
@@ -78,7 +78,7 @@ def is_phone_number(
         return False
 
 
-@_optional_import(("phonenumbers", "phone"))
+@_optional_import("phone")
 def is_rc(rc: Any) -> TypeIs[str]:
     """Tell whether `rc` is a two-letter region code with a calling code, in any letter case.
 
@@ -115,7 +115,7 @@ def is_email(email: Any) -> TypeIs[str]:
     return isinstance(email, str) and bool(EMAIL_PATTERN.fullmatch(email))
 
 
-@_optional_import(("aioimaplib", "imap"))
+@_optional_import("imap")
 async def is_accessible_received_email(email: str, password: str) -> bool:
     """Tell whether an inbox accepts this login, by signing in over IMAP.
 

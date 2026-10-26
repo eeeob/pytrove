@@ -1,6 +1,5 @@
 from __future__ import annotations as _annotations
 
-import importlib.util
 from typing import Any
 
 import pytest
@@ -16,7 +15,7 @@ from pytrove.validate_tools.telegram import (
     is_valid_tg_app,
 )
 
-HAS_PYROGRAM = importlib.util.find_spec("pyrogram") is not None
+from pytrove.models.template_models.template import HAS_PYROGRAM
 
 needs_pyrogram = pytest.mark.skipif(not HAS_PYROGRAM, reason="needs the tg extra")
 

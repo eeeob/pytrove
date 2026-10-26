@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from ..typings import RegionCode
 
 
-@_optional_import(("babel", "locale"))
+@_optional_import("locale")
 def get_clanguage_code(rc: RegionCode) -> str:
     """Return the ISO 639 code of a country's primary official language: `"sa"` gives `"ar"`.
 
@@ -40,7 +40,7 @@ def get_clanguage_code(rc: RegionCode) -> str:
     return language
 
 
-@_optional_import(("babel", "locale"))
+@_optional_import("locale")
 def get_cname_native(rc: RegionCode) -> str:
     """Return a country's name in its own official language: `"de"` gives `"Deutschland"`.
 
@@ -73,7 +73,7 @@ def get_cname_native(rc: RegionCode) -> str:
     return name
 
 
-@_optional_import(("babel", "locale"))
+@_optional_import("locale")
 def get_clanguage_name(rc: RegionCode, native: bool = True) -> str:
     """Return the name of a country's official language, natively (`"Deutsch"`) or in English.
 

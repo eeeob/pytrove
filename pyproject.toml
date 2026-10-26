@@ -45,6 +45,10 @@ dependencies = [
     # first release with `TypeVar(default=...)` (PEP 696); 4.1 adds `Never`/`Unpack`.
     # Below 4.4, `import pytrove` fails on 3.10-3.12.
     "typing_extensions>=4.4; python_version<'3.13'",
+    # Evaluates each extra's `Requires-Dist` lines (PEP 440 versions, PEP 508
+    # markers) for the optional-import gate in `pytrove/_internal/_optional.py`.
+    # 22.0 is the first release that normalises `extra` names in markers (PEP 685). Clean.
+    "packaging>=22.0",
 ]
 
 

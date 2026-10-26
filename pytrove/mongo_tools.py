@@ -17,7 +17,10 @@ except ImportError:
 else:
     HAS_PYMONGO = True
 
-from ._internal import _unavailable_class
+from ._internal import _has_requirement, _unavailable_class
+
+# Importable is not enough: a release older than the extra allows may be installed outside it.
+HAS_PYMONGO = HAS_PYMONGO and _has_requirement("mongo", "pymongo")
 
 if HAS_PYMONGO:
 
@@ -66,6 +69,6 @@ if HAS_PYMONGO:
             return repr(self) == repr(other)
 
 else:
-    MongoIndex = _unavailable_class("MongoIndex", ("pymongo", "mongo"))
+    MongoIndex = _unavailable_class("MongoIndex", "mongo")
 
 __all__ = ("MongoIndex",)

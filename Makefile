@@ -83,11 +83,13 @@ test-minimal:
 test-floor:
 	$(UV) venv --clear --python $(PYTHON_FLOOR) $(VENV_FLOOR)
 	VIRTUAL_ENV=$(VENV_FLOOR) $(UV) pip install --resolution lowest-direct --all-extras --group test -r pyproject.toml
+	VIRTUAL_ENV=$(VENV_FLOOR) $(UV) pip install --no-deps -e .
 	$(VENV_FLOOR)/$(BIN)/python -m pytest
 
 test-ceil:
 	$(UV) venv --clear --python $(PYTHON_CEIL) $(VENV_CEIL)
 	VIRTUAL_ENV=$(VENV_CEIL) $(UV) pip install --all-extras --group test -r pyproject.toml
+	VIRTUAL_ENV=$(VENV_CEIL) $(UV) pip install --no-deps -e .
 	$(VENV_CEIL)/$(BIN)/python -m pytest
 
 build:
