@@ -130,7 +130,7 @@ def is_sub_container(obj: Any) -> TypeIs[type[Container]]:
     )
 
 
-def iscoroutinefunction_wrapped(f: Callable[..., Any]) -> bool:
+def iscoroutinefunction_wrapped(f: Callable[..., Any], *, unwrap_properties: bool = False) -> bool:
     """Check `inspect.iscoroutinefunction`, seeing through wrappers and partials.
 
     A sync wrapper around an async function reads as a plain function to
@@ -140,6 +140,8 @@ def iscoroutinefunction_wrapped(f: Callable[..., Any]) -> bool:
 
     Args:
         f: The callable to test.
+        unwrap_properties: Whether to look under the getter of a `property` or a
+            `functools.cached_property`.
 
     Returns:
         Whether `f` or anything it wraps is a coroutine function.
@@ -148,9 +150,8 @@ def iscoroutinefunction_wrapped(f: Callable[..., Any]) -> bool:
         ValueError: If the layers loop back on themselves before a coroutine
             function is met.
     """
-    return any(
-        inspect.iscoroutinefunction(layer) for layer in _iter_unwrap_layers(f, with_prop=False)
-    )
+    layers = _iter_unwrap_layers(f, unwrap_properties=unwrap_properties)
+    return any(inspect.iscoroutinefunction(layer) for layer in layers)
 
 
 @overload

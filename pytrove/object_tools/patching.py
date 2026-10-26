@@ -34,15 +34,17 @@ def unwrap_cls(cls: type) -> int:
     return count
 
 
-def unwrap(obj: Any, with_prop: bool = True) -> Any:
+def unwrap(obj: Any, *, unwrap_properties: bool = True) -> Any:
     """Peel an object down to its underlying function, through properties, partials and `__wrapped__`.
 
     The layers may nest in any order: each turn peels whichever one is outermost,
-    until none is left. A class is returned as it is.
+    until none is left. A `classmethod` or `staticmethod` is always peeled. A class
+    is returned as it is.
 
     Args:
         obj: The object.
-        with_prop: Whether to take a property's getter.
+        unwrap_properties: Whether to take the getter of a `property` or a
+            `functools.cached_property`.
 
     Returns:
         The innermost callable, or `None` for a property without a getter.
@@ -50,7 +52,7 @@ def unwrap(obj: Any, with_prop: bool = True) -> Any:
     Raises:
         ValueError: If the layers loop back on themselves.
     """
-    *_, innermost = _iter_unwrap_layers(obj, with_prop=with_prop)
+    *_, innermost = _iter_unwrap_layers(obj, unwrap_properties=unwrap_properties)
     return innermost
 
 
@@ -60,6 +62,7 @@ def patch_into(
     patch_key: str = "should_patch",
     preserve_old: bool = True,
     setter: Callable[[type, str, Any], None] = setattr,
+    unwrap_properties: bool = True,
 ) -> Callable[[_CT], _CT]:
     """Build a class decorator that copies only marked members onto `target`.
 
@@ -72,6 +75,8 @@ def patch_into(
         patch_key: The marker attribute.
         preserve_old: Whether to keep a replaced member as `old<name>`.
         setter: How to set each member.
+        unwrap_properties: Whether to look for the marker under the getter of a
+            `property` or a `functools.cached_property`, as `unwrap` does.
 
     Returns:
         The decorator.
@@ -101,7 +106,7 @@ def patch_into(
             `current_class` unchanged.
         """
         for name, member in current_class.__dict__.items():
-            layers = _iter_unwrap_layers(member, with_prop=True)
+            layers = _iter_unwrap_layers(member, unwrap_properties=unwrap_properties)
 
             if not any(getattr(layer, patch_key, False) for layer in layers):
                 continue

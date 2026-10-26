@@ -33,17 +33,20 @@ def _ignore_arguments(func: Callable[[], _T]) -> Callable[..., _T]:
     return wrapper
 
 
-def _iter_unwrap_layers(obj: Any, *, with_prop: bool) -> Iterator[Any]:
+def _iter_unwrap_layers(obj: Any, *, unwrap_properties: bool) -> Iterator[Any]:
     """Yield `obj` and every layer under it, outermost first, peeling one wrapper per turn.
 
-    Each turn takes whichever layer applies to the current object: a property's
-    getter (only with `with_prop`), its `__wrapped__`, or a `functools.partial` or
-    `functools.partialmethod`'s `func`. The layers may nest in any order. A class
-    is never peeled, as with `inspect.unwrap` from 3.11.
+    Each turn takes whichever layer applies to the current object: a `property`'s
+    `fget` or a `functools.cached_property`'s `func` (only with
+    `unwrap_properties`), its `__wrapped__`, or a `functools.partial` or
+    `functools.partialmethod`'s `func`. A `classmethod` or `staticmethod` is
+    always peeled, through the `__wrapped__` it carries since 3.10. The layers may
+    nest in any order. A class is never peeled, as with `inspect.unwrap` from 3.11.
 
     Args:
         obj: The object to peel.
-        with_prop: Whether to take a property's getter.
+        unwrap_properties: Whether to take the getter of a `property` or a
+            `functools.cached_property`.
 
     Yields:
         `obj`, then each peeled layer; a property without a getter ends on `None`.
@@ -58,8 +61,10 @@ def _iter_unwrap_layers(obj: Any, *, with_prop: bool) -> Iterator[Any]:
     yield obj
 
     while True:
-        if with_prop and isinstance(obj, property):
+        if unwrap_properties and isinstance(obj, property):
             obj = obj.fget
+        elif unwrap_properties and isinstance(obj, functools.cached_property):
+            obj = obj.func
         elif not isinstance(obj, type) and hasattr(obj, "__wrapped__"):
             obj = obj.__wrapped__
         elif isinstance(obj, (functools.partial, functools.partialmethod)):

@@ -90,7 +90,7 @@ def test_iter_unwrap_layers_yields_every_layer_outermost_first() -> None:
     partial = functools.partial(inner, None)
     prop = property(partial)
 
-    assert list(_iter_unwrap_layers(prop, with_prop=True)) == [prop, partial, inner, _base]
+    assert list(_iter_unwrap_layers(prop, unwrap_properties=True)) == [prop, partial, inner, _base]
 
 
 @pytest.mark.parametrize(
@@ -115,21 +115,47 @@ def test_iter_unwrap_layers_yields_every_layer_outermost_first() -> None:
     ],
 )
 def test_iter_unwrap_layers_peels_any_nesting_order(build: Any) -> None:
-    *_, innermost = _iter_unwrap_layers(build(_base), with_prop=True)
+    *_, innermost = _iter_unwrap_layers(build(_base), unwrap_properties=True)
 
     assert innermost is _base
 
 
-def test_iter_unwrap_layers_keeps_a_property_without_with_prop() -> None:
+def test_iter_unwrap_layers_keeps_a_property_without_unwrap_properties() -> None:
     prop = property(_decorate(_base))
 
-    assert list(_iter_unwrap_layers(prop, with_prop=False)) == [prop]
+    assert list(_iter_unwrap_layers(prop, unwrap_properties=False)) == [prop]
+
+
+def test_iter_unwrap_layers_peels_a_cached_property_with_unwrap_properties() -> None:
+    inner = _decorate(_base)
+    cached = functools.cached_property(inner)
+
+    assert list(_iter_unwrap_layers(cached, unwrap_properties=True)) == [cached, inner, _base]
+
+
+def test_iter_unwrap_layers_keeps_a_cached_property_without_unwrap_properties() -> None:
+    cached = functools.cached_property(_decorate(_base))
+
+    assert list(_iter_unwrap_layers(cached, unwrap_properties=False)) == [cached]
+
+
+@pytest.mark.parametrize("unwrap_properties", [True, False])
+@pytest.mark.parametrize("kind", [classmethod, staticmethod])
+def test_iter_unwrap_layers_always_peels_classmethods_and_staticmethods(
+    kind: Any, unwrap_properties: bool
+) -> None:
+    inner = _decorate(_base)
+    method = kind(inner)
+
+    layers = list(_iter_unwrap_layers(method, unwrap_properties=unwrap_properties))
+
+    assert layers == [method, inner, _base]
 
 
 def test_iter_unwrap_layers_ends_on_none_for_a_property_without_a_getter() -> None:
     prop = property()
 
-    assert list(_iter_unwrap_layers(prop, with_prop=True)) == [prop, None]
+    assert list(_iter_unwrap_layers(prop, unwrap_properties=True)) == [prop, None]
 
 
 def test_iter_unwrap_layers_never_peels_a_class() -> None:
@@ -141,7 +167,7 @@ def test_iter_unwrap_layers_never_peels_a_class() -> None:
             """The wrapped value."""
             return 1
 
-    assert list(_iter_unwrap_layers(Proxyish, with_prop=True)) == [Proxyish]
+    assert list(_iter_unwrap_layers(Proxyish, unwrap_properties=True)) == [Proxyish]
 
 
 def test_iter_unwrap_layers_raises_on_a_loop_across_kinds() -> None:
@@ -151,7 +177,7 @@ def test_iter_unwrap_layers_raises_on_a_loop_across_kinds() -> None:
     func.__wrapped__ = property(func)
 
     with pytest.raises(ValueError, match="wrapper loop when unwrapping"):
-        list(_iter_unwrap_layers(func, with_prop=True))
+        list(_iter_unwrap_layers(func, unwrap_properties=True))
 
 
 def test_iter_unwrap_layers_raises_past_the_recursion_limit() -> None:
@@ -163,7 +189,7 @@ def test_iter_unwrap_layers_raises_past_the_recursion_limit() -> None:
             """A new layer."""
             return Endless()
 
-    layers = _iter_unwrap_layers(Endless(), with_prop=True)
+    layers = _iter_unwrap_layers(Endless(), unwrap_properties=True)
 
     with pytest.raises(ValueError, match="wrapper loop when unwrapping"):
         for count, _ in enumerate(layers):
@@ -176,7 +202,7 @@ def test_iter_unwrap_layers_is_lazy() -> None:
 
     func.__wrapped__ = func
     outer = _decorate(func)
-    layers = _iter_unwrap_layers(outer, with_prop=True)
+    layers = _iter_unwrap_layers(outer, unwrap_properties=True)
 
     assert next(layers) is outer
     assert next(layers) is func

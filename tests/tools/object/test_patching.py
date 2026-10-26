@@ -41,7 +41,33 @@ def test_unwrap_peels_properties_partialmethods_and_wrappers() -> None:
     assert unwrap(property(_decorate(base))) is base
     assert unwrap(functools.partialmethod(base, 1)) is base
     prop = property(base)
-    assert unwrap(prop, with_prop=False) is prop
+    assert unwrap(prop, unwrap_properties=False) is prop
+
+
+def test_unwrap_peels_a_cached_property_unless_told_not_to() -> None:
+    def base(self: Any) -> int:
+        """Return one."""
+        return 1
+
+    cached = functools.cached_property(_decorate(base))
+
+    assert unwrap(cached) is base
+    assert unwrap(cached, unwrap_properties=False) is cached
+
+
+@pytest.mark.parametrize("kind", [classmethod, staticmethod])
+def test_unwrap_always_peels_classmethods_and_staticmethods(kind: Any) -> None:
+    def base() -> int:
+        """Return one."""
+        return 1
+
+    assert unwrap(kind(_decorate(base))) is base
+    assert unwrap(kind(base), unwrap_properties=False) is base
+
+
+def test_unwrap_takes_unwrap_properties_by_keyword_only() -> None:
+    with pytest.raises(TypeError):
+        unwrap(property(), False)
 
 
 @pytest.mark.parametrize(
@@ -127,6 +153,37 @@ def test_patch_into_reads_the_marker_on_any_layer() -> None:
     assert Target.__dict__["by_wrapper"] is marked_wrapper
     assert Target().by_inner() == "inner"
     assert not hasattr(Target, "unmarked")
+
+
+@pytest.mark.parametrize("kind", [property, functools.cached_property])
+def test_patch_into_reads_the_marker_under_a_getter_only_with_unwrap_properties(
+    kind: Any,
+) -> None:
+    def getter(self: Any) -> str:
+        """Return the patch."""
+        return "new"
+
+    getter.should_patch = True
+
+    class Target:
+        """The class being patched."""
+
+    @patch_into(Target, unwrap_properties=False)
+    class Skipped:
+        """Holds the patch, marked only under its getter."""
+
+        value = kind(getter)
+
+    assert not hasattr(Target, "value")
+
+    @patch_into(Target)
+    class Patches:
+        """Holds the patch, marked only under its getter."""
+
+        value = kind(getter)
+
+    assert Target.__dict__["value"] is Patches.__dict__["value"]
+    assert Target().value == "new"
 
 
 def test_patch_into_copies_only_marked_members() -> None:
