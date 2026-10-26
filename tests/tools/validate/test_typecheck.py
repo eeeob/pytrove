@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 
 from pytrove.errors import ValidationError
-from pytrove.typings import Container, NestedContainer
+from pytrove.typings import Container, ContainerWithoutMapping, NestedContainer
 from pytrove.validate_tools import validate_type
 from pytrove.validate_tools._internal import _checker_lookup, _ALIAS_TYPES, HAS_TYPEGUARD
 
@@ -54,6 +54,21 @@ def test_nested_container_validation_recurses() -> None:
 def test_validate_type_accepts_any_for_an_unparametrised_container() -> None:
     value: Any = [object(), "x"]
     validate_type(value, Container)
+
+
+@needs_typeguard
+@pytest.mark.parametrize("alias", [Container, ContainerWithoutMapping])
+@pytest.mark.parametrize("value", [[1], (1,), {1}, {"a": 1}])
+def test_validate_type_accepts_a_container_for_a_bare_alias(alias: Any, value: Any) -> None:
+    validate_type(value, alias)
+
+
+@needs_typeguard
+@pytest.mark.parametrize("alias", [Container, ContainerWithoutMapping])
+@pytest.mark.parametrize("value", ["abc", b"x"])
+def test_validate_type_rejects_str_and_bytes_for_a_bare_alias(alias: Any, value: Any) -> None:
+    with pytest.raises(ValidationError, match=f"^{type(value).__name__} is not container$"):
+        validate_type(value, alias)
 
 
 @needs_typeguard
