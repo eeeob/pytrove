@@ -2,7 +2,7 @@
 
 from __future__ import annotations as _annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, overload
 
 from ..validate_tools import validation
 
@@ -10,6 +10,10 @@ if TYPE_CHECKING:
     from ..typings import Number
 
 
+@overload
+def apply_discount(price: Number, discount_percent: Number, ndigits: None) -> int: ...
+@overload
+def apply_discount(price: Number, discount_percent: Number, ndigits: int = 4) -> float: ...
 def apply_discount(price: Number, discount_percent: Number, ndigits: int | None = 4) -> float:
     """Take a percentage off a price.
 
@@ -22,7 +26,7 @@ def apply_discount(price: Number, discount_percent: Number, ndigits: int | None 
         The discounted price.
 
     Raises:
-        ValidationError: If the discount is above 100.
+        ValidationError: If the discount is negative or above 100.
 
     Example:
         >>> apply_discount(200, 15)
@@ -30,10 +34,16 @@ def apply_discount(price: Number, discount_percent: Number, ndigits: int | None 
         >>> apply_discount(99.99, 10, ndigits=None)
         90
     """
-    validation(discount_percent <= 100, "discount_percent must be <= 100")
+    validation(0 <= discount_percent <= 100, "discount_percent must be between 0 and 100")
     return round(price * (1 - discount_percent / 100), ndigits)
 
 
+@overload
+def reverse_discount(discounted_price: Number, discount_percent: Number, ndigits: None) -> int: ...
+@overload
+def reverse_discount(
+    discounted_price: Number, discount_percent: Number, ndigits: int = 4
+) -> float: ...
 def reverse_discount(
     discounted_price: Number, discount_percent: Number, ndigits: int | None = 4
 ) -> float:

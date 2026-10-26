@@ -272,3 +272,82 @@ def test_format_tg_username_of_a_private_channel_link_is_the_default() -> None:
 def test_split_tg_message_is_chunk_text() -> None:
     assert tg_tools.split_tg_message is text_tools.chunk_text
     assert "split_tg_message" in tg_format.__all__
+
+
+@needs_tg
+def test_parse_tg_target_keeps_the_sign_of_a_negative_id_string() -> None:
+    assert parse_tg_target("-1001234567890") == -1001234567890
+    assert parse_tg_target(" -123456 ") == -123456
+
+
+@needs_tg
+def test_parse_tg_target_does_not_read_a_dashed_word_as_a_number() -> None:
+    assert parse_tg_target("-12ab") == "-12ab"
+
+
+@needs_tg
+def test_format_tg_link_of_a_basic_group_id_is_its_raw_chat_id() -> None:
+    assert format_tg_link(-123456) == "tg://openmessage?chat_id=123456"
+    assert format_tg_link(Chat(id=-123456, type=ChatType.GROUP)) == (
+        "tg://openmessage?chat_id=123456"
+    )
+
+
+@needs_tg
+def test_format_tg_link_of_a_chat_without_username_or_invite_link_uses_its_id() -> None:
+    chat = Chat(id=-1001234567890, type=ChatType.SUPERGROUP)
+
+    assert format_tg_link(chat) == "tg://openmessage?chat_id=1234567890"
+
+
+@needs_tg
+def test_format_tg_link_of_an_id_pyrogram_cannot_place_is_the_default() -> None:
+    assert format_tg_link(10**15) is None
+    assert format_tg_link(10**15, "none") == "none"
+
+
+@needs_tg
+def test_format_tg_link_of_a_user_with_a_username_is_the_t_me_link() -> None:
+    assert format_tg_link(User(id=123456789, username="Bob")) == "https://t.me/Bob"
+
+
+@needs_tg
+def test_an_upper_case_invite_link_is_kept_as_given() -> None:
+    link = "HTTPS://T.ME/+AbCd"
+
+    assert format_tg_link(link) == link
+    assert parse_tg_target(link) == link
+    assert parse_tg_target("T.ME/+AbCd") == "T.ME/+AbCd"
+    assert format_tg_username(link, allow_invite_link=True) == link
+    assert format_tg_username(link) is None
+
+
+@needs_tg
+def test_parse_tg_target_reads_an_upper_case_private_channel_link() -> None:
+    assert parse_tg_target("HTTPS://T.ME/C/1234567890/5") == -1001234567890
+
+
+@needs_tg
+def test_parse_tg_target_reads_a_private_channel_link_with_a_tail() -> None:
+    assert parse_tg_target("t.me/c/123?single") == -1000000000123
+    assert parse_tg_target("https://t.me/c/123/4?comment=5") == -1000000000123
+    assert parse_tg_target("t.me/c/123?thread=5") == -1000000000123
+
+
+@needs_tg
+def test_a_t_me_s_preview_link_names_its_channel() -> None:
+    assert format_tg_username("https://t.me/s/Name") == "@name"
+    assert format_tg_link("t.me/s/name/12") == "https://t.me/name"
+    assert parse_tg_target("T.ME/S/Name") == "name"
+
+
+@needs_tg
+def test_format_tg_username_of_text_that_is_not_a_name_is_the_default() -> None:
+    assert format_tg_username("https://example.com/x") is None
+    assert format_tg_username("two words", default="none") == "none"
+
+
+@needs_tg
+def test_format_tg_username_takes_the_default_positionally() -> None:
+    assert format_tg_username("", False, True, "none") == "none"
+    assert format_tg_username("@n", False, False, "none") == "n"

@@ -56,13 +56,18 @@ def _primary_official_language(rc: RegionCode) -> str | None:
         rc: The uppercase region code.
 
     Returns:
-        The ISO 639 code of the official language with the largest population
-        share, or `None` when the data marks none official.
+        The ISO 639 code of the national official language (CLDR's `official`
+        or `de_facto_official`) with the largest population share, a regional
+        one (`official_regional`) only when there is no national one, or
+        `None` when the data marks none official.
     """
     territory_languages = get_global("territory_languages").get(rc, {})
     official = [lang for lang, info in territory_languages.items() if info.get("official_status")]
     official.sort(
-        key=lambda lang: territory_languages[lang]["population_percent"] or 0, reverse=True
+        key=lambda lang: (
+            territory_languages[lang]["official_status"] == "official_regional",
+            -(territory_languages[lang]["population_percent"] or 0),
+        )
     )
     return official[0] if official else None
 

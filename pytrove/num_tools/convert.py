@@ -4,6 +4,7 @@ from __future__ import annotations as _annotations
 
 import ast
 import logging
+import math
 from typing import TYPE_CHECKING, Any, overload
 
 from ..constants import CALC_EXPRESSION_CHARS
@@ -22,6 +23,8 @@ def to_int(value: str, as_int: _True = True) -> StrInt: ...
 @overload
 def to_int(value: str, as_int: _False) -> StrInt | float: ...
 @overload
+def to_int(value: str, as_int: bool) -> StrInt | float: ...
+@overload
 def to_int(value: _T, as_int: bool = True) -> _T: ...
 def to_int(value: Any, as_int: bool = True) -> Any:
     """Turn a numeric string into a number, leaving everything else as it is.
@@ -30,7 +33,8 @@ def to_int(value: Any, as_int: bool = True) -> Any:
 
     Args:
         value: The value to convert.
-        as_int: Whether a decimal string must become an int; otherwise it becomes a float.
+        as_int: Whether only integer strings convert, a decimal string being
+            returned as text; `False` also turns a decimal string into a float.
 
     Returns:
         The number, or `value` unchanged when it is not a numeric string.
@@ -78,16 +82,20 @@ def calc(value: str, as_int: _False = False) -> StrInt | float: ...
 @overload
 def calc(value: str, as_int: _True) -> StrInt: ...
 @overload
+def calc(value: str, as_int: bool) -> StrInt | float: ...
+@overload
 def calc(value: _T, as_int: bool = False) -> _T: ...
 def calc(value: Any, as_int: bool = False) -> Any:
     """Evaluate a string of simple arithmetic (`+ - * /`) safely, or read a plain number.
 
     Only `CALC_EXPRESSION_CHARS` are evaluated, through an allow-listed syntax
-    tree, never `eval`. A failed evaluation is logged and the text returned.
+    tree, never `eval`. A failed evaluation is logged at DEBUG and the text
+    returned.
 
     Args:
         value: The expression; anything that is not a string is returned as is.
-        as_int: Whether to truncate a float result to an int.
+        as_int: Whether to truncate a float result to an int; an infinite
+            result cannot be, so the text is returned instead.
 
     Returns:
         The result, or `value` itself when it cannot be evaluated.
@@ -110,14 +118,14 @@ def calc(value: Any, as_int: bool = False) -> Any:
     if isinstance(result, str):
         text = clean_spaces(result)
 
-        if all(i in CALC_EXPRESSION_CHARS for i in text):
+        if text and all(i in CALC_EXPRESSION_CHARS for i in text):
             try:
                 result = _eval_calc_ast(ast.parse(text, mode="eval"))
             except Exception as e:
-                log.error("Failed to evaluate calculation expression: %s", text, exc_info=e)
+                log.debug("Failed to evaluate calculation expression: %s", text, exc_info=e)
 
     if as_int and isinstance(result, float):
-        return int(result)
+        return int(result) if math.isfinite(result) else value
 
     return result
 

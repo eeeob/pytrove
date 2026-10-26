@@ -9,17 +9,15 @@ try:
     from pyrogram.enums import ParseMode  # type: ignore[import-not-found]  # Optional: the `tg` extra.
     from pyrogram.types import CallbackQuery as Query, Chat, Message, User  # type: ignore[import-not-found]  # Optional: the `tg` extra.
     from pyrogram.types.user_and_chats.user import Link  # type: ignore[import-not-found]  # Optional: the `tg` extra.
-    from pyrogram.utils import get_channel_id  # type: ignore[import-not-found]  # Optional: the `tg` extra.
+    from pyrogram.utils import get_channel_id, get_peer_type  # type: ignore[import-not-found]  # Optional: the `tg` extra.
 except ImportError:
     pass
 
 from .._internal import _optional_import
-from ..constants import TG_CHAT_LINK_PATTERN, TG_INVITE_LINK_PATTERN
 from ..errors import ValidationError
 from ..num_tools import to_int
 from ..text_tools import chunk_text, clean_spaces
-from ..validate_tools import is_tg_user_id
-from ._internal import _HIDDEN_PADDING, _PRIVATE_CHAT_LINK_PATTERN, _SHORT_LINK_TEXT
+from ._internal import _HIDDEN_PADDING, _SHORT_LINK_TEXT, _classify_tg_target
 
 if TYPE_CHECKING:
     from ..typings import StrInt, _T
@@ -73,6 +71,8 @@ def format_tg_username(
 ) -> Any:
     """Normalise a username, `t.me` link or chat into a username.
 
+    Links are recognised in any case; a `t.me/s/<name>` preview gives `<name>`.
+
     Args:
         target: A username, a link, or a `User`/`Chat`.
         allow_invite_link: Whether an invite link is returned as it is instead of `default`.
@@ -80,7 +80,9 @@ def format_tg_username(
         default: Returned when there is no username.
 
     Returns:
-        The username, the invite link, or `default`.
+        The username, the invite link, or `default`, which is also what a
+        private-channel link or text that is not a bare name (another site's
+        URL, say) gives.
     """
     text = target.username if isinstance(target, (User, Chat)) else target
     text = (text or "").strip()
@@ -88,16 +90,20 @@ def format_tg_username(
     if not text:
         return default
 
-    # The invite pattern goes first: `TG_CHAT_LINK_PATTERN` also matches a `joinchat/` link.
-    if TG_INVITE_LINK_PATTERN.match(text.lower()):
+    kind, value = _classify_tg_target(text)
+
+    if kind == "invite":
         return text if allow_invite_link else default
 
-    # A private channel has no username; `TG_CHAT_LINK_PATTERN` would capture its id as one.
-    if _PRIVATE_CHAT_LINK_PATTERN.match(text):
+    # A private channel has no username.
+    if kind == "private":
         return default
 
-    match = TG_CHAT_LINK_PATTERN.match(text.lower())
-    name = (match.group(1) if match else text.replace("@", "")).strip()
+    name = value if kind == "link" else value.replace("@", "").strip()
+
+    if not re.fullmatch(r"\w+", name):
+        return default
+
     return "@" + name if prefix_at else name
 
 
@@ -111,9 +117,10 @@ def format_tg_link(target: StrInt | Message | Chat | User, default: Any = None) 
 
     A message gives its own `Message.link`, or `default` when it has none
     (a private chat, for one); a username gives `https://t.me/<name>`; a user id
-    `tg://openmessage?user_id=`; any other id `tg://openmessage?chat_id=`; an
-    invite link is returned as it is; a `t.me/c/<id>/...` private-channel link
-    keeps that form.
+    `tg://openmessage?user_id=`; a basic-group or channel id
+    `tg://openmessage?chat_id=` with its raw id; an invite link, in any case, is
+    returned as it is; a `t.me/c/<id>/...` private-channel link keeps that form.
+    An id Pyrogram reads as none of these gives `default`.
 
     Args:
         target: A message, chat, user, username, id or link.
@@ -133,39 +140,49 @@ def format_tg_link(target: StrInt | Message | Chat | User, default: Any = None) 
     if not key:
         return default
 
-    # Stripped first: the anchored patterns below would miss a padded link.
-    text = str(key).strip()
+    # Stripped first: the anchored patterns would miss a padded link.
+    kind, value = _classify_tg_target(str(key).strip())
 
-    # The invite pattern goes first: `TG_CHAT_LINK_PATTERN` also matches a `joinchat/` link.
-    if TG_INVITE_LINK_PATTERN.match(text):
-        return text
+    if kind == "invite":
+        return value
 
-    # Before `TG_CHAT_LINK_PATTERN` too: its capture of a `/c/` link is a channel id, not a user id.
-    private = _PRIVATE_CHAT_LINK_PATTERN.match(text)
+    # Its capture is a channel id, not a user id.
+    if kind == "private":
+        return f"https://t.me/c/{value}"
 
-    if private:
-        return f"https://t.me/c/{private.group(1)}"
+    peer = to_int(value if kind == "link" else value.replace("@", "").strip())
 
-    match = TG_CHAT_LINK_PATTERN.match(text.lower())
-    value = to_int((match.group(1) if match else text.replace("@", "")).strip())
+    if not isinstance(peer, int):
+        return f"https://t.me/{peer}"
 
-    if not isinstance(value, int):
-        return f"https://t.me/{value}"
+    try:
+        peer_type = get_peer_type(peer)
+    except ValueError:
+        return default
 
-    if is_tg_user_id(value):
-        return f"tg://openmessage?user_id={value}"
+    if peer_type == "user":
+        return f"tg://openmessage?user_id={peer}"
 
-    return f"tg://openmessage?chat_id={get_channel_id(value)}"
+    # A basic group's raw id is its negated id; only a channel id carries the `-100` offset.
+    if peer_type == "chat":
+        return f"tg://openmessage?chat_id={-peer}"
+
+    if peer_type in {"channel", "monoforum"}:
+        return f"tg://openmessage?chat_id={get_channel_id(peer)}"
+
+    return default
 
 
 @_optional_import("tg")
 def parse_tg_target(target: StrInt) -> StrInt:
     """Read a chat or user target down to what Pyrogram's methods accept.
 
-    An int is kept; a phone number (after removing `+`, `()`, `-` and spaces)
-    becomes its digits as an int; a channel link gives its id through
-    `get_channel_id`, or its public name; an invite link is kept; anything
-    else is a username without `@`, `+` or spaces, lowercased.
+    An int is kept, and so is the sign of a numeric string (`"-100..."`); a
+    phone number (after removing `+`, `()`, `-` and spaces) becomes its digits
+    as an int; a `t.me/c/<id>` link gives its chat id through `get_channel_id`,
+    and a chat link its public name; an invite link is kept as given; anything
+    else is a username without `@`, `+` or spaces, lowercased. Links are
+    recognised in any case.
 
     Args:
         target: An id, phone number, link or username.
@@ -177,24 +194,30 @@ def parse_tg_target(target: StrInt) -> StrInt:
         return target
 
     target = clean_spaces(target)
-    phone = re.sub(r"[+()\s-]", "", target)
 
-    if phone.isdigit():
+    # A leading `-` is a sign: the phone cleanup below would drop it.
+    if target.startswith("-"):
+        if target[1:].isdecimal():
+            return int(target)
+    elif (phone := re.sub(r"[+()\s-]", "", target)).isdecimal():
         return int(phone)
 
-    # The invite pattern goes first: `TG_CHAT_LINK_PATTERN` also matches a `joinchat/` link.
-    if TG_INVITE_LINK_PATTERN.match(target):
-        return target
+    kind, value = _classify_tg_target(target)
 
-    match = TG_CHAT_LINK_PATTERN.match(target.lower())
+    if kind == "invite":
+        return value
 
-    if not match:
-        return re.sub(r"[@+\s]", "", target.lower())
+    if kind == "private":
+        # The capture starts with the id's digits; a `/5`, `?single` or other tail follows them.
+        return get_channel_id(int(re.split(r"\D", value, maxsplit=1)[0]))
+
+    if kind == "text":
+        return re.sub(r"[@+\s]", "", value.lower())
 
     try:
-        return get_channel_id(int(match.group(1)))
+        return get_channel_id(int(value))
     except ValueError:
-        return match.group(1)
+        return value
 
 
 @_optional_import("tg")

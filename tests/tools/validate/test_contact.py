@@ -30,6 +30,7 @@ needs_aioimaplib = pytest.mark.skipif(not HAS_AIOIMAPLIB, reason="needs the imap
         (966501234567, {}, True),
         ("966501234567", {"resolve": False}, False),
         ("+966 50 123 4567", {"remove_spaces": False}, True),
+        ("00966-50-123-4567", {}, True),
         ("123", {}, False),
         ("not a number", {}, False),
         (None, {}, False),

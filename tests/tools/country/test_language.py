@@ -1,6 +1,7 @@
 from __future__ import annotations as _annotations
 
 from importlib.util import find_spec
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -8,15 +9,19 @@ from pytrove import get_clanguage_code, get_clanguage_name, get_cname_native
 from pytrove.country_tools import language
 from pytrove.errors import ValidationError
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 _HAS_BABEL = find_spec("babel") is not None
 
 needs_locale = pytest.mark.skipif(not _HAS_BABEL, reason="needs the `locale` extra")
 
 
 @pytest.mark.skipif(_HAS_BABEL, reason="needs the `locale` extra to be missing")
-def test_language_tools_need_the_locale_extra() -> None:
+@pytest.mark.parametrize("tool", [get_clanguage_code, get_cname_native, get_clanguage_name])
+def test_language_tools_need_the_locale_extra(tool: Callable[[str], str]) -> None:
     with pytest.raises(ImportError, match=r"pytrove\[locale\]"):
-        get_clanguage_code("sa")
+        tool("sa")
 
 
 @needs_locale

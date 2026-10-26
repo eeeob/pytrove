@@ -21,7 +21,7 @@ try:
 except ImportError:
     pass
 
-from .._internal import _optional_import
+from .._internal import _normalize_phone_text, _optional_import
 from ..constants import EMAIL_PATTERN
 
 if TYPE_CHECKING:
@@ -40,7 +40,7 @@ def is_phone_number(
 
     Args:
         phone_number: A number as an int, a string or a parsed `PhoneNumber`.
-        remove_spaces: Whether to strip whitespace from a string first.
+        remove_spaces: Whether to strip whitespace and dashes from a string first.
         resolve: Whether to turn a `00` prefix, or no prefix, into `+`.
 
     Returns:
@@ -49,19 +49,7 @@ def is_phone_number(
     if isinstance(phone_number, phonenumbers.PhoneNumber):
         parsed_number = phone_number
     elif isinstance(phone_number, (int, str)):
-        phone_number = str(phone_number)
-
-        if remove_spaces:
-            from ..text_tools import clean_spaces  # noqa: PLC0415 - `text_tools` sits above `validate_tools` in the import layering
-
-            phone_number = clean_spaces(phone_number)
-
-        if resolve:
-            if phone_number.startswith("00"):
-                phone_number = phone_number[2:]
-
-            if not phone_number.startswith("+"):
-                phone_number = "+" + phone_number
+        phone_number = _normalize_phone_text(str(phone_number), remove_spaces, resolve)
 
         try:
             parsed_number = phonenumbers.parse(phone_number)
