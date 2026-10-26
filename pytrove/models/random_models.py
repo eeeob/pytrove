@@ -5,7 +5,7 @@ from __future__ import annotations as _annotations
 import random
 from dataclasses import dataclass, field
 
-from .._internal import _tri_cdf, _tri_icdf
+from .._internal import _clamp01, _tri_cdf, _tri_icdf, _tri_window
 from ._internal import _INV_PHI
 
 
@@ -68,29 +68,13 @@ class Jitter:
         """
         src = self.rng or random
 
-        low = self.value * (1.0 - self.decrease)
-        high = self.value * (1.0 + self.increase)
-
-        if low > high:
-            low, high = high, low
+        low, high, mode = _tri_window(self.value, self.decrease, self.increase, self.bias)
 
         if high <= low:
             self.last = low
             return low
 
-        bias = self.bias
-        if bias < 0.0:
-            bias = 0.0
-        elif bias > 1.0:
-            bias = 1.0
-
-        mode = low + (high - low) * bias
-
-        wobble = self.wobble
-        if wobble < 0.0:
-            wobble = 0.0
-        elif wobble > 1.0:
-            wobble = 1.0
+        wobble = _clamp01(self.wobble)
 
         # Golden-ratio (Kronecker) recurrence in CDF space. A fixed step of
         # phi^-1 puts every consecutive pair ~0.382 apart on the wrapped

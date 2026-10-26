@@ -1,5 +1,6 @@
 from __future__ import annotations as _annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 
 import pytest
@@ -72,6 +73,29 @@ async def test_middleware_never_hands_keyboard_interrupt_to_an_async_on_error() 
 
     with pytest.raises(KeyboardInterrupt):
         await middleware(interrupted, on_error=lambda exc: None)()
+
+
+async def test_middleware_hands_a_cancellation_to_an_async_on_error() -> None:
+    async def cancelled() -> str:
+        """Raise `asyncio.CancelledError`."""
+        raise asyncio.CancelledError
+
+    seen: list[BaseException] = []
+
+    def on_error(exc: BaseException) -> str:
+        """Record `exc` and recover."""
+        seen.append(exc)
+        return "recovered"
+
+    assert await middleware(cancelled, on_error=on_error)() == "recovered"
+    assert len(seen) == 1
+    assert isinstance(seen[0], asyncio.CancelledError)
+
+
+def test_middleware_hands_a_cancellation_to_a_sync_on_error() -> None:
+    wrapped = middleware(_raise(asyncio.CancelledError()), on_error=type)
+
+    assert wrapped() is asyncio.CancelledError
 
 
 def test_middleware_lets_a_hook_exception_propagate() -> None:

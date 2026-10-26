@@ -4,7 +4,7 @@ from __future__ import annotations as _annotations
 
 import random
 
-from .._internal import _tri_cdf, _tri_icdf
+from .._internal import _tri_cdf, _tri_icdf, _tri_window
 
 
 def jitter(
@@ -51,17 +51,10 @@ def jitter(
     """
     src = rng or random
 
-    low = value * (1.0 - decrease)
-    high = value * (1.0 + increase)
-
-    if low > high:
-        low, high = high, low
+    low, high, mode = _tri_window(value, decrease, increase, bias)
 
     if high <= low:
         return low
-
-    bias = min(max(bias, 0.0), 1.0)
-    mode = low + (high - low) * bias
 
     if previous is None or min_distance <= 0.0:
         return _tri_icdf(src.random(), low, high, mode)

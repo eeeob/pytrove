@@ -27,8 +27,10 @@ _REQUIRES = [
     "nopkg>=1.0; extra == 'gone'",
     "farpkg>=1.0; (python_version < '3.0') and extra == 'far'",
     "okpkg>=1.0; (python_version < '3.0') and extra == 'farok'",
+    "oldpkg>=2.0; (python_version < '3.0') and extra == 'farold'",
+    "badpkg>=1.0; extra == 'bad'",
 ]
-_INSTALLED = {"okpkg": "1.2", "oldpkg": "1.9", "prepkg": "1.1rc1"}
+_INSTALLED = {"okpkg": "1.2", "oldpkg": "1.9", "prepkg": "1.1rc1", "badpkg": "not-a-version"}
 
 
 def _fake_version(name: str) -> str:
@@ -45,8 +47,10 @@ def fake_metadata(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setattr(_optional, "requires", lambda _: _REQUIRES)
     monkeypatch.setattr(_optional, "version", _fake_version)
     _requirements.cache_clear()
+    _unmet.cache_clear()
     yield
     _requirements.cache_clear()
+    _unmet.cache_clear()
 
 
 def _no_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -58,6 +62,7 @@ def _no_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(_optional, "requires", missing)
     _requirements.cache_clear()
+    _unmet.cache_clear()
 
 
 def test_requirements_keep_only_the_extras_own_lines() -> None:
@@ -72,7 +77,17 @@ def test_requirements_keep_only_the_extras_own_lines() -> None:
 def test_requirements_are_none_without_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
     _no_metadata(monkeypatch)
     assert _requirements("good") is None
-    assert _unmet("good") == []
+    assert _unmet("good") == ()
+
+
+def test_requirements_read_an_empty_list_when_requires_gives_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(_optional, "requires", lambda _: None)
+    _requirements.cache_clear()
+
+    with pytest.raises(ValueError, match="no extra named 'good'"):
+        _requirements("good")
 
 
 @pytest.mark.parametrize(
@@ -84,16 +99,46 @@ def test_requirements_are_none_without_metadata(monkeypatch: pytest.MonkeyPatch)
         ("gone", "not installed"),
         ("far", "not available on this platform"),
         ("farok", None),  # Excluded by its marker, but installed in range.
+        ("farold", "found 1.9"),  # Excluded by its marker, and installed out of range.
+        ("bad", "found not-a-version"),  # Not PEP 440: out of range, never a crash.
     ],
 )
 def test_unmet_names_the_reason(extra: str, why: str | None) -> None:
     assert [reason for _, reason in _unmet(extra)] == ([] if why is None else [why])
 
 
+def test_unmet_is_cached_per_extras(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def counting_version(name: str) -> str:
+        """Count each lookup, then serve the fake version."""
+        calls.append(name)
+        return _fake_version(name)
+
+    monkeypatch.setattr(_optional, "version", counting_version)
+
+    assert _unmet("old") is _unmet("old")
+    assert calls == ["oldpkg"]
+
+    _unmet("good", "old")
+    assert calls == ["oldpkg", "okpkg", "oldpkg"]
+
+
+def test_unmet_combines_several_extras() -> None:
+    assert [(r.name, why) for r, why in _unmet("good", "old", "gone")] == [
+        ("oldpkg", "found 1.9"),
+        ("nopkg", "not installed"),
+    ]
+
+
 def test_has_requirement_checks_one_package() -> None:
     assert _has_requirement("good", "okpkg")
     assert not _has_requirement("old", "oldpkg")
     assert not _has_requirement("gone", "nopkg")
+    assert not _has_requirement("far", "farpkg")
+    assert _has_requirement("farok", "okpkg")
+    assert not _has_requirement("farold", "oldpkg")
+    assert not _has_requirement("bad", "badpkg")
 
     with pytest.raises(ValueError, match="does not list 'okpkg'"):
         _has_requirement("old", "okpkg")
@@ -113,6 +158,44 @@ def test_error_message_names_the_extras_and_what_is_wrong() -> None:
     assert "pip install -U 'pytrove[good, old]'" in msg
     assert "Required : 'okpkg>=1.0', 'oldpkg<3,>=2.0'" in msg
     assert msg.endswith("Missing  : 'oldpkg<3,>=2.0' (found 1.9)")
+
+
+def test_error_message_leaves_out_empty_lines_without_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _no_metadata(monkeypatch)
+
+    assert _build_error_msg(("gone",), _unmet("gone")) == (
+        "To use this feature, all required packages must be installed.\n"
+        "Run: pip install -U 'pytrove[gone]'"
+    )
+
+
+def test_optional_import_passes_through_without_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _no_metadata(monkeypatch)
+
+    @_optional_import("gone")
+    def sync() -> int:
+        """Return one."""
+        return 1
+
+    assert sync() == 1
+
+
+def test_optional_import_names_every_extra_when_several_are_unmet() -> None:
+    @_optional_import("good", "old", "gone")
+    def sync() -> int:
+        """Return one."""
+        return 1
+
+    with pytest.raises(ImportError) as info:
+        sync()
+
+    assert "pytrove[good, old, gone]" in str(info.value)
+    assert "(found 1.9)" in str(info.value)
+    assert "(not installed)" in str(info.value)
 
 
 async def test_optional_import_passes_through_when_met() -> None:
@@ -136,6 +219,30 @@ async def test_optional_import_passes_through_when_met() -> None:
     assert inspect.iscoroutinefunction(coro) and await coro() == 1
     assert inspect.isasyncgenfunction(agen)
     assert [i async for i in agen()] == [1, 2]
+
+    for wrapped, name in ((sync, "sync"), (coro, "coro"), (agen, "agen")):
+        assert wrapped.__name__ == name
+        assert callable(wrapped.__wrapped__)
+        assert not hasattr(wrapped.__wrapped__, "__wrapped__")
+
+
+async def test_optional_import_closes_the_inner_generator_on_early_exit() -> None:
+    events: list[str] = []
+
+    @_optional_import("good")
+    async def agen() -> AsyncIterator[int]:
+        """Yield until closed, recording the cleanup."""
+        try:
+            yield 1
+            yield 2
+        finally:
+            events.append("closed")
+
+    gen = agen()
+    assert await gen.__anext__() == 1
+    await gen.aclose()
+
+    assert events == ["closed"]
 
 
 async def test_optional_import_raises_only_on_call_when_unmet() -> None:
@@ -172,6 +279,7 @@ def test_optional_import_rejects_an_unknown_extra_when_applied() -> None:
 def test_unavailable_class_refuses_every_use() -> None:
     stand_in = _unavailable_class("Thing", "gone")
     assert stand_in.__name__ == "Thing"
+    assert stand_in.__qualname__ == "Thing"
 
     for use in (
         stand_in,
@@ -183,6 +291,13 @@ def test_unavailable_class_refuses_every_use() -> None:
     ):
         with pytest.raises(ImportError, match=r"pytrove\[gone\]"):
             use()
+
+
+def test_unavailable_class_reports_its_callers_module_and_the_error_as_its_doc() -> None:
+    stand_in = _unavailable_class("Thing", "gone")
+
+    assert stand_in.__module__ == __name__
+    assert stand_in.__doc__ == _build_error_msg(("gone",), _unmet("gone"))
 
 
 def test_unavailable_class_stays_inspectable() -> None:

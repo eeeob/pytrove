@@ -70,12 +70,15 @@ class ArchiveLimits(NamedTuple):
         ceilings are untouched.
 
         Args:
-            **kw: Any other field to set.
+            **kw: Any other field to set, `symlinks` or `hardlinks` included.
 
         Returns:
-            Limits with `symlinks` and `hardlinks` set to `ArchiveLinkPolicy.ALLOW`.
+            Limits with `symlinks` and `hardlinks` set to `ArchiveLinkPolicy.ALLOW`
+            unless `kw` sets them.
         """
-        return cls(symlinks=ArchiveLinkPolicy.ALLOW, hardlinks=ArchiveLinkPolicy.ALLOW, **kw)
+        kw.setdefault("symlinks", ArchiveLinkPolicy.ALLOW)
+        kw.setdefault("hardlinks", ArchiveLinkPolicy.ALLOW)
+        return cls(**kw)
 
 
 __all__ = ("ArchiveLimits",)

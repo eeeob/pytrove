@@ -99,6 +99,27 @@ async def test_asafe_call_always_propagates_keyboard_interrupt() -> None:
         await asafe_call(_fail(KeyboardInterrupt()))
 
 
+async def test_asafe_call_swallows_a_cancellation_by_default() -> None:
+    result = await asafe_call(_fail(asyncio.CancelledError()), return_exc=True)
+
+    assert isinstance(result, asyncio.CancelledError)
+
+
+async def test_asafe_call_swallows_a_cancellation_named_in_include_exc() -> None:
+    task = asyncio.create_task(asyncio.sleep(10))
+    task.cancel()
+    await asyncio.sleep(0)
+
+    result = await asafe_call(task, include_exc=asyncio.CancelledError, return_exc=True)
+
+    assert isinstance(result, asyncio.CancelledError)
+
+
+async def test_safe_await_never_returns_a_cancellation() -> None:
+    with pytest.raises(asyncio.CancelledError):
+        await safe_await(_fail(asyncio.CancelledError()))
+
+
 async def test_asafe_call_logs_with_a_sync_or_async_callback(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -130,8 +151,11 @@ async def test_asafe_call_rejects_contradictory_arguments() -> None:
     with pytest.raises(TypeError, match="cannot both be True"):
         await asafe_call(awaitable, return_exc=True, raise_exc=True)
 
-    with pytest.raises(TypeError, match="always propagates"):
+    with pytest.raises(TypeError, match="^asafe_call: exclude_exc cannot name SystemExit"):
         await asafe_call(awaitable, exclude_exc=SystemExit)
+
+    with pytest.raises(TypeError, match="^asafe_call: include_exc cannot name KeyboardInterrupt"):
+        await asafe_call(awaitable, include_exc=KeyboardInterrupt)
 
     await awaitable
 

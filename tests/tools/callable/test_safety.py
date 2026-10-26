@@ -1,5 +1,6 @@
 from __future__ import annotations as _annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 
 import pytest
@@ -70,8 +71,21 @@ def test_safe_call_rejects_contradictory_arguments() -> None:
     with pytest.raises(TypeError, match="cannot both be True"):
         safe_call(print, return_exc=True, raise_exc=True)
 
-    with pytest.raises(TypeError, match="always propagates"):
+    with pytest.raises(TypeError, match="^safe_call: exclude_exc cannot name KeyboardInterrupt"):
         safe_call(print, exclude_exc=(ValueError, KeyboardInterrupt))
+
+    with pytest.raises(TypeError, match="^safe_call: include_exc cannot name SystemExit"):
+        safe_call(print, include_exc=SystemExit)
+
+
+@pytest.mark.parametrize("include_exc", [None, BaseException, asyncio.CancelledError])
+def test_safe_call_swallows_a_cancellation_like_any_other_exception(
+    include_exc: type[BaseException] | None,
+) -> None:
+    cancelled = safe_call(
+        _raise(asyncio.CancelledError()), include_exc=include_exc, return_exc=True
+    )
+    assert isinstance(cancelled, asyncio.CancelledError)
 
 
 def test_raise_if_does_not_crash_on_an_unhashable_result() -> None:

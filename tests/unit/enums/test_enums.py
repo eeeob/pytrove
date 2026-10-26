@@ -5,6 +5,7 @@ import enum
 import pytest
 
 import pytrove.enums
+from pytrove.constants import IMAP_DOMAIN_TO_PROVIDER
 from pytrove.enums import (
     ArchiveDuplicatePolicy,
     ArchiveFormat,
@@ -103,14 +104,25 @@ def test_imap_provider_host_and_port(provider: ImapEmailProvider, host: str) -> 
     [
         ("gmail.com", ImapEmailProvider.GMAIL),
         ("GMAIL.COM", ImapEmailProvider.GMAIL),
+        ("googlemail.com", ImapEmailProvider.GMAIL),
+        ("outlook.com", ImapEmailProvider.OUTLOOK),
         ("hotmail.com", ImapEmailProvider.OUTLOOK),
         ("live.com", ImapEmailProvider.OUTLOOK),
+        ("msn.com", ImapEmailProvider.OUTLOOK),
         ("yahoo.com", ImapEmailProvider.YAHOO),
+        ("ymail.com", ImapEmailProvider.YAHOO),
+        ("zoho.com", ImapEmailProvider.ZOHO),
         ("unknown.example", None),
     ],
 )
 def test_imap_provider_from_domain(domain: str, provider: ImapEmailProvider | None) -> None:
     assert ImapEmailProvider.from_domain(domain) is provider
+
+
+def test_imap_provider_from_domain_reads_every_key_of_the_table() -> None:
+    for domain, provider in IMAP_DOMAIN_TO_PROVIDER.items():
+        assert ImapEmailProvider.from_domain(domain) is provider
+        assert ImapEmailProvider.from_domain(domain.upper()) is provider
 
 
 def test_platform_device_values() -> None:

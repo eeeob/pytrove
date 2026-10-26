@@ -23,3 +23,13 @@ def test_permissive_limits_allow_links_and_keep_other_fields() -> None:
     assert limits.symlinks is ArchiveLinkPolicy.ALLOW
     assert limits.hardlinks is ArchiveLinkPolicy.ALLOW
     assert limits.max_files == 5
+
+
+def test_permissive_limits_let_either_link_policy_be_overridden() -> None:
+    limits = ArchiveLimits.permissive(symlinks=ArchiveLinkPolicy.SKIP)
+    assert limits.symlinks is ArchiveLinkPolicy.SKIP
+    assert limits.hardlinks is ArchiveLinkPolicy.ALLOW
+
+    limits = ArchiveLimits.permissive(hardlinks=ArchiveLinkPolicy.ERROR)
+    assert limits.symlinks is ArchiveLinkPolicy.ALLOW
+    assert limits.hardlinks is ArchiveLinkPolicy.ERROR

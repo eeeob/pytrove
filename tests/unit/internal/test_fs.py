@@ -1,10 +1,8 @@
 from __future__ import annotations as _annotations
 
 import os
-import shutil
 import stat
 import subprocess
-import sys
 from typing import TYPE_CHECKING
 
 import pytest
@@ -20,10 +18,8 @@ def _own_islink(path: str | os.PathLike[str]) -> bool:
     """What `_is_link` means, spelled out here so the tests own a definition.
 
     A symlink anywhere, plus a Windows junction, which is a directory
-    reparse point carrying `IO_REPARSE_TAG_MOUNT_POINT`. `_fs` gets
-    this from `shutil` where it can and writes it out where it cannot; this
-    is the version the tests compare against, so a stdlib that answers
-    differently is a red test rather than a quiet change of behaviour.
+    reparse point carrying `IO_REPARSE_TAG_MOUNT_POINT`. A stdlib that
+    answered differently is a red test rather than a quiet change of behaviour.
     """
 
     try:
@@ -54,9 +50,7 @@ def _make_junction(link: Path, target: Path) -> Path | None:
 
 
 def test_is_link_agrees_with_the_definition_on_every_kind_of_path(tmp_path: Path) -> None:
-    # The four shapes that reach the removers, whichever way `_fs`
-    # resolved `_is_link` on this interpreter: `shutil`'s own on 3.10-3.12, a
-    # wrapper around it on 3.13-3.14, the local fallback anywhere else.
+    # The four plain shapes that reach the removers; links are tested below.
     a_dir = tmp_path / "d"
     a_dir.mkdir()
     a_file = tmp_path / "f.txt"
@@ -140,32 +134,48 @@ def test_only_a_junction_tag_counts_as_a_link(
     assert _fs._is_dir("anything") is plain_dir
 
 
-@pytest.mark.skipif(os.name != "nt", reason="reparse tags are Windows-only")
-def test_the_junction_tag_is_the_one_shutil_uses() -> None:
-    # `_is_link` is `shutil`'s own `_rmtree_islink` where the shape allows it, so
-    # this holds by construction there. It is asserted for the fallback,
-    # which writes the constant out: `rmtree` acts on `shutil`'s answer, and a
-    # remover that disagreed with it would decline to follow a link that
-    # rmtree then followed.
-    assert _own_islink.__doc__  # the definition above is the one compared to
-    assert stat.IO_REPARSE_TAG_MOUNT_POINT == 0xA0000003
+def _make_symlink(link: Path, target: Path) -> Path:
+    """A symlink at `link` to `target`, skipping the test where the OS refuses one."""
+    try:
+        link.symlink_to(target, target_is_directory=target.is_dir())
+    except (
+        OSError,
+        NotImplementedError,
+    ) as exc:  # Windows without the privilege or Developer Mode.
+        pytest.skip(f"cannot create a symlink here: {exc}")
+    return link
 
 
-def test_is_link_is_resolved_from_shutil_where_the_shape_is_known() -> None:
-    # The version gate in `_fs` claims 3.10 through 3.14. Two shapes
-    # live in that range -- _rmtree_islink(path) up to 3.12 and
-    # `_rmtree_islink(st)` from 3.13 -- and the gate has to have picked the
-    # right one, because picking the wrong one raises `AttributeError` at the
-    # first call rather than at the import.
-    if not (3, 10) <= sys.version_info[:2] <= (3, 14):
-        pytest.skip("outside the range the gate claims")
+def test_a_symlink_to_a_file_is_a_link_and_not_a_directory(tmp_path: Path) -> None:
+    target = tmp_path / "f.txt"
+    target.write_text("x", encoding="utf-8")
+    link = _make_symlink(tmp_path / "l", target)
 
-    assert hasattr(shutil, "_rmtree_islink"), (
-        "the gate imports this unconditionally inside its range"
-    )
+    assert _fs._is_link(link) is True
+    assert _fs._is_dir(link) is False
 
-    # Whichever shape it is, `_is_link` answers a path without raising.
-    assert _fs._is_link(__file__) == _own_islink(__file__)
+
+def test_a_symlink_to_a_directory_is_a_link_and_not_a_directory(tmp_path: Path) -> None:
+    target = tmp_path / "real"
+    target.mkdir()
+    link = _make_symlink(tmp_path / "l", target)
+
+    assert os.path.isdir(link), "following it would have said yes"
+    assert _fs._is_link(link) is True
+    assert _fs._is_dir(link) is False
+    assert _fs._is_dir(target) is True
+    assert _fs._is_link(target) is False
+
+
+def test_a_dangling_symlink_is_still_a_link(tmp_path: Path) -> None:
+    link = _make_symlink(tmp_path / "l", tmp_path / "gone")
+
+    assert _fs._is_link(link) is True
+    assert _fs._is_dir(link) is False
+
+
+def test_has_file_attributes_reflects_the_stat_result() -> None:
+    assert _fs._HAS_FILE_ATTRIBUTES == hasattr(os.stat_result, "st_file_attributes")
 
 
 def test_is_link_without_file_attributes_is_os_path_islink(monkeypatch: pytest.MonkeyPatch) -> None:

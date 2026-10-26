@@ -63,7 +63,9 @@ async def safe_await(*awaitables: Any, return_exc: bool = True, log_exc: bool = 
     """Await awaitables one after another, returning failures instead of raising.
 
     A single bare awaitable gives its result unwrapped; a container, or
-    several arguments, give a list.
+    several arguments, give a list. Only `Exception` subclasses count as
+    failures: `asyncio.CancelledError`, `SystemExit` and `KeyboardInterrupt`
+    always propagate.
 
     Args:
         *awaitables: Awaitables, or containers of them, at any depth.
@@ -195,8 +197,8 @@ async def asafe_call(
         The result, or `None` / the exception after a swallowed failure.
 
     Raises:
-        TypeError: If `return_exc` and `raise_exc` are both set, or `exclude_exc`
-            names an exception that always propagates anyway.
+        TypeError: If `return_exc` and `raise_exc` are both set, or `include_exc`
+            or `exclude_exc` names `SystemExit` or `KeyboardInterrupt`.
         BaseException: Whatever is not swallowed, or anything when `raise_exc` is set.
 
     Example:
@@ -211,7 +213,7 @@ async def asafe_call(
         Traceback (most recent call last):
         ValueError: boom
     """
-    _check_swallow_options("asafe_call", return_exc, raise_exc, exclude_exc)
+    _check_swallow_options("asafe_call", return_exc, raise_exc, include_exc, exclude_exc)
 
     try:
         return await awaitable

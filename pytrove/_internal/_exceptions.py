@@ -13,12 +13,27 @@ _HARD_PROPAGATE: Final[tuple[type[SystemExit], type[KeyboardInterrupt]]] = (
 )
 """Exceptions that `safe_call`, `asafe_call` and `middleware` always let propagate.
 
-There is no way to opt back in, so `exclude_exc` can never usefully name them.
+There is no way to opt back in, so neither `include_exc` nor `exclude_exc` may
+name them.
 """
 
 
+def _as_tuple(exc_filter: _ExcFilter) -> tuple[type[BaseException], ...]:
+    """Normalise an `include_exc`/`exclude_exc` value to a tuple.
+
+    Args:
+        exc_filter: An exception class, a tuple of them, or `None`.
+
+    Returns:
+        The classes; empty for `None`.
+    """
+    if exc_filter is None:
+        return ()
+    return exc_filter if isinstance(exc_filter, tuple) else (exc_filter,)
+
+
 def _check_swallow_options(
-    who: str, return_exc: bool, raise_exc: bool, exclude_exc: _ExcFilter
+    who: str, return_exc: bool, raise_exc: bool, include_exc: _ExcFilter, exclude_exc: _ExcFilter
 ) -> None:
     """Refuse the option combinations `safe_call` and `asafe_call` reject.
 
@@ -26,19 +41,21 @@ def _check_swallow_options(
         who: The public name, for the message.
         return_exc: The `return_exc` option.
         raise_exc: The `raise_exc` option.
+        include_exc: The `include_exc` option.
         exclude_exc: The `exclude_exc` option.
 
     Raises:
-        TypeError: If both flags are set, or `exclude_exc` names an exception in `_HARD_PROPAGATE`.
+        TypeError: If both flags are set, or `include_exc` or `exclude_exc` names an
+            exception in `_HARD_PROPAGATE`.
     """
     if return_exc and raise_exc:
         msg = f"{who}: return_exc and raise_exc cannot both be True -- raise_exc means the exception is never returned, only re-raised"
         raise TypeError(msg)
 
-    if exclude_exc is not None:
-        for exc_type in exclude_exc if isinstance(exclude_exc, tuple) else (exclude_exc,):
+    for name, value in (("include_exc", include_exc), ("exclude_exc", exclude_exc)):
+        for exc_type in _as_tuple(value):
             if issubclass(exc_type, _HARD_PROPAGATE):
-                msg = f"exclude_exc: {exc_type.__name__} always propagates already -- no need to list it"
+                msg = f"{who}: {name} cannot name {exc_type.__name__} -- it always propagates"
                 raise TypeError(msg)
 
 

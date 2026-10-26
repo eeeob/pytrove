@@ -11,6 +11,7 @@ from collections.abc import (
     Callable,
     Collection,
     Coroutine,
+    Hashable,
     Iterator,
     Mapping,
     Reversible,
@@ -22,7 +23,11 @@ from typing import Any
 type ContainerWithoutMapping[I] = (
     Sequence[I] | AbstractSet[I] | Collection[I] | Reversible[I] | Iterator[I]
 )
-"""An iterable container that is not read as a mapping."""
+"""The same union as `Container`, under a name that records the intent.
+
+Nothing in the type excludes a mapping (`Collection` covers `Mapping` too); the
+name only documents that the value is meant to be read as items, not as pairs.
+"""
 
 type Container[I] = Sequence[I] | AbstractSet[I] | Collection[I] | Reversible[I] | Iterator[I]
 """An iterable container; see `NotContainer` for the iterables that do not count."""
@@ -39,7 +44,7 @@ type NestedContainer[I] = Container[NestedContainer[I]] | I
 type NestedStrKeyDict[V] = dict[str, NestedStrKeyDict[V] | V]
 """A dict with string keys whose values are leaves or further such dicts."""
 
-type NestedContainerMappingValue[K, V] = (
+type NestedContainerMappingValue[K: Hashable, V] = (
     Mapping[K, NestedContainerMappingValue[K, V]]
     | ContainerWithoutMapping[NestedContainerMappingValue[K, V]]
     | V

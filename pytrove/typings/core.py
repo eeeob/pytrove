@@ -8,6 +8,7 @@ from __future__ import annotations as _annotations
 
 import os
 import sys
+from collections import UserString
 from collections.abc import (
     Awaitable,
     Callable,
@@ -72,11 +73,14 @@ if sys.version_info >= (3, 12):
         NestedStrKeyDict,
     )
 else:
-    # يجب المحافظة على ترتيب الاولويات
     ContainerWithoutMapping: TypeAlias = (
         Sequence[_T] | AbstractSet[_T] | Collection[_T] | Reversible[_T] | Iterator[_T]
     )
-    """An iterable container that is not read as a mapping."""
+    """The same union as `Container`, under a name that records the intent.
+
+    Nothing in the type excludes a mapping (`Collection` covers `Mapping` too); the
+    name only documents that the value is meant to be read as items, not as pairs.
+    """
 
     Container: TypeAlias = (
         Sequence[_T] | AbstractSet[_T] | Collection[_T] | Reversible[_T] | Iterator[_T]
@@ -120,8 +124,12 @@ else:
     MaybeAwaitable: TypeAlias = MaybeCoroutineCallable[_P, _T] | Awaitable[_T]
     """A callable to run, or an awaitable already created."""
 
-NotContainer: TypeAlias = bytearray | bytes | str | memoryview | EnumType | Awaitable
-"""Iterables that are treated as single values rather than containers."""
+NotContainer: TypeAlias = bytearray | bytes | str | UserString | memoryview | EnumType | Awaitable
+"""Iterables that are treated as single values rather than containers.
+
+`UserString` is here because iterating one yields one-character `UserString`s,
+each a container again, so a walker would never reach a leaf.
+"""
 
 PhoneNumber: TypeAlias = Annotated[str, "Phone number in international format, e.g. +967xxxxxxxxx"]
 """A phone number in international format."""
