@@ -155,6 +155,21 @@ def test_iscoroutinefunction_wrapped_sees_through_partials_in_any_order() -> Non
 
 def test_iscoroutinefunction_wrapped_does_not_take_a_property_getter() -> None:
     assert not iscoroutinefunction_wrapped(property(_coro))
+    assert not iscoroutinefunction_wrapped(functools.cached_property(_coro))
+
+
+def test_iscoroutinefunction_wrapped_takes_a_getter_with_unwrap_properties() -> None:
+    assert iscoroutinefunction_wrapped(property(_coro), unwrap_properties=True)
+    assert iscoroutinefunction_wrapped(functools.cached_property(_coro), unwrap_properties=True)
+    assert not iscoroutinefunction_wrapped(property(_sync), unwrap_properties=True)
+
+
+@pytest.mark.parametrize("kind", [classmethod, staticmethod])
+def test_iscoroutinefunction_wrapped_sees_through_classmethods_and_staticmethods(
+    kind: Any,
+) -> None:
+    assert iscoroutinefunction_wrapped(kind(_wrap(_coro)))
+    assert not iscoroutinefunction_wrapped(kind(_sync))
 
 
 def test_iscoroutinefunction_wrapped_does_not_peel_a_class() -> None:
