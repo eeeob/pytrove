@@ -2,12 +2,11 @@
 
 from __future__ import annotations as _annotations
 
-import re
 from typing import TYPE_CHECKING, Any
 
 from .._internal import _is_given
 from ..validate_tools import is_container
-from ._internal import _SNAKE1_PATTERN, _SNAKE2_PATTERN
+from ._internal import _SNAKE1_PATTERN, _SNAKE2_PATTERN, _SPACES_PATTERN, _WHITESPACE_PATTERN
 from .split import smart_split
 
 if TYPE_CHECKING:
@@ -15,24 +14,33 @@ if TYPE_CHECKING:
 
 
 def to_str(value: _T) -> str | _T:
-    """Turn a value into a string, leaving strings, bools, `None` and containers as they are.
+    """Turn a value into a string, leaving strings, bytes, bools, `None` and containers as they are.
+
+    Bytes stay bytes rather than becoming their `repr`, since no encoding is known.
 
     Args:
         value: The value to convert.
 
     Returns:
-        `str(value)`, or `value` itself when it is `None`, a bool, a string or a container.
+        `str(value)`, or `value` itself when it is `None`, a bool, a string,
+        bytes-like (`bytes`, `bytearray`, `memoryview`) or a container.
 
     Example:
         >>> to_str(5)
         '5'
         >>> to_str([5])
         [5]
+        >>> to_str(b"ab")
+        b'ab'
     """
     # Returned as `unchanged`: narrowing `value` through `is_container` would lose that it is a `_T`.
     unchanged: _T = value
 
-    if value is None or isinstance(value, (bool, str)) or is_container(value):
+    if (
+        value is None
+        or isinstance(value, (bool, str, bytes, bytearray, memoryview))
+        or is_container(value)
+    ):
         return unchanged
     return str(value)
 
@@ -42,7 +50,8 @@ def clean_spaces(text: Any, include_newlines: bool = True) -> str:
 
     Args:
         text: The text, or a value `to_str` turns into text.
-        include_newlines: Whether line breaks go too; otherwise only other whitespace is removed.
+        include_newlines: Whether `\n` goes too; when false, every other
+            whitespace, `\r` included, is still removed.
 
     Returns:
         The text without whitespace.
@@ -60,7 +69,7 @@ def clean_spaces(text: Any, include_newlines: bool = True) -> str:
     if not isinstance(text, str):
         msg = f"clean_spaces: text must be a str or a value `to_str` turns into one, not {type(text).__name__!r}"
         raise TypeError(msg)
-    return re.sub(r"\s+", "", text) if include_newlines else re.sub(r"[^\S\n]+", "", text)
+    return (_WHITESPACE_PATTERN if include_newlines else _SPACES_PATTERN).sub("", text)
 
 
 def split_part(
@@ -101,6 +110,9 @@ def split_part(
 def to_snake_case(text: str) -> str:
     """Turn `camelCase` or `PascalCase` into `snake_case`.
 
+    Only ASCII capitals start a word, and a capital right after `_` adds no
+    second underscore.
+
     Args:
         text: The text to convert.
 
@@ -119,6 +131,9 @@ def to_snake_case(text: str) -> str:
 def to_pascal_case(text: str) -> str:
     """Turn `snake_case` or `camelCase` into `PascalCase`.
 
+    Words are the `to_snake_case` words; only their first character is
+    capitalised, so a letter after a digit or a `-` stays lowercase.
+
     Args:
         text: The text to convert.
 
@@ -128,8 +143,10 @@ def to_pascal_case(text: str) -> str:
     Example:
         >>> to_pascal_case("user_id")
         'UserId'
+        >>> to_pascal_case("user_2fa")
+        'User2fa'
     """
-    return "".join(word.title() for word in to_snake_case(text).split("_") if word)
+    return "".join(word[:1].upper() + word[1:] for word in to_snake_case(text).split("_") if word)
 
 
 __all__ = (
