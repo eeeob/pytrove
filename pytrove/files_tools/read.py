@@ -22,6 +22,15 @@ def read_file(
     lock: LockProtocol | None = None,
     **kw: Any,
 ) -> str: ...
+@overload
+def read_file(
+    path: PathLike,
+    *,
+    binary: bool = False,
+    encoding: str = "utf-8",
+    lock: LockProtocol | None = None,
+    **kw: Any,
+) -> str | bytes: ...
 def read_file(
     path: PathLike,
     *,

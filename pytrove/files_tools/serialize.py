@@ -3,6 +3,7 @@
 from __future__ import annotations as _annotations
 
 import io
+import json
 import pickle
 from typing import TYPE_CHECKING, Any, cast
 
@@ -14,7 +15,7 @@ except ImportError:
 from .._internal import _optional_import, _is_given
 from ..enums import PickleSafety
 from ..iter_tools import iter_flat_cont
-from ._internal import _RestrictedUnpickler, _json_dumps, _json_loads, _SAFE_PICKLE_CLASSES
+from ._internal import _RestrictedUnpickler, _SAFE_PICKLE_CLASSES
 from .paths import resolve_path
 from .read import read_file
 from .write import write_file
@@ -28,46 +29,48 @@ if TYPE_CHECKING:
 def read_json(
     path: PathLike, default: _T | type[object] = object, lock: LockProtocol | None = None, **kw: Any
 ) -> JsonValue | _T:
-    """Parse a JSON file, through orjson with the `json` extra and no keywords.
+    """Parse a JSON file with `json.loads`.
 
     Args:
         path: The file to read.
         default: Returned when the file is missing; `{}` when omitted.
         lock: Held while reading.
-        **kw: `json.loads` arguments; any of them means plain `json`.
+        **kw: `json.loads` arguments.
 
     Returns:
         The parsed value, or the default.
+
+    Raises:
+        ValueError: If the file is not valid JSON (`json.JSONDecodeError`), or not valid UTF-8.
     """
     try:
         content = read_file(path, binary=True, lock=lock)
     except FileNotFoundError:
         return default if _is_given(default) else {}
 
-    return _json_loads(content, kw)
+    return json.loads(content, **kw)
 
 
 def write_json(
-    path: PathLike, data: JsonValue, lock: LockProtocol | None = None, fsync: bool = True, **kw: Any
+    path: PathLike, data: object, lock: LockProtocol | None = None, fsync: bool = True, **kw: Any
 ) -> None:
-    """Serialise `data` as JSON and write it atomically.
+    """Serialise `data` with `json.dumps` and write it atomically, as UTF-8 with LF newlines.
 
-    No indent unless asked (`indent=2` stays on the orjson fast path).
-    `ensure_ascii` defaults to `False`. Do not let another thread mutate
-    `data` meanwhile: a list changed mid-walk is written as a mix of states.
-    `lock` guards only the file, not the data.
+    The bytes are the same on every platform. `ensure_ascii` defaults to `False`. Do not let another thread
+    mutate `data` meanwhile: a list changed mid-walk is written as a mix of
+    states. `lock` guards only the file, not the data.
 
     Args:
         path: The file to write.
-        data: The value to serialise.
+        data: The value to serialise; anything `json.dumps` takes with `default`.
         lock: Held while writing.
         fsync: Whether the write must survive a power loss.
         **kw: `json.dumps` arguments.
     """
     kw.setdefault("ensure_ascii", False)
-    content = _json_dumps(data, kw)
+    content = json.dumps(data, **kw).encode("utf-8")
     del data
-    write_file(path, content, encoding="utf-8", lock=lock, fsync=fsync)
+    write_file(path, content, lock=lock, fsync=fsync)
 
 
 def read_pickle(
@@ -91,7 +94,8 @@ def read_pickle(
         default: Returned when the file is missing; `{}` when omitted.
         lock: Held while reading.
         allow_classes: Classes to allow at every level, matched by module and qualname.
-        allow_modules: Modules whose contents `PickleSafety.MODULES` allows.
+        allow_modules: Modules whose own definitions `PickleSafety.MODULES` allows; a
+            submodule needs its own entry, and a name a module imports is not its own.
         safe: The safety level.
         **kw: `pickle.Unpickler` arguments.
 
@@ -162,6 +166,10 @@ def load_ref_json(
 
     Returns:
         The resolved document, or the default.
+
+    Raises:
+        ValueError: If the file is not valid JSON (`json.JSONDecodeError`).
+        jsonref.JsonRefError: If a reference cannot be resolved.
     """
     path = resolve_path(path)
     kw.setdefault("proxies", False)

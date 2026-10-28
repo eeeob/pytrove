@@ -1,8 +1,7 @@
-"""Helpers private to `files_tools`: JSON codecs, tree removal and spill parts."""
+"""Helpers private to `files_tools`: tree removal and spill parts."""
 
 from __future__ import annotations as _annotations
 
-import json
 import logging
 import math
 import os
@@ -11,15 +10,7 @@ import sys
 from functools import partial
 from typing import TYPE_CHECKING, Any, Final, Literal, TypedDict, cast
 
-try:
-    import orjson  # type: ignore[import-not-found]  # Optional: the `json` extra.
-except ImportError:
-    HAS_ORJSON = False
-else:
-    HAS_ORJSON = True
-
-from ..._internal import _has_requirement, _is_link, _COPY_BUF
-from ...callable_tools import safe_call
+from ..._internal import _is_link, _COPY_BUF
 from ...enums import TruncateSide
 from ...iter_tools import dedupe, iter_flat_cont
 from ..paths import ensure_dir, ensure_path, resolve_path
@@ -30,29 +21,8 @@ if TYPE_CHECKING:
 
     from ...typings import NestedContainer, PathLike
 
-# Importable is not enough: a release older than the extra allows may be installed outside it.
-HAS_ORJSON = HAS_ORJSON and _has_requirement("json", "orjson")
-
 _SPILL_PARTS: Final[int] = 10
-"""How many parts `truncate_file` spills into when `size` is 0 and names no part length."""
-
-_ORJSON_DUMP_KEYS: Final[frozenset[str]] = frozenset(
-    {"ensure_ascii", "indent", "sort_keys", "default"}
-)
-"""The `write_json` keywords orjson can honour; any other keyword means plain `json`.
-
-orjson only indents by 2, never escapes to ASCII, and writes compact JSON
-without spaces, so a byte-for-byte comparison should pin `indent`.
-"""
-
-# Hands datetimes and dataclasses back to `default` (or a `TypeError`), as `json` does, and accepts the
-# int/float/bool/None keys `json` stringifies, so installing the extra never changes what is written.
-_ORJSON_COMPAT: Final[int] = (
-    orjson.OPT_PASSTHROUGH_DATETIME | orjson.OPT_PASSTHROUGH_DATACLASS | orjson.OPT_NON_STR_KEYS
-    if HAS_ORJSON
-    else 0
-)
-"""The orjson options that make its output match `json`'s."""
+"""The most parts one `truncate_file` call spills into; a part grows past `size` to stay within it."""
 
 log = logging.getLogger(__name__)
 
@@ -92,63 +62,25 @@ def _next_part(folder: Path, stem: str) -> int:
         return 1
 
     numbers = [
-        int(name[len(prefix) :])
+        int(suffix)
         for name in names
-        if name.startswith(prefix) and name[len(prefix) :].isdigit()
+        if name.startswith(prefix)
+        # ASCII only: `str.isdigit` also takes `²`, which `int` refuses.
+        and (suffix := name[len(prefix) :]).isascii()
+        and suffix.isdigit()
     ]
     return max(numbers, default=0) + 1
-
-
-def _json_dumps(data: Any, kw: dict[str, Any]) -> str | bytes:
-    """Serialise `data`, through orjson when every keyword allows it, else `json`.
-
-    Args:
-        data: The value to serialise.
-        kw: `json.dumps` keyword arguments.
-
-    Returns:
-        The JSON text, or bytes from orjson.
-    """
-    if HAS_ORJSON and not (kw.keys() - _ORJSON_DUMP_KEYS):
-        indent = kw.get("indent")
-
-        if not kw.get("ensure_ascii") and indent in (None, 2):
-            option = _ORJSON_COMPAT
-
-            if indent == 2:
-                option |= orjson.OPT_INDENT_2
-
-            if kw.get("sort_keys"):
-                option |= orjson.OPT_SORT_KEYS
-
-            return orjson.dumps(data, default=kw.get("default"), option=option)
-
-    return json.dumps(data, **kw)
-
-
-def _json_loads(content: str | bytes, kw: dict[str, Any]) -> Any:
-    """Parse JSON, through orjson when no keyword is given, else `json`.
-
-    Args:
-        content: The JSON text or bytes.
-        kw: `json.loads` keyword arguments; orjson supports none of them.
-
-    Returns:
-        The parsed value.
-    """
-    if HAS_ORJSON and not kw:
-        return orjson.loads(content)
-
-    return json.loads(content, **kw)
 
 
 def _on_exc_remove_folders(
     func: Callable[..., Any], path: str, exc: BaseException, *, base_path: str
 ) -> None:
-    """Handle an `rmtree` error: ignore vanished children, unlink junctions, raise the rest.
+    """Handle an `rmtree` error: unlink links, ignore vanished children, raise the rest.
 
-    `rmtree` refuses to walk into a Windows junction; unlinking the link
-    itself removes it without touching what it points at.
+    `rmtree` refuses a link it is handed or a Windows junction it finds
+    (`os.path.islink`), and fails to open a root link that dangles
+    (`os.open`, `FileNotFoundError`); unlinking the link itself removes it
+    without touching what it points at.
 
     Args:
         func: The function that failed.
@@ -159,14 +91,14 @@ def _on_exc_remove_folders(
     Raises:
         BaseException: `exc`, when it is neither case above.
     """
-    if isinstance(exc, FileNotFoundError) and str(path) != base_path:
-        return
-
-    if func == os.path.islink and _is_link(path):
+    if (func == os.path.islink or str(path) == base_path) and _is_link(path):
         try:
             os.unlink(path)
         except FileNotFoundError:
             pass
+        return
+
+    if isinstance(exc, FileNotFoundError) and str(path) != base_path:
         return
 
     raise exc
@@ -220,7 +152,7 @@ def _remove(
         except FileNotFoundError:
             continue
         except OSError as exc:
-            safe_call(setattr, exc, "filename", str(path), include_exc=AttributeError)
+            exc.filename = str(path)
 
             if not return_exc:
                 raise exc
@@ -248,7 +180,7 @@ def _spill_parts(
     Args:
         path: The file being trimmed; only read here.
         side: Which end is removed.
-        size: Bytes that stay, and the part size unless 0.
+        size: Bytes that stay, and the part size unless that makes more than `_SPILL_PARTS` parts.
         dropped: Bytes that go.
         spill: `True` for the file's own directory, or the directory to use.
         fsync: Whether to flush each part.
@@ -261,9 +193,8 @@ def _spill_parts(
     from ..write import atomic_write  # noqa: PLC0415 - see above
 
     folder = ensure_dir(path.parent if spill is True else resolve_path(spill))
-    part_size = size or math.ceil(
-        dropped / _SPILL_PARTS
-    )  # Rounded up, or a tiny spill would write no part.
+    # Rounded up, or a tiny spill would write no part.
+    part_size = max(size, math.ceil(dropped / _SPILL_PARTS))
     number = _next_part(folder, path.name)
     left = dropped
     parts: list[Path] = []
@@ -297,15 +228,10 @@ def _spill_parts(
 
 __all__ = (
     "_MkdirOptions",
-    "_json_dumps",
-    "_json_loads",
     "_next_part",
     "_on_exc_remove_folders",
     "_remove",
     "_rmtree",
     "_spill_parts",
-    "_ORJSON_COMPAT",
-    "_ORJSON_DUMP_KEYS",
     "_SPILL_PARTS",
-    "HAS_ORJSON",
 )

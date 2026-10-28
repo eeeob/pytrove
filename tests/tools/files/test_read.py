@@ -4,6 +4,7 @@ from __future__ import annotations as _annotations
 
 import threading
 from typing import TYPE_CHECKING
+from unittest.mock import Mock, call
 
 import pytest
 
@@ -13,35 +14,21 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-class _Lock:
-    """A lock that records every acquire and release."""
-
-    def __init__(self) -> None:
-        self.calls: list[str] = []
-
-    def acquire(self) -> bool:
-        self.calls.append("acquire")
-        return True
-
-    def release(self) -> None:
-        self.calls.append("release")
-
-
-class _FailingLock(_Lock):
-    """A lock whose `acquire` raises, recording any `release` it is wrongly given."""
-
-    def acquire(self) -> bool:
-        self.calls.append("acquire")
-        msg = "lock timed out"
-        raise TimeoutError(msg)
-
-
 def test_read_file_reads_text_or_bytes(tmp_path: Path) -> None:
     target = tmp_path / "f.txt"
     target.write_bytes("é".encode())
 
     assert read_file(target) == "é"
     assert read_file(str(target), binary=True) == "é".encode()
+
+
+@pytest.mark.parametrize("binary", [False, True])
+def test_read_file_takes_binary_as_a_plain_bool(tmp_path: Path, binary: bool) -> None:
+    # A `bool` variable, not a literal: the last overload types the result `str | bytes`.
+    target = tmp_path / "f.txt"
+    target.write_bytes(b"x")
+
+    assert read_file(target, binary=binary) == (b"x" if binary else "x")
 
 
 def test_read_file_honours_the_encoding(tmp_path: Path) -> None:
@@ -69,12 +56,12 @@ def test_read_file_holds_the_lock_around_the_read_and_releases_it_either_way(
     assert read_file(target, lock=lock) == "x"
     assert not lock.locked()
 
-    recording = _Lock()
+    recording = Mock()
 
     with pytest.raises(FileNotFoundError):
         read_file(tmp_path / "missing", lock=recording)
 
-    assert recording.calls == ["acquire", "release"]
+    assert recording.mock_calls == [call.acquire(), call.release()]
 
 
 def test_read_file_raises_for_a_missing_file(tmp_path: Path) -> None:
@@ -88,9 +75,9 @@ def test_read_file_raises_for_a_missing_file(tmp_path: Path) -> None:
 def test_read_file_raises_a_failed_acquire_as_is_and_never_releases(tmp_path: Path) -> None:
     target = tmp_path / "f.txt"
     target.write_text("x", encoding="utf-8")
-    lock = _FailingLock()
+    lock = Mock(**{"acquire.side_effect": TimeoutError("lock timed out")})
 
     with pytest.raises(TimeoutError, match="lock timed out"):
         read_file(target, lock=lock)
 
-    assert lock.calls == ["acquire"]
+    assert lock.mock_calls == [call.acquire()]

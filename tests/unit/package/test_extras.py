@@ -44,8 +44,7 @@ EXTRAS: Final[dict[str, Extra]] = {
     "typecheck": Extra(("typeguard",), ("typeguard",), "pytrove.validate_type(1, int)"),
     "proxy": Extra(("wrapt",), ("wrapt",), "pytrove.RestrictedProxy(object())"),
     "locale": Extra(("babel",), ("babel",), "pytrove.get_clanguage_code('SA')"),
-    # `orjson` only speeds JSON I/O up; `jsonref` is the part that raises without the extra.
-    "json": Extra(("jsonref", "orjson"), ("jsonref", "orjson"), "pytrove.resolve_json_refs({})"),
+    "json": Extra(("jsonref",), ("jsonref",), "pytrove.resolve_json_refs({})"),
     # zstd is in the standard library from 3.14, so only older versions reach the gate.
     "archive": Extra(
         ("zstandard", "fastzip", "pathspec"),

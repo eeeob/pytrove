@@ -5,7 +5,7 @@ from __future__ import annotations as _annotations
 import os
 import tempfile
 from contextlib import contextmanager
-from typing import IO, TYPE_CHECKING, Any, overload
+from typing import IO, TYPE_CHECKING, Any, Literal, overload
 
 from .._internal import _COPY_BUF
 from ..callable_tools import safe_call
@@ -34,7 +34,7 @@ def atomic_write(
     """Open a temp file that replaces `path` only when the block exits cleanly.
 
     A reader never sees a partial file, and a block that raises leaves the old
-    contents untouched. The temp file is removed either way.
+    contents untouched. A failed write removes the temp file.
 
     Args:
         path: The file to write.
@@ -62,7 +62,9 @@ def atomic_write(
         lock.acquire()
 
     try:
+        # `mkstemp` creates it `0o600`, so it stays private until the `chmod` below.
         fd, tmp_path = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=directory)
+        replaced = False
 
         try:
             with os.fdopen(fd, "wb" if binary else "w", encoding=None if binary else encoding) as f:
@@ -74,6 +76,7 @@ def atomic_write(
 
             os.chmod(tmp_path, mode)
             os.replace(tmp_path, path)
+            replaced = True
 
             if fsync:
                 # The rename lives in the directory, which needs its own `fsync` to survive a power loss.
@@ -86,7 +89,8 @@ def atomic_write(
                 except OSError:
                     pass
         finally:
-            remove_file(tmp_path, return_exc=True, log_exc=True)
+            if not replaced:
+                remove_file(tmp_path, return_exc=True, log_exc=True)
     finally:
         if lock is not None:
             lock.release()
@@ -126,27 +130,39 @@ def write_file(
 def truncate_file(
     path: PathLike,
     size: int,
-    cut: TruncateSide = TruncateSide.HEAD,
+    cut: TruncateSide | Literal["head", "tail"] = TruncateSide.HEAD,
     spill: _False = False,
     fsync: bool = True,
 ) -> Path: ...
 @overload
 def truncate_file(
-    path: PathLike, size: int, cut: TruncateSide, spill: _True | PathLike, fsync: bool = True
+    path: PathLike,
+    size: int,
+    cut: TruncateSide | Literal["head", "tail"],
+    spill: _True | PathLike,
+    fsync: bool = True,
 ) -> list[Path]: ...
 @overload
 def truncate_file(
     path: PathLike,
     size: int,
-    cut: TruncateSide = TruncateSide.HEAD,
+    cut: TruncateSide | Literal["head", "tail"] = TruncateSide.HEAD,
     *,
     spill: _True | PathLike,
     fsync: bool = True,
 ) -> list[Path]: ...
+@overload
 def truncate_file(
     path: PathLike,
     size: int,
-    cut: TruncateSide = TruncateSide.HEAD,
+    cut: TruncateSide | Literal["head", "tail"] = TruncateSide.HEAD,
+    spill: bool | PathLike = False,
+    fsync: bool = True,
+) -> Path | list[Path]: ...
+def truncate_file(
+    path: PathLike,
+    size: int,
+    cut: TruncateSide | Literal["head", "tail"] = TruncateSide.HEAD,
     spill: bool | PathLike = False,
     fsync: bool = True,
 ) -> Path | list[Path]:
@@ -155,15 +171,17 @@ def truncate_file(
     `HEAD` keeps the last `size` bytes (as a log wants) by rewriting through a
     rename, so the inode changes; `TAIL` keeps the first `size` bytes in place.
     Spilled bytes go to `<file>.1`, `<file>.2`, ... in original order, numbered
-    after any existing parts, and are flushed before the file is cut, so an
-    interruption can duplicate bytes but never lose them. Mode is preserved.
+    after any existing parts, and are written before the file is cut, so an
+    interruption or a failed spill can duplicate bytes but never lose them.
+    One call writes at most ten parts of `size` bytes each, longer ones when
+    ten of that size would not hold the spill. Mode is preserved.
 
     Args:
         path: The file to trim.
-        size: Bytes to leave; also the spill part size, or a tenth of the spill when 0.
+        size: Bytes to leave; also the spill part size, within the ten-part cap.
         cut: Which end goes, as the enum or its string.
         spill: `False` to discard the removed bytes, `True` to write them beside
-            the file, or a directory to write them into.
+            the file, or a directory to write them into (`""` is the current one).
         fsync: Whether to flush everything written to disk.
 
     Returns:
@@ -171,7 +189,9 @@ def truncate_file(
 
     Raises:
         ValidationError: If `size` is not a non-negative int or `path` is not a file.
+        ValueError: If `cut` is neither a `TruncateSide` nor one of its values.
         FileNotFoundError: If `path` does not exist.
+        FileExistsError: If `spill` names a file rather than a directory; nothing is cut.
     """
     path = resolve_path(path, strict=True)
     side = TruncateSide(cut)
@@ -187,10 +207,11 @@ def truncate_file(
     total = path.stat().st_size
 
     if total <= size:
-        return [] if spill else path
+        return path if spill is False else []
 
     dropped = total - size
-    parts = _spill_parts(path, side, size, dropped, spill, fsync) if spill else []
+    # `is False`, not truthiness: `""` names a directory too.
+    parts = [] if spill is False else _spill_parts(path, side, size, dropped, spill, fsync)
 
     if side == TruncateSide.TAIL:
         with open(path, "r+b") as f:
@@ -206,7 +227,7 @@ def truncate_file(
             while chunk := src.read(_COPY_BUF):
                 out.write(chunk)
 
-    return parts if spill else path
+    return path if spill is False else parts
 
 
 __all__ = (

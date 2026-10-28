@@ -109,9 +109,6 @@ locale = [
 json = [
     # `$ref` resolution. Floor set when the feature was added; clean.
     "jsonref>=1.1",
-    # The fast path for JSON I/O; without it the standard `json` is used.
-    # 3.9.0 carries CVE-2024-27454 and 3.10 through 3.11.5 carry CVE-2025-67221.
-    "orjson>=3.11.7",
 ]
 archive = [
     # Floor set when the feature was added; clean. 3.14 uses the stdlib
@@ -292,7 +289,7 @@ python-platform = "linux"
 # nothing. `compression` is the 3.14+ standard-library package, absent at the 3.10 floor.
 allowed-unresolved-imports = [
     "aioimaplib.**", "babel.**", "bs4.**", "compression.**", "cryptography.**",
-    "jsonref.**", "orjson.**", "pathspec.**", "phonenumbers.**", "pycountry.**",
+    "jsonref.**", "pathspec.**", "phonenumbers.**", "pycountry.**",
     "pymongo.**", "pyrogram.**", "typeguard.**", "wrapt.**", "zstandard.**",
 ]
 
