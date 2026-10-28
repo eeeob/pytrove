@@ -6,12 +6,13 @@ import functools
 from typing import TYPE_CHECKING, Any, overload
 
 from .._internal import _ignore_arguments
+from ._internal import _is_async_callable
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from ..typings import _False, _FT, _P, _T, _True
-    from ._internal import _LazyCallAll
+    from ._internal import _ConstantDecorator, _Coro, _LazyCallAll
 
 
 @overload
@@ -83,8 +84,12 @@ def call_all(*funcs: Callable[[], Any], lazy: bool = False) -> Any:
     return tuple(func() for func in funcs)
 
 
-def juxt(*funcs: Callable[_P, _T]) -> Callable[_P, tuple[_T, ...]]:
+def juxt(*funcs: Callable[..., _T]) -> Callable[..., tuple[_T, ...]]:
     """Fan one call out to many functions.
+
+    The functions need not share one signature (`str.upper` and `len` take
+    different parameter types), so the result's parameters are not checked
+    statically; its element type is the union of their result types.
 
     Args:
         *funcs: The functions, all called with the same arguments.
@@ -97,7 +102,7 @@ def juxt(*funcs: Callable[_P, _T]) -> Callable[_P, tuple[_T, ...]]:
         ('AB', 2)
     """
 
-    def fanned(*args: _P.args, **kwargs: _P.kwargs) -> tuple[_T, ...]:
+    def fanned(*args: Any, **kwargs: Any) -> tuple[_T, ...]:
         """Call every function with these arguments.
 
         Args:
@@ -124,19 +129,25 @@ def ignore_arguments(func: Callable[[], _T]) -> Callable[..., _T]:
     return _ignore_arguments(func)
 
 
-# `value` omitted has its own arms typed `None`: a `None` default cannot solve `_T`.
+# `value` omitted has its own arms typed `None`: a `None` default cannot solve `_T`. A coroutine
+# function comes first, since its wrapper stays a coroutine function.
+@overload
+def return_constant(func: Callable[_P, _Coro[Any]]) -> Callable[_P, _Coro[None]]: ...
 @overload
 def return_constant(func: Callable[_P, Any]) -> Callable[_P, None]: ...
 @overload
+def return_constant(func: Callable[_P, _Coro[Any]], *, value: _T) -> Callable[_P, _Coro[_T]]: ...
+@overload
 def return_constant(func: Callable[_P, Any], *, value: _T) -> Callable[_P, _T]: ...
 @overload
-def return_constant(func: None = None) -> Callable[[Callable[_P, Any]], Callable[_P, None]]: ...
+def return_constant(func: None = None) -> _ConstantDecorator[None]: ...
 @overload
-def return_constant(
-    func: None = None, *, value: _T
-) -> Callable[[Callable[_P, Any]], Callable[_P, _T]]: ...
+def return_constant(func: None = None, *, value: _T) -> _ConstantDecorator[_T]: ...
 def return_constant(func: Callable[_P, Any] | None = None, *, value: Any = None) -> Any:
     """Wrap a function so it runs as usual but always returns `value`.
+
+    An async function (as `middleware` decides it) gets an async wrapper that
+    awaits it before returning `value`.
 
     Args:
         func: The function; omit it to get a decorator.
@@ -153,13 +164,21 @@ def return_constant(func: Callable[_P, Any] | None = None, *, value: Any = None)
     if func is None:
         return functools.partial(return_constant, value=value)
 
-    @functools.wraps(func)
-    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Any:
-        """Call `func` and return `value` instead of its result."""
-        func(*args, **kwargs)
-        return value
+    if _is_async_callable(func):
 
-    return wrapper
+        async def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Any:
+            """Await `func` and return `value` instead of its result."""
+            await func(*args, **kwargs)
+            return value
+
+    else:
+
+        def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Any:
+            """Call `func` and return `value` instead of its result."""
+            func(*args, **kwargs)
+            return value
+
+    return functools.wraps(func)(wrapper)
 
 
 __all__ = (

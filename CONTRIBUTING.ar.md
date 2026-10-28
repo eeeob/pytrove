@@ -31,7 +31,7 @@ make hooks    # the pre-commit hooks: `make lint` and `make typecheck` before ev
 | helper يستعمله قسم واحد | ملف `_internal.py` الخاص بذلك القسم (أو package `_internal/`) | 1.5 |
 | helper يستعمله قسمان أو أكثر | `pytrove/_internal/` | 1.5 |
 | تبعية خارجية | extra في `pyproject.toml`، محمية عبر `pytrove/_internal/_optional.py`؛ ثم `uv lock`، ويُرفَق `uv.lock` بالتغيير | 2.1–2.4 |
-| اختبار | `tests/unit/<section>/` أو `tests/tools/<group>/`، بما يعكس بنية المكتبة | 0.1 |
+| اختبار | `tests/unit/<section>/` أو `tests/tools/<group>/`، بما يعكس بنية المكتبة؛ واختبار الأنواع الساكن في `tests/typing/<group>/` | 0.1 |
 
 الـ module المقسَّم يحتفظ بواجهة موحدة واحدة في `__init__.py` الخاص به (1.8). والاسم العام الجديد يُضاف إلى `__all__` في الـ module الخاص به ويصل إلى إحدى نقاط الدخول الست (1.2، 1.7).
 
@@ -60,7 +60,7 @@ docstring بأسلوب Google على كل دالة وكلاس، وdocstring من
 |---|---|---|
 | `make format` | `ruff format` على `pytrove` و`tests` و`devtools` | قبل الـ commit |
 | `make lint` | `ruff check` و`ruff format --check` على الشجرة نفسها | كل commit (يشغّله الـ hook) |
-| `make typecheck` | `ty` على `pytrove`، مقابل الحد الأدنى 3.10 | كل commit (يشغّله الـ hook) |
+| `make typecheck` | `ty` على `pytrove` وعلى اختبارات الأنواع الساكنة في `tests/typing`، مقابل الحد الأدنى 3.10 | كل commit (يشغّله الـ hook) |
 | `make test` | المجموعة كاملة مع كل extra مثبّت | قبل الـ pull request |
 | `make test-doctest` | كل قسم `Example` (5.5) | بعد لمس أي `Example` |
 | `make test-minimal` | الحزمة المجردة مع مشغّل الاختبارات (0.3) | بعد لمس كود خلف extra |
@@ -76,7 +76,7 @@ Conventional Commits للرسالة والعنوان، و`!` مع ملاحظة `
 
 ### الأولوية 0 — الاختبارات
 
-**0.1 شجرة الاختبارات.** `tests/unit/<section>/` (`enums/` و`errors/` و`models/` و`typings/` …) تحوي اختبارات الوحدات، و`tests/tools/<group>/` (`archive/` و`async/` و`files/` …) تحوي اختبارات الأدوات، بما يعكس بنية المكتبة نفسها. ولا تُجمَع اختبارات غير مترابطة في ملف أو مجلد عام.
+**0.1 شجرة الاختبارات.** `tests/unit/<section>/` (`enums/` و`errors/` و`models/` و`typings/` …) تحوي اختبارات الوحدات، و`tests/tools/<group>/` (`archive/` و`async/` و`files/` …) تحوي اختبارات الأدوات، بما يعكس بنية المكتبة نفسها. و`tests/typing/<group>/` تحوي اختبارات الأنواع الساكنة لمجموعة أدوات (فحوص `assert_type` واستدعاءات يجب أن يرفضها `ty`)، ملفًا لكل module تفحصه، بما يعكس `tests/tools/<group>/`؛ يفحصها `make typecheck` ويشغّلها pytest أيضًا. ولا تُجمَع اختبارات غير مترابطة في ملف أو مجلد عام.
 
 **0.2 كل عنصر يُختبر.** كل دالة وأداة وكلاس وmethod وproperty وhelper داخلي وثابت وenum وتعريف على مستوى الـ module له اختبار يتحقق من سلوكه هو وفروعه وحالاته الحدّية ومسارات أخطائه؛ ولا يكفي استيراد الـ module أو المرور على العنصر عرضًا. والواجهة العامة تُختبر أيضًا، ومنها نقاط الدخول الست في 1.2. والـ module الذي يقرأ بيانات مرفقة يُختبر أنه لا يحمّلها عند الاستيراد وأنه يحمّلها عند أول استعمال.
 

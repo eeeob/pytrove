@@ -57,9 +57,12 @@ lint:
 # from an environment that holds every extra: the `mongo` extra skips 3.10, and
 # `ty` 0.0.88 overflows its stack against a 3.14 interpreter, so CI runs this
 # on 3.11. `typings/_core_py312.py` is PEP 695 syntax, excluded in
-# `[tool.ty.src]` and checked on its own against 3.12.
+# `[tool.ty.src]` and checked on its own against 3.12. `tests/typing` holds the
+# static type tests: `assert_type` checks and calls that must fail, marked with a
+# `ty: ignore` that `--error-on-warning` turns into a failure once it is unused.
 typecheck:
 	$(RUN) ty check pytrove
+	$(RUN) ty check --error-on-warning tests/typing
 	$(RUN) ty check --python-version 3.12 pytrove/typings/_core_py312.py
 
 test:

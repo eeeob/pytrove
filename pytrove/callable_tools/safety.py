@@ -7,8 +7,9 @@ import logging
 from typing import TYPE_CHECKING, Any, overload
 
 from .._internal import _HARD_PROPAGATE, _check_swallow_options, _is_swallowed
-from ..iter_tools import iter_flat_cont, to_frozenset
-from ..validate_tools import iscoroutinefunction_wrapped
+from ..iter_tools import iter_flat_cont
+from ..async_tools import call_sync_or_await
+from ._internal import _is_async_callable
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Hashable
@@ -20,12 +21,13 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-# The flag arms come first and the `return_exc=False` arm (or nothing) last: every arm takes
-# `**kwargs: Any`, so an arm without a flag would match a call that passes one and hide it.
+# Every arm names both flags: each takes `**kwargs: Any`, so an arm without a flag would let
+# `**kwargs` absorb it and type-check `return_exc=True, raise_exc=True`, a runtime `TypeError`.
 @overload
 def safe_call(
     func: Callable[..., _T],
     *args: Any,
+    return_exc: _False = False,
     raise_exc: _True,
     include_exc: _ExcFilter = None,
     exclude_exc: _ExcFilter = None,
@@ -37,6 +39,7 @@ def safe_call(
     func: Callable[..., _T],
     *args: Any,
     return_exc: _True,
+    raise_exc: _False = False,
     include_exc: type[_ExcT],
     exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
@@ -47,6 +50,7 @@ def safe_call(
     func: Callable[..., _T],
     *args: Any,
     return_exc: _True,
+    raise_exc: _False = False,
     include_exc: tuple[type[_ExcT], ...],
     exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
@@ -57,6 +61,7 @@ def safe_call(
     func: Callable[..., _T],
     *args: Any,
     return_exc: _True,
+    raise_exc: _False = False,
     include_exc: _ExcFilter = None,
     exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
@@ -67,6 +72,7 @@ def safe_call(
     func: Callable[..., _T],
     *args: Any,
     return_exc: _False = False,
+    raise_exc: _False = False,
     include_exc: _ExcFilter = None,
     exclude_exc: _ExcFilter = None,
     log_exc: _ExcLogger = False,
@@ -151,10 +157,17 @@ def raise_if(
     """Decorate a sync or async function to raise when its result matches.
 
     A result raises when `always` is set, when it is one of `values`, or when
-    its truth value equals `bool_value`. An unhashable result never matches `values`.
+    its truth value equals `bool_value`. `values` is flattened, `None` leaves included,
+    and an unhashable result never matches it.
+    A function is async as `middleware` decides it; its result is awaited when awaitable.
+
+    An exception instance is shared by every raise: each one clears its
+    `__traceback__` and `__context__` first, so they do not pile up across raises.
+    Pass a class or factory when the decorated function may raise from several
+    threads at once.
 
     Args:
-        exc: The exception to raise, or a factory building a fresh one each time.
+        exc: The exception to raise, or a class or factory building a fresh one each time.
         bool_value: The truth value that raises; `None` to ignore truthiness.
         values: The results that raise.
         always: Whether every result raises.
@@ -163,7 +176,8 @@ def raise_if(
         The decorator.
 
     Raises:
-        ValueError: If `always` is combined with `bool_value` or `values`.
+        ValueError: If `always` is combined with `bool_value` or `values`, or if
+            none of the three is given, so nothing could ever raise.
 
     Example:
         >>> @raise_if(ValueError("empty"), bool_value=False)
@@ -179,7 +193,14 @@ def raise_if(
         msg = "raise_if: can't pass bool_value or values when always=True"
         raise ValueError(msg)
 
-    listed = to_frozenset(iter_flat_cont(values))
+    if not always and bool_value is None and values is None:
+        msg = "raise_if: pass bool_value, values or always=True, or nothing can ever raise"
+        raise ValueError(msg)
+
+    # `None` is a value to match like any other here, so the flattening keeps it.
+    listed = (
+        frozenset() if values is None else frozenset(iter_flat_cont(values, exclude_none=False))
+    )
 
     def _matches(result: Any) -> bool:
         """Tell whether a result should raise.
@@ -197,6 +218,18 @@ def raise_if(
 
         return always or is_listed or (bool_value is not None and bool(result) == bool_value)
 
+    def _to_raise() -> BaseException:
+        """Build the exception for one raise.
+
+        Returns:
+            A fresh one from the factory, or the shared instance with its traceback and context cleared.
+        """
+        if not isinstance(exc, BaseException):
+            return exc()
+
+        exc.__context__ = None
+        return exc.with_traceback(None)
+
     def decorator(func: Callable[_P, Any]) -> Callable[_P, Any]:
         """Wrap `func`.
 
@@ -206,27 +239,26 @@ def raise_if(
         Returns:
             The wrapper.
         """
-        if iscoroutinefunction_wrapped(func):
+        if _is_async_callable(func):
 
-            async def async_wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Any:
+            async def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Any:
                 """Await `func` and raise on a matching result."""
-                result = await func(*args, **kwargs)
+                result = await call_sync_or_await(func, *args, **kwargs)
 
                 if _matches(result):
-                    raise exc if isinstance(exc, BaseException) else exc()
+                    raise _to_raise()
 
                 return result
+        else:
 
-            return functools.wraps(func)(async_wrapper)
+            def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Any:
+                """Call `func` and raise on a matching result."""
+                result = func(*args, **kwargs)
 
-        def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Any:
-            """Call `func` and raise on a matching result."""
-            result = func(*args, **kwargs)
+                if _matches(result):
+                    raise _to_raise()
 
-            if _matches(result):
-                raise exc if isinstance(exc, BaseException) else exc()
-
-            return result
+                return result
 
         return functools.wraps(func)(wrapper)
 

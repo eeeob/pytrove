@@ -31,7 +31,7 @@ One cohesive change per branch, never on `main`, ending in a pull request (5.8).
 | a helper one section uses | that section's own `_internal.py` (or `_internal/` package) | 1.5 |
 | a helper two or more sections use | `pytrove/_internal/` | 1.5 |
 | an external dependency | an extra in `pyproject.toml`, guarded through `pytrove/_internal/_optional.py`; then `uv lock`, and `uv.lock` is committed with it | 2.1–2.4 |
-| a test | `tests/unit/<section>/` or `tests/tools/<group>/`, mirroring the library | 0.1 |
+| a test | `tests/unit/<section>/` or `tests/tools/<group>/`, mirroring the library; a static type test in `tests/typing/<group>/` | 0.1 |
 
 A split module keeps one unified interface in its `__init__.py` (1.8). A new public name goes into its module's `__all__` and reaches one of the six entry points (1.2, 1.7).
 
@@ -60,7 +60,7 @@ A Google-style docstring on every function and class, a one-line docstring under
 |---|---|---|
 | `make format` | `ruff format` over `pytrove`, `tests` and `devtools` | before committing |
 | `make lint` | `ruff check` and `ruff format --check` over the same tree | every commit (the hook) |
-| `make typecheck` | `ty` over `pytrove`, against the 3.10 floor | every commit (the hook) |
+| `make typecheck` | `ty` over `pytrove` and the static type tests in `tests/typing`, against the 3.10 floor | every commit (the hook) |
 | `make test` | the suite with every extra installed | before the pull request |
 | `make test-doctest` | every `Example` section (5.5) | after touching an `Example` |
 | `make test-minimal` | the bare package plus the test runner (0.3) | after touching code behind an extra |
@@ -76,7 +76,7 @@ Conventional Commits for the message and the title, `!` plus a `BREAKING CHANGE`
 
 ### Priority 0 — Tests
 
-**0.1 Test tree.** `tests/unit/<section>/` (`enums/`, `errors/`, `models/`, `typings/`, …) holds the unit tests and `tests/tools/<group>/` (`archive/`, `async/`, `files/`, …) the tool tests, mirroring the library's own structure. Unrelated tests are never grouped in a general file or directory.
+**0.1 Test tree.** `tests/unit/<section>/` (`enums/`, `errors/`, `models/`, `typings/`, …) holds the unit tests and `tests/tools/<group>/` (`archive/`, `async/`, `files/`, …) the tool tests, mirroring the library's own structure. `tests/typing/<group>/` holds the static type tests of a tool group (`assert_type` checks and calls that must fail `ty`), one file per module it checks, mirroring `tests/tools/<group>/`; `make typecheck` checks them and pytest runs them too. Unrelated tests are never grouped in a general file or directory.
 
 **0.2 Every element is tested.** Every function, tool, class, method, property, internal helper, constant, enum and module-level definition has a test that verifies its own behaviour, branches, edge cases and error paths; importing the module or passing over the element incidentally does not count. The public interface is tested too, including the six entry points of 1.2. A module that reads bundled data is tested to not load it at import and to load it on first use.
 
