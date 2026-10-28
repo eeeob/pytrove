@@ -1,6 +1,7 @@
 from __future__ import annotations as _annotations
 
 import importlib
+import pkgutil
 import re
 from collections import Counter
 from pathlib import Path
@@ -67,19 +68,28 @@ def test_tools_entry_point_holds_no_type_error_model_enum_or_constant() -> None:
     assert not set(pytrove.__all__) & others
 
 
-@pytest.mark.parametrize(
-    "package",
-    [
-        pytrove,
-        pytrove.device_tools,
-        pytrove.object_tools,
-        pytrove.tg_tools,
-        pytrove.constants,
-        pytrove.models,
-        pytrove.typings,
-    ],
-)
-def test_an_aggregator_is_the_union_of_its_modules(package: object) -> None:
+def _public_packages() -> list[str]:
+    """Name `pytrove` and every public package under it, private paths left out."""
+    found = pkgutil.walk_packages(pytrove.__path__, "pytrove.")
+    return ["pytrove"] + sorted(
+        info.name
+        for info in found
+        if info.ispkg and not any(part.startswith("_") for part in info.name.split("."))
+    )
+
+
+def test_the_aggregator_walk_finds_every_section() -> None:
+    packages = _public_packages()
+    assert {"pytrove.archive_tools", "pytrove.models.template_models", "pytrove.typings"} <= set(
+        packages
+    )
+    assert not [p for p in packages if "._" in p]
+
+
+@pytest.mark.parametrize("name", _public_packages())
+def test_an_aggregator_is_the_union_of_its_modules(name: str) -> None:
+    package = importlib.import_module(name)
+    assert len(package.__all__) == len(set(package.__all__)), "a name is listed twice"
     root = Path(package.__file__).parent
     modules = [
         p.stem for p in root.glob("*.py") if p.stem != "__init__" and not p.stem.startswith("_")

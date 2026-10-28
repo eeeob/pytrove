@@ -193,8 +193,8 @@ def middleware(func: Callable[_P, Any] | None = None, **kw: Any) -> Any:
 
             try:
                 result = await func(*args, **kwargs)
-            except _HARD_PROPAGATE as exc:
-                raise exc
+            except _HARD_PROPAGATE:
+                raise
             except BaseException as e:
                 if on_error is None:
                     raise e
@@ -214,8 +214,8 @@ def middleware(func: Callable[_P, Any] | None = None, **kw: Any) -> Any:
 
         try:
             result = func(*args, **kwargs)
-        except _HARD_PROPAGATE as exc:
-            raise exc
+        except _HARD_PROPAGATE:
+            raise
         except BaseException as e:
             if on_error is None:
                 raise e

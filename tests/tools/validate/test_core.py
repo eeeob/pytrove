@@ -1,7 +1,7 @@
 from __future__ import annotations as _annotations
 
 import functools
-from collections import OrderedDict
+from collections import OrderedDict, UserString
 from typing import TYPE_CHECKING, Any, Union
 
 import pytest
@@ -232,3 +232,11 @@ def test_all_deep_and_any_deep_flatten_and_skip_none() -> None:
     assert not all_deep([1, [0]])
     assert any_deep([0, [None, ("", 5)]])
     assert not any_deep([0, [None, ""]])
+
+
+def test_a_user_string_is_a_leaf_for_the_deep_checks() -> None:
+    assert not is_container(UserString("ab"))
+    assert all_deep([UserString("ab")]) is True
+    assert all_deep([UserString("")]) is False
+    assert any_deep([UserString("")]) is False
+    assert not is_sub_container(UserString)

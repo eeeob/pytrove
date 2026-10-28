@@ -89,6 +89,9 @@ def is_tg_bot_token(bot_token: Any) -> TypeIs[str]:
 def is_tg_bot_command(message: Message | str) -> TypeIs[str]:
     """Tell whether a message, or its text, is exactly one bot command.
 
+    The command may carry the `@botname` suffix Telegram adds in groups
+    (`/start@my_bot`); arguments after it, or a trailing newline, make it false.
+
     Args:
         message: A Pyrogram `Message` or its text.
 

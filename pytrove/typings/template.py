@@ -7,13 +7,7 @@ unprefixed `LineDict` would read as a package-wide type.
 
 from __future__ import annotations as _annotations
 
-import sys
 from typing import TYPE_CHECKING, Literal, TypeAlias, TypedDict
-
-if sys.version_info >= (3, 11):
-    from typing import NotRequired
-else:
-    from typing_extensions import NotRequired
 
 if TYPE_CHECKING:
     from pyrogram.enums import ParseMode as PyroParseMode  # type: ignore[import-not-found]  # Optional: the `tg` extra.
@@ -28,20 +22,20 @@ TemplateParseMode: TypeAlias = Literal["html", "markdown"]
 """The parse mode a template's message is written in."""
 
 
-class TemplateDefaultsDict(TypedDict):
+class TemplateDefaultsDict(TypedDict, total=False):
     """Keys every renderable part accepts."""
 
-    default_keys: NotRequired[dict[str, JsonValue]]
+    default_keys: dict[str, JsonValue]
     """Fallback values for keys not passed to `format()`; a key filled here counts as present for `any_of`/`all_of`."""
 
 
-class TemplateConditionalDict(TemplateDefaultsDict):
+class TemplateConditionalDict(TemplateDefaultsDict, total=False):
     """Keys a part uses to opt out of rendering."""
 
-    any_of: NotRequired[MaybeList[str]]
+    any_of: MaybeList[str]
     """The part renders only if at least one of these keys is present."""
 
-    all_of: NotRequired[MaybeList[str]]
+    all_of: MaybeList[str]
     """The part renders only if all of these keys are present."""
 
 
@@ -62,8 +56,8 @@ class TemplateEachLineDict(TypedDict):
     """The line rendered for every element; a bare string is its `text`."""
 
 
-class TemplateButtonDict(TemplateConditionalDict):
-    """One inline button."""
+class _TemplateButtonRequiredDict(TemplateConditionalDict):
+    """The keys every `TemplateButtonDict` must have."""
 
     text: str
     """The button label, a `str.format` template."""
@@ -74,12 +68,16 @@ class TemplateButtonDict(TemplateConditionalDict):
     value: str
     """The URL or callback data, a `str.format` template."""
 
-    meta: NotRequired[dict[str, StrInt]]
+
+class TemplateButtonDict(_TemplateButtonRequiredDict, total=False):
+    """One inline button."""
+
+    meta: dict[str, StrInt]
     """Extra `InlineKeyboardButton` arguments as raw JSON, such as `{"style": "primary"}`; compiling restores enum members."""
 
 
-class TemplateEachButtonDict(TypedDict):
-    """A button repeated once per element of a list argument."""
+class _TemplateEachButtonRequiredDict(TypedDict):
+    """The keys every `TemplateEachButtonDict` must have."""
 
     each: str
     """The `format()` argument holding the list; only mapping elements render."""
@@ -87,61 +85,65 @@ class TemplateEachButtonDict(TypedDict):
     item: TemplateButtonDict
     """The button rendered for every element."""
 
-    row_width: NotRequired[int]
+
+class TemplateEachButtonDict(_TemplateEachButtonRequiredDict, total=False):
+    """A button repeated once per element of a list argument."""
+
+    row_width: int
     """Buttons per keyboard row; 2 when omitted."""
 
 
-class TemplateRichMessageDict(TemplateDefaultsDict):
+class TemplateRichMessageDict(TemplateDefaultsDict, total=False):
     """A rich message, sent with `Client.send_rich_message`."""
 
-    html: NotRequired[list[str | TemplateLineDict | TemplateEachLineDict]]
+    html: list[str | TemplateLineDict | TemplateEachLineDict]
     """The message lines, written as HTML; tried before `markdown`."""
 
-    markdown: NotRequired[list[str | TemplateLineDict | TemplateEachLineDict]]
+    markdown: list[str | TemplateLineDict | TemplateEachLineDict]
     """The message lines, written as Markdown; used only if no `html` line rendered."""
 
-    is_rtl: NotRequired[bool]
+    is_rtl: bool
     """Whether the message reads right to left; passed to `InputRichMessage`."""
 
-    skip_entity_detection: NotRequired[bool]
+    skip_entity_detection: bool
     """Whether Telegram should skip detecting entities; passed to `InputRichMessage`."""
 
 
-class TemplateDict(TemplateDefaultsDict):
+class TemplateDict(TemplateDefaultsDict, total=False):
     """A whole message template."""
 
-    message: NotRequired[list[str | TemplateLineDict | TemplateEachLineDict]]
+    message: list[str | TemplateLineDict | TemplateEachLineDict]
     """The message lines, joined by newlines."""
 
-    buttons: NotRequired[list[MaybeList[TemplateButtonDict] | TemplateEachButtonDict]]
+    buttons: list[MaybeList[TemplateButtonDict] | TemplateEachButtonDict]
     """Keyboard rows: one button (a row of just it), a list of buttons, or a repeated button."""
 
-    parse_mode: NotRequired[TemplateParseMode]
+    parse_mode: TemplateParseMode
     """The parse mode of `message`; the file-wide default when omitted."""
 
-    rich_message: NotRequired[TemplateRichMessageDict]
+    rich_message: TemplateRichMessageDict
     """A rich message to send instead of `message`."""
 
-    key_time: NotRequired[str]
+    key_time: str
     """A `format()` key filled with `arabic_time()` when not passed; the file-wide default when omitted."""
 
 
-class TemplatePyroMessage(TypedDict):
+class TemplatePyroMessage(TypedDict, total=False):
     """What `CompiledTemplate.format()` returns, ready to spread into `Client.send_message()`.
 
     Every key is optional because `format()` drops the ones that came out empty.
     """
 
-    text: NotRequired[str]
+    text: str
     """The rendered message; absent when `rich_message` is present."""
 
-    parse_mode: NotRequired[PyroParseMode]
+    parse_mode: PyroParseMode
     """The parse mode of `text`."""
 
-    rich_message: NotRequired[InputRichMessage]
+    rich_message: InputRichMessage
     """The rendered rich message, replacing `text`/`parse_mode`."""
 
-    reply_markup: NotRequired[InlineKeyboardMarkup]
+    reply_markup: InlineKeyboardMarkup
     """The rendered keyboard."""
 
 

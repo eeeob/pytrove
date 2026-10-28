@@ -1,6 +1,7 @@
 from __future__ import annotations as _annotations
 
 import sys
+from collections import UserString
 from collections.abc import Iterable, Iterator
 from typing import Any, Generic, TypeVar
 
@@ -177,3 +178,13 @@ def test_flat_map_excludes_none_by_default() -> None:
 
 def test_flat_map_keeps_none_when_asked() -> None:
     assert flat_map({"a": None, "b": 1}, exclude_none=False) == ["a", None, "b", 1]
+
+
+def test_every_flattener_keeps_a_user_string_whole() -> None:
+    text = UserString("ab")
+    assert list(iter_flat_cont([text, ["c"]])) == [text, "c"]
+    assert flat_cont(text) == [text]
+    assert list(iter_flat_map({"k": text})) == ["k", text]
+    assert flat_map([text]) == [text]
+    assert list(iter_flat_cont_by(text)) == [text]
+    assert flat_cont_by([text]) == [text]

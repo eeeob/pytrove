@@ -8,10 +8,13 @@ from ..enums import ImapEmailProvider
 
 IMAP_DOMAIN_TO_PROVIDER: Final[dict[str, ImapEmailProvider]] = {
     "gmail.com": ImapEmailProvider.GMAIL,
+    "googlemail.com": ImapEmailProvider.GMAIL,
     "outlook.com": ImapEmailProvider.OUTLOOK,
     "hotmail.com": ImapEmailProvider.OUTLOOK,
     "live.com": ImapEmailProvider.OUTLOOK,
+    "msn.com": ImapEmailProvider.OUTLOOK,
     "yahoo.com": ImapEmailProvider.YAHOO,
+    "ymail.com": ImapEmailProvider.YAHOO,
     "zoho.com": ImapEmailProvider.ZOHO,
 }
 """Lowercase email domain -> its IMAP provider, as `ImapEmailProvider.from_domain` reads it."""

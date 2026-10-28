@@ -1,5 +1,6 @@
 from __future__ import annotations as _annotations
 
+from collections import UserString
 from typing import Any
 
 import pytest
@@ -54,3 +55,9 @@ def test_to_collection_helpers() -> None:
 
     assert to_frozenset(None) == frozenset()
     assert to_frozenset([1, 1, 2]) == frozenset({1, 2})
+
+
+def test_to_list_wraps_a_user_string_like_a_str() -> None:
+    text = UserString("ab")
+    assert to_list(text) == [text]
+    assert to_tuple(text) == (text,)

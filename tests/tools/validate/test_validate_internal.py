@@ -1,6 +1,7 @@
 from __future__ import annotations as _annotations
 
 import sys
+from collections import UserString
 from collections.abc import Sequence
 from enum import Enum, IntEnum
 from typing import Any
@@ -43,6 +44,7 @@ def test_class_info_alias_names_the_three_shapes() -> None:
 def test_is_container_excludes_the_not_container_types() -> None:
     assert _is_container([1])
     assert not _is_container("ab")
+    assert not _is_container(UserString("ab"))
     assert not _is_container(_Level)
 
 
@@ -51,6 +53,7 @@ def test_container_tuples_hold_classes() -> None:
     assert Sequence in _CONTAINER
     assert str in _NOT_CONTAINER
     assert type(Enum) in _NOT_CONTAINER
+    assert UserString in _NOT_CONTAINER
     assert _CONTAINER_ALIASES == (Container, ContainerWithoutMapping)
 
 

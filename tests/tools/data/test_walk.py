@@ -13,6 +13,7 @@ from collections import (
     OrderedDict,
     UserDict,
     UserList,
+    UserString,
     defaultdict,
     deque,
     namedtuple,
@@ -627,3 +628,12 @@ def test_the_original_is_never_mutated() -> None:
     value_to_enum(source, Color)
 
     assert source == before
+
+
+def test_the_walks_treat_a_user_string_as_a_leaf() -> None:
+    text = UserString("ab")
+    assert snapshot([text]) == [text]
+    assert map_deep({"k": text}, str) == {"k": "ab"}
+    assert map_deep_kv({"k": text}, str, str) == {"k": "ab"}
+    assert clean_none_values([text, None]) == [text]
+    assert enum_to_value(text) is text

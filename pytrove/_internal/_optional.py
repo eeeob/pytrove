@@ -2,6 +2,7 @@
 
 from __future__ import annotations as _annotations
 
+import contextlib
 import functools
 import inspect
 import sys
@@ -14,6 +15,7 @@ else:
     from typing_extensions import Never
 
 from packaging.requirements import Requirement
+from packaging.version import InvalidVersion
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
@@ -68,7 +70,9 @@ def _why_unmet(requirement: Requirement, extra: str) -> str | None:
         extra: The extra it belongs to.
 
     Returns:
-        The reason, or `None` when the installed version is in range.
+        The reason, or `None` when the installed version is in range. A version
+        `packaging` cannot parse counts as out of range rather than crashing the
+        import that runs this check.
     """
     try:
         found = version(requirement.name)
@@ -77,14 +81,24 @@ def _why_unmet(requirement: Requirement, extra: str) -> str | None:
             return "not available on this platform"
         return "not installed"
 
-    if not requirement.specifier.contains(found, prereleases=True):
+    # `packaging` before 26 raises on a non-PEP 440 version; 26 returns `False`.
+    try:
+        in_range = requirement.specifier.contains(found, prereleases=True)
+    except InvalidVersion:
+        in_range = False
+
+    if not in_range:
         return f"found {found}"
 
     return None
 
 
-def _unmet(*extras: str) -> list[tuple[Requirement, str]]:
+@functools.cache
+def _unmet(*extras: str) -> tuple[tuple[Requirement, str], ...]:
     """Return each requirement of `extras` that cannot be used here, with the reason.
+
+    Cached like `_requirements`: every gated function of an extra asks the same
+    question at import, and the installed versions do not change in between.
 
     Args:
         *extras: The extras' names.
@@ -92,14 +106,12 @@ def _unmet(*extras: str) -> list[tuple[Requirement, str]]:
     Returns:
         The unusable requirements and why; empty when pytrove has no metadata.
     """
-    unmet: list[tuple[Requirement, str]] = []
-
-    for extra in extras:
-        for requirement in _requirements(extra) or ():
-            if (why := _why_unmet(requirement, extra)) is not None:
-                unmet.append((requirement, why))
-
-    return unmet
+    return tuple(
+        (requirement, why)
+        for extra in extras
+        for requirement in _requirements(extra) or ()
+        if (why := _why_unmet(requirement, extra)) is not None
+    )
 
 
 def _has_requirement(extra: str, name: str) -> bool:
@@ -135,7 +147,7 @@ def _has_requirement(extra: str, name: str) -> bool:
     raise ValueError(msg)
 
 
-def _build_error_msg(extras: tuple[str, ...], unmet: list[tuple[Requirement, str]]) -> str:
+def _build_error_msg(extras: tuple[str, ...], unmet: tuple[tuple[Requirement, str], ...]) -> str:
     """Build the message raised when a feature's requirements are not met.
 
     Args:
@@ -143,19 +155,23 @@ def _build_error_msg(extras: tuple[str, ...], unmet: list[tuple[Requirement, str
         unmet: The requirements that are not met, with the reason.
 
     Returns:
-        The message, with the `pip install` command covering every extra.
+        The message, with the `pip install` command covering every extra. The
+        `Required` and `Missing` lines are left out when empty, as they are
+        without pytrove's metadata, where nothing can be listed.
     """
     required = ", ".join(
         f"'{r.name}{r.specifier}'" for extra in extras for r in _requirements(extra) or ()
     )
     missing = ", ".join(f"'{r.name}{r.specifier}' ({why})" for r, why in unmet)
+    details = [f"Required : {required}"] if required else []
+    details += [f"Missing  : {missing}"] if missing else []
 
-    return (
-        f"To use this feature, all required packages must be installed.\n"
-        f"Run: pip install -U 'pytrove[{', '.join(extras)}]'\n"
-        f"\n"
-        f"Required : {required}\n"
-        f"Missing  : {missing}"
+    return "\n".join(
+        [
+            "To use this feature, all required packages must be installed.",
+            f"Run: pip install -U 'pytrove[{', '.join(extras)}]'",
+            *([""] + details if details else []),
+        ]
     )
 
 
@@ -183,8 +199,11 @@ def _optional_import(*extras: str) -> Callable[[Callable[_P, _T]], Callable[_P, 
                 """Raise if requirements are unmet, otherwise yield from `func`."""
                 if error_msg is not None:
                     raise ImportError(error_msg)
-                async for item in func(*args, **kwargs):
-                    yield item
+                # `aclosing` closes `func`'s generator as soon as the caller stops early,
+                # so its `finally` runs then rather than whenever the loop finalises it.
+                async with contextlib.aclosing(func(*args, **kwargs)) as gen:
+                    async for item in gen:
+                        yield item
 
             # `async def` types the wrapper as returning a `Coroutine` around its result,
             # while `_T` already is the awaitable `func` returns; the parameters match.
@@ -224,6 +243,9 @@ def _unavailable_class(name: str, *extras: str) -> type[Any]:
     so the metaclass overrides `__getattr__`, `__instancecheck__` and
     `__subclasscheck__` to raise the same `ImportError`.
 
+    The stand-in reports the caller's module as its `__module__` and the error
+    message as its `__doc__`, so `help()` on it explains what to install.
+
     Args:
         name: The class name.
         *extras: The extras the class needs.
@@ -232,6 +254,7 @@ def _unavailable_class(name: str, *extras: str) -> type[Any]:
         The stand-in class.
     """
     msg = _build_error_msg(extras, _unmet(*extras))
+    module = sys._getframe(1).f_globals.get("__name__", __name__)
 
     class _Unavailable:
         """The body every operation on the stand-in raises from."""
@@ -276,7 +299,13 @@ def _unavailable_class(name: str, *extras: str) -> type[Any]:
             """Refuse `issubclass()`."""
             raise ImportError(msg)
 
-    return _UnavailableMeta(name, (), dict(_Unavailable.__dict__))
+    namespace = {
+        **_Unavailable.__dict__,
+        "__module__": module,
+        "__doc__": msg,
+        "__qualname__": name,
+    }
+    return _UnavailableMeta(name, (), namespace)
 
 
 __all__ = (
