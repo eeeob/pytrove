@@ -81,4 +81,4 @@ def test_template_button_dicts_extend_their_required_part() -> None:
 
 def test_template_literal_aliases() -> None:
     assert get_args(TemplateButtonType) == ("url", "callback_data")
-    assert get_args(TemplateParseMode) == ("html", "markdown")
+    assert get_args(TemplateParseMode) == ("html", "markdown", "disabled")

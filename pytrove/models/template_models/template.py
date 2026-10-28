@@ -4,7 +4,7 @@ from __future__ import annotations as _annotations
 
 import sys
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, cast, overload
+from typing import TYPE_CHECKING, Any, Final, cast, overload
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -20,13 +20,13 @@ else:
     HAS_PYROGRAM = True
 
 from ..._internal import _has_requirement, _unavailable_class
-from ...data_tools import clean_none_values
 from ...date_tools import arabic_time
 from ...files_tools import load_ref_json, read_json
 from ._internal import (
     _chain_mappings,
     _compile_lines,
     _CompiledTemplateDict,
+    _copy_templates,
     _format_lines,
     _is_each_button,
 )
@@ -43,6 +43,7 @@ if TYPE_CHECKING:
         NestedStrKeyDict,
         PathLike,
         TemplateDict,
+        TemplateParseMode,
         TemplatePyroMessage,
         _False,
         _True,
@@ -51,6 +52,9 @@ if TYPE_CHECKING:
 # Importable is not enough: a release older than the extra allows may be installed outside it.
 HAS_PYROGRAM = HAS_PYROGRAM and _has_requirement("tg", "kurigram")
 
+_NO_FILE: Final = object()
+"""Returned by the JSON readers for a missing file, which no JSON value can be."""
+
 if HAS_PYROGRAM:
 
     @dataclass(slots=True, kw_only=True)
@@ -58,10 +62,15 @@ if HAS_PYROGRAM:
         """A whole message: the lines joined into its text, its keyboard, and the parse mode to send them with.
 
         `message` and `rich_message` are two independent ways of writing the
-        content. A template that defines `rich_message` is sent as one, so
-        `format()` returns a `rich_message` payload in place of
-        `text`/`parse_mode`. `default_keys` fills in missing `format()`
-        arguments before any part of the template sees them.
+        content. When the template's rich message renders, `format()` returns
+        a `rich_message` payload in place of `text`/`parse_mode`; when it
+        renders nothing, `text`/`parse_mode` are returned instead.
+        `default_keys` fills in missing `format()` arguments before any part
+        of the template sees them.
+
+        A template's own `parse_mode`/`key_time` replace the file-wide
+        defaults only when truthy; a missing or empty one takes the default.
+        `"parse_mode": "disabled"` turns parsing off for one template.
         """
 
         message: list[CompiledLine | CompiledEachLine] | None = None
@@ -83,7 +92,7 @@ if HAS_PYROGRAM:
         def compile(
             cls,
             template: TemplateDict,
-            parse_mode: ParseMode | None = None,
+            parse_mode: ParseMode | TemplateParseMode | None = None,
             key_time: str | None = None,
         ) -> Self:
             """Compile one template definition.
@@ -98,6 +107,10 @@ if HAS_PYROGRAM:
 
             Returns:
                 The compiled template.
+
+            Raises:
+                ValueError: If a parse mode is not a `ParseMode` value, a repeated
+                    line or button has no `each`, or a `row_width` is below 1.
             """
             # The dict is rewritten in place into its compiled shape.
             compiled = cast("_CompiledTemplateDict", template)
@@ -112,7 +125,7 @@ if HAS_PYROGRAM:
                 CompiledEachButton.compile(button)
                 if _is_each_button(button)
                 else CompiledButtonRow.compile(button)
-                for button in template.get("buttons", [])
+                for button in template.get("buttons") or ()
             ] or None
             compiled["rich_message"] = (
                 CompiledRichMessage.compile(rich_message)
@@ -138,8 +151,19 @@ if HAS_PYROGRAM:
 
             return _chain_mappings({self.key_time: arabic_time()}, kw)
 
+        def _prepare(self, kw: Mapping[str, Any]) -> Mapping[str, Any]:
+            """Layer `default_keys` beneath `kw` and `key_time` over it.
+
+            Args:
+                kw: The `format()` keyword arguments.
+
+            Returns:
+                A view of `kw` with both applied; preparing it again changes nothing.
+            """
+            return self.apply_key_time(self.with_defaults(kw))
+
         def format_message(self, kw: Mapping[str, Any]) -> str | None:
-            """Render `message`.
+            """Render `message`, applying `default_keys` and `key_time` as `format()` does.
 
             Args:
                 kw: The `format()` keyword arguments.
@@ -147,10 +171,10 @@ if HAS_PYROGRAM:
             Returns:
                 The text, or `None` if no line rendered.
             """
-            return _format_lines(self.message, self.apply_key_time(kw))
+            return _format_lines(self.message, self._prepare(kw))
 
         def format_rich_message(self, kw: Mapping[str, Any]) -> InputRichMessage | None:
-            """Render `rich_message`.
+            """Render `rich_message`, applying `default_keys` and `key_time` as `format()` does.
 
             Args:
                 kw: The `format()` keyword arguments.
@@ -161,10 +185,10 @@ if HAS_PYROGRAM:
             if self.rich_message is None:
                 return None
 
-            return self.rich_message.format(self.apply_key_time(kw))
+            return self.rich_message.format(self._prepare(kw))
 
         def format_keyboard(self, kw: Mapping[str, Any]) -> InlineKeyboardMarkup | None:
-            """Render the keyboard.
+            """Render the keyboard, applying `default_keys` and `key_time` as `format()` does.
 
             Args:
                 kw: The `format()` keyword arguments.
@@ -172,6 +196,7 @@ if HAS_PYROGRAM:
             Returns:
                 The keyboard, or `None` if no button rendered.
             """
+            kw = self._prepare(kw)
             rows: list[list[InlineKeyboardButton]] = []
 
             for buttons in self.buttons or ():
@@ -192,13 +217,15 @@ if HAS_PYROGRAM:
             """Render the whole message, ready to pass to pyrogram.
 
             Args:
-                **kw: The values the template's parts reference; `None` values are ignored.
+                **kw: The values the template's parts reference; an argument passed
+                    as `None` counts as not passed, while a `None` inside a value is kept.
 
             Returns:
                 `rich_message` or `text`/`parse_mode`, plus `reply_markup`, with `None` values dropped.
             """
-            # Applied once here, so the text, the rich message and the buttons all see one time.
-            values = self.apply_key_time(self.with_defaults(clean_none_values(kw)))
+            # Prepared once here, so the text, the rich message and the buttons all see one
+            # time; the `format_*` methods preparing it again change nothing.
+            values = self._prepare({key: value for key, value in kw.items() if value is not None})
 
             rich_message = self.format_rich_message(values)
             content = (
@@ -206,19 +233,20 @@ if HAS_PYROGRAM:
                 if rich_message is not None
                 else {"text": self.format_message(values), "parse_mode": self.parse_mode}
             )
+            payload = {**content, "reply_markup": self.format_keyboard(values)}
 
-            # `clean_none_values` drops the `None` values that no `TemplatePyroMessage`
-            # key can hold, which its `_T -> _T` signature cannot express.
+            # Only the parts that rendered are kept, which a plain `dict` cannot
+            # tell `TemplatePyroMessage` about.
             return cast(
                 "TemplatePyroMessage",
-                clean_none_values({**content, "reply_markup": self.format_keyboard(values)}),
+                {key: value for key, value in payload.items() if value is not None},
             )
 
         @classmethod
         def compile_from_file(
             cls,
             path: PathLike,
-            parse_mode: ParseMode | None = None,
+            parse_mode: ParseMode | TemplateParseMode | None = None,
             key_time: str | None = None,
         ) -> NestedStrKeyDict[Self]:
             """Compile every template in a JSON file.
@@ -226,7 +254,9 @@ if HAS_PYROGRAM:
             The file may also set `parse_mode`/`key_time` defaults for all of
             its templates, and hold definitions that repeated values point at
             with a JSON Reference (`{"$ref": "#/..."}`). References are
-            resolved before compiling when the `json` extra is installed.
+            resolved before compiling when the `json` extra is installed, and
+            each place a reference reaches gets its own copy, so any number
+            of templates can share a definition.
 
             Args:
                 path: The JSON file.
@@ -237,33 +267,38 @@ if HAS_PYROGRAM:
                 The compiled templates, nested as the file nests them.
 
             Raises:
+                FileNotFoundError: If `path` does not exist.
                 TypeError: If the file does not hold a JSON object.
+                ValueError: As `compile` raises it.
             """
             try:
-                templates = load_ref_json(path)
+                templates = load_ref_json(path, _NO_FILE)
             except ImportError:
-                templates = read_json(path)
+                templates = read_json(path, _NO_FILE)
+
+            if templates is _NO_FILE:
+                msg = f"template file not found: {path}"
+                raise FileNotFoundError(msg)
 
             if not isinstance(templates, dict):
                 msg = f"a template file must hold a JSON object, not {type(templates).__name__}"
                 raise TypeError(msg)
 
+            mode = templates.get("parse_mode") or parse_mode
             return cls.compile_template(
-                templates,
-                ParseMode(mode)
-                if (mode := templates.pop("parse_mode", None) or parse_mode) is not None
-                else None,
+                _copy_templates(templates),
+                ParseMode(mode) if mode is not None else None,
                 # The file format holds `key_time` as a string; like every other template
                 # key it is taken from the JSON unchecked.
-                cast("str | None", templates.pop("key_time", None)) or key_time,
+                cast("str | None", templates.get("key_time")) or key_time,
             )
 
         @overload
         @classmethod
         def compile_template(
             cls,
-            template: NestedStrKeyDict[JsonValue],
-            parse_mode: ParseMode | None = None,
+            template: TemplateDict | NestedStrKeyDict[JsonValue],
+            parse_mode: ParseMode | TemplateParseMode | None = None,
             key_time: str | None = None,
             *,
             is_single_template: _True,
@@ -273,16 +308,26 @@ if HAS_PYROGRAM:
         def compile_template(
             cls,
             template: NestedStrKeyDict[JsonValue],
-            parse_mode: ParseMode | None = None,
+            parse_mode: ParseMode | TemplateParseMode | None = None,
             key_time: str | None = None,
             *,
             is_single_template: _False = False,
         ) -> NestedStrKeyDict[Self]: ...
+        @overload
         @classmethod
         def compile_template(
             cls,
-            template: NestedStrKeyDict[JsonValue],
-            parse_mode: ParseMode | None = None,
+            template: TemplateDict | NestedStrKeyDict[JsonValue],
+            parse_mode: ParseMode | TemplateParseMode | None = None,
+            key_time: str | None = None,
+            *,
+            is_single_template: bool = False,
+        ) -> Self | NestedStrKeyDict[Self]: ...
+        @classmethod
+        def compile_template(
+            cls,
+            template: TemplateDict | NestedStrKeyDict[JsonValue],
+            parse_mode: ParseMode | TemplateParseMode | None = None,
             key_time: str | None = None,
             *,
             is_single_template: bool = False,
@@ -291,7 +336,9 @@ if HAS_PYROGRAM:
 
             Entries whose name starts with `$` are skipped: they hold the
             definitions `$ref` points at, not templates. Entries that are not
-            JSON objects are skipped too.
+            JSON objects are skipped too. Like `compile`, it rewrites
+            `template` in place, so a dict reached twice cannot be compiled;
+            `compile_from_file` copies shared references first.
 
             Args:
                 template: The templates, or one template with `is_single_template`.
@@ -302,17 +349,22 @@ if HAS_PYROGRAM:
             Returns:
                 The one compiled template with `is_single_template`, otherwise
                 the compiled templates nested as `template` nests them.
+
+            Raises:
+                ValueError: As `compile` raises it.
             """
             if is_single_template:
                 return cls.compile(cast("TemplateDict", template), parse_mode, key_time)
 
+            # Without `is_single_template`, `template` is the `NestedStrKeyDict` arm.
+            templates = cast("NestedStrKeyDict[JsonValue]", template)
             return {
                 name: (
                     cls.compile_template(templ, parse_mode, key_time)
                     if templ.pop("nested", False)
                     else cls.compile_template(templ, parse_mode, key_time, is_single_template=True)
                 )
-                for name, templ in template.items()
+                for name, templ in templates.items()
                 if isinstance(templ, dict) and not name.startswith("$")
             }
 
