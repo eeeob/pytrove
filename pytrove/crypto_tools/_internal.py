@@ -5,7 +5,6 @@ from __future__ import annotations as _annotations
 from typing import Final
 
 try:
-    from cryptography.hazmat.backends import default_backend  # type: ignore[import-not-found]  # Optional: the `crypto` extra.
     from cryptography.hazmat.primitives import hashes  # type: ignore[import-not-found]  # Optional: the `crypto` extra.
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC  # type: ignore[import-not-found]  # Optional: the `crypto` extra.
 except ImportError:
@@ -26,8 +25,23 @@ _TAG_LEN: Final[int] = 16
 """Bytes of AES-GCM authentication tag; with salt and nonce, the shortest valid ciphertext is 44."""
 
 
+def _pbkdf2(secret: bytes, salt: bytes, length: int) -> bytes:
+    """Run PBKDF2-HMAC-SHA256 for `_ITERATIONS` rounds.
+
+    Args:
+        secret: The password bytes.
+        salt: The salt.
+        length: Key bytes to derive.
+
+    Returns:
+        `length` key bytes.
+    """
+    kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=length, salt=salt, iterations=_ITERATIONS)
+    return kdf.derive(secret)
+
+
 @_optional_import("crypto")
-def _derive_key(master_key: str, salt: bytes) -> bytes:
+def _derive_key(master_key: str, salt: bytes | bytearray | memoryview) -> bytes:
     """Derive a 256-bit AES-GCM key from a password and a random salt.
 
     Args:
@@ -37,40 +51,27 @@ def _derive_key(master_key: str, salt: bytes) -> bytes:
     Returns:
         32 key bytes.
     """
-    kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=salt,
-        iterations=_ITERATIONS,
-        backend=default_backend(),
-    )
-    return kdf.derive(master_key.encode())
+    return _pbkdf2(master_key.encode(), bytes(salt), 32)  # `cryptography` takes `bytes` only.
 
 
 @_optional_import("crypto")
-def _derive_deterministic_key(password: str) -> bytes:
-    """Derive an AES-SIV key from a password alone, salted with the password's own hash.
+def _derive_deterministic_key(password: str, context: bytes = b"") -> bytes:
+    """Derive an AES-SIV key from a password, salted with the hash of `context + password`.
 
-    The same password always yields the same key, which is what makes `d_encrypt` deterministic.
+    The same password and context always yield the same key, which is what makes
+    `d_encrypt` deterministic; an empty `context` keeps the original password-only salt.
 
     Args:
         password: The password.
+        context: Application-specific bytes that separate keys sharing a password.
 
     Returns:
         64 key bytes.
     """
-    digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
-    digest.update(password.encode())
-    static_salt = digest.finalize()[:16]
-
-    kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
-        length=64,
-        salt=static_salt,
-        iterations=_ITERATIONS,
-        backend=default_backend(),
-    )
-    return kdf.derive(password.encode())
+    secret = password.encode()
+    digest = hashes.Hash(hashes.SHA256())
+    digest.update(context + secret)
+    return _pbkdf2(secret, digest.finalize()[:16], 64)
 
 
 __all__ = (
