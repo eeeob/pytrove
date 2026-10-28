@@ -19,7 +19,8 @@ def get_cinfo(rc_or_cc: StrInt) -> CountryInfo:
     code; `get_countries_by_cc` lists them all.
 
     Args:
-        rc_or_cc: A region code in any case, or a calling code.
+        rc_or_cc: A region code in any case, or a calling code as an int or as
+            digits with an optional `+` (`"966"`, `"+966"`).
 
     Returns:
         The country.
@@ -30,7 +31,13 @@ def get_cinfo(rc_or_cc: StrInt) -> CountryInfo:
     by_rc, by_cc = _country_tables()
 
     if isinstance(rc_or_cc, str):
-        return by_rc[rc_or_cc.lower()]
+        text = rc_or_cc.strip()
+        digits = text.removeprefix("+")
+
+        if not digits.isdecimal():
+            return by_rc[text.lower()]
+
+        rc_or_cc = int(digits)
 
     return by_cc[rc_or_cc][0]
 
@@ -40,7 +47,7 @@ def get_cfullname(rc_or_cc: StrInt) -> str:
     """Return a country's English name followed by its flag.
 
     Args:
-        rc_or_cc: A region code or a calling code.
+        rc_or_cc: A region code or a calling code, read as by `get_cinfo`.
 
     Returns:
         Such as `"Saudi Arabia 🇸🇦"`.

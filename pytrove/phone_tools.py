@@ -14,12 +14,13 @@ try:
         parse,
         region_code_for_country_code,
         region_code_for_number,
+        REGION_CODE_FOR_NON_GEO_ENTITY,
         UNKNOWN_REGION,
     )
 except ImportError:
     pass
 
-from ._internal import _optional_import
+from ._internal import _normalize_phone_text, _optional_import
 from .callable_tools import safe_call
 from .errors import ValidationError
 from .text_tools import clean_spaces, to_str
@@ -69,15 +70,7 @@ def parse_phone(phone_number: Any, clean: bool = True, return_numobj: bool = Fal
     else:
         text = to_str(phone_number)
         validation(isinstance(text, str), f"Invalid PhoneNumber - {text}")
-
-        if clean:
-            text = clean_spaces(text).replace("-", "")
-
-        if text.startswith("00"):
-            text = text[2:]
-
-        if not text.startswith("+"):
-            text = "+" + text
+        text = _normalize_phone_text(text, clean)
 
         try:
             numobj = parse(text)
@@ -117,7 +110,7 @@ def cc_from_phone(phone_number: PhoneNumber | int | PhoneNumberObj) -> int:
     """Return a phone number's calling code.
 
     Args:
-        phone_number: The number, as text or parsed.
+        phone_number: The number, as text or parsed; a parsed one is validated too.
 
     Returns:
         The calling code.
@@ -125,11 +118,10 @@ def cc_from_phone(phone_number: PhoneNumber | int | PhoneNumberObj) -> int:
     Raises:
         ValidationError: If it is not a valid number.
     """
-    if not isinstance(phone_number, PhoneNumberObj):
-        phone_number = parse_phone(phone_number, return_numobj=True)
-
+    phone_number = parse_phone(phone_number, return_numobj=True)
     cc = phone_number.country_code
 
+    # A valid number always has one; the check keeps the type honest.
     if cc is None:
         msg = f"invalid PhoneNumber {phone_number}"
         raise ValidationError(msg)
@@ -148,10 +140,13 @@ def rc_from_cc(cc: int) -> RegionCode:
         The lowercase region code.
 
     Raises:
-        ValidationError: If no region uses the code.
+        ValidationError: If no region uses the code, including a non-geographic
+            code such as 800, whose pseudo-region `001` is no region.
     """
     rc = region_code_for_country_code(cc)
-    validation(rc != UNKNOWN_REGION, f"invalid country code {cc}")
+    validation(
+        rc not in {UNKNOWN_REGION, REGION_CODE_FOR_NON_GEO_ENTITY}, f"invalid country code {cc}"
+    )
     return rc.lower()
 
 
@@ -160,20 +155,19 @@ def rc_from_phone(phone_number: PhoneNumber | int | PhoneNumberObj) -> RegionCod
     """Return the region a phone number belongs to.
 
     Args:
-        phone_number: The number, as text or parsed.
+        phone_number: The number, as text or parsed; a parsed one is validated too.
 
     Returns:
         The lowercase region code.
 
     Raises:
-        ValidationError: If it is not a valid number or has no region.
+        ValidationError: If it is not a valid number or has no region, as a
+            non-geographic number (`+800...`, pseudo-region `001`) has none.
     """
-    if not isinstance(phone_number, PhoneNumberObj):
-        phone_number = parse_phone(phone_number, return_numobj=True)
-
+    phone_number = parse_phone(phone_number, return_numobj=True)
     rc = region_code_for_number(phone_number)
 
-    if rc is None:
+    if rc in {None, REGION_CODE_FOR_NON_GEO_ENTITY}:
         msg = f"invalid PhoneNumber {phone_number}"
         raise ValidationError(msg)
 
@@ -185,27 +179,31 @@ def resolve_rc(value: RegionCode | PhoneNumber | PhoneNumberObj | int) -> Region
     """Find a region from a region code, a calling code or a phone number.
 
     Args:
-        value: Letters are read as a region code; digits as a calling code,
-            then as a phone number; a parsed number by its region.
+        value: Letters are read as a region code; digits, as text or an int,
+            as a calling code, then as a phone number; a parsed number by its
+            region. A `bool` is no number here.
 
     Returns:
         The lowercase region code, or `None` when nothing matches.
     """
-    if isinstance(value, int):
-        return safe_call(rc_from_cc, value)
+    if isinstance(value, bool):
+        return None
 
     if isinstance(value, PhoneNumberObj):
-        return rc_from_phone(value)
+        return safe_call(rc_from_phone, value)
 
-    text = clean_spaces(value).replace("-", "").lower()
+    if isinstance(value, int):
+        number = value
+    else:
+        text = clean_spaces(value).replace("-", "").lower()
 
-    if text.isalpha():
-        return text if is_rc(text) else None
+        if text.isalpha():
+            return text if is_rc(text) else None
 
-    try:
-        number = int(text.removeprefix("+"))
-    except (ValueError, TypeError):
-        return None
+        try:
+            number = int(text.removeprefix("+"))
+        except (ValueError, TypeError):
+            return None
 
     return safe_call(rc_from_cc, number) or safe_call(rc_from_phone, number)
 

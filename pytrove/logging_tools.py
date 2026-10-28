@@ -10,12 +10,12 @@ from typing import TYPE_CHECKING, Any, cast, overload
 
 from .constants import TZ_UTC_PLUS_3
 from .iter_tools import iter_flat_cont
+from .models import LoggerOptions, LogHandlerOptions
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
     from logging.handlers import RotatingFileHandler
 
-    from .models import LoggerOptions, LogHandlerOptions
     from .typings import Container, NestedContainer, _False, _True
 
 
@@ -49,7 +49,8 @@ def flush_logger_handler(handler: logging.Handler | None = None) -> None:
         handler.flush()
         return
 
-    for logger in logging.Logger.manager.loggerDict.values():
+    # A copy: another thread may create a logger while this loop runs.
+    for logger in list(logging.Logger.manager.loggerDict.values()):
         if isinstance(logger, logging.Logger):
             for each in logger.handlers:
                 each.flush()
@@ -87,7 +88,8 @@ def attach_logger_handlers(
         return_loggers: Whether to return `(logger, handler)` pairs.
 
     Returns:
-        The handler (or pair) for a single description, otherwise a list of them.
+        The handler (or pair) when `hdlrs_options` is one `LogHandlerOptions`,
+        otherwise a list of them, even for a container of one or none.
 
     Example:
         >>> import io
@@ -120,9 +122,15 @@ def attach_logger_handlers(
         logger.addHandler(handler)
         handlers.append((logger, handler) if return_loggers else handler)
 
-    return handlers[0] if len(handlers) == 1 else handlers
+    return handlers[0] if isinstance(hdlrs_options, LogHandlerOptions) else handlers
 
 
+@overload
+def set_loggers(loggers_options: LoggerOptions) -> logging.Logger: ...
+@overload
+def set_loggers(
+    loggers_options: Container[NestedContainer[LoggerOptions]],
+) -> list[logging.Logger]: ...
 def set_loggers(
     loggers_options: NestedContainer[LoggerOptions],
 ) -> logging.Logger | list[logging.Logger]:
@@ -132,7 +140,8 @@ def set_loggers(
         loggers_options: One or more logger descriptions, at any nesting.
 
     Returns:
-        The logger for a single description, otherwise a list of them.
+        The logger when `loggers_options` is one `LoggerOptions`, otherwise a
+        list of them, even for a container of one or none.
 
     Example:
         >>> from pytrove.models import LoggerOptions
@@ -160,7 +169,7 @@ def set_loggers(
 
         loggers.append(logger)
 
-    return loggers[0] if len(loggers) == 1 else loggers
+    return loggers[0] if isinstance(loggers_options, LoggerOptions) else loggers
 
 
 def get_rotating_log_files(
@@ -173,12 +182,13 @@ def get_rotating_log_files(
         include_base: Whether to end with the current file.
 
     Yields:
-        `<file>.N` down to `<file>.1`, then the file itself.
+        `<file>.N` down to `<file>.1`, each as the handler's `namer` renames
+        it, then the file itself.
     """
     base = Path(handler.baseFilename)
 
     for i in range(handler.backupCount, 0, -1):
-        yield base.with_name(f"{base.name}.{i}")
+        yield Path(handler.rotation_filename(f"{handler.baseFilename}.{i}"))
 
     if include_base:
         yield base

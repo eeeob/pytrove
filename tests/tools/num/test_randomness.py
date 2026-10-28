@@ -1,5 +1,6 @@
 from __future__ import annotations as _annotations
 
+import math
 import random
 from typing import TYPE_CHECKING
 
@@ -106,3 +107,33 @@ def test_jitter_falls_back_to_the_spans_when_both_tails_carry_no_mass(
         for s in range(50)
     }
     assert seen == {92.5, 107.5}
+
+
+def test_jitter_reads_a_negative_min_distance_as_no_gap() -> None:
+    plain = [jitter(100, 0.1, 0.1, rng=random.Random(s)) for s in range(50)]
+    gapped = [
+        jitter(100, 0.1, 0.1, previous=100.0, min_distance=-5.0, rng=random.Random(s))
+        for s in range(50)
+    ]
+    assert gapped == plain
+
+
+def test_jitter_of_a_nan_value_is_nan() -> None:
+    assert math.isnan(jitter(math.nan, 0.1, 0.1, rng=random.Random(0)))
+
+
+def test_jitter_with_a_nan_previous_stays_inside_the_window() -> None:
+    rng = random.Random(0)
+    low, high = 100 * (1 - 0.1), 100 * (1 + 0.1)
+    assert all(
+        low <= jitter(100, 0.1, 0.1, previous=math.nan, min_distance=5.0, rng=rng) <= high
+        for _ in range(100)
+    )
+
+
+def test_jitter_with_a_decrease_above_one_reaches_below_zero() -> None:
+    rng = random.Random(2)
+    values = [jitter(100, 1.5, 0.2, rng=rng) for _ in range(2000)]
+
+    assert all(-50.0 <= v <= 120.0 for v in values)
+    assert min(values) < 0.0

@@ -21,6 +21,10 @@ if TYPE_CHECKING:
 def get_clanguage_code(rc: RegionCode) -> str:
     """Return the ISO 639 code of a country's primary official language: `"sa"` gives `"ar"`.
 
+    That is the national official language, official or de facto, with the
+    largest population share; a regional official language counts only when
+    the country has no national one.
+
     Args:
         rc: The region code, in any case.
 

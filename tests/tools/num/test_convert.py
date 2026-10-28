@@ -1,11 +1,11 @@
 from __future__ import annotations as _annotations
 
-from typing import TYPE_CHECKING
+import logging
+from typing import Any
+
+import pytest
 
 from pytrove.num_tools import calc, to_int, to_int_deep
-
-if TYPE_CHECKING:
-    import pytest
 
 
 def test_to_int_basic() -> None:
@@ -105,8 +105,77 @@ def test_calc_truncates_to_int_when_asked() -> None:
     assert calc(5) == 5
 
 
-def test_calc_logs_and_keeps_the_text_when_evaluation_fails(
+def test_calc_logs_at_debug_and_keeps_the_text_when_evaluation_fails(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    assert calc("1/0") == "1/0"
-    assert "Failed to evaluate" in caplog.text
+    with caplog.at_level(logging.DEBUG, logger="pytrove.num_tools.convert"):
+        assert calc("1/0") == "1/0"
+
+    [record] = caplog.records
+    assert record.levelno == logging.DEBUG
+    assert "Failed to evaluate" in record.getMessage()
+
+
+@pytest.mark.parametrize(
+    ("value", "as_int", "expected"),
+    [
+        ("-3", True, -3),
+        (" 3 ", True, 3),
+        ("1_000", True, 1000),
+        ("٣", True, 3),
+        ("3.0", True, "3.0"),
+        ("3.0", False, 3.0),
+        ("-2.5", False, -2.5),
+        ("1e5", False, "1e5"),
+        ("1e5", True, "1e5"),
+        ("", True, ""),
+        (3.5, True, 3.5),
+    ],
+)
+def test_to_int_table(value: Any, as_int: bool, expected: Any) -> None:
+    result = to_int(value, as_int)
+
+    assert result == expected
+    assert type(result) is type(expected)
+
+
+@pytest.mark.parametrize("text", ["", "1..2", "1/0", "2+"])
+def test_calc_returns_a_non_expression_as_it_is_without_an_error_log(
+    text: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.DEBUG, logger="pytrove.num_tools.convert"):
+        assert calc(text) == text
+
+    assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+
+
+def test_calc_does_not_evaluate_or_log_an_empty_string(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.DEBUG, logger="pytrove.num_tools.convert"):
+        assert calc("") == ""
+
+    assert not caplog.records
+
+
+def test_calc_does_not_log_text_outside_the_arithmetic_charset(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level(logging.DEBUG, logger="pytrove.num_tools.convert"):
+        assert calc("abc") == "abc"
+
+    assert not caplog.records
+
+
+def test_calc_ignores_whitespace() -> None:
+    assert calc(" 2 + 3 * 4 ") == 14
+    assert calc("1 0 + 1") == 11
+
+
+def test_calc_truncates_a_negative_result_towards_zero() -> None:
+    assert calc("-7/2", as_int=True) == -3
+
+
+def test_calc_returns_the_text_when_an_infinite_result_cannot_become_an_int() -> None:
+    huge = "1" + "0" * 400 + ".0"
+
+    assert calc(huge) == float("inf")
+    assert calc(huge, as_int=True) == huge

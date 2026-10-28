@@ -104,22 +104,30 @@ async def fetch_emails_from(
     limit: int = 10,
     from_old: bool = False,
 ) -> AsyncIterator[str]:
-    """Yield the text of the latest emails from one sender in the inbox.
+    r"""Yield the text of the latest emails from one sender in the inbox.
 
     Args:
         email: The address to log in with.
         password: The password or app password.
         provider: The IMAP server.
-        sender: The sender to search for.
+        sender: The sender to search for; `"` and `\` are escaped in the query.
         limit: How many of the newest matches to read; 0 or less reads none.
         from_old: Whether to yield oldest first instead of newest first.
 
     Yields:
-        Each message's text.
+        Each message's text, read from the whole message so its MIME parts are
+        decoded; nothing when no email matches.
 
     Raises:
-        ValidationError: If the server answers a search or fetch with an error.
+        ValidationError: If `sender` holds a line break, or the server answers a
+            search or fetch with an error.
     """
+    if "\r" in sender or "\n" in sender:
+        msg = f"sender must not contain a line break: {sender!r}"
+        raise ValidationError(msg)
+
+    # An IMAP quoted string escapes `\` and `"` with a backslash.
+    quoted_sender = sender.replace("\\", "\\\\").replace('"', '\\"')
     client = aioimaplib.IMAP4_SSL(host=provider.host, port=provider.port)
 
     try:
@@ -127,22 +135,23 @@ async def fetch_emails_from(
         await client.login(email, password)
         await client.select("INBOX")
 
-        status, data = await client.search(f'FROM "{sender}"')
+        status, data = await client.search(f'FROM "{quoted_sender}"')
 
         if status != "OK":
             msg = f"Invalid Email Status {status}"
             raise ValidationError(msg)
 
-        if not data or not data[0]:
+        if not data:
             msg = f"Invalid Email data {data}"
             raise ValidationError(msg)
 
+        # A search with no match answers a bare `* SEARCH`, which leaves `data[0]` empty.
         ids = data[0].decode().split()[-limit:] if limit > 0 else []
 
         if not ids:
             return
 
-        status, messages = await client.fetch(",".join(ids), "BODY.PEEK[TEXT]")
+        status, messages = await client.fetch(",".join(ids), "BODY.PEEK[]")
 
         if status != "OK":
             msg = f"Invalid Fetch Email Status {status}"

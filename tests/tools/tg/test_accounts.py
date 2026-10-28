@@ -2,6 +2,7 @@ from __future__ import annotations as _annotations
 
 import importlib.util
 import time
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 import pytest
@@ -10,6 +11,7 @@ from pytrove import device_tools, tg_tools
 from pytrove.enums import ImapEmailProvider
 from pytrove.errors import ValidationError
 from pytrove.tg_tools import accounts, fetch_tg_email_code, tg_account_created_at
+from pytrove.tg_tools import format as tg_format
 from pytrove.tg_tools._internal import points
 
 if TYPE_CHECKING:
@@ -59,10 +61,12 @@ def test_account_age_past_the_last_point_extrapolates_but_never_into_the_future(
     assert tg_account_created_at(10**15) <= time.time()
 
 
-def _fake_inbox(monkeypatch: pytest.MonkeyPatch, *messages: str) -> None:
-    """Serve `messages` as the inbox, newest first, for any Gmail address."""
+def _fake_inbox(monkeypatch: pytest.MonkeyPatch, *messages: str) -> list[tuple[object, ...]]:
+    """Serve `messages` as the inbox, newest first, for any Gmail address; return the calls made."""
+    calls: list[tuple[object, ...]] = []
 
     async def fake_fetch(*args: object, **kwargs: object) -> AsyncIterator[str]:
+        calls.append((*args, *kwargs.items()))
         for message in messages:
             yield message
 
@@ -70,6 +74,7 @@ def _fake_inbox(monkeypatch: pytest.MonkeyPatch, *messages: str) -> None:
     monkeypatch.setattr(
         "pytrove.tg_tools.accounts.detect_email_provider", lambda email: ImapEmailProvider.GMAIL
     )
+    return calls
 
 
 @needs_email
@@ -126,3 +131,78 @@ def test_rand_tg_device_is_random_device() -> None:
 def test_accounts_exports_only_the_telegram_device_name() -> None:
     assert "rand_tg_device" in accounts.__all__
     assert "random_device" not in tg_tools.__all__
+
+
+def _date(stamp: float) -> str:
+    """Format a timestamp as its UTC date."""
+    return datetime.fromtimestamp(stamp, timezone.utc).strftime("%Y-%m-%d")
+
+
+def test_account_age_never_goes_down_as_the_id_grows() -> None:
+    ids = sorted({uid for uid, _ in points._points()})
+    probes = sorted({*ids, *((a + b) // 2 for a, b in zip(ids, ids[1:], strict=False))})
+    estimates = [tg_account_created_at(uid) for uid in probes]
+
+    assert estimates == sorted(estimates)
+
+
+def test_account_age_inside_a_stretch_where_the_bundled_ids_go_down() -> None:
+    # The file lists 111220210 (2015-04-21) before 103258382 (2015-05-27); the id
+    # between them used to land on 2015-04-05, before both neighbours.
+    assert "2015-05-01" <= _date(tg_account_created_at(107_239_296)) <= "2015-07-01"
+
+
+def test_account_age_of_a_mid_2022_id() -> None:
+    assert "2022-02-01" <= _date(tg_account_created_at(5_200_000_000)) <= "2022-04-30"
+
+
+@needs_email
+async def test_fetch_tg_email_code_forwards_the_account_and_search_settings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = _fake_inbox(monkeypatch, "Ali Hassan: 123456")
+
+    assert await fetch_tg_email_code("a@gmail.com", "pw", "Ali Hassan", 6) == "123456"
+    assert (
+        await fetch_tg_email_code("a@gmail.com", "pw", "Ali Hassan", 6, sender="x@y.org", limit=3)
+        == "123456"
+    )
+    assert calls == [
+        ("a@gmail.com", "pw", ImapEmailProvider.GMAIL, "noreply@telegram.org", 10),
+        ("a@gmail.com", "pw", ImapEmailProvider.GMAIL, "x@y.org", 3),
+    ]
+
+
+@needs_email
+@pytest.mark.parametrize("code_length", [0, -1])
+async def test_fetch_tg_email_code_refuses_a_code_length_below_one(
+    monkeypatch: pytest.MonkeyPatch, code_length: int
+) -> None:
+    calls = _fake_inbox(monkeypatch, "Ali Hassan: 123456")
+
+    with pytest.raises(ValidationError, match="code_length"):
+        await fetch_tg_email_code("a@gmail.com", "pw", "Ali Hassan", code_length)
+
+    assert calls == []
+
+
+@needs_email
+async def test_fetch_tg_email_code_finds_a_code_written_before_the_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _fake_inbox(monkeypatch, "123456 is the code for Ali Hassan")
+
+    assert await fetch_tg_email_code("a@gmail.com", "pw", "Ali Hassan", 6) == "123456"
+
+
+@needs_email
+async def test_fetch_tg_email_code_matches_the_name_with_its_case(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _fake_inbox(monkeypatch, "Hello Ali Hassan, your code is 123456")
+
+    assert await fetch_tg_email_code("a@gmail.com", "pw", "ali hassan", 6) is None
+
+
+def test_tg_tools_exports_the_format_and_accounts_tools() -> None:
+    assert tg_tools.__all__ == (*tg_format.__all__, *accounts.__all__)
