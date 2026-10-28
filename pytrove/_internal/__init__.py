@@ -10,6 +10,7 @@ from ._callables import *
 from ._exceptions import *
 from ._fs import *
 from ._optional import *
+from ._rebuild import *
 from ._sentinel import *
 from ._stability import *
 from ._triangular import *
@@ -21,6 +22,7 @@ __all__ = (
     *_exceptions.__all__,
     *_fs.__all__,
     *_optional.__all__,
+    *_rebuild.__all__,
     *_sentinel.__all__,
     *_stability.__all__,
     *_triangular.__all__,

@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING, Any, Literal, cast, overload
 from ..errors import ValidationError
 from ..iter_tools import iter_flat_cont
 from ..validate_tools import is_container, is_mapping
-from ._internal import _none_cleaner, _reconstruct, _reconstruct_mapping, _R, _RK
+from .._internal import _reconstruct, _reconstruct_mapping, _R, _RK
+from ._internal import _none_cleaner
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping

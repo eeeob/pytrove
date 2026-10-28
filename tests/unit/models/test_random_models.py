@@ -1,11 +1,14 @@
 from __future__ import annotations as _annotations
 
+import math
 import random
 from itertools import pairwise
 
 import pytest
 
+from pytrove._internal import _tri_cdf, _tri_window
 from pytrove.models import Jitter
+from pytrove.models._internal import _INV_PHI, _WOBBLE_SPREAD
 
 
 def test_Jitter_defaults_to_plus_minus_ten_percent() -> None:
@@ -86,8 +89,9 @@ def test_Jitter_reset_forgets_last_and_rephases() -> None:
     j = Jitter(100, 0.1, 0.1, min_distance=1.0, rng=random.Random(0))
     j()
     assert j.last is not None
+    before = j._u
     j.reset()
-    assert j.last is None
+    assert j.last is None and j._u != before
 
 
 def test_Jitter_value_can_be_moved_between_calls() -> None:
@@ -130,3 +134,184 @@ def test_Jitter_min_distance_wider_than_the_window_takes_the_furthest_end() -> N
         nxt = j()
         far = 4.5 if (prev - 4.5) >= (5.5 - prev) else 5.5
         assert nxt == pytest.approx(far)
+
+
+def _cdf_gap(a: float, b: float) -> float:
+    """Return the wrapped distance between two CDF positions."""
+    d = abs(a - b) % 1.0
+    return min(d, 1.0 - d)
+
+
+def _aimed_at(j: Jitter, target: float) -> Jitter:
+    """Set the walk so a `wobble=0` step lands on `target`, a value inside the window."""
+    low, high, mode = _tri_window(j.value, j.decrease, j.increase, j.bias)
+    j._u = (_tri_cdf(target, low, high, mode) - _INV_PHI) % 1.0
+    return j
+
+
+def test_Jitter_next_is_the_call() -> None:
+    assert Jitter.next is Jitter.__call__
+
+    a = Jitter(5, rng=random.Random(2))
+    b = Jitter(5, rng=random.Random(2))
+    assert [a.next() for _ in range(20)] == [b() for _ in range(20)]
+
+
+def test_Jitter_starts_at_a_random_phase_from_its_rng() -> None:
+    assert Jitter(5, rng=random.Random(0))._u == random.Random(0).random()
+    assert Jitter(5, rng=random.Random(0))._u != Jitter(5, rng=random.Random(1))._u
+
+
+def test_Jitter_reset_draws_a_new_phase_from_its_rng() -> None:
+    j = Jitter(5, wobble=0.0, rng=random.Random(0))  # a rigid step draws nothing
+    j()
+    j.reset()
+
+    ref = random.Random(0)
+    ref.random()
+    assert j._u == ref.random()
+
+
+def test_Jitter_without_rng_draws_from_the_random_module() -> None:
+    state = random.getstate()
+    try:
+        random.seed(7)
+        first = Jitter(5)
+        a = [first() for _ in range(20)]
+        random.seed(7)
+        second = Jitter(5)
+        b = [second() for _ in range(20)]
+    finally:
+        random.setstate(state)
+
+    assert a == b and all(4.5 <= v <= 5.5 for v in a)
+
+
+@pytest.mark.parametrize("min_distance", [0.0, 5.0])
+def test_Jitter_value_moves_without_a_reset(min_distance: float) -> None:
+    j = Jitter(100, min_distance=min_distance, rng=random.Random(0))
+    for _ in range(20):
+        assert 90.0 <= j() <= 110.0
+
+    j.value = 1000
+    prev = None
+    for _ in range(200):
+        v = j()
+        assert 900.0 <= v <= 1100.0
+        if prev is not None:
+            assert abs(v - prev) >= min_distance - 1e-9
+        prev = v
+
+
+def test_Jitter_snaps_up_past_the_band_when_the_step_leans_up() -> None:
+    j = _aimed_at(Jitter(5, 0.2, 0.4, wobble=0.0, min_distance=1.0, rng=random.Random(0)), 5.2)
+    j.last = 5.0
+
+    result = j()
+    assert 6.0 <= result <= 7.0
+    assert j._u == _tri_cdf(result, 4.0, 7.0, 5.5)
+
+
+def test_Jitter_snaps_up_when_the_low_edge_is_outside_the_window() -> None:
+    j = _aimed_at(Jitter(5, 0.2, 0.4, wobble=0.0, min_distance=1.0, rng=random.Random(0)), 4.3)
+    j.last = 4.5  # the step leans down, but `4.5 - 1` is below the window
+
+    result = j()
+    assert 5.5 <= result <= 7.0
+    assert j._u == _tri_cdf(result, 4.0, 7.0, 5.5)
+
+
+def test_Jitter_snaps_down_when_the_high_edge_is_outside_the_window() -> None:
+    j = _aimed_at(Jitter(5, 0.2, 0.4, wobble=0.0, min_distance=1.0, rng=random.Random(0)), 6.8)
+    j.last = 6.5  # the step leans up, but `6.5 + 1` is above the window
+
+    result = j()
+    assert 4.0 <= result <= 5.5
+    assert j._u == _tri_cdf(result, 4.0, 7.0, 5.5)
+
+
+def test_Jitter_snaps_down_past_the_band_when_the_step_leans_down() -> None:
+    j = _aimed_at(Jitter(5, 0.2, 0.4, wobble=0.0, min_distance=1.0, rng=random.Random(0)), 5.5)
+    j.last = 6.0
+
+    result = j()
+    assert 4.0 <= result <= 5.0
+    assert j._u == _tri_cdf(result, 4.0, 7.0, 5.5)
+
+
+def test_Jitter_takes_the_furthest_end_when_the_window_is_narrower_than_twice_the_gap() -> None:
+    # Width 3 is wider than the gap 2 but narrower than 4: from 5.3 neither
+    # `5.3 +/- 2` is inside [4, 7], so the floor cannot hold.
+    j = _aimed_at(Jitter(5, 0.2, 0.4, wobble=0.0, min_distance=2.0, rng=random.Random(0)), 5.0)
+    j.last = 5.3
+
+    assert j() == 7.0
+    assert j._u == 1.0
+
+    j = _aimed_at(Jitter(5, 0.2, 0.4, wobble=0.0, min_distance=2.0, rng=random.Random(0)), 6.0)
+    j.last = 5.8
+    assert j() == 4.0
+
+
+def test_Jitter_zero_width_window_repeats_its_point_despite_min_distance() -> None:
+    j = Jitter(5, decrease=0, increase=0, min_distance=1.0)
+    assert [j() for _ in range(3)] == [5.0, 5.0, 5.0]
+
+
+def test_Jitter_window_may_span_zero() -> None:
+    j = Jitter(5, decrease=2.0, increase=0.1, rng=random.Random(0))
+    values = [j() for _ in range(500)]
+    assert all(-5.0 <= v <= 5.5 for v in values)
+    assert min(values) < 0.0 < max(values)
+
+
+def test_Jitter_consecutive_steps_keep_their_cdf_gap() -> None:
+    j = Jitter(5, 0.2, 0.5, rng=random.Random(5))
+    low, high, mode = _tri_window(5, 0.2, 0.5, 0.5)
+    positions = [_tri_cdf(j(), low, high, mode) for _ in range(5000)]
+
+    floor = 1.0 - _INV_PHI * (1.0 + _WOBBLE_SPREAD)
+    assert min(_cdf_gap(a, b) for a, b in pairwise(positions)) >= floor - 1e-9
+
+
+@pytest.mark.parametrize("bias", [0.2, 0.8])
+def test_Jitter_keeps_the_triangular_shape_and_covers_the_window(bias: float) -> None:
+    n = 20000
+    j = Jitter(100, 0.2, 0.2, bias=bias, rng=random.Random(9))
+    values = [j() for _ in range(n)]
+    low, high, mode = _tri_window(100, 0.2, 0.2, bias)
+
+    for x in (85.0, mode, 100.0, 115.0):
+        share = sum(v <= x for v in values) / n
+        assert share == pytest.approx(_tri_cdf(x, low, high, mode), abs=0.02)
+    assert min(values) < low + 0.01 * (high - low)
+    assert max(values) > high - 0.01 * (high - low)
+
+
+def test_Jitter_compares_by_identity_and_hides_its_phase() -> None:
+    j = Jitter(5)
+    assert j == j and Jitter(5) != Jitter(5)
+    assert "_u" not in repr(j)
+
+
+def test_Jitter_reads_a_nan_bias_or_wobble_as_zero() -> None:
+    def run(**kw: float) -> list[float]:
+        """Return a seeded stream for these settings."""
+        j = Jitter(5, rng=random.Random(3), **kw)
+        return [j() for _ in range(50)]
+
+    assert run(bias=math.nan) == run(bias=0.0)
+    assert run(wobble=math.nan) == run(wobble=0.0)
+
+    j = Jitter(5, wobble=math.nan, rng=random.Random(0))
+    j()
+    j.wobble = 1.0
+    assert all(4.5 <= j() <= 5.5 for _ in range(20))
+    assert not math.isnan(j._u)
+
+
+def test_Jitter_decrease_moves_the_high_end_of_a_negative_window() -> None:
+    j = Jitter(-10, decrease=0.5, increase=0.0, rng=random.Random(0))
+    values = [j() for _ in range(2000)]
+    assert all(-10.0 <= v <= -5.0 for v in values)
+    assert max(values) > -5.5 and min(values) < -9.5  # reaches up to -5, not just -9

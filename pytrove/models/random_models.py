@@ -6,18 +6,12 @@ import random
 from dataclasses import dataclass, field
 
 from .._internal import _clamp01, _tri_cdf, _tri_icdf, _tri_window
-from ._internal import _INV_PHI
+from ._internal import _INV_PHI, _WOBBLE_SPREAD
 
 
 @dataclass(slots=True, eq=False)
 class Jitter:
     """A stream of random values around `value` that spread across the window instead of piling up near its peak.
-
-    ```python
-    j = Jitter(5)                               # +/-10% of 5, i.e. ~[4.5, 5.5]
-    j = Jitter(5, decrease=0.2, increase=0.5)   # ~[4.0, 7.5]
-    [j() for _ in range(50)]                    # no run of near-equal values
-    ```
 
     Drawing `jitter(...)` independently in a loop keeps landing near the
     peak. This instead walks the window with a golden-ratio (low-discrepancy)
@@ -25,27 +19,37 @@ class Jitter:
     before, so the sequence covers the whole window while each value stays
     random and the triangular shape still holds over a run.
 
-    Every field is a plain attribute: reassign `value` between calls to move
-    the window.
+    The window is `[value * (1 - decrease), value * (1 + increase)]`, its ends
+    ordered first so a negative `value` works. Every field is a plain
+    attribute: reassign `value` between calls to move the window.
+
+    Example:
+        >>> import random
+        >>> j = Jitter(5, rng=random.Random(0))  # +/-10% of 5: exactly [4.5, 5.5]
+        >>> values = [j() for _ in range(50)]
+        >>> all(4.5 <= v <= 5.5 for v in values)
+        True
+        >>> min(abs(b - a) for a, b in zip(values, values[1:])) > 0.1  # no near-equal pair
+        True
     """
 
     value: float
     """The centre the window is built around."""
 
     decrease: float = 0.1
-    """The window's low end is `value * (1 - decrease)`."""
+    """One end of the window is `value * (1 - decrease)`: the low end for a positive `value`, the high end for a negative one."""
 
     increase: float = 0.1
-    """The window's high end is `value * (1 + increase)`."""
+    """One end of the window is `value * (1 + increase)`: the high end for a positive `value`, the low end for a negative one."""
 
     bias: float = 0.5
-    """Where the triangular peak sits, from `0.0` (low end) to `1.0` (high end); `0.5` is symmetric. Clamped."""
+    """Where the triangular peak sits, from `0.0` (numerically low end) to `1.0` (high end); `0.5` is symmetric. Clamped, NaN read as `0.0`."""
 
     wobble: float = 1.0
-    """Random noise on the golden step, from `0` (rigid spread) to `1` (as loose as no-cluster allows). Clamped."""
+    """Random noise on the golden step, from `0` (rigid spread) to `1` (as loose as no-cluster allows). Clamped, NaN read as `0.0`."""
 
     min_distance: float = 0.0
-    """A hard floor on the gap from `last`; a closer step is snapped just past it, the walk resynced there."""
+    """A floor on the gap from `last`, held whenever the window allows it: a closer step is snapped just past `last +/- min_distance`, the walk resynced there. When neither edge is inside the window, the end furthest from `last` is returned, and a zero-width window always returns its one point."""
 
     rng: random.Random | None = None
     """The `random.Random` to draw from, for a reproducible stream; `None` uses the `random` module."""
@@ -79,11 +83,12 @@ class Jitter:
         # Golden-ratio (Kronecker) recurrence in CDF space. A fixed step of
         # phi^-1 puts every consecutive pair ~0.382 apart on the wrapped
         # unit circle (three-distance theorem); the noise below is capped so
-        # the step stays inside ~[0.44, 0.79] and that wrapped gap never
-        # falls under ~0.2 -- i.e. two draws in a row can still not cluster.
+        # the step stays inside ~[0.44, 0.79] (`_WOBBLE_SPREAD`) and that
+        # wrapped gap never falls under ~0.2 -- i.e. two draws in a row can
+        # still not cluster.
         step = _INV_PHI
         if wobble:
-            noise = _INV_PHI * 0.28 * wobble
+            noise = _INV_PHI * _WOBBLE_SPREAD * wobble
             step += src.uniform(-noise, noise)
 
         self._u = (self._u + step) % 1.0
