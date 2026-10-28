@@ -16,7 +16,7 @@ except ImportError:
 
 from .._internal import _optional_import
 from ..errors import ValidationError
-from ._internal import _checker_lookup, HAS_TYPEGUARD
+from ._internal import _checker_lookup, _TYPECHECK_ACTIVE, HAS_TYPEGUARD
 
 
 @_optional_import("typecheck")
@@ -34,6 +34,10 @@ def validate_type(value: Any, annotation: Any) -> None:
     the `Sequence` it is. To exclude strings, bytes and the other `NotContainer`
     types, test the value with `is_container`.
 
+    An iterator or generator is checked for its kind only, never walked, so it
+    is left intact for the caller. These rules apply inside this call only: a
+    plain `typeguard.check_type` elsewhere in the process keeps typeguard's own.
+
     Args:
         value: The value to check.
         annotation: The type it must match.
@@ -41,6 +45,8 @@ def validate_type(value: Any, annotation: Any) -> None:
     Raises:
         ValidationError: If it does not match.
     """
+    token = _TYPECHECK_ACTIVE.set(True)
+
     try:
         check_type(
             value,
@@ -50,6 +56,8 @@ def validate_type(value: Any, annotation: Any) -> None:
         )
     except TypeCheckError as exc:
         raise ValidationError(str(exc)) from exc
+    finally:
+        _TYPECHECK_ACTIVE.reset(token)
 
 
 if HAS_TYPEGUARD:
