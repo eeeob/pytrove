@@ -4,8 +4,11 @@ from __future__ import annotations as _annotations
 
 import copy
 import logging
+from collections import deque
 from collections.abc import Callable, Hashable, Iterator, Mapping, MutableMapping, Sized
 from typing import TYPE_CHECKING, Any, Final, TypeVar, cast
+
+from ...validate_tools import is_container, is_mapping
 
 if TYPE_CHECKING:
     from ...typings import Container
@@ -134,11 +137,13 @@ def _refilled(data: Any, items: Any) -> Any | None:
 def _reconstruct(data: Container[Any], func: Callable[[Any], Any] | None = None) -> Container[Any]:
     """Rebuild a container as its own type, every item passed through `func`.
 
-    In order: an iterator is returned as the lazy transform; a namedtuple uses
-    `_make`; an `array.array` gets its typecode first; then `cls(items)`,
-    checked by `_filled`; then copy-and-refill. When nothing works `data`
-    comes back untransformed with a warning, rather than as a list the caller
-    cannot use as the type they had. Whatever `func` raises propagates.
+    In order: an iterator is returned as the lazy transform, which shares its
+    source and runs `func` only as it is consumed; a namedtuple uses `_make`;
+    an `array.array` gets its typecode first; then `cls(items)` (with the
+    `maxlen` of a `deque`), checked by `_filled`; then copy-and-refill. When
+    nothing works `data` comes back untransformed with a warning, rather than
+    as a list the caller cannot use as the type they had. Whatever `func`
+    raises propagates.
 
     Args:
         data: The container to rebuild.
@@ -167,12 +172,13 @@ def _reconstruct(data: Container[Any], func: Callable[[Any], Any] | None = None)
     if (typecode := getattr(data, "typecode", None)) is not None:
         try:
             return cls(typecode, items)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             pass
 
     try:
-        new = cls(items)
-    except (TypeError, ValueError):
+        # A `deque` keeps its `maxlen`, which `cls(items)` alone would drop.
+        new = cls(items, data.maxlen) if isinstance(data, deque) else cls(items)
+    except (TypeError, ValueError, OverflowError):
         pass
     else:
         if _filled(items, new):
@@ -251,12 +257,16 @@ def _none_cleaner(value: Any) -> Any:
     Returns:
         `_MESS` for `None`, otherwise the value cleaned recursively.
     """
-    from ..walk import clean_none_values  # noqa: PLC0415 - `walk` imports this module
-
     if value is None:
         return _MESS
 
-    return clean_none_values(value)
+    if is_mapping(value):
+        return _reconstruct_mapping(value, value_func=_none_cleaner)
+
+    if is_container(value):
+        return _reconstruct(value, _none_cleaner)
+
+    return value
 
 
 __all__ = (

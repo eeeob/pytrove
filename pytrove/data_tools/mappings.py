@@ -6,7 +6,7 @@ import weakref
 from typing import TYPE_CHECKING
 
 from ..typings import _KT, _VT
-from ._internal import _no_arg_factory
+from ._internal import _KeyFactoryMixin, _check_factory, _no_arg_factory
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -31,11 +31,11 @@ class KeyDefaultDict(dict[_KT, _VT]):
 
         Args:
             default_factory: Builds a value from its key.
-        """
-        if not callable(default_factory):
-            msg = "default_factory must be callable"
-            raise TypeError(msg)
 
+        Raises:
+            TypeError: If it is not callable.
+        """
+        _check_factory(default_factory)
         super().__init__()
         self.default_factory = default_factory
 
@@ -64,46 +64,12 @@ class KeyDefaultDict(dict[_KT, _VT]):
         return self[key]
 
 
-class KeyDefaultWeakValueDict(weakref.WeakValueDictionary[_KT, _VT]):
+class KeyDefaultWeakValueDict(_KeyFactoryMixin[_KT, _VT], weakref.WeakValueDictionary[_KT, _VT]):
     """A `WeakValueDictionary` that builds a missing value from its key; calling it looks a key up.
 
     Attributes:
         default_factory: Called with a missing key.
     """
-
-    def __init__(self, default_factory: Callable[[_KT], _VT]) -> None:
-        """Start empty.
-
-        Args:
-            default_factory: Builds a value from its key.
-
-        Raises:
-            TypeError: If it is not callable.
-        """
-        if not callable(default_factory):
-            msg = "default_factory must be callable"
-            raise TypeError(msg)
-
-        super().__init__()
-        self.default_factory = default_factory
-
-    def __getitem__(self, key: _KT) -> _VT:
-        """Return a live value, building and storing one when missing or collected.
-
-        Args:
-            key: The key.
-
-        Returns:
-            The value.
-        """
-        try:
-            return super().__getitem__(key)
-        except KeyError:
-            value = self.default_factory(key)
-            self[key] = value
-            return value
-
-    __call__ = __getitem__
 
 
 class DefaultWeakValueDict(KeyDefaultWeakValueDict[_KT, _VT]):
@@ -121,46 +87,12 @@ class DefaultWeakValueDict(KeyDefaultWeakValueDict[_KT, _VT]):
         super().__init__(_no_arg_factory(default_factory))
 
 
-class KeyDefaultWeakKeyDict(weakref.WeakKeyDictionary[_KT, _VT]):
+class KeyDefaultWeakKeyDict(_KeyFactoryMixin[_KT, _VT], weakref.WeakKeyDictionary[_KT, _VT]):
     """A `WeakKeyDictionary` that builds a missing value from its key; calling it looks a key up.
 
     Attributes:
         default_factory: Called with a missing key.
     """
-
-    def __init__(self, default_factory: Callable[[_KT], _VT]) -> None:
-        """Start empty.
-
-        Args:
-            default_factory: Builds a value from its key.
-
-        Raises:
-            TypeError: If it is not callable.
-        """
-        if not callable(default_factory):
-            msg = "default_factory must be callable"
-            raise TypeError(msg)
-
-        super().__init__()
-        self.default_factory = default_factory
-
-    def __getitem__(self, key: _KT) -> _VT:
-        """Return the value, building and storing one when missing.
-
-        Args:
-            key: The key.
-
-        Returns:
-            The value.
-        """
-        try:
-            return super().__getitem__(key)
-        except KeyError:
-            value = self.default_factory(key)
-            self[key] = value
-            return value
-
-    __call__ = __getitem__
 
 
 class DefaultWeakKeyDict(KeyDefaultWeakKeyDict[_KT, _VT]):

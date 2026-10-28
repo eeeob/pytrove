@@ -2,6 +2,7 @@
 
 from __future__ import annotations as _annotations
 
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Literal
 
 try:
@@ -49,7 +50,8 @@ def get_nested_dict_value(dct: NestedStrKeyDict[_T], path: str, sep: str = ".") 
 def get_nested_dict_key(path_dct: NestedStrKeyDict[Literal[True, 1]], sep: str = ".") -> str:
     """Return the key path a single-branch dict marks.
 
-    The inverse of `get_nested_dict_value`.
+    The inverse of `get_nested_dict_value`: each key is joined as its `str`,
+    an empty one included.
 
     Args:
         path_dct: A dict with one key per level, ending in `True` or `1`.
@@ -59,43 +61,34 @@ def get_nested_dict_key(path_dct: NestedStrKeyDict[Literal[True, 1]], sep: str =
         The keys along the branch, joined by `sep`.
 
     Raises:
-        TypeError: If a level holds more than one key, or the leaf is not `True` or `1`.
+        TypeError: If a level, at any depth, holds other than one key, or the
+            leaf is not `True` or `1`.
 
     Example:
         >>> get_nested_dict_key({"a": {"b": True}})
         'a.b'
     """
+    keys: list[str] = []
+    level: Any = path_dct
 
-    def flatten(current_dict: NestedStrKeyDict[Literal[True, 1]], current_path: str = "") -> str:
-        """Follow the branch one level down.
-
-        Args:
-            current_dict: The current level.
-            current_path: The keys walked so far.
-
-        Returns:
-            The full path.
-
-        Raises:
-            TypeError: If the leaf is not `True` or `1`.
-        """
-        key, value = next(iter(current_dict.items()))
-        new_path = f"{current_path}{sep}{key}" if current_path else key
-
-        if isinstance(value, dict):
-            return flatten(value, new_path)
-
-        if value is not True and value != 1:
-            msg = f"leaf at {new_path!r} must be True or 1, not {value!r}"
+    while True:
+        if len(level) != 1:
+            msg = f"len nested dict must be 1 not {len(level)}, at {sep.join(keys)!r}"
             raise TypeError(msg)
 
-        return new_path
+        key, level = next(iter(level.items()))
+        keys.append(str(key))
 
-    if len(path_dct) != 1:
-        msg = f"len nested dict must be 1 not {len(path_dct)}"
+        if not isinstance(level, Mapping):
+            break
+
+    path = sep.join(keys)
+
+    if level is not True and level != 1:
+        msg = f"leaf at {path!r} must be True or 1, not {level!r}"
         raise TypeError(msg)
 
-    return flatten(path_dct)
+    return path
 
 
 @_optional_import("json")

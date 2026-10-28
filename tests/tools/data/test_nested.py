@@ -2,6 +2,8 @@
 
 from __future__ import annotations as _annotations
 
+import types
+
 import pytest
 
 from pytrove.data_tools import get_nested_dict_key, get_nested_dict_value, resolve_json_refs
@@ -21,6 +23,26 @@ def test_get_nested_dict_value_names_a_missing_key() -> None:
 def test_get_nested_dict_value_refuses_to_walk_into_a_leaf() -> None:
     with pytest.raises(TypeError):
         get_nested_dict_value({"a": 1}, "a.b")
+
+
+@pytest.mark.parametrize("leaf", [[1, 2], "xyz"])
+def test_get_nested_dict_value_refuses_to_walk_into_a_list_or_str(leaf: object) -> None:
+    with pytest.raises(TypeError):
+        get_nested_dict_value({"a": leaf}, "a.0")  # type: ignore[dict-item]  # The wrong shape is the point.
+
+
+def test_get_nested_dict_value_with_an_empty_path_looks_up_the_empty_key() -> None:
+    assert get_nested_dict_value({"": 1}, "") == 1
+
+    with pytest.raises(KeyError):
+        get_nested_dict_value({"a": 1}, "")
+
+
+def test_get_nested_dict_value_splits_a_key_holding_the_separator() -> None:
+    with pytest.raises(KeyError, match="'a'"):
+        get_nested_dict_value({"a.b": 1}, "a.b")
+
+    assert get_nested_dict_value({"a.b": 1}, "a.b", sep="/") == 1
 
 
 def test_get_nested_dict_key_accepts_true_and_one() -> None:
@@ -44,6 +66,27 @@ def test_get_nested_dict_key_rejects_more_or_less_than_one_branch() -> None:
 
     with pytest.raises(TypeError, match="must be 1 not 0"):
         get_nested_dict_key({})
+
+
+def test_get_nested_dict_key_checks_the_key_count_at_every_level() -> None:
+    with pytest.raises(TypeError, match="must be 1 not 2, at 'a'"):
+        get_nested_dict_key({"a": {"b": True, "c": True}})
+
+    with pytest.raises(TypeError, match="must be 1 not 0, at 'a.b'"):
+        get_nested_dict_key({"a": {"b": {}}})
+
+
+def test_get_nested_dict_key_walks_a_non_dict_mapping() -> None:
+    inner = types.MappingProxyType({"b": True})
+    assert get_nested_dict_key({"a": inner}) == "a.b"  # type: ignore[dict-item]  # Any mapping is walked.
+
+
+def test_get_nested_dict_key_is_the_inverse_even_for_odd_keys() -> None:
+    path = get_nested_dict_key({"": {"b": True}})
+    assert path == ".b"
+    assert get_nested_dict_value({"": {"b": True}}, path) is True
+
+    assert get_nested_dict_key({1: True}) == "1"  # type: ignore[dict-item]  # A non-str key is joined as its `str`.
 
 
 def test_resolve_json_refs_replaces_references_eagerly() -> None:
@@ -81,3 +124,21 @@ def test_resolve_json_refs_names_the_extra_when_jsonref_is_missing() -> None:
 
     with pytest.raises(ImportError, match=r"pytrove\[json\]"):
         resolve_json_refs({})
+
+
+def test_resolve_json_refs_resolves_a_relative_ref_against_base_uri() -> None:
+    pytest.importorskip("jsonref")
+    seen: list[str] = []
+
+    def loader(uri: str) -> object:
+        seen.append(uri)
+        return {"x": 5}
+
+    resolved = resolve_json_refs(
+        {"field": {"$ref": "other.json#/x"}},
+        base_uri="https://example.com/schemas/root.json",
+        loader=loader,
+    )
+
+    assert resolved == {"field": 5}
+    assert seen == ["https://example.com/schemas/other.json"]

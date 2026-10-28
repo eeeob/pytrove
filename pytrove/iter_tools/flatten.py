@@ -4,7 +4,8 @@ from __future__ import annotations as _annotations
 
 from typing import TYPE_CHECKING, Any, overload
 
-from ..validate_tools import is_container, is_mapping
+from ..validate_tools import is_container
+from ._internal import _iter_flat, _iter_flat_map
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Mapping
@@ -23,7 +24,8 @@ def iter_flat_cont(
 def iter_flat_cont(*containers: Any, exclude_none: bool = True) -> Generator[Any, None, None]:
     """Yield every leaf under `containers`, flattening nested containers lazily.
 
-    A mapping counts as a container of its keys.
+    A mapping counts as a container of its keys. Each container is iterated,
+    never copied, so the first leaf of an endless iterator still comes out.
 
     Args:
         *containers: Leaves or containers of them, at any depth.
@@ -32,7 +34,7 @@ def iter_flat_cont(*containers: Any, exclude_none: bool = True) -> Generator[Any
     Yields:
         Each leaf, depth first, in order.
     """
-    yield from iter_flat_cont_by(*containers, exclude_none=exclude_none)
+    yield from _iter_flat(containers, is_container, exclude_none)
 
 
 @overload
@@ -81,7 +83,8 @@ def iter_flat_map(
 def iter_flat_map(*containers: Any, exclude_none: bool = True) -> Generator[Any, None, None]:
     """Yield every leaf like `iter_flat_cont`, but a mapping gives up its values as well as its keys.
 
-    `{"a": 1}` yields `"a"` then `1`, pair by pair, at any depth.
+    `{"a": 1}` yields `"a"` then `1`, pair by pair, at any depth; a tuple key
+    is a container, so its items come out in its place.
 
     Args:
         *containers: Leaves, containers or mappings, at any depth.
@@ -90,13 +93,7 @@ def iter_flat_map(*containers: Any, exclude_none: bool = True) -> Generator[Any,
     Yields:
         Each key and leaf, depth first, in order.
     """
-    for item in containers:
-        if is_mapping(item):
-            yield from iter_flat_map(*item.items(), exclude_none=exclude_none)
-        elif is_container(item):
-            yield from iter_flat_map(*item, exclude_none=exclude_none)
-        elif not exclude_none or item is not None:
-            yield item
+    yield from _iter_flat_map(containers, exclude_none)
 
 
 @overload
@@ -137,6 +134,10 @@ def iter_flat_cont_by(
 ) -> Generator[Any, None, None]:
     """Yield every leaf like `iter_flat_cont`, with your own test for what to descend into.
 
+    The leaves are typed `Any`: the predicate decides the depth, which no
+    signature can follow. A predicate that accepts a `str` never reaches a
+    leaf, since each character is a `str` again, and ends in `RecursionError`.
+
     Args:
         *containers: Leaves or containers of them, at any depth.
         is_container: Decides, per item, whether it is a container to flatten.
@@ -145,13 +146,7 @@ def iter_flat_cont_by(
     Yields:
         Each leaf, depth first, in order.
     """
-    for item in containers:
-        if is_container(item):
-            yield from iter_flat_cont_by(
-                *item, is_container=is_container, exclude_none=exclude_none
-            )
-        elif not exclude_none or item is not None:
-            yield item
+    yield from _iter_flat(containers, is_container, exclude_none)
 
 
 def flat_cont_by(

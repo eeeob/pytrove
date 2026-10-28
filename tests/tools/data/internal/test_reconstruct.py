@@ -3,8 +3,9 @@
 from __future__ import annotations as _annotations
 
 import array
+import logging
 import weakref
-from collections import defaultdict, namedtuple
+from collections import UserString, defaultdict, deque, namedtuple
 from collections.abc import Hashable
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -22,6 +23,8 @@ from pytrove.data_tools._internal import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     import pytest
 
 Point = namedtuple("Point", "x y")  # noqa: PYI024  # A runtime namedtuple is what the rebuild has to handle.
@@ -167,3 +170,144 @@ def test_mess_is_a_unique_marker() -> None:
     value: Any = _MESS
     assert value is not None
     assert value != object()
+
+
+_LOGGER = "pytrove.data_tools._internal.reconstruct"
+
+
+def test_transform_is_lazy() -> None:
+    seen: list[int] = []
+    out = _transform([1, 2], lambda v: seen.append(v) or v)
+
+    assert seen == []
+    assert next(out) == 1
+    assert seen == [1]
+
+
+def test_reconstruct_returns_an_iterator_as_a_lazy_view_of_its_source() -> None:
+    source: Iterator[int] = iter([1, 2, 3])
+    out = _reconstruct(source, lambda v: v * 10)
+
+    assert next(source) == 1  # consuming the source drains the result too
+    assert list(out) == [20, 30]
+
+
+def test_reconstruct_keeps_a_deques_maxlen() -> None:
+    out = _reconstruct(deque([1, 2], maxlen=2), str)
+
+    assert type(out) is deque
+    assert out.maxlen == 2
+    assert list(out) == ["1", "2"]
+
+
+def test_reconstruct_leaves_a_namedtuple_that_cannot_shrink_whole(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # `_make` refuses one item, `Point([1])` misses `y`, and a tuple cannot be refilled.
+    source = Point(1, None)
+
+    with caplog.at_level(logging.WARNING, logger=_LOGGER):
+        out = _reconstruct(source, _none_cleaner)
+
+    assert out is source
+    assert "Point" in caplog.text
+
+
+class _PickyList(list):  # type: ignore[type-arg]  # Only the constructor shape matters here.
+    """A list whose constructor refuses any items with `ValueError`."""
+
+    def __init__(self, items: Any = ()) -> None:
+        if items:
+            msg = "no items here"
+            raise ValueError(msg)
+
+        super().__init__()
+
+
+class _TypedList(list):  # type: ignore[type-arg]  # Only the constructor shape matters here.
+    """A list with a `typecode`, whose typecode constructor refuses with `ValueError`."""
+
+    typecode = "x"
+
+    def __init__(self, *args: Any) -> None:
+        if len(args) == 2:
+            msg = "bad typecode"
+            raise ValueError(msg)
+
+        super().__init__(*args)
+
+
+def test_reconstruct_takes_a_value_error_as_a_constructor_refusal() -> None:
+    picky = _PickyList()
+    picky.append(1)
+    out = _reconstruct(picky, str)
+    assert type(out) is _PickyList and list(out) == ["1"]  # refilled instead
+
+    typed = _reconstruct(_TypedList([1]), str)
+    assert type(typed) is _TypedList and list(typed) == ["1"]  # `cls(items)` instead
+
+
+def test_reconstruct_takes_an_overflow_error_as_a_constructor_refusal(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    source = array.array("b", [1])
+
+    with caplog.at_level(logging.WARNING, logger=_LOGGER):
+        out = _reconstruct(source, lambda v: v * 200)
+
+    assert out is source
+    assert "un-transformed" in caplog.text
+
+
+def test_reconstruct_gives_up_on_a_set_whose_items_become_unhashable(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    source = {1, 2}
+
+    with caplog.at_level(logging.WARNING, logger=_LOGGER):
+        out = _reconstruct(source, lambda v: [v])
+
+    assert out is source
+    assert "set" in caplog.text
+
+
+class _FactoryValueErrorDict(dict):  # type: ignore[type-arg]  # Only the constructor shape matters here.
+    """A dict with a callable `default_factory` that its constructor refuses with `ValueError`."""
+
+    default_factory = staticmethod(list)
+
+    def __init__(self, arg: Any = None) -> None:
+        if callable(arg):
+            msg = "no factory here"
+            raise ValueError(msg)
+
+        super().__init__(arg or {})
+
+
+def test_reconstruct_mapping_moves_past_a_factory_constructor_value_error() -> None:
+    out = _reconstruct_mapping(_FactoryValueErrorDict({"a": 1}), value_func=str)
+
+    assert type(out) is _FactoryValueErrorDict
+    assert dict(out) == {"a": "1"}
+
+
+class _NamedDict(dict):  # type: ignore[type-arg]  # Only the constructor shape matters here.
+    """A dict whose constructor takes a name and swallows a mapping passed as it."""
+
+    def __init__(self, name: Any, *args: Any) -> None:
+        self.name = name
+        super().__init__(*args)
+
+
+def test_reconstruct_mapping_falls_back_to_a_refilled_copy() -> None:
+    out = _reconstruct_mapping(_NamedDict("n", {"a": 1}), value_func=str)
+
+    assert type(out) is _NamedDict
+    assert dict(out) == {"a": "1"}
+    assert out.name == "n"
+
+
+def test_none_cleaner_walks_mappings_and_leaves_text_whole() -> None:
+    assert _none_cleaner({"a": None, "b": [None, 1]}) == {"b": [1]}
+    text = UserString("ab")
+    assert _none_cleaner(text) is text

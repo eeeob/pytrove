@@ -1,7 +1,11 @@
 from __future__ import annotations as _annotations
 
+from collections import UserString
 from collections.abc import MutableSequence
+from enum import Enum
 from typing import Any, TypeVar
+
+import pytest
 
 from pytrove.iter_tools import to_list
 from pytrove.iter_tools._internal import _MS, _items
@@ -38,5 +42,31 @@ def test_items_of_an_iterator_is_consumed_once() -> None:
     assert tuple(values) == ()
 
 
-def test_items_wraps_bytes_as_a_single_value() -> None:
-    assert _items(b"ab") == (b"ab",)
+class _Shade(Enum):
+    DARK = 1
+
+
+class _AwaitableList(list):  # type: ignore[type-arg]  # Only the awaitable shape matters here.
+    """A list that is also awaitable, so `NotContainer` makes it a single value."""
+
+    def __await__(self) -> Any:
+        return iter(())
+
+
+@pytest.mark.parametrize(
+    "single",
+    [
+        "ab",
+        b"ab",
+        bytearray(b"ab"),
+        memoryview(b"ab"),
+        UserString("ab"),
+        _Shade,
+        _AwaitableList([1]),
+    ],
+)
+def test_items_wraps_every_not_container_kind_as_a_single_value(single: Any) -> None:
+    result = _items(single)
+    assert type(result) is tuple
+    assert len(result) == 1
+    assert next(iter(result)) is single
