@@ -1304,7 +1304,7 @@ def test_a_failed_cleanup_never_replaces_the_extraction_error(
     src = tmp_path / "a.zip"
     src.write_bytes(b"")
     monkeypatch.setattr(_Extractor, "_zip", fail_extraction)
-    monkeypatch.setattr(extractor_module, "remove_path", fail_cleanup)
+    monkeypatch.setattr(extractor_module, "remove_paths", fail_cleanup)
     extractor = _Extractor(src, tmp_path / "out", _Filter.from_rules((), ()))
 
     with pytest.raises(ValueError, match="the extraction's own"):

@@ -22,21 +22,14 @@ if TYPE_CHECKING:
 class UTC3LogFormatter(logging.Formatter):
     """A formatter that writes record times in UTC+3, whatever the machine's zone."""
 
-    @staticmethod
-    def _to_utc3(stamp: float | None = None) -> time.struct_time:
-        """Convert a record's timestamp to UTC+3.
-
-        Args:
-            stamp: The record's Unix timestamp; `None` means now, as with `time.localtime`.
-
-        Returns:
-            The time tuple in UTC+3.
-        """
-        stamp = time.time() if stamp is None else stamp
-        return datetime.fromtimestamp(stamp, tz=TZ_UTC_PLUS_3).timetuple()
-
-    # `Formatter.converter` is a writable attribute, so it is overridden as one, not as a method.
-    converter: Callable[[float | None], time.struct_time] = _to_utc3
+    # `Formatter.converter` is a writable attribute, so `ty` refuses a method in its place;
+    # a `staticmethod` value keeps it the only name for the conversion.
+    converter: Callable[[float | None], time.struct_time] = staticmethod(
+        lambda stamp=None: datetime.fromtimestamp(
+            time.time() if stamp is None else stamp, tz=TZ_UTC_PLUS_3
+        ).timetuple()
+    )
+    """Turn a record's Unix timestamp into a UTC+3 time tuple; `None` means now, as with `time.localtime`."""
 
 
 def flush_logger_handler(handler: logging.Handler | None = None) -> None:

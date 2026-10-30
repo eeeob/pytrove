@@ -11,7 +11,7 @@ from typing import IO, TYPE_CHECKING
 
 from ..._internal import _is_dir, _COPY_BUF
 from ...errors import ValidationError
-from ...files_tools import ensure_dir, remove_file
+from ...files_tools import ensure_dir, remove_files
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -178,7 +178,7 @@ class _WriteMixin:
         try:
             os.replace(tmp, target)
         except OSError as exc:
-            remove_file(tmp, return_exc=True, log_exc=True)
+            remove_files(tmp, return_exc=True, log_exc=True)
             log.warning(
                 "extract_archive: could not put %s %r at %r (%s)", m.kind, m.name, str(target), exc
             )
@@ -247,7 +247,7 @@ class _WriteMixin:
             return
         finally:
             if tmp is not None:
-                remove_file(tmp, return_exc=True)
+                remove_files(tmp, return_exc=True)
 
         if grown != m.size:
             log.warning(

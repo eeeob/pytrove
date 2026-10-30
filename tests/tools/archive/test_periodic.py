@@ -162,7 +162,7 @@ async def test_run_job_reports_a_failed_create_and_has_nothing_to_remove(
         msg = "disk full"
         raise OSError(msg)
 
-    monkeypatch.setattr(archiver_module, "remove_file", removed.append)
+    monkeypatch.setattr(archiver_module, "remove_files", removed.append)
 
     job = make_job(tree, on_error=on_error)
     archiver = PeriodicArchiver([job])
@@ -427,7 +427,7 @@ async def test_run_job_a_failed_removal_neither_raises_nor_skips_last_run(
     job = make_job(tree)
     archiver = PeriodicArchiver([job])
     stamp_before = job.last_run
-    monkeypatch.setattr(archiver_module, "remove_file", refuse)
+    monkeypatch.setattr(archiver_module, "remove_files", refuse)
     monkeypatch.setattr(archiver_module.time, "monotonic", lambda: stamp_before + 1000)
 
     await archiver.run_job(job)

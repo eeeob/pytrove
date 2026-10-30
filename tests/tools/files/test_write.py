@@ -175,7 +175,7 @@ def test_a_successful_write_does_not_try_to_remove_the_renamed_temp_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     removed: list[object] = []
-    monkeypatch.setattr(write, "remove_file", lambda *a, **k: removed.append(a))
+    monkeypatch.setattr(write, "remove_files", lambda *a, **k: removed.append(a))
 
     with atomic_write(tmp_path / "out.txt", fsync=False) as f:
         f.write("x")

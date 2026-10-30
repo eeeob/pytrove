@@ -149,12 +149,8 @@ def _aimed_at(j: Jitter, target: float) -> Jitter:
     return j
 
 
-def test_Jitter_next_is_the_call() -> None:
-    assert Jitter.next is Jitter.__call__
-
-    a = Jitter(5, rng=random.Random(2))
-    b = Jitter(5, rng=random.Random(2))
-    assert [a.next() for _ in range(20)] == [b() for _ in range(20)]
+def test_Jitter_is_drawn_only_by_calling_it() -> None:
+    assert not hasattr(Jitter, "next")
 
 
 def test_Jitter_starts_at_a_random_phase_from_its_rng() -> None:

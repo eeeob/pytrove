@@ -189,7 +189,7 @@ def _spill_parts(
         The parts written, in order.
     """
     # `remove` and `write` import this module.
-    from ..remove import remove_file  # noqa: PLC0415 - see above
+    from ..remove import remove_files  # noqa: PLC0415 - see above
     from ..write import atomic_write  # noqa: PLC0415 - see above
 
     folder = ensure_dir(path.parent if spill is True else resolve_path(spill))
@@ -213,7 +213,7 @@ def _spill_parts(
                     written += len(chunk)
 
             if not written:  # The file shrank under us; an empty part would misreport it.
-                remove_file(part)
+                remove_files(part)
                 break
 
             parts.append(part)

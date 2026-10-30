@@ -8,7 +8,7 @@ from datetime import date
 from typing import Any, Final
 
 from ...constants import DEVICE_CATALOGS_DIR
-from ...files_tools import load_json
+from ...files_tools import read_json
 
 _SCHEMA: Final[int] = 1
 """The catalog layout version; must equal `devtools/device_catalogs/src/shared.py::SCHEMA`."""
@@ -180,7 +180,7 @@ def _load(platform: str) -> dict[str, Any]:
         msg = f"no device catalog for {platform!r}: {path} is missing"
         raise FileNotFoundError(msg)
 
-    data = load_json(path)
+    data = read_json(path)
 
     if not isinstance(data, dict):
         msg = f"{platform}.json: expected a JSON object, got {type(data).__name__}"

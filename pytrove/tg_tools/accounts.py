@@ -1,4 +1,4 @@
-"""Facts about Telegram accounts: their age, email login codes, and the client device."""
+"""Facts about Telegram accounts: their age and email login codes."""
 
 from __future__ import annotations as _annotations
 
@@ -6,7 +6,6 @@ import re
 from bisect import bisect_left
 
 from .._internal import _optional_import
-from ..device_tools import random_device as rand_tg_device
 from ..email_tools import detect_email_provider, fetch_emails_from
 from ..errors import ValidationError
 from ..validate_tools import validation
@@ -88,5 +87,4 @@ async def fetch_tg_email_code(
 __all__ = (
     "tg_account_created_at",
     "fetch_tg_email_code",
-    "rand_tg_device",
 )

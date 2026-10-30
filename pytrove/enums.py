@@ -53,7 +53,7 @@ class TgMessageLength(IntEnum):
     """Telegram's length limits, in characters."""
 
     TEXT = 4096
-    """A text message; the default length `split_tg_message` and `chunk_text` cut at."""
+    """A text message; the default length `chunk_text` cuts at."""
 
     CAPTION = 1024
     """A media caption."""
