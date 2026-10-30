@@ -45,6 +45,9 @@ async def gather_helper(
     Returns:
         The results in order.
 
+    Raises:
+        Exception: The first failure, when `return_exc` is false.
+
     Example:
         >>> asyncio.run(gather_helper(asyncio.sleep(0, result=1), [asyncio.sleep(0, result=2), None]))
         [1, 2]
@@ -88,6 +91,9 @@ async def gather_abort(
 
     Returns:
         The results in order.
+
+    Raises:
+        Exception: The first failure, when `return_exc` is false.
     """
     caller_stack = traceback.extract_stack()[:-1] if log_exc else None
     # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so

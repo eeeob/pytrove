@@ -1,6 +1,9 @@
 from __future__ import annotations as _annotations
 
 import asyncio
+import contextvars
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 import pytest
@@ -78,3 +81,43 @@ async def test_yield_control_interleaves_concurrent_tasks() -> None:
     await asyncio.gather(worker("A"), worker("B"))
 
     assert order == ["A0", "B0", "A1", "B1", "A2", "B2"]
+
+
+async def test_to_thread_runs_with_the_callers_context_variables() -> None:
+    var: contextvars.ContextVar[str] = contextvars.ContextVar("var")
+    var.set("caller")
+
+    assert await to_thread(var.get) == "caller"
+
+
+async def test_to_thread_runs_in_the_given_executor() -> None:
+    def thread_name() -> str:
+        """Return the name of the thread this runs on."""
+        return threading.current_thread().name
+
+    with ThreadPoolExecutor(1, thread_name_prefix="dedicated") as executor:
+        assert (await to_thread(thread_name, executor=executor)).startswith("dedicated")
+
+
+async def test_to_thread_never_returns_a_base_exception() -> None:
+    class _Abort(BaseException):
+        """A failure that is not an `Exception`."""
+
+    def abort() -> None:
+        """Fail with a `BaseException`."""
+        raise _Abort
+
+    with pytest.raises(_Abort):
+        await to_thread(abort, return_exc=True)
+
+
+async def test_to_thread_logs_the_callers_stack(caplog: pytest.LogCaptureFixture) -> None:
+    await to_thread(_raise_value_error, return_exc=True)
+
+    assert "test_to_thread_logs_the_callers_stack" in caplog.text
+    assert "_raise_value_error" in caplog.text
+
+
+async def test_call_sync_or_await_passes_keyword_arguments() -> None:
+    assert await call_sync_or_await(lambda x, *, y: x - y, 5, y=2) == 3
+    assert await call_sync_or_await(_value, v=4) == 4

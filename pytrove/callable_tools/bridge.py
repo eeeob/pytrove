@@ -56,9 +56,8 @@ def run_awaitable_sync(
 ) -> _T:
     """Run an awaitable to completion from synchronous code.
 
-    Without `loop`, a fresh loop runs it through `asyncio.run`; use
-    `SyncAwaitableRunner` to reuse one loop across calls. With `loop`, that loop
-    must already be running in another thread, and this blocks until done. A
+    Without `loop`, a fresh loop runs it through `asyncio.run`. With `loop`, that
+    loop must already be running in another thread, and this blocks until done. A
     coroutine refused with `RuntimeError` is closed first, so it never warns
     that it was not awaited.
 

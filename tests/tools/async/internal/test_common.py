@@ -3,6 +3,7 @@ from __future__ import annotations as _annotations
 import asyncio
 import sys
 import traceback
+import typing
 from typing import Any
 
 import pytest
@@ -56,8 +57,11 @@ def test_py314_flag_matches_the_interpreter() -> None:
     assert _PY314 is (sys.version_info >= (3, 14))
 
 
-def test_exc_logger_alias_exists() -> None:
-    assert _ExcLogger is not None
+def test_exc_logger_alias_takes_a_flag_or_a_callback() -> None:
+    args = typing.get_args(_ExcLogger)
+
+    assert bool in args
+    assert len(args) == 2  # The flag and the sync-or-async callback.
 
 
 async def test_gather_cancel_on_error_of_nothing_is_an_empty_list() -> None:
