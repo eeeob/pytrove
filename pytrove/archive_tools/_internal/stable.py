@@ -9,8 +9,10 @@ import stat
 import tempfile
 from typing import TYPE_CHECKING
 
+from ...files_tools import remove_files
+
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable
 
 log = logging.getLogger(__name__)
 
@@ -61,7 +63,8 @@ def _read_stable(path: str, retries: int) -> tuple[str, os.stat_result, bool]:
     """Copy a file to a temp file, retrying until a copy is bracketed by two equal `stat`s.
 
     The temp file gets the verified mtime and mode, so the archive builds the
-    member exactly as it would from `path`. The caller removes it.
+    member exactly as it would from `path`. The caller removes it with
+    `_discard_copies`, since the copied mode may be read-only.
 
     Args:
         path: The file to copy.
@@ -121,6 +124,26 @@ def _read_stable(path: str, retries: int) -> tuple[str, os.stat_result, bool]:
     return tmp_path, last_stat, settled
 
 
+def _discard_copies(paths: Iterable[str]) -> None:
+    """Remove stability copies, read-only ones included, logging rather than raising a failure.
+
+    A copy carries its source's mode, and Windows refuses to delete a
+    read-only file, so write permission is restored first.
+
+    Args:
+        paths: The temp copies.
+    """
+    paths = list(paths)
+
+    for path in paths:
+        try:
+            os.chmod(path, stat.S_IREAD | stat.S_IWRITE)
+        except OSError:
+            pass  # Gone already, or not ours to change; the removal below reports what matters.
+
+    remove_files(paths, return_exc=True, log_exc=True)
+
+
 def _stable_source(
     path: str,
     retries: int,
@@ -168,6 +191,7 @@ def _stable_source(
 
 
 __all__ = (
+    "_discard_copies",
     "_read_stable",
     "_same_stat",
     "_stable_source",

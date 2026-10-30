@@ -31,8 +31,9 @@ def test_raw_entry_covers_every_entry_an_archive_filter_sees() -> None:
     }
 
 
-def test_rule_is_a_glob_or_a_predicate_over_path_and_entry() -> None:
-    glob, predicate = get_args(_types._Rule)
+def test_rule_is_a_pattern_a_path_or_a_predicate_over_path_and_entry() -> None:
+    glob, path, predicate = get_args(_types._Rule)
     assert glob is str
+    assert path == os.PathLike[str]
     assert typing.get_origin(predicate) is Callable
     assert get_args(predicate)[0] == [str, _types._RawEntry]

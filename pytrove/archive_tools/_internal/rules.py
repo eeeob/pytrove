@@ -2,20 +2,22 @@
 
 from __future__ import annotations as _annotations
 
-from dataclasses import dataclass
+import os
+from dataclasses import dataclass, field
 from fnmatch import fnmatchcase
 from functools import lru_cache
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, NamedTuple
+from pathlib import Path, PurePath
+from typing import TYPE_CHECKING, Any, NamedTuple, cast
 
 from ...errors import ValidationError
-from ...iter_tools import dedupe
+from ...iter_tools import dedupe, iter_flat_cont
 from . import backends
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Callable, Iterable, Iterator
 
     from ..._internal import _RawEntry, _Rule
+    from ...typings import NestedContainer
 
 
 class _Rules(NamedTuple):
@@ -64,15 +66,30 @@ class _Filter:
     who: str = "compress_folder"
     """The public function's name, for error messages."""
 
+    _has_include: bool = field(init=False, repr=False, compare=False)
+    """Whether the include side holds a rule; fixed, since both sides are immutable."""
+
+    _has_exclude: bool = field(init=False, repr=False, compare=False)
+    """Whether the exclude side holds a rule; fixed, since both sides are immutable."""
+
+    def __post_init__(self) -> None:
+        """Weigh each side once, rather than on every entry the filter is asked about."""
+        self._has_include = bool(self.include_rules)
+        self._has_exclude = bool(self.exclude_rules)
+
     @staticmethod
     @lru_cache(maxsize=256, typed=True)
     def sort(items: Iterable[_Rule]) -> _Rules:
         """Sort one side's rules onto their rungs, cached on the rules themselves.
 
-        A bare name is a name rung; anything with a `/` is a path; anything with
-        `*`, `?` or `[` is a glob. Paths are normalised to posix, without a
-        leading `./` or trailing `/`. A predicate built per call (a closure)
-        never hits the cache, which holds it until 256 newer keys push it out.
+        Anything with `*`, `?` or `[` is a glob; else anything whose text has a
+        `/` is a path, so `./logs` and `logs/` are paths too; else it is a bare
+        name. That is decided on the text as given, then paths are normalised
+        to posix, without a leading `./` or trailing `/`; a glob that began with
+        `./` gets a leading `/` instead, which anchors it at `src`. A `PurePath` (of
+        either flavour) is read as its posix text and any other `os.PathLike`
+        as its `os.fspath`. A predicate built per call (a closure) never hits
+        the cache, which holds it until 256 newer keys push it out.
 
         Args:
             items: The rules, as a hashable tuple.
@@ -81,23 +98,37 @@ class _Filter:
             The sorted rules.
 
         Raises:
-            ValidationError: For a rule that is neither a pattern nor a callable.
+            ValidationError: For a rule that is neither a pattern nor a callable,
+                or one naming no entry (``, `.`, `/`).
         """
         paths, funcs, names, globs = set(), [], set(), []
 
         for rule in items:
-            item = Path(rule) if isinstance(rule, str) else rule
-            if isinstance(item, Path):
-                item = "" if (pos := item.as_posix()) in (".", "/") else pos
+            if callable(rule):
+                funcs.append(rule)
+                continue
 
-            if callable(item):
-                funcs.append(item)
-            elif not isinstance(item, str) or not item:
-                msg = f"{item!r} is not a pattern or a callable"
+            text: object = (
+                rule.as_posix()
+                if isinstance(rule, PurePath)
+                else os.fspath(rule)
+                if isinstance(rule, os.PathLike)
+                else rule
+            )
+            msg = f"{rule!r} is not a pattern or a callable"
+
+            if not isinstance(text, str) or not text:
                 raise ValidationError(msg)
-            elif any(c in item for c in ("*", "?", "[")):
-                globs.append(item)
-            elif "/" in item:
+
+            if (item := Path(text).as_posix()).strip("/") in ("", "."):
+                raise ValidationError(msg)
+
+            # Judged on `text` too, since `Path` drops the `/` of `./x` and `x/`;
+            # `item` catches a Windows `\`, which `Path` turned into `/`.
+            if any(c in item for c in ("*", "?", "[")):
+                # `Path` drops the `./` that anchors `./*.log`; a leading `/` keeps the anchor.
+                globs.append(f"/{item}" if text[:2] in ("./", f".{os.sep}") else item)
+            elif "/" in text or "/" in item:
                 paths.add(item.lstrip("/"))
             else:
                 names.add(item)
@@ -117,13 +148,16 @@ class _Filter:
 
     @classmethod
     def from_rules(
-        cls, include: Iterable[_Rule], exclude: Iterable[_Rule], who: str = "compress_folder"
+        cls,
+        include: NestedContainer[_Rule] | None,
+        exclude: NestedContainer[_Rule] | None,
+        who: str = "compress_folder",
     ) -> _Filter:
         """Build a filter from both sides, naming the caller in any complaint.
 
         Args:
-            include: The include rules.
-            exclude: The exclude rules.
+            include: The include rules, at any nesting; `None` for none.
+            exclude: The exclude rules, at any nesting; `None` for none.
             who: The public function's name.
 
         Returns:
@@ -132,8 +166,13 @@ class _Filter:
         Raises:
             ValidationError: For a malformed rule, prefixed with `who`.
         """
+        # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
+        # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
+        includes = cast("Iterator[_Rule]", iter_flat_cont(include))
+        excludes = cast("Iterator[_Rule]", iter_flat_cont(exclude))
+
         try:
-            return cls(cls.sort(tuple(dedupe(include))), cls.sort(tuple(dedupe(exclude))), who)
+            return cls(cls.sort(tuple(dedupe(includes))), cls.sort(tuple(dedupe(excludes))), who)
         except ValidationError as exc:
             msg = f"{who}: {exc}"
             raise ValidationError(msg) from None
@@ -152,11 +191,22 @@ class _Filter:
         if rules.spec is not None:
             return rules.spec.match_file(rel)
 
-        return any(fnmatchcase(rel, pat) for pat in rules.globs)
+        if not rules.globs:
+            return False
+
+        # An anchored `/pat` matches only at its own depth: with as many `/` as
+        # `rel`, `fnmatch`'s `*` cannot cross one.
+        depth = rel.count("/")
+        return any(
+            fnmatchcase(rel, pat[1:]) and pat.count("/") - 1 == depth
+            if pat[:1] == "/"
+            else fnmatchcase(rel, pat)
+            for pat in rules.globs
+        )
 
     def __bool__(self) -> bool:
         """Tell whether either side has any rule."""
-        return bool(self.include_rules or self.exclude_rules)
+        return self._has_include or self._has_exclude
 
     @staticmethod
     def _ask(fn: Callable[[str, _RawEntry], Any], rel: str, raw: _RawEntry, side: str) -> bool:
@@ -203,7 +253,7 @@ class _Filter:
         Returns:
             Whether it is kept.
         """
-        if not self:
+        if not (self._has_include or self._has_exclude):
             return True
 
         inc, exc = self.include_rules, self.exclude_rules
@@ -232,7 +282,7 @@ class _Filter:
         if self.glob_hit(rel, inc):
             return True
 
-        return not bool(inc)
+        return not self._has_include
 
     def enter(self, rel: str, raw: _RawEntry = None) -> bool:
         """Tell whether a walk should descend into a directory.
@@ -247,10 +297,10 @@ class _Filter:
         Returns:
             Whether to descend.
         """
-        exc = self.exclude_rules
-
-        if not exc:
+        if not self._has_exclude:
             return True
+
+        exc = self.exclude_rules
 
         if rel in exc.paths:
             return False

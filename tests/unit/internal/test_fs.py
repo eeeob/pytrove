@@ -3,7 +3,8 @@ from __future__ import annotations as _annotations
 import os
 import stat
 import subprocess
-from typing import TYPE_CHECKING
+from types import SimpleNamespace
+from typing import TYPE_CHECKING, cast
 
 import pytest
 
@@ -202,3 +203,50 @@ def test_is_dir_is_the_inverse_of_is_link_for_a_directory(tmp_path: Path) -> Non
 
 def test_copy_buf_is_one_mebibyte() -> None:
     assert _fs._COPY_BUF == 1 << 20
+
+
+@pytest.mark.parametrize(
+    "mode, attributes, tag, link",
+    [
+        (stat.S_IFREG, 0, 0, False),
+        (stat.S_IFDIR, 0, 0, False),
+        (stat.S_IFLNK, 0, 0, True),
+        (stat.S_IFDIR, 0x400, 0xA0000003, True),  # FILE_ATTRIBUTE_REPARSE_POINT, a junction
+        (stat.S_IFDIR, 0x400, 0x9000001A, False),  # a reparse point that is not a junction
+        (stat.S_IFDIR, 0, 0xA0000003, False),  # a junction tag without the reparse attribute
+    ],
+)
+def test_stat_is_link_reads_the_mode_and_the_junction_tag(
+    monkeypatch: pytest.MonkeyPatch, mode: int, attributes: int, tag: int, link: bool
+) -> None:
+    # The constants are Windows-only, so they are given here for every platform.
+    monkeypatch.setattr(_fs, "_HAS_FILE_ATTRIBUTES", True)
+    monkeypatch.setattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400, raising=False)
+    monkeypatch.setattr(stat, "IO_REPARSE_TAG_MOUNT_POINT", 0xA0000003, raising=False)
+    st = SimpleNamespace(st_mode=mode, st_file_attributes=attributes, st_reparse_tag=tag)
+
+    assert _fs._stat_is_link(cast("os.stat_result", st)) is link
+
+
+def test_stat_is_link_reads_only_the_mode_without_file_attributes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Off Windows there are no attribute fields to read; touching one would raise.
+    monkeypatch.setattr(_fs, "_HAS_FILE_ATTRIBUTES", False)
+
+    assert _fs._stat_is_link(cast("os.stat_result", SimpleNamespace(st_mode=stat.S_IFLNK)))
+    assert not _fs._stat_is_link(cast("os.stat_result", SimpleNamespace(st_mode=stat.S_IFDIR)))
+
+
+def test_is_dir_takes_a_single_lstat(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    real = os.lstat
+    calls: list[str] = []
+
+    def lstat(path: str | os.PathLike[str]) -> os.stat_result:
+        calls.append(os.fspath(path))
+        return real(path)
+
+    monkeypatch.setattr(os, "lstat", lstat)
+
+    assert _fs._is_dir(tmp_path) is True
+    assert calls == [os.fspath(tmp_path)]

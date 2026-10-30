@@ -8,9 +8,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, TYPE_CHECKING
 
-from ..._internal import _is_link, _default_stability_check
+from ..._internal import _default_stability_check, _stat_is_link, _HAS_FILE_ATTRIBUTES
 from ...enums import ArchiveFormat
-from .common import _split_workers, _WalkEntry
+from ...files_tools import remove_paths
+from .common import _new_prefixes, _split_workers, _WalkEntry
 from .rules import _Filter
 from .writers import _write_tar, _write_zip
 
@@ -79,11 +80,12 @@ class _Compressor:
             `(absolute path, posix archive name, is directory)` for each kept entry.
         """
         root, flt, follow_links = self.root, self.flt, self.follow_links
-        stack = [root]
+        # Each directory carries its own archive-name prefix, so no entry needs `relpath`.
+        stack = [(root, "")]
         emitted: set[str] = set()
 
         while stack:
-            current = stack.pop()
+            current, prefix = stack.pop()
 
             try:
                 with os.scandir(current) as it:
@@ -93,9 +95,10 @@ class _Compressor:
                 continue
 
             for entry in entries:
-                rel = os.path.relpath(entry.path, root).replace(os.sep, "/")
+                rel = prefix + entry.name
 
-                if _is_link(entry.path):
+                # `DirEntry` caches the symlink bit, and on Windows the junction tag too.
+                if entry.is_symlink() or (_HAS_FILE_ATTRIBUTES and _is_junction(entry)):
                     if not follow_links:
                         continue
 
@@ -138,7 +141,7 @@ class _Compressor:
 
                 if is_dir:
                     if flt.enter(rel, entry):
-                        stack.append(entry.path)
+                        stack.append((entry.path, f"{rel}/"))
                 elif is_file and flt.matches(rel, entry):
                     yield from self._ancestors(rel, emitted)
                     yield entry.path, rel, False
@@ -153,14 +156,52 @@ class _Compressor:
         Yields:
             Each directory not yet yielded.
         """
-        parts = rel.split("/")[:-1]
-
-        for i in range(1, len(parts) + 1):
-            branch = "/".join(parts[:i])
-
-            if branch not in emitted:
-                emitted.add(branch)
-                yield os.path.join(self.root, *parts[:i]), branch, True
+        for branch in _new_prefixes(rel.rpartition("/")[0], emitted):
+            yield os.path.join(self.root, *branch.split("/")), branch, True
 
 
-__all__ = ("_Compressor",)
+def _is_junction(entry: os.DirEntry[str]) -> bool:
+    """Tell whether a walked entry is a link `DirEntry.is_symlink` misses: a Windows junction.
+
+    Read from the unfollowed `stat` `os.scandir` already cached on Windows,
+    so the walk spends no `lstat` per entry on it.
+
+    Args:
+        entry: The directory entry.
+
+    Returns:
+        Whether it is a junction (or a symlink).
+    """
+    return _stat_is_link(entry.stat(follow_symlinks=False))
+
+
+def _remove_all_but(root: Path, keep: Path) -> None:
+    """Remove everything in `root` except `keep` and the directories leading to it.
+
+    For `delete_source` when the archive was written inside the folder it
+    archives. A link is removed as itself, never followed.
+
+    Args:
+        root: The folder to empty.
+        keep: A path inside `root` to leave in place.
+
+    Raises:
+        OSError: The first removal that failed.
+    """
+    here = root
+
+    for part in keep.relative_to(root).parts:
+        kept = os.path.normcase(part)
+
+        with os.scandir(here) as it:
+            doomed = [entry.path for entry in it if os.path.normcase(entry.name) != kept]
+
+        remove_paths(doomed)
+        here = here / part
+
+
+__all__ = (
+    "_Compressor",
+    "_is_junction",
+    "_remove_all_but",
+)

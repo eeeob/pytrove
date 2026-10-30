@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any
 
 from ...enums import ArchiveFormat
-from ...files_tools import ensure_path, remove_file, remove_files
+from ...files_tools import ensure_path
 from . import backends, stable
 
 if TYPE_CHECKING:
@@ -41,7 +41,7 @@ def _write_zip(
     Args:
         entries: The walk.
         out: The open destination.
-        level: The deflate level.
+        level: The deflate level, given to fastzip too.
         workers: A thread count.
         executor: A pool.
         stability_retries: How hard to guard against concurrent edits.
@@ -63,11 +63,16 @@ def _write_zip(
 
     if use_fastzip:
         name = getattr(out, "name", None)
+        chooser = backends.fastzip_chooser
         zf = wzip = backends.WZip(
             Path(name if isinstance(name, (str, os.PathLike)) else "archive.zip"),
             fobj=out,
             threads=workers or None,
             executor=executor,
+            # fastzip's own default rules (tiny files and nested zips stored), at the caller's level.
+            chooser=chooser.CompressionChooser(
+                default=f"deflate@compresslevel={level}", rules=chooser.DEFAULT_CHOOSER.rules
+            ),
             force_zip64=True,
         )
     else:
@@ -81,6 +86,8 @@ def _write_zip(
         )
 
     pending_tmp: list[str] = []
+    # Unguarded, fastzip needs no `stat` before the write: it runs no `_warn_if_changed`.
+    needs_source = not use_fastzip or stability_retries > 0
 
     try:
         with zf:
@@ -88,8 +95,10 @@ def _write_zip(
                 if is_dir:
                     continue
 
-                skip, tmp_path, before_stat = stable._stable_source(
-                    path, stability_retries, stability_check
+                skip, tmp_path, before_stat = (
+                    stable._stable_source(path, stability_retries, stability_check)
+                    if needs_source
+                    else (False, None, None)
                 )
 
                 if skip:
@@ -114,9 +123,9 @@ def _write_zip(
                     log.warning("compress_folder: skipped %r (%s)", path, exc)
                 finally:
                     if tmp_path is not None and not use_fastzip:
-                        remove_file(tmp_path, return_exc=True)
+                        stable._discard_copies((tmp_path,))
     finally:
-        remove_files(pending_tmp, return_exc=True)
+        stable._discard_copies(pending_tmp)
 
 
 def _write_tar(
@@ -203,7 +212,7 @@ def _write_tar(
                 log.warning("compress_folder: skipped %r (%s)", path, exc)
             finally:
                 if tmp_path is not None:
-                    remove_file(tmp_path, return_exc=True)
+                    stable._discard_copies((tmp_path,))
 
 
 __all__ = (

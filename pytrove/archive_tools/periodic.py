@@ -10,14 +10,17 @@ from typing import TYPE_CHECKING, cast
 from ..async_tools import gather_helper, safe_wait_task, to_thread
 from ..data_tools.mappings import DefaultWeakValueDict
 from ..enums import TimeUnit
+from ..errors import ValidationError
 from ..files_tools import remove_file
 from ..iter_tools import iter_flat_cont
+from ._internal import _exact_paths_rule
 from .compress import compress_folder
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
 
+    from .._internal import _Rule
     from ..models.archive_models import ArchiveJob
     from ..typings import NestedContainer
 
@@ -29,26 +32,42 @@ class PeriodicArchiver:
 
     It wakes every shortest `poll_interval`, and each job whose `should_run`
     agrees is dispatched as its own task, so a slow job never delays another.
-    A job still running is skipped on later wakes.
+    A job still running is skipped on later wakes. A `should_run` that raises
+    is logged and that job skipped for the tick; the others still run. A job
+    with `delete_source` cannot share its `root` with another job, whose
+    archive its cleanup would delete.
 
     Attributes:
         jobs: The jobs.
-        base_exclude: Patterns left out of every archive.
+        base_exclude: Rules (patterns or predicates) left out of every archive.
     """
 
     def __init__(
-        self, jobs: NestedContainer[ArchiveJob], *, base_exclude: NestedContainer[str] = ()
+        self, jobs: NestedContainer[ArchiveJob], *, base_exclude: NestedContainer[_Rule] = ()
     ) -> None:
         """Hold the jobs; nothing runs until `start`.
 
         Args:
             jobs: The jobs, at any nesting.
-            base_exclude: Patterns left out of every archive.
+            base_exclude: Rules left out of every archive, as `compress_folder`'s
+                `exclude` takes them.
+
+        Raises:
+            ValidationError: If a job with `delete_source` shares its `root` with another job.
         """
         # `ty` binds `_T` to the container arm of the recursive `NestedContainer[_T]`, so
         # it cannot recover the leaf type (astral-sh/ty#1703); the parameter states it.
         self.jobs = tuple(cast("Iterator[ArchiveJob]", iter_flat_cont(jobs)))
         self.base_exclude = base_exclude
+
+        for job in self.jobs:
+            if job.delete_source and any(o is not job and o.root == job.root for o in self.jobs):
+                msg = (
+                    f"PeriodicArchiver: job {job.name!r} has delete_source=True but shares its "
+                    f"root with another job, whose archive it would delete"
+                )
+                raise ValidationError(msg)
+
         self._locks: DefaultWeakValueDict[int, asyncio.Lock] = DefaultWeakValueDict(asyncio.Lock)
         self._task: asyncio.Task[None] | None = None
         self._running: set[asyncio.Task[None]] = set()
@@ -92,6 +111,8 @@ class PeriodicArchiver:
         Returns:
             The archive's path.
         """
+        siblings = self._siblings(job)
+
         return await to_thread(
             compress_folder,
             job.root,
@@ -102,7 +123,8 @@ class PeriodicArchiver:
             exclude=[
                 self.base_exclude,
                 () if job.exclude is None else job.exclude,
-                self._siblings(job),
+                # By exact path: a name holding `[` is no glob, and a same-named file deeper down is kept.
+                _exact_paths_rule(siblings) if siblings else (),
             ],
             exclude_hidden=job.exclude_hidden,
             stability_retries=job.stability_retries,
@@ -117,8 +139,11 @@ class PeriodicArchiver:
     async def run_job(self, job: ArchiveJob) -> None:
         """Create, hand off and delete one archive, under the job's own lock.
 
-        A failure goes to `on_error`, or to the log. An archive that was made
-        is always removed afterwards, and `last_run` is always updated.
+        A failure goes to `on_error`, or to the log; a failure of `on_error`
+        itself is logged. An archive that was made is always removed
+        afterwards, and `last_run` is always updated. Cancelled while the
+        archive is being built, it waits for that thread to finish (it cannot
+        be interrupted), removes the archive, then lets the cancellation through.
 
         Args:
             job: The job.
@@ -127,13 +152,33 @@ class PeriodicArchiver:
             path = None
 
             try:
-                path = await self.create(job)
+                creating = asyncio.ensure_future(self.create(job))
+
+                try:
+                    path = await asyncio.shield(creating)
+                except asyncio.CancelledError:
+                    # The thread outlives the cancellation; wait for its archive so `finally` removes it.
+                    await asyncio.wait((creating,))
+
+                    if not creating.cancelled() and creating.exception() is None:
+                        path = creating.result()
+
+                    raise
+
                 await job.on_archive(job, path)
             except Exception as e:
-                if job.on_error is not None:
-                    await job.on_error(job, e)
-                else:
+                if job.on_error is None:
                     log.error("Archive job %r failed", job.name, exc_info=e)
+                else:
+                    try:
+                        await job.on_error(job, e)
+                    except Exception as handler_exc:
+                        log.error(
+                            "Archive job %r: on_error raised while handling %r",
+                            job.name,
+                            e,
+                            exc_info=handler_exc,
+                        )
             finally:
                 # Returned, not raised: a failed removal must not replace the error in flight
                 # nor skip the `last_run` update below; `to_thread` still logs it.
@@ -150,7 +195,18 @@ class PeriodicArchiver:
             await asyncio.sleep(interval)
 
             for job in self.jobs:
-                if id(job) in self._active or not self._should_run(job):
+                if id(job) in self._active:
+                    continue
+
+                try:
+                    due = self._should_run(job)
+                except Exception:
+                    log.exception(
+                        "Archive job %r: should_run raised, skipping it this time", job.name
+                    )
+                    continue
+
+                if not due:
                     continue
 
                 self._active.add(id(job))
@@ -165,7 +221,11 @@ class PeriodicArchiver:
             self._task = asyncio.create_task(self._loop())
 
     async def stop(self) -> None:
-        """Cancel the loop and wait for every dispatched run to finish, cleanup included."""
+        """Cancel the loop and every dispatched run, and wait for each to finish, cleanup included.
+
+        A run whose archive is still being built in its thread waits for that
+        thread, then removes the archive, so nothing is left behind once this returns.
+        """
         if self._task is not None and not self._task.done():
             self._task.cancel()
             await safe_wait_task(self._task)

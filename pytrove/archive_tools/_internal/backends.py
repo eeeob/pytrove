@@ -26,17 +26,19 @@ try:
     # Imported by name: fastzip is never installed on Windows, so a static import
     # would be unresolvable there and need a suppression that goes unused elsewhere.
     WZip: Any = importlib.import_module("fastzip.write").WZip
+    # Where `CompressionChooser` lives: the only way to give fastzip a deflate level.
+    fastzip_chooser: Any = importlib.import_module("fastzip.chooser")
 except (
     TypeError,
     ImportError,
 ):  # fastzip's import fails with `TypeError` on Windows, where it finds no libz.
     WZip: Any = None
+    fastzip_chooser: Any = None
 
 try:
-    from pathspec import GitIgnoreSpec, PathSpec  # type: ignore[import-not-found]  # Optional: the `archive` extra.
+    from pathspec import PathSpec  # type: ignore[import-not-found]  # Optional: the `archive` extra.
 except ImportError:
     PathSpec: Any = None
-    GitIgnoreSpec: Any = None
 
 from ..._internal import _has_requirement
 
@@ -47,15 +49,15 @@ if not _has_requirement("archive", "zstandard"):
 
 if not _has_requirement("archive", "fastzip"):
     WZip = None
+    fastzip_chooser = None
 
 if not _has_requirement("archive", "pathspec"):
     PathSpec = None
-    GitIgnoreSpec = None
 
 __all__ = (
-    "GitIgnoreSpec",
     "PathSpec",
     "WZip",
+    "fastzip_chooser",
     "std_zstd",
     "zstandard",
 )

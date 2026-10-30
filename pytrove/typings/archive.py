@@ -21,9 +21,11 @@ class ArchiveLimits(NamedTuple):
     Immutable, hashable and comparable by value, so one instance can be
     shared by any number of calls. The ceilings default to `None` (no
     ceiling) because no single number suits every archive; the policies
-    default to the safe answer. A misspelled policy string matches no
-    branch and so falls back to the conservative behaviour. An absolute or
-    `..` member name is always refused, whatever these settings say.
+    default to the safe answer. A policy may be given as its enum member or
+    its string value. `extract_archive` checks every field before it starts
+    and raises `ValidationError` for a wrong type, a negative ceiling or a
+    misspelled policy. An absolute or `..` member name is always refused,
+    whatever these settings say.
     """
 
     max_files: int | None = None
@@ -50,17 +52,17 @@ class ArchiveLimits(NamedTuple):
     dir_check: Callable[[Path], bool | None] | None = None
     """Called per extracted directory, outermost first, with its staging path; falsy drops the subtree, raising aborts."""
 
-    symlinks: ArchiveLinkPolicy = ArchiveLinkPolicy.ERROR
-    """What to do with a symlink member."""
+    symlinks: ArchiveLinkPolicy | str = ArchiveLinkPolicy.ERROR
+    """What to do with a symlink member; a refused one spends none of the ceilings."""
 
-    hardlinks: ArchiveLinkPolicy = ArchiveLinkPolicy.ERROR
-    """What to do with a hardlink member."""
+    hardlinks: ArchiveLinkPolicy | str = ArchiveLinkPolicy.ERROR
+    """What to do with a hardlink member; a refused one spends none of the ceilings."""
 
-    overwrite: ArchiveOverwritePolicy = ArchiveOverwritePolicy.OVERWRITE
+    overwrite: ArchiveOverwritePolicy | str = ArchiveOverwritePolicy.OVERWRITE
     """What to do when a member's path is already taken."""
 
-    duplicates: ArchiveDuplicatePolicy = ArchiveDuplicatePolicy.SKIP
-    """What to do with a member name seen before; the first one always wins."""
+    duplicates: ArchiveDuplicatePolicy | str = ArchiveDuplicatePolicy.SKIP
+    """What to do with a member name seen before (`a.txt` and `./a.txt` are one name); the first one always wins."""
 
     @classmethod
     def permissive(cls, **kw: Any) -> ArchiveLimits:

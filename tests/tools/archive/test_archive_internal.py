@@ -10,9 +10,9 @@ import tarfile
 import tempfile
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from types import ModuleType, SimpleNamespace
-from typing import Any, cast
+from typing import Any, NoReturn, cast
 
 import pytest
 
@@ -28,10 +28,16 @@ from pytrove.archive_tools._internal import (
     zipread,
 )
 from pytrove.archive_tools._internal import extractor as extractor_module
+from pytrove.archive_tools._internal import rules as rules_module
 from pytrove.archive_tools._internal.extractor import _Extractor
-from pytrove.archive_tools._internal.rules import _Filter
-from pytrove.enums import ArchiveFormat
-from pytrove.errors import ArchiveLimitError, ValidationError
+from pytrove.archive_tools._internal.rules import _Filter, _Rules
+from pytrove.enums import (
+    ArchiveDuplicatePolicy,
+    ArchiveFormat,
+    ArchiveLinkPolicy,
+    ArchiveOverwritePolicy,
+)
+from pytrove.errors import ArchiveLimitError, ArchivePolicyError, ValidationError
 from pytrove.typings import ArchiveLimits
 
 
@@ -107,7 +113,13 @@ def test_require_zstd_passes_with_a_backend(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_backends_expose_every_name() -> None:
-    assert set(backends.__all__) == {"GitIgnoreSpec", "PathSpec", "WZip", "std_zstd", "zstandard"}
+    assert set(backends.__all__) == {
+        "PathSpec",
+        "WZip",
+        "fastzip_chooser",
+        "std_zstd",
+        "zstandard",
+    }
 
 
 def test_stable_source_reads_directly_when_not_guarded(tmp_path: Path) -> None:
@@ -241,9 +253,7 @@ def test_backends_fall_back_to_none_when_nothing_is_installed(
     probe = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(probe)
 
-    assert (probe.std_zstd, probe.zstandard, probe.WZip, probe.PathSpec, probe.GitIgnoreSpec) == (
-        None,
-    ) * 5
+    assert (probe.std_zstd, probe.zstandard, probe.WZip, probe.PathSpec) == (None,) * 4
 
 
 # --- common ----------------------------------------------------------------
@@ -305,7 +315,9 @@ def test_compressor_follows_a_link_to_a_file_inside_the_root(
     link = tmp_path / "d" / "link.txt"
     link.write_text("x")
     # A real file stands in for the link: it resolves to itself, a file inside the root.
-    monkeypatch.setattr(compressor, "_is_link", lambda path: Path(path).name == "link.txt")
+    # `_HAS_FILE_ATTRIBUTES` makes the walk ask `_is_junction` beyond `DirEntry.is_symlink()`.
+    monkeypatch.setattr(compressor, "_HAS_FILE_ATTRIBUTES", True)
+    monkeypatch.setattr(compressor, "_is_junction", lambda entry: entry.name == "link.txt")
 
     walked = list(
         compressor._Compressor(str(tmp_path), _Filter.from_rules((), ()), follow_links=True)
@@ -320,7 +332,8 @@ def test_compressor_drops_a_followed_link_the_filter_excludes(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     (tmp_path / "link.txt").write_text("x")
-    monkeypatch.setattr(compressor, "_is_link", lambda path: Path(path).name == "link.txt")
+    monkeypatch.setattr(compressor, "_HAS_FILE_ATTRIBUTES", True)
+    monkeypatch.setattr(compressor, "_is_junction", lambda entry: entry.name == "link.txt")
 
     flt = _Filter.from_rules((), ["link.txt"])
 
@@ -341,6 +354,14 @@ def test_compressor_leaves_out_an_entry_whose_type_cannot_be_read(
 
         path = str(real)
         name = "f.txt"
+
+        def is_symlink(self) -> bool:
+            """Not a link."""
+            return False
+
+        def stat(self, *, follow_symlinks: bool = True) -> os.stat_result:
+            """The file's own `stat`, which `scandir` caches on Windows."""
+            return os.stat(real, follow_symlinks=follow_symlinks)
 
         def is_dir(self, *, follow_symlinks: bool = True) -> bool:
             """Fail like an entry removed mid-walk."""
@@ -731,10 +752,18 @@ class _FakeWZip:
     made: list[_FakeWZip] = []  # A per-test record, reset by `fake_wzip`.
 
     def __init__(
-        self, path: Path, *, fobj: Any, threads: int | None, executor: Any, force_zip64: bool
+        self,
+        path: Path,
+        *,
+        fobj: Any,
+        threads: int | None,
+        executor: Any,
+        chooser: Any,
+        force_zip64: bool,
     ) -> None:
         """Record the constructor arguments."""
         self.args = (path, fobj, threads, executor, force_zip64)
+        self.chooser = chooser
         self.written: list[tuple[Path, Path]] = []
         self.alive_at_close: list[bool] = []
         _FakeWZip.made.append(self)
@@ -754,9 +783,17 @@ class _FakeWZip:
 
 @pytest.fixture
 def fake_wzip(monkeypatch: pytest.MonkeyPatch) -> type[_FakeWZip]:
-    """Put `_FakeWZip` where fastzip's writer would be."""
+    """Put `_FakeWZip` where fastzip's writer would be, with a chooser module that records its arguments."""
     _FakeWZip.made = []
     monkeypatch.setattr(backends, "WZip", _FakeWZip)
+    monkeypatch.setattr(
+        backends,
+        "fastzip_chooser",
+        SimpleNamespace(
+            CompressionChooser=lambda default, rules: SimpleNamespace(default=default, rules=rules),
+            DEFAULT_CHOOSER=SimpleNamespace(rules=["store tiny files"]),
+        ),
+    )
     return _FakeWZip
 
 
@@ -769,10 +806,22 @@ def test_zip_writer_queues_files_on_fastzip_when_given_workers(
 
     (wzip,) = fake_wzip.made
     assert wzip.args == (Path("archive.zip"), out, 4, None, True)
+    assert wzip.chooser.default == "deflate@compresslevel=6"
     assert wzip.written == [
         (tmp_path / "d" / "a", Path("d/a")),
         (tmp_path / "d" / "b", Path("d/b")),
     ]
+
+
+@pytest.mark.parametrize("level", [-1, 0, 1, 9])
+def test_zip_writer_gives_fastzip_the_level_with_its_default_rules(
+    tmp_path: Path, fake_wzip: type[_FakeWZip], level: int
+) -> None:
+    writers._write_zip(_two_files(tmp_path), io.BytesIO(), level, 4, None, 0, lambda st, p: False)
+
+    (wzip,) = fake_wzip.made
+    assert wzip.chooser.default == f"deflate@compresslevel={level}"
+    assert wzip.chooser.rules == ["store tiny files"]
 
 
 def test_zip_writer_names_fastzip_after_the_open_file(
@@ -1260,3 +1309,792 @@ def test_a_failed_cleanup_never_replaces_the_extraction_error(
 
     with pytest.raises(ValueError, match="the extraction's own"):
         extractor.run(ArchiveFormat.ZIP, atomic=True)
+
+
+# --- common: exact-path rule ------------------------------------------------
+
+
+def test_exact_paths_rule_matches_only_its_paths_and_never_globs() -> None:
+    rule = common._exact_paths_rule(["arc[1].zip", "sub/b.zip"])
+
+    assert rule("arc[1].zip", None)
+    assert rule("sub/b.zip", None)
+    assert not rule("arc1.zip", None)
+    assert not rule("deeper/arc[1].zip", None)
+    assert not rule("b.zip", None)
+
+
+# --- compressor: walk and delete_source helpers --------------------------------
+
+
+def test_compressor_builds_archive_names_from_the_walk_prefix(tmp_path: Path) -> None:
+    (tmp_path / "a" / "b").mkdir(parents=True)
+    (tmp_path / "a" / "b" / "f.txt").write_text("x")
+
+    walked = list(compressor._Compressor(str(tmp_path), _Filter.from_rules((), ())))
+
+    assert [rel for _, rel, _ in walked] == ["a", "a/b", "a/b/f.txt"]
+
+
+def test_compressor_asks_for_a_junction_only_where_stat_reports_attributes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "f.txt").write_text("x")
+    asked: list[str] = []
+
+    def is_junction(entry: os.DirEntry[str]) -> bool:
+        asked.append(entry.name)
+        return False
+
+    monkeypatch.setattr(compressor, "_is_junction", is_junction)
+    monkeypatch.setattr(compressor, "_HAS_FILE_ATTRIBUTES", False)
+    list(compressor._Compressor(str(tmp_path), _Filter.from_rules((), ())))
+    assert asked == []
+
+    monkeypatch.setattr(compressor, "_HAS_FILE_ATTRIBUTES", True)
+    list(compressor._Compressor(str(tmp_path), _Filter.from_rules((), ())))
+    assert asked == ["f.txt"]
+
+
+def test_ancestors_yields_each_directory_once_outermost_first(tmp_path: Path) -> None:
+    walk = compressor._Compressor(str(tmp_path), _Filter.from_rules((), ()))
+    emitted: set[str] = set()
+
+    first = [rel for _, rel, _ in walk._ancestors("a/b/c.txt", emitted)]
+    second = [rel for _, rel, _ in walk._ancestors("a/b/d/e.txt", emitted)]
+
+    assert first == ["a", "a/b"]
+    assert second == ["a/b/d"]
+    assert list(walk._ancestors("top.txt", emitted)) == []
+
+
+def test_remove_all_but_keeps_only_the_path_and_its_directories(tmp_path: Path) -> None:
+    (tmp_path / "out" / "deep").mkdir(parents=True)
+    (tmp_path / "out" / "deep" / "arc.zip").write_text("a")
+    (tmp_path / "out" / "deep" / "other.txt").write_text("x")
+    (tmp_path / "out" / "sibling.txt").write_text("x")
+    (tmp_path / "gone").mkdir()
+    (tmp_path / "gone" / "f.txt").write_text("x")
+    (tmp_path / "top.txt").write_text("x")
+
+    compressor._remove_all_but(tmp_path, tmp_path / "out" / "deep" / "arc.zip")
+
+    assert sorted(
+        str(p.relative_to(tmp_path)).replace(os.sep, "/") for p in tmp_path.rglob("*")
+    ) == [
+        "out",
+        "out/deep",
+        "out/deep/arc.zip",
+    ]
+
+
+# --- rules ----------------------------------------------------------------------
+
+
+def test_rules_and_filter_are_truthy_only_with_a_rule() -> None:
+    assert not _Rules()
+    assert _Rules(names=frozenset({"a"}))
+    assert _Rules(funcs=(lambda rel, raw: True,))
+    assert not _Filter.from_rules((), ())
+    assert _Filter.from_rules("a", ())
+    assert _Filter.from_rules((), "a")
+
+
+def test_sort_puts_each_rule_on_its_rung() -> None:
+    def pred(rel: str, raw: Any) -> bool:
+        return False
+
+    sorted_rules = _Filter.sort(("name", "a/b", "./c", "d/", "/e", "*.log", pred))
+
+    assert sorted_rules.names == frozenset({"name"})
+    assert sorted_rules.paths == frozenset({"a/b", "c", "d", "e"})
+    assert sorted_rules.funcs == (pred,)
+    assert sorted_rules.globs == (() if sorted_rules.spec is not None else ("*.log",))
+
+
+def test_sort_accepts_any_path_like() -> None:
+    class _Fs:
+        """An `os.PathLike` that is no `PurePath`."""
+
+        def __fspath__(self) -> str:
+            return "x/y"
+
+    assert _Filter.sort((_Fs(),)).paths == frozenset({"x/y"})
+    assert _Filter.sort((PurePosixPath("x/y"), PureWindowsPath("x\\z"))).paths == frozenset(
+        {"x/y", "x/z"}
+    )
+
+
+def test_sort_is_cached_on_the_rules_but_a_fresh_closure_always_misses() -> None:
+    _Filter.sort.cache_clear()
+
+    assert _Filter.sort(("a", "b")) is _Filter.sort(("a", "b"))
+    assert _Filter.sort.cache_info().hits == 1
+
+    first = _Filter.sort(((lambda rel, raw: True),))
+    second = _Filter.sort(((lambda rel, raw: True),))
+
+    assert first is not second
+    assert _Filter.sort.cache_info().hits == 1
+
+
+def test_from_rules_flattens_nested_rules() -> None:
+    flt = _Filter.from_rules(["a", ("b", ["c/d"])], None)
+
+    assert flt.include_rules.names == frozenset({"a", "b"})
+    assert flt.include_rules.paths == frozenset({"c/d"})
+    assert not flt.exclude_rules
+
+
+@pytest.mark.parametrize("pathspec", [True, False])
+def test_glob_hit_asks_whichever_backend_holds_the_globs(
+    monkeypatch: pytest.MonkeyPatch, pathspec: bool
+) -> None:
+    if pathspec and backends.PathSpec is None:
+        pytest.skip("pathspec is not installed")
+
+    if not pathspec:
+        monkeypatch.setattr(backends, "PathSpec", None)
+
+    _Filter.sort.cache_clear()
+
+    try:
+        side = _Filter.sort(("*.log",))
+    finally:
+        _Filter.sort.cache_clear()
+
+    assert (side.spec is not None) is pathspec
+    assert _Filter.glob_hit("a.log", side)
+    assert not _Filter.glob_hit("a.txt", side)
+    assert not _Filter.glob_hit("a.log", _Rules())
+
+
+def test_enter_consults_only_the_exclude_side_rung_by_rung() -> None:
+    assert _Filter.from_rules("nothing", ()).enter("any/dir")
+    assert not _Filter.from_rules((), "/a/b").enter("a/b")
+    assert _Filter.from_rules((), "/a/b").enter("x/a/b")
+    assert not _Filter.from_rules((), lambda rel, raw: rel == "p").enter("p")
+    assert not _Filter.from_rules((), "logs").enter("deep/logs")
+    assert not _Filter.from_rules((), "build*").enter("build-1")
+    assert _Filter.from_rules((), "build*").enter("src")
+
+
+def test_enter_hands_the_entry_to_a_predicate() -> None:
+    seen: list[Any] = []
+    flt = _Filter.from_rules((), lambda rel, raw: bool(seen.append(raw)))
+    marker = object()
+
+    assert flt.enter("d", cast("Any", marker))
+    assert seen == [marker]
+
+
+# --- limiter ---------------------------------------------------------------------
+
+
+def _limiter(**kw: Any) -> limiter._Limiter:
+    """A limiter over `kw`, naming a dummy archive."""
+    return limiter._Limiter(ArchiveLimits(**kw), Path("a.zip"))
+
+
+def _file(name: str, size: int = 1, packed: int = 1, kind: Any = "file") -> limiter._Member:
+    """A member of `kind`."""
+    return limiter._Member(name, zipfile.ZipInfo(name), size, packed, kind)
+
+
+@pytest.mark.parametrize(
+    ("kw", "members", "match"),
+    [
+        ({"max_depth": 1}, ["a/b/c"], "nested 2 deep"),
+        ({"max_dir_entries": 1}, ["d/a", "d/b"], "directory 'd' holds more"),
+        ({"max_root_entries": 1}, ["a", "b"], "root entries"),
+        ({"max_file_size": 1}, [("big", 2, 2)], "is 2 bytes"),
+        ({"max_ratio": 10}, [("bomb", 1000, 1)], "expands 1000x"),
+        ({"max_files": 1}, ["a", "b"], "more than the 1 members"),
+        ({"max_total_size": 3}, [("a", 2, 2), ("b", 2, 2)], "past the 3 bytes"),
+    ],
+)
+def test_count_stops_at_each_ceiling(kw: dict[str, int], members: list[Any], match: str) -> None:
+    lim = _limiter(**kw)
+
+    with pytest.raises(ArchiveLimitError, match=match):
+        for m in members:
+            lim.count(_file(m) if isinstance(m, str) else _file(*m))
+
+
+def test_count_leaves_directories_out_of_max_files_and_tar_out_of_max_ratio() -> None:
+    lim = _limiter(max_files=1, max_ratio=1)
+
+    lim.count(_file("d", kind="dir"))
+    lim.count(_file("d/tar-member", size=100, packed=0))
+
+    assert (lim.files, lim.total) == (1, 100)
+
+
+def test_allows_name_admits_the_first_of_each_spelling_and_forget_frees_it() -> None:
+    lim = _limiter()
+
+    assert lim.allows_name("a.txt")
+    assert not lim.allows_name("./a.txt")
+    assert lim.allows_name("A.txt")  # Case is `overwrite`'s business, not a duplicate.
+
+    lim.forget("./a.txt")
+    assert lim.allows_name("a.txt")
+
+
+def test_name_key_drops_dot_segments_and_follows_windows_on_windows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(limiter, "_NT", False)
+    assert limiter._Limiter._name_key("./d/./a.txt") == "d/a.txt"
+    assert limiter._Limiter._name_key("a.txt.") == "a.txt."
+
+    monkeypatch.setattr(limiter, "_NT", True)
+    assert limiter._Limiter._name_key("./d/./a.txt. ") == "d/a.txt"
+
+
+def test_allows_name_raises_under_error() -> None:
+    lim = _limiter(duplicates="error")
+    lim.allows_name("a")
+
+    with pytest.raises(ArchivePolicyError, match="duplicate member 'a'"):
+        lim.allows_name("a")
+
+
+def test_checked_limits_coerces_policy_strings_and_keeps_the_rest() -> None:
+    checked = limiter._checked_limits(
+        ArchiveLimits(max_files=3, max_ratio=1.5, symlinks="allow", overwrite="skip")
+    )
+
+    assert checked.symlinks is ArchiveLinkPolicy.ALLOW
+    assert checked.hardlinks is ArchiveLinkPolicy.ERROR
+    assert checked.overwrite is ArchiveOverwritePolicy.SKIP
+    assert checked.duplicates is ArchiveDuplicatePolicy.SKIP
+    assert (checked.max_files, checked.max_ratio) == (3, 1.5)
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        None,
+        {"max_files": 1},
+        ArchiveLimits(max_files=-1),
+        ArchiveLimits(max_root_entries=False),
+        ArchiveLimits(max_dir_entries=2.0),
+        ArchiveLimits(dir_check=1),
+        ArchiveLimits(hardlinks="nope"),
+    ],
+)
+def test_checked_limits_refuses_malformed_limits(bad: Any) -> None:
+    with pytest.raises(ValidationError, match="extract_archive: limits"):
+        limiter._checked_limits(bad)
+
+
+@pytest.mark.parametrize("kind", ["symlink", "hardlink"])
+def test_allows_link_follows_its_own_kinds_policy(kind: str) -> None:
+    field = "symlinks" if kind == "symlink" else "hardlinks"
+    link = _file("l", kind=kind)
+
+    assert _limiter(**{field: "allow"}).allows_link(link)
+    assert not _limiter(**{field: "skip"}).allows_link(link)
+
+    with pytest.raises(ArchivePolicyError, match=f"{kind} member 'l'"):
+        _limiter(**{field: "error"}).allows_link(link)
+
+
+def test_deny_logs_anything_but_error(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level("INFO"):
+        assert _limiter()._deny("skip", "thing 'x'") is False
+
+    assert "skipped thing 'x' in a.zip" in caplog.text
+
+    with pytest.raises(ArchivePolicyError, match="a.zip: thing"):
+        _limiter()._deny("error", "thing")
+
+
+def test_fail_always_raises_a_limit_error() -> None:
+    with pytest.raises(ArchiveLimitError, match="extract_archive: a.zip: too much"):
+        _limiter()._fail("too much")
+
+
+# --- placement --------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("part", "unsafe"),
+    [
+        ("a.txt:s", True),
+        ("C:", True),
+        ("CON", True),
+        ("con.txt", True),
+        ("Com1.tar.gz", True),
+        ("LPT\u00b9", True),
+        ("NUL  .x", True),
+        ("CONIN$", True),
+        ("console", False),
+        ("COM0", False),
+        ("COM10", False),
+        ("a.con", False),
+        (".", False),
+    ],
+)
+def test_nt_unsafe_segment(part: str, unsafe: bool) -> None:
+    assert placement._is_nt_unsafe_segment(part) is unsafe
+
+
+def test_member_kept_prunes_at_each_directory_and_memoises_it(tmp_path: Path) -> None:
+    asked: list[str] = []
+
+    def exclude(rel: str, raw: Any) -> bool:
+        asked.append(rel)
+        return rel == "a/skip"
+
+    extractor = _ready_extractor(tmp_path)
+    extractor.flt = _Filter.from_rules((), exclude)
+
+    assert extractor._member_kept(_file("a/b/f.txt"))
+    assert extractor._member_kept(_file("a/b/g.txt"))
+    assert not extractor._member_kept(_file("a/skip/h.txt"))
+    assert not extractor._member_kept(_file("a/skip/i.txt"))
+    assert asked.count("a") == 1
+    assert asked.count("a/b") == 1
+    assert asked.count("a/skip") == 1
+
+
+def test_place_logs_a_device_member(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    extractor = _ready_extractor(tmp_path)
+
+    with caplog.at_level("WARNING"):
+        assert extractor._place(_file("dev", kind="other")) is None
+
+    assert "never created" in caplog.text
+
+
+def test_place_frees_the_name_of_a_link_the_policy_skips(tmp_path: Path) -> None:
+    extractor = _ready_extractor(tmp_path, ArchiveLimits(symlinks="skip", max_files=0))
+
+    assert extractor._place(_file("l", kind="symlink")) is None
+    assert extractor._limiter.files == 0
+    assert extractor._limiter.allows_name("l")
+
+
+# --- members ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("target", ["", "/abs", "C:/x", "\\\\host\\share"])
+def test_link_refuses_an_empty_or_absolute_target_with_a_log(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, target: str
+) -> None:
+    extractor = _ready_extractor(tmp_path, ArchiveLimits.permissive())
+    path = extractor._root / "l"
+
+    extractor._link(_member("l", "hardlink", target=target), path)
+
+    assert not os.path.lexists(path)
+    assert "is empty or absolute" in caplog.text
+
+
+def test_link_judges_a_hardlink_by_the_real_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    # The text `sub/real.txt` is inside; the real path (as `resolve` reports it,
+    # through a link standing at `sub`) is not, so it is refused.
+    extractor = _ready_extractor(tmp_path, ArchiveLimits.permissive())
+    (extractor._root / "sub").mkdir()
+    (extractor._root / "sub" / "real.txt").write_text("x")
+    outside = tmp_path / "outside.txt"
+    real_resolve = Path.resolve
+
+    def resolve(self: Path, strict: bool = False) -> Path:
+        if self.name == "real.txt":
+            return outside
+        return real_resolve(self, strict=strict)
+
+    monkeypatch.setattr(Path, "resolve", resolve)
+    target = extractor._root / "h.txt"
+
+    extractor._link(_member("h.txt", "hardlink", target="sub/real.txt"), target)
+
+    assert not target.exists()
+    assert "pointing outside" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("name", "raw", "kept"),
+    [
+        ("l2", "m/..", False),
+        ("l2", "x/m/../f", False),
+        ("l2", "./m/./..", False),
+        ("sub/l2", "..\\m\\..", False),
+        ("sub/l2", "../x", True),
+        ("sub/l2", "./.././sub/x", True),
+        ("l2", "a/./b", True),
+    ],
+)
+def test_link_refuses_a_symlink_that_climbs_after_descending(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    name: str,
+    raw: str,
+    kept: bool,
+) -> None:
+    # `m` does not exist yet, so only the text can tell that a later `m -> .`
+    # would carry `m/..` out of the destination.
+    monkeypatch.setattr(placement, "_NT", False)
+    made: list[str] = []
+    monkeypatch.setattr(members.os, "symlink", lambda src, dst: made.append(src))
+    monkeypatch.setattr(members.os, "replace", lambda src, dst: None)
+    extractor = _ready_extractor(tmp_path, ArchiveLimits.permissive())
+    (extractor._root / "sub").mkdir()
+
+    extractor._link(_member(name, "symlink", target=raw), extractor._root / name)
+
+    assert made == ([raw] if kept else [])
+    assert ("pointing outside" in caplog.text) is not kept
+
+
+def test_link_refuses_a_target_whose_real_path_cannot_be_worked_out(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    extractor = _ready_extractor(tmp_path, ArchiveLimits.permissive())
+
+    def loop(self: Path, strict: bool = False) -> NoReturn:
+        msg = "Symlink loop"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(Path, "resolve", loop)
+    target = extractor._root / "h.txt"
+
+    extractor._link(_member("h.txt", "hardlink", target="x"), target)
+
+    assert not target.exists()
+    assert "pointing outside" in caplog.text
+
+
+def test_spill_creates_a_new_file_exclusively_and_records_it(tmp_path: Path) -> None:
+    extractor = _ready_extractor(tmp_path)
+    extractor._built = []
+    target = extractor._root / "new.txt"
+
+    extractor._spill(_member("new.txt", "file", size=3), io.BytesIO(b"abc"), target)
+
+    assert target.read_bytes() == b"abc"
+    assert extractor._built == [target]
+
+
+def test_spill_replaces_an_existing_file_through_a_temp_file(tmp_path: Path) -> None:
+    extractor = _ready_extractor(tmp_path)
+    extractor._built = []
+    target = extractor._root / "old.txt"
+    target.write_text("old contents")
+
+    extractor._spill(_member("old.txt", "file", size=3), io.BytesIO(b"new"), target)
+
+    assert target.read_bytes() == b"new"
+    assert extractor._built == [target]
+    assert [p.name for p in extractor._root.iterdir()] == ["old.txt"]
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file modes")
+def test_spill_gives_a_replaced_file_the_mode_of_a_new_one(tmp_path: Path) -> None:
+    # `mkstemp` would have left every overwritten file at 0600.
+    extractor = _ready_extractor(tmp_path)
+    old, new = extractor._root / "old.txt", extractor._root / "new.txt"
+    old.write_text("old")
+    old.chmod(0o640)
+    umask = os.umask(0o022)
+
+    try:
+        extractor._spill(_member("old.txt", "file", size=3), io.BytesIO(b"abc"), old)
+        extractor._spill(_member("new.txt", "file", size=3), io.BytesIO(b"abc"), new)
+    finally:
+        os.umask(umask)
+
+    assert stat.S_IMODE(old.stat().st_mode) == stat.S_IMODE(new.stat().st_mode) == 0o644
+
+
+def test_spill_removes_its_temp_file_when_the_member_is_too_big(tmp_path: Path) -> None:
+    extractor = _ready_extractor(tmp_path, ArchiveLimits(max_file_size=2))
+    target = extractor._root / "old.txt"
+    target.write_text("old")
+
+    with pytest.raises(ArchiveLimitError):
+        extractor._spill(_member("old.txt", "file", size=1), io.BytesIO(b"toolong"), target)
+
+    assert target.read_text() == "old"
+    assert [p.name for p in extractor._root.iterdir()] == ["old.txt"]
+
+
+def test_spill_logs_and_cleans_up_when_the_replace_fails(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    extractor = _ready_extractor(tmp_path)
+    target = extractor._root / "taken"
+    target.mkdir()
+
+    extractor._spill(_member("taken", "file", size=1), io.BytesIO(b"x"), target)
+
+    assert target.is_dir()
+    assert [p.name for p in extractor._root.iterdir()] == ["taken"]
+    assert "could not write 'taken'" in caplog.text
+
+
+# --- extractor: graft and format detection -----------------------------------------
+
+
+def test_graft_merges_replaces_and_refuses_as_documented(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    staged, dest = tmp_path / "staged", tmp_path / "dest"
+    for root in (staged, dest):
+        (root / "both").mkdir(parents=True)
+
+    (staged / "both" / "new.txt").write_text("new")
+    (staged / "file.txt").write_text("staged")
+    (dest / "file.txt").write_text("dest")
+    (staged / "isdir").write_text("staged file")
+    (dest / "isdir").mkdir()
+    (staged / "isfile").mkdir()
+    (staged / "isfile" / "x.txt").write_text("x")
+    (dest / "isfile").write_text("dest file")
+
+    extractor = _ready_extractor(tmp_path)
+
+    with caplog.at_level("WARNING"):
+        extractor._graft(staged, dest)
+
+    assert (dest / "both" / "new.txt").read_text() == "new"
+    assert (dest / "file.txt").read_text() == "staged"
+    assert (dest / "isdir").is_dir()
+    assert (dest / "isfile").read_text() == "dest file"
+    assert "a directory stands at" in caplog.text
+    assert "a file stands at" in caplog.text
+
+
+def test_detect_format_reads_an_empty_zip_and_trusts_bytes_over_a_name(tmp_path: Path) -> None:
+    empty = tmp_path / "empty.tar.gz"
+
+    with zipfile.ZipFile(empty, "w"):
+        pass
+
+    assert empty.read_bytes()[:4] == b"PK\x05\x06"
+    assert _Extractor.detect_format(str(empty)) is ArchiveFormat.ZIP
+
+    zst = tmp_path / "really.zip"
+    zst.write_bytes(b"\x28\xb5\x2f\xfd" + bytes(8))
+
+    assert _Extractor.detect_format(str(zst)) is ArchiveFormat.TAR_ZST
+
+
+# --- stable: copies of read-only files -----------------------------------------------
+
+
+def test_discard_copies_removes_read_only_copies(tmp_path: Path) -> None:
+    copy = tmp_path / "copy"
+    copy.write_text("x")
+    copy.chmod(stat.S_IREAD)
+
+    stable._discard_copies([str(copy), str(tmp_path / "already-gone")])
+
+    assert not copy.exists()
+
+
+@pytest.mark.parametrize("fmt", ["zip", "tar"])
+def test_a_read_only_guarded_file_leaves_no_stability_copy_behind(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fmt: str
+) -> None:
+    # The copy took the source's read-only mode, which Windows will not delete.
+    temp = tmp_path / "temp"
+    temp.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(temp))
+    src = tmp_path / "ro.txt"
+    src.write_text("x")
+    src.chmod(stat.S_IREAD)
+    entries = [(str(src), "ro.txt", False)]
+
+    try:
+        if fmt == "zip":
+            writers._write_zip(entries, io.BytesIO(), 6, None, None, 1, lambda st, p: True)
+        else:
+            writers._write_tar(
+                entries, io.BytesIO(), ArchiveFormat.TAR_GZ, None, None, None, 1, lambda st, p: True
+            )
+    finally:
+        src.chmod(stat.S_IREAD | stat.S_IWRITE)
+
+    assert list(temp.iterdir()) == []
+
+
+# --- common: shared name helpers -------------------------------------------------------
+
+
+def test_new_prefixes_records_only_the_unseen_prefixes_outermost_first() -> None:
+    seen: set[str] = set()
+
+    assert common._new_prefixes("a/b/c", seen) == ["a", "a/b", "a/b/c"]
+    assert seen == {"a", "a/b", "a/b/c"}
+    # A known parent stops the walk at once.
+    assert common._new_prefixes("a/b/d", seen) == ["a/b/d"]
+    assert common._new_prefixes("a/b", seen) == []
+
+
+def test_new_prefixes_has_nothing_for_the_root_and_keeps_dot_segments() -> None:
+    seen: set[str] = set()
+
+    assert common._new_prefixes("", seen) == []
+    assert common._new_prefixes("a/./b", seen) == ["a", "a/.", "a/./b"]
+    assert seen == {"a", "a/.", "a/./b"}
+
+
+def test_nt_strip_drops_trailing_dots_and_spaces_and_the_segments_they_empty() -> None:
+    assert common._nt_strip("a. /. /b..") == "a/b"
+    assert common._nt_strip("a/b") == "a/b"
+    assert common._nt_strip(". /..") == ""
+
+
+# --- compressor: cached junction check --------------------------------------------------
+
+
+def test_is_junction_reads_the_entry_s_unfollowed_stat() -> None:
+    asked: list[bool] = []
+
+    class _Entry:
+        """An entry whose cached unfollowed `stat` says it is a link."""
+
+        def stat(self, *, follow_symlinks: bool = True) -> Any:
+            """Record how it was asked."""
+            asked.append(follow_symlinks)
+            return SimpleNamespace(st_mode=stat.S_IFLNK)
+
+    assert compressor._is_junction(cast("os.DirEntry[str]", _Entry())) is True
+    assert asked == [False]
+
+
+def test_is_junction_is_false_for_a_plain_file(tmp_path: Path) -> None:
+    (tmp_path / "f.txt").write_text("x")
+
+    with os.scandir(tmp_path) as it:
+        (entry,) = it
+
+    assert compressor._is_junction(entry) is False
+
+
+# --- members: admit and the directory cache ---------------------------------------------
+
+
+def test_admit_makes_a_directory_member_and_writes_nothing_more(tmp_path: Path) -> None:
+    extractor = _ready_extractor(tmp_path)
+    member = _member("d/e", "dir")
+
+    assert extractor._admit(member) is None
+    assert (tmp_path / "dest" / "d" / "e").is_dir()
+
+
+def test_admit_gives_a_file_its_target_once_its_parent_exists(tmp_path: Path) -> None:
+    extractor = _ready_extractor(tmp_path)
+    member = _member("d/f.txt", "file", 1)
+
+    target = extractor._admit(member)
+
+    assert target == tmp_path / "dest" / "d" / "f.txt"
+    assert target.parent.is_dir()
+    assert not target.exists()
+
+
+def test_admit_returns_nothing_for_a_refused_member(tmp_path: Path) -> None:
+    extractor = _ready_extractor(tmp_path)
+    member = _member("../x", "file", 1)
+
+    assert extractor._admit(member) is None
+    assert list((tmp_path / "dest").iterdir()) == []
+
+
+def test_mkdir_does_not_ask_the_filesystem_about_a_parent_it_just_made(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    extractor = _ready_extractor(tmp_path)
+    root = tmp_path / "dest"
+    extractor._mkdir(root / "a")
+    asked: list[Path] = []
+    real = Path.exists
+
+    def exists(self: Path, *args: Any, **kwargs: Any) -> bool:
+        asked.append(self)
+        return real(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "exists", exists)
+    extractor._mkdir(root / "a" / "b")
+
+    assert (root / "a" / "b").is_dir()
+    assert asked == [root / "a" / "b"]
+    assert extractor._created == {root / "a", root / "a" / "b"}
+
+
+# --- extractor: inspection and merge probes ---------------------------------------------
+
+
+def test_inspect_does_not_probe_a_file_with_is_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    extractor = _ready_extractor(tmp_path, ArchiveLimits(dir_check=lambda path: True))
+    (extractor._root / "sub").mkdir()
+    (extractor._root / "f.txt").write_text("x")
+    probed: list[str] = []
+    real = extractor_module._is_dir
+
+    def is_dir(path: str | os.PathLike[str]) -> bool:
+        probed.append(Path(path).name)
+        return real(path)
+
+    monkeypatch.setattr(extractor_module, "_is_dir", is_dir)
+    extractor._inspect(extractor._root)
+
+    assert probed == ["sub"]
+
+
+def test_graft_takes_one_lstat_of_each_target(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    staged, dest = tmp_path / "staged", tmp_path / "dest"
+    for root in (staged, dest):
+        root.mkdir()
+
+    (staged / "f.txt").write_text("new")
+    (dest / "f.txt").write_text("old")
+    real = os.lstat
+    targets: list[str] = []
+
+    def lstat(path: str | os.PathLike[str]) -> os.stat_result:
+        if Path(path).parent == dest:
+            targets.append(Path(path).name)
+        return real(path)
+
+    monkeypatch.setattr(os, "lstat", lstat)
+    _ready_extractor(tmp_path)._graft(staged, dest)
+
+    assert (dest / "f.txt").read_text() == "new"
+    assert targets == ["f.txt"]
+
+
+# --- rules: weighed once ----------------------------------------------------------------
+
+
+def test_filter_weighs_each_side_once_when_built() -> None:
+    neither = _Filter.from_rules((), ())
+    include_only = _Filter.from_rules(["a"], ())
+    exclude_only = _Filter.from_rules((), ["a"])
+
+    assert (neither._has_include, neither._has_exclude, bool(neither)) == (False, False, False)
+    assert (include_only._has_include, include_only._has_exclude) == (True, False)
+    assert (exclude_only._has_include, exclude_only._has_exclude) == (False, True)
+    assert bool(include_only) and bool(exclude_only)
+
+
+def test_glob_hit_without_globs_never_reaches_fnmatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fnmatchcase(name: str, pat: str) -> NoReturn:
+        msg = "fnmatch was reached"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr(rules_module, "fnmatchcase", fnmatchcase)
+
+    assert _Filter.glob_hit("a/b.txt", _Rules(names=frozenset({"b.txt"}))) is False

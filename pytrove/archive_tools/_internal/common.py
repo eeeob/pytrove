@@ -14,7 +14,7 @@ from ...errors import ValidationError
 from . import backends
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable
 
 _LINK_MAX: Final[int] = 4096
 """The longest link destination read from a zip member; no platform stores a longer path."""
@@ -75,6 +75,56 @@ def _split_workers(workers: int | Executor | None, who: str) -> tuple[int | None
     raise ValidationError(msg)
 
 
+def _new_prefixes(path: str, seen: set[str]) -> list[str]:
+    """Record the prefixes of a posix path that `seen` lacks, `a` before `a/b` before `path`.
+
+    `seen` only ever gains a path together with its prefixes, so the walk up
+    stops at the first one already there; a path whose parent is known costs
+    one lookup, not one join per level.
+
+    Args:
+        path: A relative posix path; empty for the root, which has no prefix.
+        seen: The prefixes recorded so far; the new ones are added to it.
+
+    Returns:
+        The prefixes just added, outermost first.
+
+    Example:
+        >>> seen = {"a"}
+        >>> _new_prefixes("a/b/c", seen)
+        ['a/b', 'a/b/c']
+        >>> _new_prefixes("a/b", seen)
+        []
+    """
+    new = []
+
+    while path and path not in seen:
+        new.append(path)
+        path = path.rpartition("/")[0]
+
+    new.reverse()
+    seen.update(new)
+    return new
+
+
+def _nt_strip(name: str) -> str:
+    """Spell a posix name as Windows stores it: each segment without trailing dots and spaces.
+
+    A segment left empty is dropped, as the filesystem drops it.
+
+    Args:
+        name: A posix member name.
+
+    Returns:
+        The name Windows would write.
+
+    Example:
+        >>> _nt_strip("a. /. /b..")
+        'a/b'
+    """
+    return "/".join(part for raw in name.split("/") if (part := raw.rstrip(". ")))
+
+
 def _is_hidden(rel: str, entry: os.DirEntry | None) -> bool:
     """Tell whether a walked entry is hidden: a leading dot, or the Windows hidden attribute.
 
@@ -104,6 +154,36 @@ def _is_hidden(rel: str, entry: os.DirEntry | None) -> bool:
         return bool(entry.stat().st_file_attributes & stat.FILE_ATTRIBUTE_HIDDEN)  # ty: ignore[unresolved-attribute]
     except OSError:
         return False
+
+
+def _exact_paths_rule(paths: Iterable[str]) -> Callable[[str, Any], bool]:
+    """Build a rule matching exactly the given relative paths and nothing else.
+
+    A predicate rather than a pattern, so a name holding `[`, `*` or `?` is
+    never read as a glob, and a bare name is never matched at another depth.
+
+    Args:
+        paths: Relative posix paths, anchored at the root.
+
+    Returns:
+        A rule matching only those paths.
+    """
+    wanted = frozenset(paths)
+
+    def rule(rel: str, entry: Any) -> bool:
+        """Match one of the paths.
+
+        Args:
+            rel: The relative path.
+            entry: The entry, unused.
+
+        Returns:
+            Whether `rel` is one of them.
+        """
+        del entry  # A rule receives it; only the path decides here.
+        return rel in wanted
+
+    return rule
 
 
 def _temp_file_rule(folder: str, prefix: str) -> Callable[[str, Any], bool]:
@@ -163,8 +243,11 @@ def _require_zstd() -> None:
 
 __all__ = (
     "_WalkEntry",
+    "_exact_paths_rule",
     "_format_from_suffix",
     "_is_hidden",
+    "_new_prefixes",
+    "_nt_strip",
     "_require_zstd",
     "_split_workers",
     "_temp_file_rule",

@@ -4,18 +4,18 @@ from __future__ import annotations as _annotations
 
 import logging
 import os
+import stat
 import tempfile
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ..._internal import _is_dir, _is_link
+from ..._internal import _is_dir, _stat_is_link
 from ...callable_tools import safe_call
 from ...enums import ArchiveFormat
 from ...errors import ValidationError
 from ...files_tools import remove_file, remove_folder, remove_path, remove_paths
-from ...iter_tools import dedupe
 from ...typings.archive import ArchiveLimits
 from .common import _format_from_suffix
 from .limiter import _Limiter
@@ -67,6 +67,9 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
 
     _made: set[Path] = field(init=False, default_factory=set)
     """Directories `_mkdir` has already seen present or created, so it does not stat them again."""
+
+    _created: set[Path] = field(init=False, default_factory=set)
+    """Directories `_mkdir` itself created; `_made` also holds ones found present, which a link may yet replace."""
 
     _built: list[Path] | None = field(init=False, default=None)
     """Every path this run created, to undo on failure; `None` unless `cleanup_on_error` without staging."""
@@ -128,9 +131,8 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
                 safe_call(lambda: remove_path(staged, return_exc=True, log_exc=True), log_exc=True)
             elif self._built:
                 built = self._built  # A local keeps the narrowing inside the lambda.
-                safe_call(
-                    lambda: remove_paths(dedupe(built), return_exc=True, log_exc=True), log_exc=True
-                )
+                # `remove_paths` drops repeats itself.
+                safe_call(lambda: remove_paths(built, return_exc=True, log_exc=True), log_exc=True)
             raise exc
 
         if staged is None:
@@ -168,7 +170,15 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
                 continue
 
             for entry in entries:
-                if not _is_dir(entry.path):
+                try:
+                    maybe_dir = entry.is_dir(
+                        follow_symlinks=False
+                    )  # Cached by `scandir`: no `lstat`.
+                except OSError:
+                    maybe_dir = True
+
+                # The cached type only rules files out; `_is_dir` still tells a junction from a directory.
+                if not (maybe_dir and _is_dir(entry.path)):
                     continue
 
                 path = Path(entry.path)
@@ -183,7 +193,8 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
 
         A real directory on both sides is merged into; a link or junction in
         `dest` is never followed; a directory in `dest` is never replaced by
-        anything that is not one; anything else is replaced.
+        anything that is not one, nor a file in `dest` by a directory, each
+        logged and left out as the unstaged run does; anything else is replaced.
 
         Args:
             staged: The staging directory.
@@ -201,12 +212,22 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
 
             for entry in entries:
                 target = there / entry.name
+                src_dir = _is_dir(entry.path)
 
-                if _is_dir(entry.path) and _is_dir(target):
+                # One `lstat` of the target answers all three questions: a merge is mostly `lstat` calls.
+                try:
+                    held = os.lstat(target)
+                except OSError:
+                    held = None
+
+                dst_link = held is not None and _stat_is_link(held)
+                dst_dir = held is not None and stat.S_ISDIR(held.st_mode) and not dst_link
+
+                if src_dir and dst_dir:
                     pairs.append((Path(entry.path), target))
                     continue
 
-                if _is_dir(target):
+                if dst_dir:
                     log.warning(
                         "extract_archive: refused %r from %s, a directory stands at %r",
                         entry.name,
@@ -215,9 +236,16 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
                     )
                     continue
 
-                if _is_link(
-                    target
-                ):  # `os.replace` cannot take a path from a directory reparse point.
+                if src_dir and not dst_link and held is not None:
+                    log.warning(
+                        "extract_archive: refused directory %r from %s, a file stands at %r",
+                        entry.name,
+                        self.src.name,
+                        str(target),
+                    )
+                    continue
+
+                if dst_link:  # `os.replace` cannot take a path from a directory reparse point.
                     remove_file(target)
 
                 os.replace(entry.path, target)

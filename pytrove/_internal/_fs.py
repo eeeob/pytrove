@@ -16,6 +16,29 @@ _HAS_FILE_ATTRIBUTES: Final[bool] = hasattr(os.stat_result, "st_file_attributes"
 """Whether `os.stat` reports Windows file attributes: the junction reparse tag, the hidden bit."""
 
 
+def _stat_is_link(st: os.stat_result) -> bool:
+    """Tell from an `lstat` result whether it describes a symbolic link or a Windows junction.
+
+    The test `_is_link` applies, for a caller that already holds the
+    result, such as `os.DirEntry.stat(follow_symlinks=False)`, which on
+    Windows is cached by `os.scandir` and costs no system call.
+
+    Args:
+        st: The result of `os.lstat`, or of a `DirEntry`'s unfollowed `stat`.
+
+    Returns:
+        `True` for a symlink or a junction.
+    """
+    # The three names below exist only on Windows, which `_HAS_FILE_ATTRIBUTES`
+    # guards at runtime. `ty` cannot narrow on that flag (the tests patch it, so
+    # it cannot become a `sys.platform` check), and reports them on Linux.
+    return stat.S_ISLNK(st.st_mode) or bool(
+        _HAS_FILE_ATTRIBUTES
+        and st.st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT  # ty: ignore[unresolved-attribute]
+        and st.st_reparse_tag == stat.IO_REPARSE_TAG_MOUNT_POINT  # ty: ignore[unresolved-attribute]
+    )
+
+
 def _is_link(path: PathLike) -> bool:
     """Tell whether `path` is a symbolic link or a Windows junction.
 
@@ -40,13 +63,7 @@ def _is_link(path: PathLike) -> bool:
     except OSError:
         return False
 
-    # The three names below exist only on Windows, which `_HAS_FILE_ATTRIBUTES`
-    # guards at runtime. `ty` cannot narrow on that flag (the tests patch it, so
-    # it cannot become a `sys.platform` check), and reports them on Linux.
-    return stat.S_ISLNK(st.st_mode) or bool(
-        st.st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT  # ty: ignore[unresolved-attribute]
-        and st.st_reparse_tag == stat.IO_REPARSE_TAG_MOUNT_POINT  # ty: ignore[unresolved-attribute]
-    )
+    return _stat_is_link(st)
 
 
 def _is_dir(path: PathLike) -> bool:
@@ -64,12 +81,14 @@ def _is_dir(path: PathLike) -> bool:
     except OSError:
         return False
 
-    return stat.S_ISDIR(st.st_mode) and not _is_link(path)
+    # One `lstat` answers both: a directory's own result says whether it is a junction.
+    return stat.S_ISDIR(st.st_mode) and not _stat_is_link(st)
 
 
 __all__ = (
     "_is_dir",
     "_is_link",
+    "_stat_is_link",
     "_COPY_BUF",
     "_HAS_FILE_ATTRIBUTES",
 )

@@ -2,17 +2,16 @@ from __future__ import annotations as _annotations
 
 import asyncio
 import logging
-import time
+import threading
 import zipfile
 from typing import TYPE_CHECKING, Any, NoReturn
 
 import pytest
 
 import pytrove.archive_tools.periodic as archiver_module
-from pytrove._internal._stability import _default_stability_check
 from pytrove.archive_tools import PeriodicArchiver
 from pytrove.data_tools import DefaultWeakValueDict
-from pytrove.enums import ArchiveFormat
+from pytrove.errors import ValidationError
 from pytrove.models import ArchiveJob
 
 if TYPE_CHECKING:
@@ -54,49 +53,6 @@ def make_job(
         on_archive=on_archive or default_on_archive,
         **kw,
     )
-
-
-# --- ArchiveJob -------------------------------------------------------------
-
-
-def test_root_is_resolved_to_a_path(tree: Path) -> None:
-    job = make_job(str(tree))
-    assert job.root == tree.resolve()
-
-
-def test_archive_format_is_coerced_to_the_enum(tree: Path) -> None:
-    job = make_job(tree, archive_format="zip")
-    assert job.archive_format is ArchiveFormat.ZIP
-
-
-def test_archive_path_uses_dest_name_and_the_format_extension(tree: Path) -> None:
-    job = make_job(tree, name="x")
-    assert job.archive_path() == tree / "x.zip"
-
-
-def test_archive_path_calls_dest_name_fresh_every_time() -> None:
-    calls = []
-
-    def dest_name() -> str:
-        calls.append(1)
-        return f"n{len(calls)}"
-
-    job = ArchiveJob("j", ".", dest_name, on_archive=None)
-    assert job.archive_path().name == "n1.zip"
-    assert job.archive_path().name == "n2.zip"
-
-
-def test_last_run_is_stamped_at_construction(tree: Path) -> None:
-    before = time.monotonic()
-    job = make_job(tree)
-    after = time.monotonic()
-
-    assert before <= job.last_run <= after
-
-
-def test_last_run_is_not_a_constructor_argument(tree: Path) -> None:
-    with pytest.raises(TypeError):
-        make_job(tree, last_run=0.0)
 
 
 # --- PeriodicArchiver.create / run_job --------------------------------------
@@ -143,11 +99,6 @@ async def test_create_forwards_every_remaining_compress_folder_option(
     assert captured["fsync"] is False
     assert captured["delete_source"] is True
     assert captured["stability_check"] is job.stability_check
-
-
-async def test_stability_check_defaults_to_compress_folders_own_default(tree: Path) -> None:
-    job = make_job(tree)
-    assert job.stability_check is _default_stability_check
 
 
 async def test_run_job_hands_the_archive_to_on_archive_then_deletes_it(tree: Path) -> None:
@@ -288,6 +239,26 @@ async def test_jobs_in_different_roots_do_not_exclude_each_other(
     assert archiver._siblings(job_b) == []
 
 
+def test_a_delete_source_job_sharing_its_root_is_refused(tree: Path) -> None:
+    # Its cleanup keeps only its own archive, so the other job's would go.
+    with pytest.raises(ValidationError, match="'a' has delete_source=True but shares its root"):
+        PeriodicArchiver([make_job(tree, name="a", delete_source=True), make_job(tree, name="b")])
+
+
+def test_a_delete_source_job_alone_in_its_root_is_accepted(tree: Path, tmp_path: Path) -> None:
+    other = tmp_path / "other"
+    other.mkdir()
+
+    archiver = PeriodicArchiver(
+        [
+            make_job(tree, name="a", delete_source=True),
+            make_job(other, name="b", delete_source=True),
+        ]
+    )
+
+    assert len(archiver.jobs) == 2
+
+
 # --- should_run ---------------------------------------------------------
 
 
@@ -400,15 +371,6 @@ async def test_start_creates_a_single_scheduling_task(tree: Path) -> None:
     assert task.done()
 
 
-def test_the_loops_sleep_interval_is_the_shortest_poll_interval(tree: Path) -> None:
-    job_a = make_job(tree, name="a", poll_interval=1000)
-    job_b = make_job(tree, name="b", poll_interval=5)
-    archiver = PeriodicArchiver([job_a, job_b])
-
-    interval = min(job.poll_interval for job in archiver.jobs)
-    assert interval == 5
-
-
 async def test_start_is_a_no_op_while_the_loop_is_still_running(tree: Path) -> None:
     job = make_job(tree, poll_interval=1000)
     archiver = PeriodicArchiver([job])
@@ -471,3 +433,245 @@ async def test_run_job_a_failed_removal_neither_raises_nor_skips_last_run(
     await archiver.run_job(job)
 
     assert job.last_run == stamp_before + 1000
+
+
+# --- what create hands compress_folder --------------------------------------
+
+
+async def test_base_exclude_takes_patterns_and_predicates(tree: Path) -> None:
+    (tree / "c.log").write_text("c")
+    job = make_job(tree, name="out")
+    archiver = PeriodicArchiver(
+        [job], base_exclude=["b.txt", lambda rel, raw: rel.endswith(".log")]
+    )
+
+    assert _names(await archiver.create(job)) == {"a.py"}
+
+
+async def test_a_jobs_own_exclude_adds_to_base_exclude(tree: Path) -> None:
+    job = make_job(tree, name="out", exclude="a.py")
+    archiver = PeriodicArchiver([job], base_exclude="b.txt")
+
+    assert _names(await archiver.create(job)) == set()
+
+
+async def test_a_job_without_exclude_keeps_everything_base_exclude_allows(tree: Path) -> None:
+    job = make_job(tree, name="out")
+    archiver = PeriodicArchiver([job], base_exclude="b.txt")
+
+    assert job.exclude is None
+    assert _names(await archiver.create(job)) == {"a.py"}
+
+
+async def test_siblings_with_glob_characters_are_excluded_by_exact_path(tree: Path) -> None:
+    # Sibling names used to be bare string rules: a glob for `a[1].zip`, which
+    # missed the file itself, and a name at any depth for the rest.
+    (tree / "a[1].zip").write_text("sibling archive")
+    (tree / "sub").mkdir()
+    (tree / "sub" / "a[1].zip").write_text("not an archive")
+
+    job_a = make_job(tree, name="a[1]")
+    job_b = make_job(tree, name="b")
+    archiver = PeriodicArchiver([job_a, job_b])
+
+    assert _names(await archiver.create(job_b)) == {"a.py", "b.txt", "sub/a[1].zip"}
+
+
+async def test_delete_source_hands_on_a_real_archive_then_leaves_root_empty(tree: Path) -> None:
+    received = []
+
+    async def on_archive(job: ArchiveJob, path: Path) -> None:
+        received.append((path.exists(), _names(path)))
+
+    job = make_job(tree, name="out", on_archive=on_archive, delete_source=True)
+
+    await PeriodicArchiver([job]).run_job(job)
+
+    assert received == [(True, {"a.py", "b.txt"})]
+    assert list(tree.iterdir()) == []
+
+
+# --- failures inside the callbacks -------------------------------------------
+
+
+async def test_an_on_error_that_raises_is_logged_not_lost(
+    tree: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    async def failing_on_archive(job: ArchiveJob, path: Path) -> NoReturn:
+        msg = "boom"
+        raise ValueError(msg)
+
+    async def failing_on_error(job: ArchiveJob, exc: Exception) -> NoReturn:
+        msg = "handler broke"
+        raise RuntimeError(msg)
+
+    job = make_job(tree, name="out", on_archive=failing_on_archive, on_error=failing_on_error)
+
+    with caplog.at_level(logging.ERROR, logger="pytrove.archive_tools.periodic"):
+        await PeriodicArchiver([job]).run_job(job)  # must not raise
+
+    assert "on_error raised" in caplog.text
+    assert "handler broke" in caplog.text
+    assert not (tree / "out.zip").exists()
+
+
+# --- stop() while the archive is still being built ----------------------------
+
+
+async def test_stop_during_create_waits_for_the_thread_and_removes_its_archive(
+    tree: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    started, release = threading.Event(), threading.Event()
+    handed: list[Path] = []
+
+    def slow_compress_folder(src: Path, dest: Path, **kw: Any) -> Path:
+        started.set()
+        release.wait(5)
+        dest.write_text("archive")
+        return dest
+
+    async def on_archive(job: ArchiveJob, path: Path) -> None:
+        handed.append(path)
+
+    monkeypatch.setattr(archiver_module, "compress_folder", slow_compress_folder)
+    job = make_job(tree, name="out", on_archive=on_archive)
+    archiver = PeriodicArchiver([job])
+    run = asyncio.create_task(archiver.run_job(job))
+    archiver._running.add(run)
+
+    while not started.is_set():
+        await asyncio.sleep(0.01)
+
+    stopping = asyncio.create_task(archiver.stop())
+    await asyncio.sleep(0.05)
+    assert not stopping.done()  # still waiting on the thread
+
+    release.set()
+    await stopping
+
+    assert run.cancelled()
+    assert handed == []
+    assert not (tree / "out.zip").exists()
+
+
+# --- the scheduling loop ---------------------------------------------------------
+
+
+class _Stop(Exception):
+    """Ends a `_loop` run from inside the patched `asyncio.sleep`."""
+
+
+def _ticking_sleep(monkeypatch: pytest.MonkeyPatch, ticks: int, intervals: list[float]) -> None:
+    """Make the loop's `asyncio.sleep` record its interval and stop it after `ticks` wakes."""
+    real_sleep = asyncio.sleep
+
+    async def sleep(interval: float) -> None:
+        intervals.append(interval)
+        await real_sleep(0.01)  # Lets the runs dispatched on the previous tick finish.
+
+        if len(intervals) > ticks:
+            raise _Stop
+
+    monkeypatch.setattr(archiver_module.asyncio, "sleep", sleep)
+
+
+@pytest.mark.parametrize(("polls", "expected"), [((1000, 5), 5), ((), 600)])
+async def test_the_loop_sleeps_the_shortest_poll_interval_or_ten_minutes(
+    tree: Path, monkeypatch: pytest.MonkeyPatch, polls: tuple[float, ...], expected: float
+) -> None:
+    jobs = [
+        make_job(tree, name=f"j{i}", poll_interval=p, min_interval=1e9) for i, p in enumerate(polls)
+    ]
+    intervals: list[float] = []
+    _ticking_sleep(monkeypatch, 1, intervals)
+
+    with pytest.raises(_Stop):
+        await PeriodicArchiver(jobs)._loop()
+
+    assert intervals == [expected, expected]
+
+
+async def test_the_loop_dispatches_a_job_again_once_its_run_is_done(
+    tree: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job = make_job(tree, min_interval=0)
+    archiver = PeriodicArchiver([job])
+    runs: list[str] = []
+
+    async def run_job(job: ArchiveJob) -> None:
+        runs.append(job.name)
+
+    monkeypatch.setattr(archiver, "run_job", run_job)
+    _ticking_sleep(monkeypatch, 3, [])
+
+    with pytest.raises(_Stop):
+        await archiver._loop()
+
+    assert runs == ["job", "job", "job"]
+    assert archiver._active == set()
+
+
+async def test_a_should_run_that_raises_skips_only_its_own_job(
+    tree: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    def broken() -> bool:
+        msg = "clock unreadable"
+        raise RuntimeError(msg)
+
+    bad = make_job(tree, name="bad", should_run=broken)
+    good = make_job(tree, name="good", min_interval=0)
+    archiver = PeriodicArchiver([bad, good])
+    runs: list[str] = []
+
+    async def run_job(job: ArchiveJob) -> None:
+        runs.append(job.name)
+
+    monkeypatch.setattr(archiver, "run_job", run_job)
+    _ticking_sleep(monkeypatch, 2, [])
+
+    with caplog.at_level(logging.ERROR, logger="pytrove.archive_tools.periodic"):
+        with pytest.raises(_Stop):
+            await archiver._loop()
+
+    assert runs == ["good", "good"]
+    assert "'bad': should_run raised" in caplog.text
+    assert "clock unreadable" in caplog.text
+
+
+async def test_create_adds_no_sibling_rule_for_a_job_alone_in_its_root(
+    tree: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    captured = {}
+
+    def fake_compress_folder(src: Path, dest: Path, **kw: Any) -> Path:
+        captured.update(kw)
+        dest.write_text("x")
+        return dest
+
+    monkeypatch.setattr(archiver_module, "compress_folder", fake_compress_folder)
+    job = make_job(tree, name="out")
+
+    await PeriodicArchiver([job]).create(job)
+
+    assert captured["exclude"][2] == ()
+
+
+async def test_create_excludes_a_sibling_archive_by_its_exact_path(
+    tree: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    captured = {}
+
+    def fake_compress_folder(src: Path, dest: Path, **kw: Any) -> Path:
+        captured.update(kw)
+        dest.write_text("x")
+        return dest
+
+    monkeypatch.setattr(archiver_module, "compress_folder", fake_compress_folder)
+    job, other = make_job(tree, name="out"), make_job(tree, name="other")
+
+    await PeriodicArchiver([job, other]).create(job)
+
+    rule = captured["exclude"][2]
+    sibling = other.archive_path().name
+    assert rule(sibling, None) is True
+    assert rule(f"sub/{sibling}", None) is False

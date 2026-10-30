@@ -6,17 +6,21 @@ import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, NamedTuple, NoReturn
+from typing import TYPE_CHECKING, Literal, NamedTuple, NoReturn, TypeVar
 
-from ...enums import ArchiveLinkPolicy, ArchiveOverwritePolicy
-from ...errors import ArchiveLimitError, ArchivePolicyError
+from ...enums import ArchiveDuplicatePolicy, ArchiveLinkPolicy, ArchiveOverwritePolicy
+from ...errors import ArchiveLimitError, ArchivePolicyError, ValidationError
 from ...typings.archive import ArchiveLimits
+from .common import _new_prefixes, _nt_strip, _NT
 
 if TYPE_CHECKING:
     import tarfile
     import zipfile
 
 log = logging.getLogger(__name__)
+
+_PolicyT = TypeVar("_PolicyT", ArchiveLinkPolicy, ArchiveOverwritePolicy, ArchiveDuplicatePolicy)
+"""One of the policy enums `_policy` coerces to."""
 
 
 class _Member(NamedTuple):
@@ -69,7 +73,7 @@ class _Limiter:
     """Every path already registered in `_breadth`, so an implied directory counts once."""
 
     _seen: set[str] = field(init=False, default_factory=set)
-    """Member names already admitted, for `duplicates`."""
+    """Member names already admitted, for `duplicates`, as `_name_key` spells them."""
 
     _taken: set[str] = field(init=False, default_factory=set)
     """Case-normalised final paths already claimed, for `overwrite`; empty under `OVERWRITE`."""
@@ -96,15 +100,7 @@ class _Limiter:
             self._fail(f"member {name!r} is nested {depth} deep, over the {lim.max_depth} allowed")
 
         if lim.max_dir_entries is not None or lim.max_root_entries is not None:
-            parts = name.split("/")
-
-            for i in range(1, len(parts) + 1):
-                path = "/".join(parts[:i])
-
-                if path in self._counted:
-                    continue
-
-                self._counted.add(path)
+            for path in _new_prefixes(name, self._counted):
                 parent = path.rpartition("/")[0]
                 self._breadth[parent] = held = self._breadth.get(parent, 0) + 1
 
@@ -158,8 +154,31 @@ class _Limiter:
                 f"member {name!r} has written {member_total} bytes, over the {lim.max_file_size} allowed"
             )
 
+    @staticmethod
+    def _name_key(name: str) -> str:
+        """Spell a member name the way the filesystem will see it, so two names for one path compare equal.
+
+        `.` segments are dropped; on Windows trailing dots and spaces are
+        stripped from each segment, as the filesystem does. Case is kept: two
+        names differing only in case are distinct names, and where they land
+        on one file `overwrite` decides.
+
+        Args:
+            name: The member's posix name.
+
+        Returns:
+            The key `duplicates` is judged on.
+        """
+        if _NT:
+            return _nt_strip(name)
+
+        return "/".join(p for p in name.split("/") if p != ".")
+
     def allows_name(self, name: str) -> bool:
         """Apply `duplicates`: the first member with a name wins.
+
+        `a.txt`, `./a.txt` and `d/./a.txt`-style spellings of one path are
+        the same name.
 
         Args:
             name: The member's name.
@@ -167,11 +186,19 @@ class _Limiter:
         Returns:
             Whether the name is new.
         """
-        if name in self._seen:
+        if (key := self._name_key(name)) in self._seen:
             return self._deny(self.limits.duplicates, f"duplicate member {name!r}")
 
-        self._seen.add(name)
+        self._seen.add(key)
         return True
+
+    def forget(self, name: str) -> None:
+        """Free a name `allows_name` admitted, for a member that ended up not written.
+
+        Args:
+            name: The member's name.
+        """
+        self._seen.discard(self._name_key(name))
 
     def allows_target(self, name: str, target: Path) -> bool:
         """Apply `overwrite` to where a member finally comes to rest.
@@ -272,7 +299,89 @@ class _Limiter:
         raise ArchiveLimitError(msg)
 
 
+def _checked_limits(limits: object) -> ArchiveLimits:
+    """Check `extract_archive`'s `limits` up front, coercing policy strings to their enums.
+
+    Args:
+        limits: What the caller passed.
+
+    Returns:
+        The limits, with every policy an enum member.
+
+    Raises:
+        ValidationError: For anything but an `ArchiveLimits`, a ceiling that is
+            not `None` or a non-negative number (`max_ratio` may be a float,
+            the rest are ints), a `dir_check` that is not callable, or an
+            unknown policy.
+    """
+    if not isinstance(limits, ArchiveLimits):
+        msg = f"extract_archive: limits takes an ArchiveLimits, not {type(limits).__name__}"
+        raise ValidationError(msg)
+
+    ceilings = (
+        "max_files",
+        "max_total_size",
+        "max_file_size",
+        "max_ratio",
+        "max_depth",
+        "max_dir_entries",
+        "max_root_entries",
+    )
+
+    for name in ceilings:
+        value = getattr(limits, name)
+        kinds = (int, float) if name == "max_ratio" else (int,)
+
+        if value is not None and (
+            not isinstance(value, kinds) or isinstance(value, bool) or value < 0
+        ):
+            msg = (
+                f"extract_archive: limits.{name} takes None or a non-negative number, not {value!r}"
+            )
+            raise ValidationError(msg)
+
+    if limits.dir_check is not None and not callable(limits.dir_check):
+        msg = (
+            f"extract_archive: limits.dir_check takes None or a callable, not {limits.dir_check!r}"
+        )
+        raise ValidationError(msg)
+
+    return limits._replace(
+        symlinks=_policy(ArchiveLinkPolicy, "symlinks", limits.symlinks),
+        hardlinks=_policy(ArchiveLinkPolicy, "hardlinks", limits.hardlinks),
+        overwrite=_policy(ArchiveOverwritePolicy, "overwrite", limits.overwrite),
+        duplicates=_policy(ArchiveDuplicatePolicy, "duplicates", limits.duplicates),
+    )
+
+
+def _policy(enum: type[_PolicyT], name: str, value: object) -> _PolicyT:
+    """Coerce one policy field to its enum.
+
+    Args:
+        enum: The policy's enum.
+        name: The field, for the message.
+        value: A member or its string value.
+
+    Returns:
+        The member.
+
+    Raises:
+        ValidationError: For anything else.
+    """
+    try:
+        return enum(value)
+    except ValueError:
+        msg = (
+            f"extract_archive: limits.{name} takes one of "
+            f"{', '.join(repr(m.value) for m in enum)}, not {value!r}"
+        )
+        raise ValidationError(msg) from None
+
+
 __all__ = (
     "_Limiter",
     "_Member",
+    "_PolicyT",
+    "_checked_limits",
+    "_policy",
 )
