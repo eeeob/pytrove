@@ -5,7 +5,8 @@ from __future__ import annotations as _annotations
 from typing import TYPE_CHECKING, Final, overload
 
 from ..enums import PlatformDevice
-from .families import DeviceCatalog, random_family
+from ._internal import _rng
+from .families import DeviceCatalog
 
 if TYPE_CHECKING:
     from ..models.device_models import DeviceInfo
@@ -19,6 +20,9 @@ _DEVICES: Final[dict[PlatformDevice, DeviceCatalog]] = {
 }
 """Each platform's catalog, weighted by its share of real clients; each loads its data on first use."""
 
+_MULTI_OS_PLATFORMS: Final[frozenset[PlatformDevice]] = frozenset({PlatformDevice.DESKTOP})
+"""The platforms whose catalog reports OSes, so an `os` pin never loads the others' data."""
+
 
 def get_device_catalog(platform_device: PlatformDevice) -> DeviceCatalog:
     """Return a platform's device catalog, the same object on every call.
@@ -28,6 +32,9 @@ def get_device_catalog(platform_device: PlatformDevice) -> DeviceCatalog:
 
     Returns:
         The catalog, whose methods list and look up what the platform can report.
+
+    Raises:
+        KeyError: If `platform_device` is not a `PlatformDevice` member.
 
     Example:
         >>> from pytrove.enums import PlatformDevice
@@ -41,7 +48,7 @@ def get_device_catalog(platform_device: PlatformDevice) -> DeviceCatalog:
 def random_device(
     platform_device: PlatformDevice | None = None,
     to_tuple: _False = False,
-    unique_id: str | None = None,
+    unique_id: object = None,
     *,
     to_dict: _False = False,
     os: str | None = None,
@@ -50,7 +57,7 @@ def random_device(
 def random_device(
     platform_device: PlatformDevice | None,
     to_tuple: _True,
-    unique_id: str | None = None,
+    unique_id: object = None,
     *,
     to_dict: _False = False,
     os: str | None = None,
@@ -60,7 +67,7 @@ def random_device(
     platform_device: PlatformDevice | None = None,
     *,
     to_tuple: _True,
-    unique_id: str | None = None,
+    unique_id: object = None,
     to_dict: _False = False,
     os: str | None = None,
 ) -> tuple[str, str]: ...
@@ -68,15 +75,24 @@ def random_device(
 def random_device(
     platform_device: PlatformDevice | None = None,
     to_tuple: _False = False,
-    unique_id: str | None = None,
+    unique_id: object = None,
     *,
     to_dict: _True,
     os: str | None = None,
 ) -> dict[str, str]: ...
+@overload
 def random_device(
     platform_device: PlatformDevice | None = None,
     to_tuple: bool = False,
-    unique_id: str | None = None,
+    unique_id: object = None,
+    *,
+    to_dict: bool = False,
+    os: str | None = None,
+) -> DeviceInfo | tuple[str, str] | dict[str, str]: ...
+def random_device(
+    platform_device: PlatformDevice | None = None,
+    to_tuple: bool = False,
+    unique_id: object = None,
     *,
     to_dict: bool = False,
     os: str | None = None,
@@ -85,12 +101,14 @@ def random_device(
 
     The platform is drawn by share of real clients unless pinned; the device
     and version come from the bundled catalogs (loaded on first use), weighted
-    towards current hardware and releases.
+    towards current hardware and releases. One seeded stream makes every pick,
+    so a platform-pinned draw equals `get_device_catalog(platform).random_device(...)`.
 
     Args:
         platform_device: Pin the platform.
         to_tuple: Whether to return `DeviceInfo.to_tuple()` instead of a `DeviceInfo`.
-        unique_id: Makes the draw reproducible, so one account keeps one device.
+        unique_id: Makes the draw reproducible, so one account keeps one device; bytes as
+            they are, any other value (an `int` account id, say) by its `str`.
         to_dict: Whether to return `DeviceInfo.to_dict()` instead of a `DeviceInfo`.
         os: Pin the OS, one of `get_device_catalog(platform_device).oses()`; without a
             platform, only the platforms that report it are drawn.
@@ -100,6 +118,7 @@ def random_device(
 
     Raises:
         TypeError: If `to_tuple` and `to_dict` are both set.
+        KeyError: If `platform_device` is not a `PlatformDevice` member.
         ValueError: If no platform, or not the pinned one, reports `os`.
 
     Example:
@@ -107,26 +126,40 @@ def random_device(
         >>> device = random_device(PlatformDevice.IOS, unique_id="acc-1")
         >>> device == random_device(PlatformDevice.IOS, unique_id="acc-1")
         True
-        >>> desktop = get_device_catalog(PlatformDevice.DESKTOP)
-        >>> random_device(os="linux") in desktop.devices(os="linux")
+        >>> linux = random_device(os="linux")
+        >>> is_known_device(linux, PlatformDevice.DESKTOP)
+        True
+        >>> linux.system_version in get_device_catalog(PlatformDevice.DESKTOP).versions(os="linux")
         True
     """
     if to_tuple and to_dict:
         msg = "random_device: to_tuple and to_dict cannot both be True; pick one shape"
         raise TypeError(msg)
 
+    rng = _rng(unique_id)
+
     if platform_device is not None:
         catalog = get_device_catalog(platform_device)
     else:
-        catalogs = [c for c in _DEVICES.values() if os is None or os in c.oses()]
+        catalogs = [
+            candidate
+            for platform, candidate in _DEVICES.items()
+            if os is None or (platform in _MULTI_OS_PLATFORMS and os in candidate.oses())
+        ]
 
         if not catalogs:
             msg = f"no platform reports the OS {os!r}"
             raise ValueError(msg)
 
-        catalog = random_family(catalogs, unique_id)
+        # A lone candidate is implied, so the stream goes straight to the device and the
+        # draw matches the pinned-platform one.
+        catalog = (
+            catalogs[0]
+            if len(catalogs) == 1
+            else rng.choices(catalogs, weights=[c.weight for c in catalogs], k=1)[0]
+        )
 
-    device = catalog.random_device(unique_id, os=os)
+    device = catalog._draw(rng, os)
     if to_tuple:
         return device.to_tuple()
 
@@ -144,6 +177,10 @@ def is_known_device(
 
     Returns:
         Whether some platform lists that model running that version.
+
+    Raises:
+        KeyError: If `platform_device` is not a `PlatformDevice` member.
+        ValueError: If `device` is a tuple of another length than two.
 
     Example:
         >>> is_known_device(random_device(unique_id="acc-1"))

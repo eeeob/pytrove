@@ -1,5 +1,7 @@
 from __future__ import annotations as _annotations
 
+import pytest
+
 from pytrove.device_tools._internal.rng import _rng
 
 
@@ -19,3 +21,22 @@ def test_rng_seeds_bytes_and_text_alike() -> None:
 
 def test_rng_without_a_seed_differs_each_time() -> None:
     assert _rng().random() != _rng().random()
+
+
+# Golden values: a change here reassigns every stored account's device, so it is never silent.
+@pytest.mark.parametrize(
+    ("seed", "first"),
+    [
+        ("acc-1", 0.15674838796725232),
+        ("", 0.6048192170315362),
+        ("é", 0.9930333590967806),
+        (b"\xff", 0.4740796386055668),
+        (42, 0.9355934424485339),
+    ],
+)
+def test_rng_seed_derivation_is_pinned(seed: object, first: float) -> None:
+    assert _rng(seed).random() == first
+
+
+def test_rng_encodes_text_as_utf8() -> None:
+    assert _rng("é").random() == _rng("é".encode()).random()
