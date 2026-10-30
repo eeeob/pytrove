@@ -13,7 +13,7 @@ from ..enums import TruncateSide
 from ..errors import ValidationError
 from ._internal import _spill_parts
 from .paths import resolve_path
-from .remove import remove_file
+from .remove import remove_files
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -90,7 +90,7 @@ def atomic_write(
                     pass
         finally:
             if not replaced:
-                remove_file(tmp_path, return_exc=True, log_exc=True)
+                remove_files(tmp_path, return_exc=True, log_exc=True)
     finally:
         if lock is not None:
             lock.release()

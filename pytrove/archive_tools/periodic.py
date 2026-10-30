@@ -11,7 +11,7 @@ from ..async_tools import gather_helper, safe_wait_task, to_thread
 from ..data_tools.mappings import DefaultWeakValueDict
 from ..enums import TimeUnit
 from ..errors import ValidationError
-from ..files_tools import remove_file
+from ..files_tools import remove_files
 from ..iter_tools import iter_flat_cont
 from ._internal import _exact_paths_rule
 from .compress import compress_folder
@@ -183,7 +183,7 @@ class PeriodicArchiver:
                 # Returned, not raised: a failed removal must not replace the error in flight
                 # nor skip the `last_run` update below; `to_thread` still logs it.
                 if path is not None:
-                    await to_thread(remove_file, path, return_exc=True)
+                    await to_thread(remove_files, path, return_exc=True)
 
                 object.__setattr__(job, "last_run", time.monotonic())
 

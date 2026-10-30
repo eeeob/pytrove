@@ -125,9 +125,10 @@ def test_utc3_formatter_writes_utc_plus_3() -> None:
     assert UTC3LogFormatter("%(asctime)s").format(record).startswith("1970-01-01 03:00:00")
 
 
-def test_utc3_converter_is_the_static_to_utc3() -> None:
-    assert UTC3LogFormatter.converter is UTC3LogFormatter._to_utc3
-    assert UTC3LogFormatter()._to_utc3(0.0)[:8] == time.gmtime(3 * 3600)[:8]
+def test_utc3_converter_is_the_only_name_for_the_conversion() -> None:
+    assert UTC3LogFormatter.converter(0.0)[:8] == time.gmtime(3 * 3600)[:8]
+    assert UTC3LogFormatter().converter(0.0)[:8] == time.gmtime(3 * 3600)[:8]
+    assert not hasattr(UTC3LogFormatter, "_to_utc3")
 
 
 @pytest.mark.parametrize("args", [(None,), ()])

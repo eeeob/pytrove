@@ -17,15 +17,15 @@ from unittest.mock import Mock, call
 import pytest
 
 from pytrove.enums import PickleSafety
+import pytrove
 from pytrove.files_tools import (
-    load_json,
     load_ref_json,
     read_json,
     read_pickle,
-    save_json,
     write_json,
     write_pickle,
 )
+from pytrove.files_tools import serialize as serialize_module
 
 #: What a lock that was taken and given back records.
 _HELD = [call.acquire(), call.release()]
@@ -51,13 +51,17 @@ class _Unserialisable:
 # --- read_json / write_json ------------------------------------------------
 
 
-def test_json_round_trip_and_aliases(tmp_path: Path) -> None:
+def test_json_round_trip(tmp_path: Path) -> None:
     target = tmp_path / "data.json"
     write_json(target, {"a": [1, "é"]})
     assert read_json(target) == {"a": [1, "é"]}
     assert "é" in target.read_text(encoding="utf-8")
-    assert load_json is read_json
-    assert save_json is write_json
+
+
+@pytest.mark.parametrize("old", ["load_json", "save_json"])
+def test_the_load_and_save_names_are_gone(old: str) -> None:
+    assert not hasattr(pytrove, old)
+    assert not hasattr(serialize_module, old)
 
 
 def test_write_json_leaves_no_temp_file_behind(tmp_path: Path) -> None:

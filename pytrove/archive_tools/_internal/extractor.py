@@ -15,7 +15,7 @@ from ..._internal import _is_dir, _stat_is_link
 from ...callable_tools import safe_call
 from ...enums import ArchiveFormat
 from ...errors import ValidationError
-from ...files_tools import remove_file, remove_folder, remove_path, remove_paths
+from ...files_tools import remove_files, remove_folders, remove_paths
 from ...typings.archive import ArchiveLimits
 from .common import _format_from_suffix
 from .limiter import _Limiter
@@ -128,7 +128,7 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
         except BaseException as exc:
             # The cleanup cannot replace the error in flight: anything it raises is logged instead.
             if staged is not None:
-                safe_call(lambda: remove_path(staged, return_exc=True, log_exc=True), log_exc=True)
+                safe_call(lambda: remove_paths(staged, return_exc=True, log_exc=True), log_exc=True)
             elif self._built:
                 built = self._built  # A local keeps the narrowing inside the lambda.
                 # `remove_paths` drops repeats itself.
@@ -146,7 +146,7 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
                 raise exc
 
             self._graft(staged, self.dest)
-            remove_path(staged, return_exc=True, log_exc=True)
+            remove_paths(staged, return_exc=True, log_exc=True)
 
     def _inspect(self, root: Path) -> None:
         """Put every extracted directory to `dir_check`, outermost first, removing refused subtrees.
@@ -186,7 +186,7 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
                 if self._limiter.allows_dir(path):
                     stack.append(path)
                 else:
-                    remove_folder(path, return_exc=True, log_exc=True)
+                    remove_folders(path, return_exc=True, log_exc=True)
 
     def _graft(self, staged: Path, dest: Path) -> None:
         """Merge a staged tree into an existing destination, without recursion.
@@ -246,7 +246,7 @@ class _Extractor(_PlaceMixin, _WriteMixin, _ZipMixin, _TarMixin):
                     continue
 
                 if dst_link:  # `os.replace` cannot take a path from a directory reparse point.
-                    remove_file(target)
+                    remove_files(target)
 
                 os.replace(entry.path, target)
 

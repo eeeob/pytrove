@@ -9,14 +9,13 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
+import pytrove
 from pytrove.files_tools import (
-    remove_file,
     remove_files,
-    remove_folder,
     remove_folders,
-    remove_path,
     remove_paths,
 )
+from pytrove.files_tools import remove as remove_module
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -77,13 +76,13 @@ def file_link(tmp_path: Path) -> tuple[Path, Path]:
     return link, target
 
 
-def test_the_short_names_are_the_same_functions() -> None:
-    assert remove_file is remove_files
-    assert remove_folder is remove_folders
-    assert remove_path is remove_paths
+@pytest.mark.parametrize("old", ["remove_file", "remove_folder", "remove_path"])
+def test_the_singular_names_are_gone(old: str) -> None:
+    assert not hasattr(pytrove, old)
+    assert not hasattr(remove_module, old)
 
 
-@pytest.mark.parametrize("remove", [remove_file, remove_folder, remove_path])
+@pytest.mark.parametrize("remove", [remove_files, remove_folders, remove_paths])
 def test_a_link_to_a_directory_is_removed_and_its_target_is_not(
     linked: tuple[Path, Path],
     remove: Callable[..., Any],
@@ -100,7 +99,7 @@ def test_a_link_to_a_directory_is_removed_and_its_target_is_not(
     assert (target / "precious.txt").read_text(encoding="utf-8") == "precious"
 
 
-@pytest.mark.parametrize("remove", [remove_file, remove_folder, remove_path])
+@pytest.mark.parametrize("remove", [remove_files, remove_folders, remove_paths])
 def test_a_link_to_a_file_is_removed_and_its_target_is_not(
     file_link: tuple[Path, Path],
     remove: Callable[..., Any],
@@ -114,7 +113,7 @@ def test_a_link_to_a_file_is_removed_and_its_target_is_not(
     assert target.read_text(encoding="utf-8") == "precious"
 
 
-@pytest.mark.parametrize("remove", [remove_file, remove_folder, remove_path])
+@pytest.mark.parametrize("remove", [remove_files, remove_folders, remove_paths])
 def test_a_dangling_link_is_removed(
     file_link: tuple[Path, Path],
     remove: Callable[..., Any],
@@ -126,7 +125,7 @@ def test_a_dangling_link_is_removed(
     assert not os.path.lexists(link)
 
 
-@pytest.mark.parametrize("remove", [remove_file, remove_folder, remove_path])
+@pytest.mark.parametrize("remove", [remove_files, remove_folders, remove_paths])
 def test_a_path_that_was_never_there_is_not_a_failure(
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
@@ -145,7 +144,7 @@ def test_removing_a_tree_takes_everything_under_it(tmp_path: Path) -> None:
     deep.mkdir(parents=True)
     (deep / "leaf.txt").write_text("leaf", encoding="utf-8")
 
-    remove_path(tmp_path / "tree")
+    remove_paths(tmp_path / "tree")
 
     assert not (tmp_path / "tree").exists()
 
@@ -156,7 +155,7 @@ def test_remove_files_returns_what_it_actually_removed(tmp_path: Path) -> None:
     one.write_text("1", encoding="utf-8")
     two.write_text("2", encoding="utf-8")
 
-    assert remove_file(one, two) == [one, two]
+    assert remove_files(one, two) == [one, two]
     assert not one.exists() and not two.exists()
 
 
@@ -167,8 +166,8 @@ def test_a_missing_path_is_success_and_is_not_in_the_result(tmp_path: Path) -> N
     real = tmp_path / "real.txt"
     real.write_text("x", encoding="utf-8")
 
-    assert remove_file(gone, real) == [real]
-    assert remove_file(gone, real) == []
+    assert remove_files(gone, real) == [real]
+    assert remove_files(gone, real) == []
 
 
 def test_the_same_path_twice_is_one_unlink(tmp_path: Path) -> None:
@@ -177,17 +176,17 @@ def test_the_same_path_twice_is_one_unlink(tmp_path: Path) -> None:
     target = tmp_path / "a.txt"
     target.write_text("x", encoding="utf-8")
 
-    assert remove_file(str(target), target, [target]) == [target]
+    assert remove_files(str(target), target, [target]) == [target]
 
 
 def test_a_directory_handed_to_remove_file_raises_by_default(tmp_path: Path) -> None:
-    # os.unlink refuses a real directory, and refusing is right: remove_file
+    # os.unlink refuses a real directory, and refusing is right: remove_files
     # removes one entry, and a directory is however much someone put in it.
     target = tmp_path / "a_dir"
     target.mkdir()
 
     with pytest.raises(OSError):
-        remove_file(target)
+        remove_files(target)
 
     assert target.is_dir()
 
@@ -203,7 +202,7 @@ def test_return_exc_collects_the_refusal_and_carries_on(tmp_path: Path) -> None:
     stubborn = tmp_path / "a_dir"
     stubborn.mkdir()
 
-    result = remove_file(one, stubborn, two, return_exc=True)
+    result = remove_files(one, stubborn, two, return_exc=True)
 
     assert not one.exists() and not two.exists()
     assert stubborn.is_dir()
@@ -218,7 +217,7 @@ def test_remove_folders_returns_what_it_actually_removed(tmp_path: Path) -> None
     d2.mkdir()
     (d1 / "inside.txt").write_text("x", encoding="utf-8")
 
-    assert remove_folder(d1, d2) == [d1, d2]
+    assert remove_folders(d1, d2) == [d1, d2]
     assert not d1.exists() and not d2.exists()
 
 
@@ -226,8 +225,8 @@ def test_remove_folders_treats_a_missing_directory_as_success(tmp_path: Path) ->
     real = tmp_path / "real"
     real.mkdir()
 
-    assert remove_folder(tmp_path / "ghost", real) == [real]
-    assert remove_folder(tmp_path / "ghost") == []
+    assert remove_folders(tmp_path / "ghost", real) == [real]
+    assert remove_folders(tmp_path / "ghost") == []
 
 
 def test_remove_folders_refuses_a_file_by_default(tmp_path: Path) -> None:
@@ -237,7 +236,7 @@ def test_remove_folders_refuses_a_file_by_default(tmp_path: Path) -> None:
     target.write_text("x", encoding="utf-8")
 
     with pytest.raises(OSError):
-        remove_folder(target)
+        remove_folders(target)
 
     assert target.is_file()
 
@@ -250,7 +249,7 @@ def test_remove_folders_return_exc_collects_and_carries_on(tmp_path: Path) -> No
     stubborn = tmp_path / "a_file.txt"
     stubborn.write_text("x", encoding="utf-8")
 
-    result = remove_folder(one, stubborn, two, return_exc=True)
+    result = remove_folders(one, stubborn, two, return_exc=True)
 
     assert not one.exists() and not two.exists()
     assert stubborn.is_file()
@@ -265,7 +264,7 @@ def test_remove_folders_log_exc_names_the_directory(
     target.write_text("x", encoding="utf-8")
 
     with caplog.at_level("WARNING"):
-        remove_folder(target, return_exc=True, log_exc=True)
+        remove_folders(target, return_exc=True, log_exc=True)
 
     record = caplog.records[0]
 
@@ -280,7 +279,7 @@ def test_remove_folders_takes_the_junction_and_not_the_tree(linked: tuple[Path, 
     # unlink of the link itself, never of what it points at.
     link, target = linked
 
-    remove_folder(link)
+    remove_folders(link)
 
     assert not os.path.lexists(link)
     assert (target / "precious.txt").read_text(encoding="utf-8") == "precious"
@@ -293,7 +292,7 @@ def test_remove_paths_dispatches_by_kind(tmp_path: Path) -> None:
     a_file = tmp_path / "a_file.txt"
     a_file.write_text("x", encoding="utf-8")
 
-    assert remove_path(a_dir, a_file) == [a_dir, a_file]
+    assert remove_paths(a_dir, a_file) == [a_dir, a_file]
     assert not a_dir.exists() and not a_file.exists()
 
 
@@ -318,7 +317,7 @@ def test_remove_paths_forwards_return_exc_and_log_exc(
 
     try:
         with caplog.at_level("WARNING"):
-            result = remove_path(good, held, return_exc=True, log_exc=True)
+            result = remove_paths(good, held, return_exc=True, log_exc=True)
     finally:
         if handle is not None:
             handle.close()
@@ -340,7 +339,7 @@ def test_every_exception_carries_its_own_path(tmp_path: Path) -> None:
     other = tmp_path / "b_dir"
     other.mkdir()
 
-    a, b = remove_file(stubborn, other, return_exc=True)
+    a, b = remove_files(stubborn, other, return_exc=True)
 
     assert isinstance(a, OSError) and isinstance(b, OSError)
     assert a.filename == str(stubborn)
@@ -360,7 +359,7 @@ def test_the_path_on_the_exception_is_the_normalised_one(tmp_path: Path) -> None
     stubborn.mkdir()
 
     odd = str(stubborn) + "/"
-    exc = remove_file(odd, return_exc=True)[0]
+    exc = remove_files(odd, return_exc=True)[0]
 
     assert isinstance(exc, OSError)
     assert exc.filename == str(stubborn)
@@ -377,7 +376,7 @@ def test_log_exc_names_the_path_and_brings_the_traceback(
     target.mkdir()
 
     with caplog.at_level("WARNING"):
-        remove_file(target, return_exc=True, log_exc=True)
+        remove_files(target, return_exc=True, log_exc=True)
 
     record = caplog.records[0]
 
@@ -403,7 +402,7 @@ def test_log_exc_says_nothing_for_an_exception_that_is_raised(
     target.mkdir()
 
     with caplog.at_level("WARNING"), pytest.raises(OSError):
-        remove_file(target, log_exc=True)
+        remove_files(target, log_exc=True)
 
     assert caplog.text == ""
 
@@ -416,7 +415,7 @@ def test_a_raised_exception_is_annotated_too(tmp_path: Path) -> None:
     target.mkdir()
 
     with pytest.raises(OSError) as caught:
-        remove_file(str(target) + "/")
+        remove_files(str(target) + "/")
 
     assert caught.value.filename == str(target)
 
@@ -429,6 +428,6 @@ def test_the_removers_take_any_nesting_of_paths(tmp_path: Path) -> None:
         path.write_text("x", encoding="utf-8")
         made.append(path)
 
-    remove_path(made[0], [made[1], (made[2],)])
+    remove_paths(made[0], [made[1], (made[2],)])
 
     assert not any(p.exists() for p in made)

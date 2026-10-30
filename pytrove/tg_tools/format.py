@@ -16,7 +16,7 @@ except ImportError:
 from .._internal import _optional_import
 from ..errors import ValidationError
 from ..num_tools import to_int
-from ..text_tools import chunk_text, clean_spaces
+from ..text_tools import clean_spaces
 from ._internal import _HIDDEN_PADDING, _SHORT_LINK_TEXT, _classify_tg_target
 
 if TYPE_CHECKING:
@@ -256,8 +256,6 @@ def mention_tg_user(
     return format_hidden_tg_link(f"tg://user?id={user_id}", name, parse_mode)
 
 
-split_tg_message = chunk_text
-
 __all__ = (
     "extract_pyro_update_text",
     "format_tg_username",
@@ -265,5 +263,4 @@ __all__ = (
     "parse_tg_target",
     "format_hidden_tg_link",
     "mention_tg_user",
-    "split_tg_message",
 )

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from ..enums import ArchiveFormat
 from ..errors import ValidationError
-from ..files_tools import remove_file, resolve_path
+from ..files_tools import remove_files, resolve_path
 from ..typings import ArchiveLimits, NestedContainer, PathLike
 from ._internal import _Extractor, _Filter, _checked_limits, _require_zstd
 
@@ -100,7 +100,7 @@ def extract_archive(
     ).run(fmt, workers, atomic, cleanup_on_error)
 
     if delete_archive:
-        remove_file(src)
+        remove_files(src)
 
     return dest
 

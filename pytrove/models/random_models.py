@@ -120,8 +120,6 @@ class Jitter:
         self.last = result
         return result
 
-    next = __call__
-
     def reset(self) -> None:
         """Forget `last` and restart the walk from a fresh random phase."""
         self.last = None

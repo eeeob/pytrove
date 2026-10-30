@@ -182,14 +182,9 @@ def load_ref_json(
         return default if _is_given(default) else {}
 
 
-load_json = read_json
-save_json = write_json
-
 __all__ = (
     "read_json",
     "write_json",
-    "load_json",
-    "save_json",
     "read_pickle",
     "write_pickle",
     "load_ref_json",

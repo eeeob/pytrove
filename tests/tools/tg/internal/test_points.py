@@ -85,7 +85,7 @@ def test_monotone_fit_pools_every_run_that_goes_down() -> None:
 
 def test_points_merge_a_repeated_id(monkeypatch: pytest.MonkeyPatch) -> None:
     rows = [[10, "2020-01-01"], [10, "2020-01-03"], [20, "2020-01-05"]]
-    monkeypatch.setattr(points, "load_json", lambda path: rows)
+    monkeypatch.setattr(points, "read_json", lambda path: rows)
     points._points.cache_clear()
 
     try:

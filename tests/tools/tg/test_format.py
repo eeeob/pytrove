@@ -269,9 +269,10 @@ def test_format_tg_username_of_a_private_channel_link_is_the_default() -> None:
     assert format_tg_username("T.ME/C/1234567890", default="none") == "none"
 
 
-def test_split_tg_message_is_chunk_text() -> None:
-    assert tg_tools.split_tg_message is text_tools.chunk_text
-    assert "split_tg_message" in tg_format.__all__
+def test_message_splitting_lives_only_in_text_tools() -> None:
+    assert "chunk_text" in text_tools.__all__
+    assert not hasattr(tg_tools, "split_tg_message")
+    assert not hasattr(tg_format, "split_tg_message")
 
 
 @needs_tg

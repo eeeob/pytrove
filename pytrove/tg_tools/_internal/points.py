@@ -7,7 +7,7 @@ from typing import cast
 
 from ...constants import TG_ACCOUNT_POINTS_FILE
 from ...date_tools import date_to_stamp, time_utc
-from ...files_tools import load_json
+from ...files_tools import read_json
 
 
 def _monotone_fit(values: list[float]) -> list[float]:
@@ -53,9 +53,9 @@ def _points() -> tuple[tuple[int, float], ...]:
         `(user id, creation timestamp)` pairs, ids strictly increasing and
         timestamps never decreasing.
     """
-    # `load_json` returns any `JsonValue`; the bundled file is a list of `[id, "YYYY-MM-DD"]`
+    # `read_json` returns any `JsonValue`; the bundled file is a list of `[id, "YYYY-MM-DD"]`
     # pairs (checked by its tests), so the cast states that fixed shape for unpacking.
-    rows = cast("list[tuple[int, str]]", load_json(TG_ACCOUNT_POINTS_FILE))
+    rows = cast("list[tuple[int, str]]", read_json(TG_ACCOUNT_POINTS_FILE))
     by_id: dict[int, list[float]] = {}
 
     for uid, day in rows:

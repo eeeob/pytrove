@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Final, cast
 from .._internal import _Rule, _default_stability_check
 from ..enums import ArchiveFormat
 from ..errors import ValidationError
-from ..files_tools import atomic_write, remove_folder, resolve_path
+from ..files_tools import atomic_write, remove_folders, resolve_path
 from ._internal import (
     _Compressor,
     _Filter,
@@ -190,14 +190,9 @@ def compress_folder(
         if inside:
             _remove_all_but(src, dest_path)
         else:
-            remove_folder(src)
+            remove_folders(src)
 
     return dest_path
 
 
-backup_folder = compress_folder
-
-__all__ = (
-    "compress_folder",
-    "backup_folder",
-)
+__all__ = ("compress_folder",)

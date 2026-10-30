@@ -124,13 +124,11 @@ async def test_fetch_tg_email_code_refuses_a_value_that_is_not_an_address() -> N
         await fetch_tg_email_code("not-an-address", "pw", "Ali Hassan", 6)
 
 
-def test_rand_tg_device_is_random_device() -> None:
-    assert tg_tools.rand_tg_device is device_tools.random_device
-
-
-def test_accounts_exports_only_the_telegram_device_name() -> None:
-    assert "rand_tg_device" in accounts.__all__
-    assert "random_device" not in tg_tools.__all__
+def test_the_device_draw_lives_only_in_device_tools() -> None:
+    assert "random_device" in device_tools.__all__
+    assert not hasattr(tg_tools, "rand_tg_device")
+    assert not hasattr(accounts, "rand_tg_device")
+    assert "random_device" not in accounts.__all__
 
 
 def _date(stamp: float) -> str:

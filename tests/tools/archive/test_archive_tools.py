@@ -1,4 +1,4 @@
-"""Covers backup_folder/extract_archive: the filtering rules, the
+"""Covers compress_folder/extract_archive: the filtering rules, the
 self-exclusion that keeps an archive out of itself, and the traversal guard
 extraction needs because tarfile had none before 3.12."""
 
@@ -37,7 +37,8 @@ from pytrove.archive_tools._internal import (
 )
 from pytrove._internal._stability import _STABILITY_MIN_SIZE
 import pytrove.enums
-from pytrove import backup_folder, compress_folder, extract_archive
+from pytrove.archive_tools import compress as compress_module
+from pytrove import compress_folder, extract_archive
 from pytrove.enums import (
     ArchiveFormat,
 )
@@ -95,7 +96,7 @@ def test_round_trip_every_format_and_fsync(
     # fsync=True is the default and must be exercised: zstandard's
     # stream_writer closes the file it is handed unless told not to, which
     # made only this combination fail with "flush of closed file".
-    archive = backup_folder(tree, tmp_path / "out", format=fmt, fsync=fsync)
+    archive = compress_folder(tree, tmp_path / "out", format=fmt, fsync=fsync)
     assert archive.exists()
 
     dest = tmp_path / f"x_{fmt.name}_{fsync}"
@@ -115,7 +116,7 @@ def test_round_trip_every_format_and_fsync(
 
 
 def test_hidden_excluded_by_default(tree: Path, tmp_path: Path) -> None:
-    assert _names(backup_folder(tree, tmp_path / "h.zip", fsync=False)) == {
+    assert _names(compress_folder(tree, tmp_path / "h.zip", fsync=False)) == {
         "a.py",
         "b.txt",
         "sub/c.py",
@@ -124,7 +125,7 @@ def test_hidden_excluded_by_default(tree: Path, tmp_path: Path) -> None:
 
 
 def test_hidden_included_when_asked(tree: Path, tmp_path: Path) -> None:
-    names = _names(backup_folder(tree, tmp_path / "h2.zip", exclude_hidden=False, fsync=False))
+    names = _names(compress_folder(tree, tmp_path / "h2.zip", exclude_hidden=False, fsync=False))
     assert ".env" in names and ".hidden/x.txt" in names
 
 
@@ -132,7 +133,7 @@ def test_naming_a_hidden_file_outright_beats_exclude_hidden(tree: Path, tmp_path
     # exclude_hidden is an exclude predicate now, not a condition ahead of
     # the filter, so the two include rungs above it win. Naming one file is
     # the whole point of rung 1 -- and it does not let the rest back in.
-    assert _names(backup_folder(tree, tmp_path / "h3.zip", include="/.env", fsync=False)) == {
+    assert _names(compress_folder(tree, tmp_path / "h3.zip", include="/.env", fsync=False)) == {
         ".env",
     }
 
@@ -143,7 +144,8 @@ def test_a_hidden_directory_is_still_pruned_past_an_include_glob(
     # A glob is rung 8 and the predicate is rung 4, so the directory loses
     # and is never opened. Same rule as any other exclusion reaching down.
     assert (
-        _names(backup_folder(tree, tmp_path / "h4.zip", include=".hidden/**", fsync=False)) == set()
+        _names(compress_folder(tree, tmp_path / "h4.zip", include=".hidden/**", fsync=False))
+        == set()
     )
 
 
@@ -152,7 +154,7 @@ def test_no_directory_is_ever_recorded_in_a_zip(tree: Path, tmp_path: Path) -> N
     # of its own: extract_archive makes every ancestor a file's own path
     # implies regardless, so a directory entry here would cost bytes for
     # nothing anything downstream reads back.
-    archive = backup_folder(tree, tmp_path / "e.zip", fsync=False)
+    archive = compress_folder(tree, tmp_path / "e.zip", fsync=False)
 
     with zipfile.ZipFile(archive) as zf:
         dirs = {n for n in zf.namelist() if n.endswith("/")}
@@ -164,7 +166,7 @@ def test_include_narrows_to_a_subtree(tree: Path, tmp_path: Path) -> None:
     # "**" for the subtree. Nothing carries a directory's verdict down to
     # its contents on the include side, so the pattern has to say what it
     # means -- and this is the one spelling both glob backends agree on.
-    assert _names(backup_folder(tree, tmp_path / "i.zip", include="sub/**", fsync=False)) == {
+    assert _names(compress_folder(tree, tmp_path / "i.zip", include="sub/**", fsync=False)) == {
         "sub/c.py",
         "sub/deep/d.txt",
     }
@@ -176,14 +178,14 @@ def test_a_single_star_stops_at_the_separator(tree: Path, tmp_path: Path) -> Non
     # direct children of sub. Under the fnmatch fallback "*" spans "/" and
     # this matches at every depth instead -- one of the three differences
     # compress_folder documents.
-    assert _names(backup_folder(tree, tmp_path / "s.zip", include="sub/*", fsync=False)) == {
+    assert _names(compress_folder(tree, tmp_path / "s.zip", include="sub/*", fsync=False)) == {
         "sub/c.py",
     }
 
 
 def test_exclude_beats_include(tree: Path, tmp_path: Path) -> None:
     names = _names(
-        backup_folder(
+        compress_folder(
             tree,
             tmp_path / "x.zip",
             include="*",
@@ -200,7 +202,7 @@ def test_archive_does_not_swallow_itself(tree: Path, tmp_path: Path, fmt: Archiv
     # without skipping the destination (and the temp file it is written
     # through) the second run would contain the first.
     sizes = [
-        backup_folder(
+        compress_folder(
             tree,
             tree / f"self.{fmt.value}",
             format=fmt,
@@ -217,12 +219,12 @@ def test_archive_does_not_swallow_itself(tree: Path, tmp_path: Path, fmt: Archiv
 def test_dest_directory_names_archive_after_source(tree: Path, tmp_path: Path) -> None:
     out = tmp_path / "out"
     out.mkdir()
-    assert backup_folder(tree, out, fsync=False).name == "src.zip"
+    assert compress_folder(tree, out, fsync=False).name == "src.zip"
 
 
 def test_rejects_a_file_as_source(tree: Path, tmp_path: Path) -> None:
     with pytest.raises(ValidationError):
-        backup_folder(tree / "a.py", tmp_path / "no.zip")
+        compress_folder(tree / "a.py", tmp_path / "no.zip")
 
 
 def test_extract_archive_refuses_a_directory_as_source(tree: Path, tmp_path: Path) -> None:
@@ -316,7 +318,7 @@ def test_extract_skips_symlink_members(tmp_path: Path) -> None:
 def test_format_detected_from_content_not_extension(
     tree: Path, tmp_path: Path, fmt: ArchiveFormat
 ) -> None:
-    archive = backup_folder(tree, tmp_path / "out", format=fmt, fsync=False)
+    archive = compress_folder(tree, tmp_path / "out", format=fmt, fsync=False)
     renamed = archive.with_name("mystery.bin")
     archive.rename(renamed)
 
@@ -343,7 +345,7 @@ def repeated(tmp_path: Path) -> Path:
 
 
 def test_a_bare_name_matches_at_every_depth(repeated: Path, tmp_path: Path) -> None:
-    assert _names(backup_folder(repeated, tmp_path / "b.zip", exclude="logs", fsync=False)) == {
+    assert _names(compress_folder(repeated, tmp_path / "b.zip", exclude="logs", fsync=False)) == {
         "app/main.py",
     }
 
@@ -351,7 +353,7 @@ def test_a_bare_name_matches_at_every_depth(repeated: Path, tmp_path: Path) -> N
 def test_a_leading_slash_anchors_to_the_root(repeated: Path, tmp_path: Path) -> None:
     # The only way to say "the top-level one, not every one". Before this
     # was supported such a pattern matched nothing at all, silently.
-    assert _names(backup_folder(repeated, tmp_path / "a.zip", exclude="/logs", fsync=False)) == {
+    assert _names(compress_folder(repeated, tmp_path / "a.zip", exclude="/logs", fsync=False)) == {
         "app/logs/app.log",
         "app/main.py",
         "srv/deep/logs/deep.log",
@@ -361,8 +363,10 @@ def test_a_leading_slash_anchors_to_the_root(repeated: Path, tmp_path: Path) -> 
 def test_the_anchor_works_for_include_too(tree: Path, tmp_path: Path) -> None:
     (tree / "sub" / "a.py").write_text("nested")
 
-    assert _names(backup_folder(tree, tmp_path / "i.zip", include="/a.py", fsync=False)) == {"a.py"}
-    assert _names(backup_folder(tree, tmp_path / "j.zip", include="a.py", fsync=False)) == {
+    assert _names(compress_folder(tree, tmp_path / "i.zip", include="/a.py", fsync=False)) == {
+        "a.py"
+    }
+    assert _names(compress_folder(tree, tmp_path / "j.zip", include="a.py", fsync=False)) == {
         "a.py",
         "sub/a.py",
     }
@@ -377,7 +381,7 @@ def test_names_may_repeat_within_one_path(tmp_path: Path) -> None:
     (src / "logs" / "logs" / "logs" / "logs").write_text("deep")
     (src / "logs" / "logs" / "logs.txt").write_text("mid")
 
-    archive = backup_folder(src, tmp_path / "d.zip", fsync=False)
+    archive = compress_folder(src, tmp_path / "d.zip", fsync=False)
     extract_archive(archive, tmp_path / "dx")
 
     assert (tmp_path / "dx" / "logs" / "logs" / "logs" / "logs").read_text() == "deep"
@@ -443,7 +447,7 @@ def test_a_clean_run_logs_nothing(
     tree: Path, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     with caplog.at_level("WARNING", logger="pytrove.archive_tools"):
-        archive = backup_folder(tree, tmp_path / "c.zip", fsync=False)
+        archive = compress_folder(tree, tmp_path / "c.zip", fsync=False)
         extract_archive(archive, tmp_path / "cx")
 
     assert caplog.text == ""
@@ -564,9 +568,10 @@ def test_missing_both_backends_names_the_right_cure(
         assert "pytrove[archive]" in message
 
 
-def test_backup_folder_is_the_old_name_for_compress_folder() -> None:
-    assert backup_folder is compress_folder
-    assert {"backup_folder", "compress_folder", "extract_archive"} <= set(pytrove.__all__)
+def test_compress_folder_is_the_only_name_for_compressing() -> None:
+    assert {"compress_folder", "extract_archive"} <= set(pytrove.__all__)
+    assert not hasattr(pytrove, "backup_folder")
+    assert not hasattr(compress_module, "backup_folder")
 
 
 # Compression takes workers (fastzip when it is there, this thread when
@@ -705,7 +710,7 @@ def test_windows_hidden_attribute_is_honoured(tmp_path: Path) -> None:
     marked.write_text("m")
     subprocess.run(["attrib", "+H", str(marked)], capture_output=True, check=False)
 
-    assert _names(backup_folder(src, tmp_path / "w.zip", fsync=False)) == {"plain.txt"}
+    assert _names(compress_folder(src, tmp_path / "w.zip", fsync=False)) == {"plain.txt"}
 
 
 # --- limits ---------------------------------------------------------------
@@ -2440,7 +2445,7 @@ def test_a_deep_archive_is_written_without_one_frame_per_level(tmp_path: Path) -
     # RecursionError out of the standard library, from a path the caller
     # never chose.
     #
-    # atomic=False, because the commit ends in remove_path and that is
+    # atomic=False, because the commit ends in remove_paths and that is
     # shutil.rmtree, which recurses once per directory on everything
     # before 3.14. The merge is measured on its own below, where the
     # removal is not in the way.

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, cast
 
 import pytest
 
-from pytrove import remove_path
+from pytrove import remove_paths
 from pytrove._internal import _fs
 
 if TYPE_CHECKING:
@@ -91,7 +91,7 @@ def test_a_junction_is_a_link_and_is_not_a_plain_directory(tmp_path: Path) -> No
     assert _fs._is_dir(target) is True
 
     # And removing it takes the link, never the tree it names.
-    remove_path(link)
+    remove_paths(link)
 
     assert not link.exists()
     assert (target / "inside.txt").read_text(encoding="utf-8") == "kept"

@@ -142,15 +142,8 @@ def remove_paths(
     )
 
 
-remove_file = remove_files
-remove_folder = remove_folders
-remove_path = remove_paths
-
 __all__ = (
     "remove_files",
     "remove_folders",
     "remove_paths",
-    "remove_file",
-    "remove_folder",
-    "remove_path",
 )
