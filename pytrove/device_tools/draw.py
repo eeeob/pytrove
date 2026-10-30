@@ -2,10 +2,10 @@
 
 from __future__ import annotations as _annotations
 
+import random
 from typing import TYPE_CHECKING, Final, overload
 
 from ..enums import PlatformDevice
-from ._internal import _rng
 from .families import DeviceCatalog
 
 if TYPE_CHECKING:
@@ -48,7 +48,6 @@ def get_device_catalog(platform_device: PlatformDevice) -> DeviceCatalog:
 def random_device(
     platform_device: PlatformDevice | None = None,
     to_tuple: _False = False,
-    unique_id: object = None,
     *,
     to_dict: _False = False,
     os: str | None = None,
@@ -57,7 +56,6 @@ def random_device(
 def random_device(
     platform_device: PlatformDevice | None,
     to_tuple: _True,
-    unique_id: object = None,
     *,
     to_dict: _False = False,
     os: str | None = None,
@@ -67,7 +65,6 @@ def random_device(
     platform_device: PlatformDevice | None = None,
     *,
     to_tuple: _True,
-    unique_id: object = None,
     to_dict: _False = False,
     os: str | None = None,
 ) -> tuple[str, str]: ...
@@ -75,7 +72,6 @@ def random_device(
 def random_device(
     platform_device: PlatformDevice | None = None,
     to_tuple: _False = False,
-    unique_id: object = None,
     *,
     to_dict: _True,
     os: str | None = None,
@@ -84,7 +80,6 @@ def random_device(
 def random_device(
     platform_device: PlatformDevice | None = None,
     to_tuple: bool = False,
-    unique_id: object = None,
     *,
     to_dict: bool = False,
     os: str | None = None,
@@ -92,7 +87,6 @@ def random_device(
 def random_device(
     platform_device: PlatformDevice | None = None,
     to_tuple: bool = False,
-    unique_id: object = None,
     *,
     to_dict: bool = False,
     os: str | None = None,
@@ -101,14 +95,13 @@ def random_device(
 
     The platform is drawn by share of real clients unless pinned; the device
     and version come from the bundled catalogs (loaded on first use), weighted
-    towards current hardware and releases. One seeded stream makes every pick,
-    so a platform-pinned draw equals `get_device_catalog(platform).random_device(...)`.
+    towards current hardware and releases. Every call draws anew: keep a drawn
+    device (`to_dict()`) with the account it belongs to, and vet a stored one
+    with `is_known_device`, rather than drawing again.
 
     Args:
         platform_device: Pin the platform.
         to_tuple: Whether to return `DeviceInfo.to_tuple()` instead of a `DeviceInfo`.
-        unique_id: Makes the draw reproducible, so one account keeps one device; bytes as
-            they are, any other value (an `int` account id, say) by its `str`.
         to_dict: Whether to return `DeviceInfo.to_dict()` instead of a `DeviceInfo`.
         os: Pin the OS, one of `get_device_catalog(platform_device).oses()`; without a
             platform, only the platforms that report it are drawn.
@@ -123,8 +116,8 @@ def random_device(
 
     Example:
         >>> from pytrove.enums import PlatformDevice
-        >>> device = random_device(PlatformDevice.IOS, unique_id="acc-1")
-        >>> device == random_device(PlatformDevice.IOS, unique_id="acc-1")
+        >>> device = random_device(PlatformDevice.IOS)
+        >>> is_known_device(device, PlatformDevice.IOS)
         True
         >>> linux = random_device(os="linux")
         >>> is_known_device(linux, PlatformDevice.DESKTOP)
@@ -135,8 +128,6 @@ def random_device(
     if to_tuple and to_dict:
         msg = "random_device: to_tuple and to_dict cannot both be True; pick one shape"
         raise TypeError(msg)
-
-    rng = _rng(unique_id)
 
     if platform_device is not None:
         catalog = get_device_catalog(platform_device)
@@ -151,15 +142,9 @@ def random_device(
             msg = f"no platform reports the OS {os!r}"
             raise ValueError(msg)
 
-        # A lone candidate is implied, so the stream goes straight to the device and the
-        # draw matches the pinned-platform one.
-        catalog = (
-            catalogs[0]
-            if len(catalogs) == 1
-            else rng.choices(catalogs, weights=[c.weight for c in catalogs], k=1)[0]
-        )
+        catalog = random.choices(catalogs, weights=[c.weight for c in catalogs], k=1)[0]
 
-    device = catalog._draw(rng, os)
+    device = catalog.random_device(os=os)
     if to_tuple:
         return device.to_tuple()
 
@@ -183,7 +168,7 @@ def is_known_device(
         ValueError: If `device` is a tuple of another length than two.
 
     Example:
-        >>> is_known_device(random_device(unique_id="acc-1"))
+        >>> is_known_device(random_device())
         True
         >>> is_known_device(("no such model", "SDK 35"))
         False

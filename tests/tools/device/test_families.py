@@ -3,6 +3,7 @@ from __future__ import annotations as _annotations
 import collections
 import dataclasses
 import json
+import random
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any, cast
 
@@ -12,11 +13,11 @@ from pytrove.enums import PlatformDevice
 from pytrove.models import DeviceInfo
 from pytrove.device_tools._internal import catalog as catalog_module
 from pytrove.device_tools._internal.catalog import _build_catalog, _load, GROUP_SHARES, OS_SHARES
-from pytrove.device_tools._internal.rng import _rng
 from pytrove.device_tools.draw import get_device_catalog
 from pytrove.device_tools.families import DeviceCatalog, random_family
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
 
 DESKTOP = get_device_catalog(PlatformDevice.DESKTOP)
@@ -29,6 +30,15 @@ IDS = [p.platform.value for p in ALL_PLATFORMS]
 
 #: Telegram reports every desktop OS as "desktop"; macOS is deliberately not in the catalog.
 DESKTOP_OSES = ("windows", "linux")
+
+
+@pytest.fixture(autouse=True)
+def _seeded_global_random() -> Iterator[None]:
+    """Fix the stream the share checks sample, so their tolerances never flake; restore it after."""
+    state = random.getstate()
+    random.seed(0)
+    yield
+    random.setstate(state)
 
 
 @pytest.fixture(scope="module", params=ALL_PLATFORMS, ids=IDS)
@@ -55,31 +65,24 @@ def test_random_device_only_returns_pairs_the_catalog_allows(platform: DeviceCat
         assert device.to_tuple() in allowed
 
 
-def test_same_unique_id_gives_the_same_device(platform: DeviceCatalog) -> None:
-    assert platform.random_device("user-42") == platform.random_device("user-42")
-
-
-def test_different_unique_ids_spread_across_devices(platform: DeviceCatalog) -> None:
-    drawn = {platform.random_device(f"user-{i}").device_model for i in range(60)}
+def test_random_device_spreads_across_devices(platform: DeviceCatalog) -> None:
+    drawn = {platform.random_device().device_model for _ in range(60)}
     assert len(drawn) > 1
 
 
-def test_random_device_without_an_id_varies(platform: DeviceCatalog) -> None:
-    drawn = {platform.random_device() for _ in range(80)}
-    assert len(drawn) > 1
+def test_random_device_takes_the_os_by_keyword_only() -> None:
+    # A seed used to be the first argument; a leftover one must fail, not pass as `os`.
+    with pytest.raises(TypeError):
+        DESKTOP.random_device("linux")  # ty: ignore[too-many-positional-arguments]  # `os` is keyword-only.
 
 
 @pytest.mark.parametrize("os", DESKTOP_OSES)
 def test_pinning_an_os_only_draws_that_os(os: str) -> None:
     allowed = {(d.model, v) for d in DESKTOP._data.by_os[os].devices for v in d.by_os[os][0]}
 
-    for i in range(120):
-        device = DESKTOP.random_device(f"pin-{i}", os=os)
+    for _ in range(120):
+        device = DESKTOP.random_device(os=os)
         assert device.to_tuple() in allowed
-
-
-def test_pinning_an_os_is_deterministic() -> None:
-    assert DESKTOP.random_device("abc", os="linux") == DESKTOP.random_device("abc", os="linux")
 
 
 def test_pinning_an_unknown_os_raises() -> None:
@@ -104,7 +107,7 @@ def test_os_shares_apply_on_the_next_draw(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setitem(OS_SHARES, "linux", 0.0)
     linux = set(DESKTOP.versions(os="linux"))
 
-    assert not any(DESKTOP.random_device(f"os-{i}").system_version in linux for i in range(300))
+    assert not any(DESKTOP.random_device().system_version in linux for _ in range(300))
 
 
 def test_an_os_missing_from_os_shares_weighs_one(
@@ -117,7 +120,7 @@ def test_an_os_missing_from_os_shares_weighs_one(
         versions=[{"version": "W", "os": "windows"}, {"version": "B", "os": "beos"}],
         devices=[{"model": "PC", "os": ["windows", "beos"]}],
     )
-    picks = collections.Counter(fake.random_device(f"b-{i}").system_version for i in range(4000))
+    picks = collections.Counter(fake.random_device().system_version for _ in range(4000))
 
     assert abs(picks["B"] / 4000 - 0.25) < 0.03, picks
 
@@ -135,7 +138,7 @@ def test_newer_releases_are_drawn_by_their_recency_weight(
         ],
         devices=[{"model": "A"}],
     )
-    picks = collections.Counter(fake.random_device(f"r-{i}").system_version for i in range(3000))
+    picks = collections.Counter(fake.random_device().system_version for _ in range(3000))
 
     # Weights 1.0 and 0.5: two thirds new.
     assert abs(picks["new"] / 3000 - 2 / 3) < 0.03, picks
@@ -151,7 +154,7 @@ def test_device_and_version_weights_drive_the_draw(
         devices=[{"model": "Rare", "weight": 1}, {"model": "Common", "weight": 1e9}],
     )
 
-    assert {fake.random_device(f"w-{i}") for i in range(200)} == {DeviceInfo("Common", "common")}
+    assert {fake.random_device() for _ in range(200)} == {DeviceInfo("Common", "common")}
 
 
 def test_os_view_weights_drive_an_os_pinned_draw(
@@ -167,9 +170,7 @@ def test_os_view_weights_drive_an_os_pinned_draw(
         ],
     )
 
-    assert {fake.random_device(f"v-{i}", os="windows") for i in range(200)} == {
-        DeviceInfo("Common", "W")
-    }
+    assert {fake.random_device(os="windows") for _ in range(200)} == {DeviceInfo("Common", "W")}
 
 
 def test_group_shares_apply_when_a_catalog_is_first_built(
@@ -199,22 +200,16 @@ def test_random_family_is_weighted_towards_mobile() -> None:
     assert set(picks) == {p.platform for p in ALL_PLATFORMS}
 
 
-def test_random_family_is_deterministic_with_a_unique_id() -> None:
-    assert random_family(ALL_PLATFORMS, "abc") is random_family(ALL_PLATFORMS, "abc")
-
-
 def test_random_family_follows_each_catalogs_weight() -> None:
     never = DeviceCatalog(PlatformDevice.IOS, 0.0)
     always = DeviceCatalog(PlatformDevice.WEB, 1.0)
 
-    assert all(random_family([never, always], f"w-{i}") is always for i in range(50))
+    assert all(random_family([never, always]) is always for _ in range(50))
 
 
-def test_random_family_pick_is_pinned_per_unique_id() -> None:
-    # Golden values: a change here reassigns stored accounts to other platforms.
-    picks = [random_family(ALL_PLATFORMS, f"g-{i}").platform.value for i in range(4)]
-
-    assert picks == ["desktop", "android", "android", "android"]
+def test_random_family_takes_no_unique_id() -> None:
+    with pytest.raises(TypeError):
+        random_family(ALL_PLATFORMS, "abc")  # ty: ignore[too-many-positional-arguments]  # The removed parameter must fail.
 
 
 def test_random_family_accepts_any_iterable_once() -> None:
@@ -383,7 +378,7 @@ def test_an_empty_os_is_an_unknown_os(catalog: DeviceCatalog) -> None:
             call(os="")
 
     with pytest.raises(ValueError, match="has no '' devices"):
-        catalog.random_device("x", os="")
+        catalog.random_device(os="")
 
 
 def test_view_returns_the_os_view_or_raises() -> None:
@@ -399,23 +394,6 @@ def test_devices_for_returns_every_device_or_one_os_view() -> None:
     assert DESKTOP._devices_for("linux") == DESKTOP._data.by_os["linux"].devices
 
 
-def test_draw_continues_the_stream_it_is_given() -> None:
-    assert DESKTOP._draw(_rng("x"), None) == DESKTOP.random_device("x")
-
-    advanced, twin = _rng("x"), _rng("x")
-    advanced.random()
-    twin.random()
-    assert DESKTOP._draw(advanced, None) == DESKTOP._draw(twin, None)
-
-    # A draw that restarted the stream would match the fresh draw for every id.
-    shifted = []
-    for i in range(20):
-        rng = _rng(f"d-{i}")
-        rng.random()
-        shifted.append(DESKTOP._draw(rng, None) != DESKTOP.random_device(f"d-{i}"))
-    assert any(shifted)
-
-
-def test_draw_refuses_an_os_the_platform_lacks() -> None:
+def test_random_device_refuses_an_os_the_platform_lacks() -> None:
     with pytest.raises(ValueError, match="has no 'linux' devices"):
-        IOS._draw(_rng("x"), "linux")
+        IOS.random_device(os="linux")

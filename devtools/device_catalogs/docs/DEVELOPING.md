@@ -229,8 +229,10 @@ thing is drawn. Keep that line:
 - On a multi-OS platform the **OS is drawn first**, by `OS_SHARES`, and only then
   a device that can report it. Letting device weights decide would tie the
   Windows/Linux mix to how many models each OS happens to list.
-- `unique_id` seeds a `random.Random`, so a draw is reproducible per identity
-  while staying weighted — never modulo-indexed.
+- Every draw is fresh: `random.choices` over the weights, never modulo-indexed.
+  There is no seed, because a seed could not keep an identity's device once the
+  data changes (one added device moved most draws); a caller keeps the device it
+  drew instead.
 
 Every group named in the data needs an explicit share, and
 `tests/tools/device/test_devices_data.py` fails if one is missing.

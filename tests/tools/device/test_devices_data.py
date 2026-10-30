@@ -213,8 +213,8 @@ def test_every_web_draw_is_a_real_browser_release() -> None:
     # of them rather than on an interpolated number.
     known = {(d["browser"], d["major"]) for d in _load("web")["devices"]}
 
-    for i in range(200):
-        model = WEB.random_device(f"web-{i}").device_model
+    for _ in range(200):
+        model = WEB.random_device().device_model
         browser = next(b for b in WEB_AGENTS if WEB_AGENTS[b].fullmatch(model))
         major = int(WEB_AGENTS[browser].fullmatch(model)["major"])
 

@@ -2,7 +2,9 @@ from __future__ import annotations as _annotations
 
 import collections
 import itertools
+import random
 import subprocess
+from typing import TYPE_CHECKING, Any
 import sys
 
 import pytest
@@ -14,14 +16,31 @@ from pytrove.device_tools._internal.catalog import _load, OS_SHARES
 from pytrove.device_tools.draw import _DEVICES, _MULTI_OS_PLATFORMS
 from pytrove.device_tools.families import DeviceCatalog
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 OS_PIN_PROBE = """
 from pytrove import random_device
 from pytrove.device_tools.draw import _DEVICES
 from pytrove.enums import PlatformDevice
-random_device(unique_id="probe", os="linux")
+random_device(os="linux")
 loaded = {p for p, c in _DEVICES.items() if "_data" in c.__dict__}
 assert loaded == {PlatformDevice.DESKTOP}, loaded
 """
+
+
+@pytest.fixture(autouse=True)
+def _restore_global_random() -> Iterator[None]:
+    """Undo the seeding some tests do, so no other test inherits a fixed stream."""
+    state = random.getstate()
+    yield
+    random.setstate(state)
+
+
+def _seeded(*args: Any, **kwargs: Any) -> Any:
+    """Call `random_device` on a freshly seeded global generator, so two calls compare."""
+    random.seed(0)
+    return random_device(*args, **kwargs)
 
 
 # --- the platform catalogs -------------------------------------------------
@@ -65,41 +84,42 @@ def test_random_device_works_for_every_platform(platform: PlatformDevice) -> Non
     assert is_known_device(random_device(platform), platform)
 
 
-def test_random_device_pins_and_reproduces() -> None:
-    device = random_device(PlatformDevice.IOS, unique_id="u")
-    assert isinstance(device, DeviceInfo)
-    assert device == random_device(PlatformDevice.IOS, unique_id="u")
-    assert random_device(PlatformDevice.WEB, to_tuple=True, unique_id="u") == (
-        random_device(PlatformDevice.WEB, unique_id="u").to_tuple()
-    )
+def test_random_device_returns_a_device_info_by_default() -> None:
+    assert isinstance(random_device(PlatformDevice.IOS), DeviceInfo)
 
 
 @pytest.mark.parametrize("platform", list(PlatformDevice))
 def test_random_device_pinned_draws_only_from_that_platform(platform: PlatformDevice) -> None:
-    for i in range(20):
-        assert is_known_device(random_device(platform, unique_id=f"pin-{i}"), platform)
+    for _ in range(20):
+        assert is_known_device(random_device(platform), platform)
 
 
 @pytest.mark.parametrize("platform", list(PlatformDevice))
 def test_random_device_pinned_matches_the_catalog_draw(platform: PlatformDevice) -> None:
-    assert random_device(platform, unique_id="same") == _DEVICES[platform].random_device("same")
+    random.seed(0)
+    expected = _DEVICES[platform].random_device()
+
+    assert _seeded(platform) == expected
 
 
-def test_random_device_unpinned_is_reproducible_per_unique_id() -> None:
-    assert random_device(unique_id="acc-1") == random_device(unique_id="acc-1")
+def test_random_device_takes_no_unique_id() -> None:
+    # A seed promised one device per account, but any edit to the bundled data moved most
+    # accounts to another; a drawn device is stored instead.
+    with pytest.raises(TypeError):
+        random_device(unique_id="acc-1")  # ty: ignore[no-matching-overload]  # The removed parameter must fail.
+
+    with pytest.raises(TypeError):
+        random_device(PlatformDevice.IOS, False, "acc-1")  # ty: ignore[no-matching-overload]  # Nor positionally.
 
 
-def test_random_device_seeds_a_non_text_unique_id_by_its_str() -> None:
-    assert random_device(unique_id=42) == random_device(unique_id="42")
-
-
-def test_seeded_unpinned_draws_follow_every_share() -> None:
-    # One stream picks platform, OS, device and version; reusing the first number for two
-    # of them confined each platform to a slice of its catalog and skewed the OS mix.
+def test_unpinned_draws_follow_every_share() -> None:
+    # Each pick (platform, OS, device, version) takes its own number; reusing one for two
+    # of them would confine each platform to a slice of its catalog and skew the OS mix.
+    random.seed(0)
     n = 5000
     platform_of = {d.model: p for p, c in _DEVICES.items() for d in c._data.devices}
     os_of = {v["version"]: v["os"] for v in _load("desktop")["versions"]}
-    draws = [random_device(unique_id=f"acc-{i}") for i in range(n)]
+    draws = [random_device() for _ in range(n)]
     platforms = collections.Counter(platform_of[d.device_model] for d in draws)
     total = sum(c.weight for c in _DEVICES.values())
 
@@ -119,39 +139,31 @@ def test_seeded_unpinned_draws_follow_every_share() -> None:
     assert abs(observed - expected) < 0.05, (observed, expected)
 
 
-def test_random_device_without_a_unique_id_varies() -> None:
+def test_random_device_varies_between_calls() -> None:
     assert len({random_device() for _ in range(50)}) > 1
 
 
 def test_random_device_to_tuple_is_model_then_version() -> None:
-    device = random_device(PlatformDevice.ANDROID, unique_id="t")
-    model, version = random_device(PlatformDevice.ANDROID, to_tuple=True, unique_id="t")
+    device = _seeded(PlatformDevice.ANDROID)
+    model, version = _seeded(PlatformDevice.ANDROID, to_tuple=True)
 
     assert (model, version) == device.to_tuple()
 
 
 def test_random_device_takes_to_tuple_positionally() -> None:
-    assert random_device(PlatformDevice.IOS, True, "p") == (
-        random_device(PlatformDevice.IOS, unique_id="p").to_tuple()
-    )
+    assert _seeded(PlatformDevice.IOS, True) == _seeded(PlatformDevice.IOS).to_tuple()
 
 
 @pytest.mark.parametrize("flag", [True, False])
 def test_random_device_takes_a_runtime_bool_flag(flag: bool) -> None:
-    device = random_device(PlatformDevice.IOS, unique_id="b")
+    device = _seeded(PlatformDevice.IOS)
 
-    assert random_device(PlatformDevice.IOS, to_tuple=flag, unique_id="b") == (
-        device.to_tuple() if flag else device
-    )
-    assert random_device(PlatformDevice.IOS, unique_id="b", to_dict=flag) == (
-        device.to_dict() if flag else device
-    )
+    assert _seeded(PlatformDevice.IOS, to_tuple=flag) == (device.to_tuple() if flag else device)
+    assert _seeded(PlatformDevice.IOS, to_dict=flag) == (device.to_dict() if flag else device)
 
 
 def test_random_device_to_dict_is_the_device_dict() -> None:
-    assert random_device(PlatformDevice.WEB, to_dict=True, unique_id="u") == (
-        random_device(PlatformDevice.WEB, unique_id="u").to_dict()
-    )
+    assert _seeded(PlatformDevice.WEB, to_dict=True) == _seeded(PlatformDevice.WEB).to_dict()
 
 
 def test_random_device_refuses_both_shapes() -> None:
@@ -162,8 +174,8 @@ def test_random_device_refuses_both_shapes() -> None:
 def test_random_device_pinning_an_os_draws_only_platforms_that_report_it() -> None:
     linux = set(get_device_catalog(PlatformDevice.DESKTOP).versions(os="linux"))
 
-    for i in range(30):
-        device = random_device(unique_id=f"os-{i}", os="linux")
+    for _ in range(30):
+        device = random_device(os="linux")
         assert is_known_device(device, PlatformDevice.DESKTOP)
         assert device.system_version in linux
 
@@ -172,13 +184,12 @@ def test_random_device_pinning_an_os_loads_only_the_platforms_that_report_it() -
     subprocess.run([sys.executable, "-c", OS_PIN_PROBE], check=True)
 
 
-def test_random_device_pinning_an_os_matches_the_catalog_draw() -> None:
-    expected = get_device_catalog(PlatformDevice.DESKTOP).random_device("a", os="linux")
+def test_random_device_pinning_an_os_returns_every_shape() -> None:
+    expected = _seeded(os="linux")
 
-    assert random_device(PlatformDevice.DESKTOP, unique_id="a", os="linux") == expected
-    assert random_device(unique_id="a", os="linux") == expected
-    assert random_device(to_tuple=True, unique_id="a", os="linux") == expected.to_tuple()
-    assert random_device(to_dict=True, unique_id="a", os="linux") == expected.to_dict()
+    assert _seeded(to_tuple=True, os="linux") == expected.to_tuple()
+    assert _seeded(to_dict=True, os="linux") == expected.to_dict()
+    assert is_known_device(_seeded(PlatformDevice.DESKTOP, os="linux"), PlatformDevice.DESKTOP)
 
 
 def test_random_device_refuses_an_os_no_platform_reports() -> None:
@@ -195,7 +206,7 @@ def test_random_device_refuses_an_os_the_pinned_platform_lacks() -> None:
 
 
 def test_is_known_device_accepts_a_device_or_its_tuple() -> None:
-    device = random_device(PlatformDevice.IOS, unique_id="known")
+    device = random_device(PlatformDevice.IOS)
 
     assert is_known_device(device)
     assert is_known_device(device.to_tuple())
@@ -203,7 +214,7 @@ def test_is_known_device_accepts_a_device_or_its_tuple() -> None:
 
 
 def test_is_known_device_rejects_an_unknown_or_misplaced_pair() -> None:
-    device = random_device(PlatformDevice.IOS, unique_id="known")
+    device = random_device(PlatformDevice.IOS)
 
     assert not is_known_device(("no such model", "SDK 35"))
     assert not is_known_device(DeviceInfo(device.device_model, "0.0"))
