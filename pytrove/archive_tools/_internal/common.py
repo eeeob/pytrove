@@ -75,6 +75,56 @@ def _split_workers(workers: int | Executor | None, who: str) -> tuple[int | None
     raise ValidationError(msg)
 
 
+def _new_prefixes(path: str, seen: set[str]) -> list[str]:
+    """Record the prefixes of a posix path that `seen` lacks, `a` before `a/b` before `path`.
+
+    `seen` only ever gains a path together with its prefixes, so the walk up
+    stops at the first one already there; a path whose parent is known costs
+    one lookup, not one join per level.
+
+    Args:
+        path: A relative posix path; empty for the root, which has no prefix.
+        seen: The prefixes recorded so far; the new ones are added to it.
+
+    Returns:
+        The prefixes just added, outermost first.
+
+    Example:
+        >>> seen = {"a"}
+        >>> _new_prefixes("a/b/c", seen)
+        ['a/b', 'a/b/c']
+        >>> _new_prefixes("a/b", seen)
+        []
+    """
+    new = []
+
+    while path and path not in seen:
+        new.append(path)
+        path = path.rpartition("/")[0]
+
+    new.reverse()
+    seen.update(new)
+    return new
+
+
+def _nt_strip(name: str) -> str:
+    """Spell a posix name as Windows stores it: each segment without trailing dots and spaces.
+
+    A segment left empty is dropped, as the filesystem drops it.
+
+    Args:
+        name: A posix member name.
+
+    Returns:
+        The name Windows would write.
+
+    Example:
+        >>> _nt_strip("a. /. /b..")
+        'a/b'
+    """
+    return "/".join(part for raw in name.split("/") if (part := raw.rstrip(". ")))
+
+
 def _is_hidden(rel: str, entry: os.DirEntry | None) -> bool:
     """Tell whether a walked entry is hidden: a leading dot, or the Windows hidden attribute.
 
@@ -196,6 +246,8 @@ __all__ = (
     "_exact_paths_rule",
     "_format_from_suffix",
     "_is_hidden",
+    "_new_prefixes",
+    "_nt_strip",
     "_require_zstd",
     "_split_workers",
     "_temp_file_rule",

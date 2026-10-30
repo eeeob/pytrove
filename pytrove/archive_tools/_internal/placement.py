@@ -7,7 +7,7 @@ import ntpath
 from typing import TYPE_CHECKING, Any, Final
 
 from ...callable_tools import safe_call
-from .common import _NT
+from .common import _nt_strip, _NT
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -105,7 +105,7 @@ class _PlaceMixin:
             The path that will really be written, or `None` if it leaves the root.
         """
         if _NT:
-            name = "/".join(part for raw in name.split("/") if (part := raw.rstrip(". ")))
+            name = _nt_strip(name)
 
             if not name:
                 return None

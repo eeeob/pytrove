@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Literal, NamedTuple, NoReturn, TypeVar
 from ...enums import ArchiveDuplicatePolicy, ArchiveLinkPolicy, ArchiveOverwritePolicy
 from ...errors import ArchiveLimitError, ArchivePolicyError, ValidationError
 from ...typings.archive import ArchiveLimits
-from .common import _NT
+from .common import _new_prefixes, _nt_strip, _NT
 
 if TYPE_CHECKING:
     import tarfile
@@ -100,15 +100,7 @@ class _Limiter:
             self._fail(f"member {name!r} is nested {depth} deep, over the {lim.max_depth} allowed")
 
         if lim.max_dir_entries is not None or lim.max_root_entries is not None:
-            parts = name.split("/")
-
-            for i in range(1, len(parts) + 1):
-                path = "/".join(parts[:i])
-
-                if path in self._counted:
-                    continue
-
-                self._counted.add(path)
+            for path in _new_prefixes(name, self._counted):
                 parent = path.rpartition("/")[0]
                 self._breadth[parent] = held = self._breadth.get(parent, 0) + 1
 
@@ -177,12 +169,10 @@ class _Limiter:
         Returns:
             The key `duplicates` is judged on.
         """
-        parts = name.split("/")
-
         if _NT:
-            return "/".join(p for raw in parts if (p := raw.rstrip(". ")))
+            return _nt_strip(name)
 
-        return "/".join(p for p in parts if p != ".")
+        return "/".join(p for p in name.split("/") if p != ".")
 
     def allows_name(self, name: str) -> bool:
         """Apply `duplicates`: the first member with a name wins.

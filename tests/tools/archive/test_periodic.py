@@ -636,3 +636,42 @@ async def test_a_should_run_that_raises_skips_only_its_own_job(
     assert runs == ["good", "good"]
     assert "'bad': should_run raised" in caplog.text
     assert "clock unreadable" in caplog.text
+
+
+async def test_create_adds_no_sibling_rule_for_a_job_alone_in_its_root(
+    tree: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    captured = {}
+
+    def fake_compress_folder(src: Path, dest: Path, **kw: Any) -> Path:
+        captured.update(kw)
+        dest.write_text("x")
+        return dest
+
+    monkeypatch.setattr(archiver_module, "compress_folder", fake_compress_folder)
+    job = make_job(tree, name="out")
+
+    await PeriodicArchiver([job]).create(job)
+
+    assert captured["exclude"][2] == ()
+
+
+async def test_create_excludes_a_sibling_archive_by_its_exact_path(
+    tree: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    captured = {}
+
+    def fake_compress_folder(src: Path, dest: Path, **kw: Any) -> Path:
+        captured.update(kw)
+        dest.write_text("x")
+        return dest
+
+    monkeypatch.setattr(archiver_module, "compress_folder", fake_compress_folder)
+    job, other = make_job(tree, name="out"), make_job(tree, name="other")
+
+    await PeriodicArchiver([job, other]).create(job)
+
+    rule = captured["exclude"][2]
+    sibling = other.archive_path().name
+    assert rule(sibling, None) is True
+    assert rule(f"sub/{sibling}", None) is False

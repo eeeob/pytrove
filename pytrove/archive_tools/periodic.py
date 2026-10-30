@@ -111,6 +111,8 @@ class PeriodicArchiver:
         Returns:
             The archive's path.
         """
+        siblings = self._siblings(job)
+
         return await to_thread(
             compress_folder,
             job.root,
@@ -122,7 +124,7 @@ class PeriodicArchiver:
                 self.base_exclude,
                 () if job.exclude is None else job.exclude,
                 # By exact path: a name holding `[` is no glob, and a same-named file deeper down is kept.
-                _exact_paths_rule(self._siblings(job)),
+                _exact_paths_rule(siblings) if siblings else (),
             ],
             exclude_hidden=job.exclude_hidden,
             stability_retries=job.stability_retries,

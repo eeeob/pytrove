@@ -82,16 +82,8 @@ class _TarMixin:
                         else "other",
                         info.linkname or None,
                     )
-                    target = self._place(m)
-
-                    if target is None:
+                    if (target := self._admit(m)) is None:
                         continue
-
-                    if m.kind == "dir":
-                        self._mkdir(target)
-                        continue
-
-                    self._mkdir(target.parent)
 
                     if m.kind != "file":
                         self._link(m, target)

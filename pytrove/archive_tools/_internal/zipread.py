@@ -180,16 +180,8 @@ class _ZipMixin:
                     if kind == stat.S_IFREG
                     else "other",
                 )
-                target = self._place(m)
-
-                if target is None:
+                if (target := self._admit(m)) is None:
                     continue
-
-                if m.kind == "dir":
-                    self._mkdir(target)
-                    continue
-
-                self._mkdir(target.parent)
 
                 if pool is None:
                     self._zip_copy(readers, m, target)
@@ -203,12 +195,9 @@ class _ZipMixin:
                 inflight[key] = pool.submit(self._zip_copy, readers, m, target)
 
                 while len(inflight) > ahead:
-                    done_key = next(iter(inflight))
-                    done_job = inflight[done_key]
-                    done_job.result()
-
-                    if inflight.get(done_key) is done_job:
-                        del inflight[done_key]
+                    done_key, done_job = next(iter(inflight.items()))
+                    done_job.result()  # Removed only once done: a raise leaves it for `finally` to wait on.
+                    del inflight[done_key]
 
             for job in inflight.values():
                 job.result()

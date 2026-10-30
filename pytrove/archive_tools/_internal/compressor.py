@@ -8,10 +8,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, TYPE_CHECKING
 
-from ..._internal import _is_link, _default_stability_check, _HAS_FILE_ATTRIBUTES
+from ..._internal import _default_stability_check, _stat_is_link, _HAS_FILE_ATTRIBUTES
 from ...enums import ArchiveFormat
 from ...files_tools import remove_paths
-from .common import _split_workers, _WalkEntry
+from .common import _new_prefixes, _split_workers, _WalkEntry
 from .rules import _Filter
 from .writers import _write_tar, _write_zip
 
@@ -97,8 +97,8 @@ class _Compressor:
             for entry in entries:
                 rel = prefix + entry.name
 
-                # `DirEntry` caches the symlink bit; only a junction needs its own `lstat`.
-                if entry.is_symlink() or (_HAS_FILE_ATTRIBUTES and _is_link(entry.path)):
+                # `DirEntry` caches the symlink bit, and on Windows the junction tag too.
+                if entry.is_symlink() or (_HAS_FILE_ATTRIBUTES and _is_junction(entry)):
                     if not follow_links:
                         continue
 
@@ -156,14 +156,23 @@ class _Compressor:
         Yields:
             Each directory not yet yielded.
         """
-        parts = rel.split("/")[:-1]
+        for branch in _new_prefixes(rel.rpartition("/")[0], emitted):
+            yield os.path.join(self.root, *branch.split("/")), branch, True
 
-        for i in range(1, len(parts) + 1):
-            branch = "/".join(parts[:i])
 
-            if branch not in emitted:
-                emitted.add(branch)
-                yield os.path.join(self.root, *parts[:i]), branch, True
+def _is_junction(entry: os.DirEntry[str]) -> bool:
+    """Tell whether a walked entry is a link `DirEntry.is_symlink` misses: a Windows junction.
+
+    Read from the unfollowed `stat` `os.scandir` already cached on Windows,
+    so the walk spends no `lstat` per entry on it.
+
+    Args:
+        entry: The directory entry.
+
+    Returns:
+        Whether it is a junction (or a symlink).
+    """
+    return _stat_is_link(entry.stat(follow_symlinks=False))
 
 
 def _remove_all_but(root: Path, keep: Path) -> None:
@@ -182,10 +191,10 @@ def _remove_all_but(root: Path, keep: Path) -> None:
     here = root
 
     for part in keep.relative_to(root).parts:
+        kept = os.path.normcase(part)
+
         with os.scandir(here) as it:
-            doomed = [
-                entry.path for entry in it if os.path.normcase(entry.name) != os.path.normcase(part)
-            ]
+            doomed = [entry.path for entry in it if os.path.normcase(entry.name) != kept]
 
         remove_paths(doomed)
         here = here / part
@@ -193,5 +202,6 @@ def _remove_all_but(root: Path, keep: Path) -> None:
 
 __all__ = (
     "_Compressor",
+    "_is_junction",
     "_remove_all_but",
 )

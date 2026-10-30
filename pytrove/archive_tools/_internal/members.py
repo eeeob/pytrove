@@ -7,8 +7,6 @@ import ntpath
 import os
 import posixpath
 import secrets
-import tempfile
-from pathlib import Path
 from typing import IO, TYPE_CHECKING
 
 from ..._internal import _is_dir, _COPY_BUF
@@ -16,6 +14,8 @@ from ...errors import ValidationError
 from ...files_tools import ensure_dir, remove_file
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from .extractor import _Extractor
     from .limiter import _Member
 
@@ -44,7 +44,13 @@ class _WriteMixin:
 
         fresh = []
 
-        while path != self._root and path != path.parent and not path.exists():
+        # A directory this run created is still there: nothing removes or replaces one before `_inspect`.
+        while (
+            path not in self._created
+            and path != self._root
+            and path != path.parent
+            and not path.exists()
+        ):
             fresh.append(path)
             path = path.parent
 
@@ -56,9 +62,32 @@ class _WriteMixin:
             ensure_dir(level, parents=False, exist_ok=True)
 
         self._made.update(fresh)
+        self._created.update(fresh)
 
         if self._built is not None:
             self._built.extend(reversed(fresh))
+
+    def _admit(self: _Extractor, m: _Member) -> Path | None:
+        """Place a member and make the directory it needs, the step both readers share.
+
+        Args:
+            m: The member.
+
+        Returns:
+            Where a file or link member is to be written, or `None` once a
+            directory member is made or a member is refused.
+        """
+        target = self._place(m)
+
+        if target is None:
+            return None
+
+        if m.kind == "dir":
+            self._mkdir(target)
+            return None
+
+        self._mkdir(target.parent)
+        return target
 
     def _link(self: _Extractor, m: _Member, target: Path) -> None:
         """Recreate a link member that stays inside the destination; `_place` already applied the policy.
@@ -134,15 +163,10 @@ class _WriteMixin:
             )
             return
 
-        try:
-            # A free name from `mkstemp`, released at once: `os.symlink`/`os.link` refuse an existing path.
-            fd, tmp_name = tempfile.mkstemp(
-                dir=target.parent, prefix=f".{target.name}.", suffix=".tmp"
-            )
-            os.close(fd)
-            os.unlink(tmp_name)
-            tmp = Path(tmp_name)
+        # A random name beside the target: `os.symlink`/`os.link` refuse one that is taken.
+        tmp = target.with_name(f".{target.name}.{secrets.token_hex(8)}.tmp")
 
+        try:
             if m.kind == "symlink":
                 os.symlink(raw, tmp)
             else:

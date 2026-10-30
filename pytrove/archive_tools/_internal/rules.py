@@ -3,7 +3,7 @@
 from __future__ import annotations as _annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from fnmatch import fnmatchcase
 from functools import lru_cache
 from pathlib import Path, PurePath
@@ -65,6 +65,17 @@ class _Filter:
 
     who: str = "compress_folder"
     """The public function's name, for error messages."""
+
+    _has_include: bool = field(init=False, repr=False, compare=False)
+    """Whether the include side holds a rule; fixed, since both sides are immutable."""
+
+    _has_exclude: bool = field(init=False, repr=False, compare=False)
+    """Whether the exclude side holds a rule; fixed, since both sides are immutable."""
+
+    def __post_init__(self) -> None:
+        """Weigh each side once, rather than on every entry the filter is asked about."""
+        self._has_include = bool(self.include_rules)
+        self._has_exclude = bool(self.exclude_rules)
 
     @staticmethod
     @lru_cache(maxsize=256, typed=True)
@@ -180,10 +191,14 @@ class _Filter:
         if rules.spec is not None:
             return rules.spec.match_file(rel)
 
+        if not rules.globs:
+            return False
+
         # An anchored `/pat` matches only at its own depth: with as many `/` as
         # `rel`, `fnmatch`'s `*` cannot cross one.
+        depth = rel.count("/")
         return any(
-            fnmatchcase(rel, pat[1:]) and pat.count("/") - 1 == rel.count("/")
+            fnmatchcase(rel, pat[1:]) and pat.count("/") - 1 == depth
             if pat[:1] == "/"
             else fnmatchcase(rel, pat)
             for pat in rules.globs
@@ -191,7 +206,7 @@ class _Filter:
 
     def __bool__(self) -> bool:
         """Tell whether either side has any rule."""
-        return bool(self.include_rules or self.exclude_rules)
+        return self._has_include or self._has_exclude
 
     @staticmethod
     def _ask(fn: Callable[[str, _RawEntry], Any], rel: str, raw: _RawEntry, side: str) -> bool:
@@ -238,7 +253,7 @@ class _Filter:
         Returns:
             Whether it is kept.
         """
-        if not self:
+        if not (self._has_include or self._has_exclude):
             return True
 
         inc, exc = self.include_rules, self.exclude_rules
@@ -267,7 +282,7 @@ class _Filter:
         if self.glob_hit(rel, inc):
             return True
 
-        return not bool(inc)
+        return not self._has_include
 
     def enter(self, rel: str, raw: _RawEntry = None) -> bool:
         """Tell whether a walk should descend into a directory.
@@ -282,10 +297,10 @@ class _Filter:
         Returns:
             Whether to descend.
         """
-        exc = self.exclude_rules
-
-        if not exc:
+        if not self._has_exclude:
             return True
+
+        exc = self.exclude_rules
 
         if rel in exc.paths:
             return False

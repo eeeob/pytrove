@@ -36,10 +36,9 @@ except (
     fastzip_chooser: Any = None
 
 try:
-    from pathspec import GitIgnoreSpec, PathSpec  # type: ignore[import-not-found]  # Optional: the `archive` extra.
+    from pathspec import PathSpec  # type: ignore[import-not-found]  # Optional: the `archive` extra.
 except ImportError:
     PathSpec: Any = None
-    GitIgnoreSpec: Any = None
 
 from ..._internal import _has_requirement
 
@@ -54,10 +53,8 @@ if not _has_requirement("archive", "fastzip"):
 
 if not _has_requirement("archive", "pathspec"):
     PathSpec = None
-    GitIgnoreSpec = None
 
 __all__ = (
-    "GitIgnoreSpec",
     "PathSpec",
     "WZip",
     "fastzip_chooser",

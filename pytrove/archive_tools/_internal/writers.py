@@ -86,6 +86,8 @@ def _write_zip(
         )
 
     pending_tmp: list[str] = []
+    # Unguarded, fastzip needs no `stat` before the write: it runs no `_warn_if_changed`.
+    needs_source = not use_fastzip or stability_retries > 0
 
     try:
         with zf:
@@ -93,8 +95,10 @@ def _write_zip(
                 if is_dir:
                     continue
 
-                skip, tmp_path, before_stat = stable._stable_source(
-                    path, stability_retries, stability_check
+                skip, tmp_path, before_stat = (
+                    stable._stable_source(path, stability_retries, stability_check)
+                    if needs_source
+                    else (False, None, None)
                 )
 
                 if skip:

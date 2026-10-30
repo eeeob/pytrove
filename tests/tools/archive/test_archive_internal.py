@@ -28,6 +28,7 @@ from pytrove.archive_tools._internal import (
     zipread,
 )
 from pytrove.archive_tools._internal import extractor as extractor_module
+from pytrove.archive_tools._internal import rules as rules_module
 from pytrove.archive_tools._internal.extractor import _Extractor
 from pytrove.archive_tools._internal.rules import _Filter, _Rules
 from pytrove.enums import (
@@ -113,7 +114,6 @@ def test_require_zstd_passes_with_a_backend(monkeypatch: pytest.MonkeyPatch) -> 
 
 def test_backends_expose_every_name() -> None:
     assert set(backends.__all__) == {
-        "GitIgnoreSpec",
         "PathSpec",
         "WZip",
         "fastzip_chooser",
@@ -253,9 +253,7 @@ def test_backends_fall_back_to_none_when_nothing_is_installed(
     probe = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(probe)
 
-    assert (probe.std_zstd, probe.zstandard, probe.WZip, probe.PathSpec, probe.GitIgnoreSpec) == (
-        None,
-    ) * 5
+    assert (probe.std_zstd, probe.zstandard, probe.WZip, probe.PathSpec) == (None,) * 4
 
 
 # --- common ----------------------------------------------------------------
@@ -317,9 +315,9 @@ def test_compressor_follows_a_link_to_a_file_inside_the_root(
     link = tmp_path / "d" / "link.txt"
     link.write_text("x")
     # A real file stands in for the link: it resolves to itself, a file inside the root.
-    # `_HAS_FILE_ATTRIBUTES` makes the walk ask `_is_link` beyond `DirEntry.is_symlink()`.
+    # `_HAS_FILE_ATTRIBUTES` makes the walk ask `_is_junction` beyond `DirEntry.is_symlink()`.
     monkeypatch.setattr(compressor, "_HAS_FILE_ATTRIBUTES", True)
-    monkeypatch.setattr(compressor, "_is_link", lambda path: Path(path).name == "link.txt")
+    monkeypatch.setattr(compressor, "_is_junction", lambda entry: entry.name == "link.txt")
 
     walked = list(
         compressor._Compressor(str(tmp_path), _Filter.from_rules((), ()), follow_links=True)
@@ -335,7 +333,7 @@ def test_compressor_drops_a_followed_link_the_filter_excludes(
 ) -> None:
     (tmp_path / "link.txt").write_text("x")
     monkeypatch.setattr(compressor, "_HAS_FILE_ATTRIBUTES", True)
-    monkeypatch.setattr(compressor, "_is_link", lambda path: Path(path).name == "link.txt")
+    monkeypatch.setattr(compressor, "_is_junction", lambda entry: entry.name == "link.txt")
 
     flt = _Filter.from_rules((), ["link.txt"])
 
@@ -360,6 +358,10 @@ def test_compressor_leaves_out_an_entry_whose_type_cannot_be_read(
         def is_symlink(self) -> bool:
             """Not a link."""
             return False
+
+        def stat(self, *, follow_symlinks: bool = True) -> os.stat_result:
+            """The file's own `stat`, which `scandir` caches on Windows."""
+            return os.stat(real, follow_symlinks=follow_symlinks)
 
         def is_dir(self, *, follow_symlinks: bool = True) -> bool:
             """Fail like an entry removed mid-walk."""
@@ -1340,11 +1342,11 @@ def test_compressor_asks_for_a_junction_only_where_stat_reports_attributes(
     (tmp_path / "f.txt").write_text("x")
     asked: list[str] = []
 
-    def is_link(path: str) -> bool:
-        asked.append(Path(path).name)
+    def is_junction(entry: os.DirEntry[str]) -> bool:
+        asked.append(entry.name)
         return False
 
-    monkeypatch.setattr(compressor, "_is_link", is_link)
+    monkeypatch.setattr(compressor, "_is_junction", is_junction)
     monkeypatch.setattr(compressor, "_HAS_FILE_ATTRIBUTES", False)
     list(compressor._Compressor(str(tmp_path), _Filter.from_rules((), ())))
     assert asked == []
@@ -1921,3 +1923,178 @@ def test_a_read_only_guarded_file_leaves_no_stability_copy_behind(
         src.chmod(stat.S_IREAD | stat.S_IWRITE)
 
     assert list(temp.iterdir()) == []
+
+
+# --- common: shared name helpers -------------------------------------------------------
+
+
+def test_new_prefixes_records_only_the_unseen_prefixes_outermost_first() -> None:
+    seen: set[str] = set()
+
+    assert common._new_prefixes("a/b/c", seen) == ["a", "a/b", "a/b/c"]
+    assert seen == {"a", "a/b", "a/b/c"}
+    # A known parent stops the walk at once.
+    assert common._new_prefixes("a/b/d", seen) == ["a/b/d"]
+    assert common._new_prefixes("a/b", seen) == []
+
+
+def test_new_prefixes_has_nothing_for_the_root_and_keeps_dot_segments() -> None:
+    seen: set[str] = set()
+
+    assert common._new_prefixes("", seen) == []
+    assert common._new_prefixes("a/./b", seen) == ["a", "a/.", "a/./b"]
+    assert seen == {"a", "a/.", "a/./b"}
+
+
+def test_nt_strip_drops_trailing_dots_and_spaces_and_the_segments_they_empty() -> None:
+    assert common._nt_strip("a. /. /b..") == "a/b"
+    assert common._nt_strip("a/b") == "a/b"
+    assert common._nt_strip(". /..") == ""
+
+
+# --- compressor: cached junction check --------------------------------------------------
+
+
+def test_is_junction_reads_the_entry_s_unfollowed_stat() -> None:
+    asked: list[bool] = []
+
+    class _Entry:
+        """An entry whose cached unfollowed `stat` says it is a link."""
+
+        def stat(self, *, follow_symlinks: bool = True) -> Any:
+            """Record how it was asked."""
+            asked.append(follow_symlinks)
+            return SimpleNamespace(st_mode=stat.S_IFLNK)
+
+    assert compressor._is_junction(cast("os.DirEntry[str]", _Entry())) is True
+    assert asked == [False]
+
+
+def test_is_junction_is_false_for_a_plain_file(tmp_path: Path) -> None:
+    (tmp_path / "f.txt").write_text("x")
+
+    with os.scandir(tmp_path) as it:
+        (entry,) = it
+
+    assert compressor._is_junction(entry) is False
+
+
+# --- members: admit and the directory cache ---------------------------------------------
+
+
+def test_admit_makes_a_directory_member_and_writes_nothing_more(tmp_path: Path) -> None:
+    extractor = _ready_extractor(tmp_path)
+    member = _member("d/e", "dir")
+
+    assert extractor._admit(member) is None
+    assert (tmp_path / "dest" / "d" / "e").is_dir()
+
+
+def test_admit_gives_a_file_its_target_once_its_parent_exists(tmp_path: Path) -> None:
+    extractor = _ready_extractor(tmp_path)
+    member = _member("d/f.txt", "file", 1)
+
+    target = extractor._admit(member)
+
+    assert target == tmp_path / "dest" / "d" / "f.txt"
+    assert target.parent.is_dir()
+    assert not target.exists()
+
+
+def test_admit_returns_nothing_for_a_refused_member(tmp_path: Path) -> None:
+    extractor = _ready_extractor(tmp_path)
+    member = _member("../x", "file", 1)
+
+    assert extractor._admit(member) is None
+    assert list((tmp_path / "dest").iterdir()) == []
+
+
+def test_mkdir_does_not_ask_the_filesystem_about_a_parent_it_just_made(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    extractor = _ready_extractor(tmp_path)
+    root = tmp_path / "dest"
+    extractor._mkdir(root / "a")
+    asked: list[Path] = []
+    real = Path.exists
+
+    def exists(self: Path, *args: Any, **kwargs: Any) -> bool:
+        asked.append(self)
+        return real(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "exists", exists)
+    extractor._mkdir(root / "a" / "b")
+
+    assert (root / "a" / "b").is_dir()
+    assert asked == [root / "a" / "b"]
+    assert extractor._created == {root / "a", root / "a" / "b"}
+
+
+# --- extractor: inspection and merge probes ---------------------------------------------
+
+
+def test_inspect_does_not_probe_a_file_with_is_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    extractor = _ready_extractor(tmp_path, ArchiveLimits(dir_check=lambda path: True))
+    (extractor._root / "sub").mkdir()
+    (extractor._root / "f.txt").write_text("x")
+    probed: list[str] = []
+    real = extractor_module._is_dir
+
+    def is_dir(path: str | os.PathLike[str]) -> bool:
+        probed.append(Path(path).name)
+        return real(path)
+
+    monkeypatch.setattr(extractor_module, "_is_dir", is_dir)
+    extractor._inspect(extractor._root)
+
+    assert probed == ["sub"]
+
+
+def test_graft_takes_one_lstat_of_each_target(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    staged, dest = tmp_path / "staged", tmp_path / "dest"
+    for root in (staged, dest):
+        root.mkdir()
+
+    (staged / "f.txt").write_text("new")
+    (dest / "f.txt").write_text("old")
+    real = os.lstat
+    targets: list[str] = []
+
+    def lstat(path: str | os.PathLike[str]) -> os.stat_result:
+        if Path(path).parent == dest:
+            targets.append(Path(path).name)
+        return real(path)
+
+    monkeypatch.setattr(os, "lstat", lstat)
+    _ready_extractor(tmp_path)._graft(staged, dest)
+
+    assert (dest / "f.txt").read_text() == "new"
+    assert targets == ["f.txt"]
+
+
+# --- rules: weighed once ----------------------------------------------------------------
+
+
+def test_filter_weighs_each_side_once_when_built() -> None:
+    neither = _Filter.from_rules((), ())
+    include_only = _Filter.from_rules(["a"], ())
+    exclude_only = _Filter.from_rules((), ["a"])
+
+    assert (neither._has_include, neither._has_exclude, bool(neither)) == (False, False, False)
+    assert (include_only._has_include, include_only._has_exclude) == (True, False)
+    assert (exclude_only._has_include, exclude_only._has_exclude) == (False, True)
+    assert bool(include_only) and bool(exclude_only)
+
+
+def test_glob_hit_without_globs_never_reaches_fnmatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fnmatchcase(name: str, pat: str) -> NoReturn:
+        msg = "fnmatch was reached"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr(rules_module, "fnmatchcase", fnmatchcase)
+
+    assert _Filter.glob_hit("a/b.txt", _Rules(names=frozenset({"b.txt"}))) is False
