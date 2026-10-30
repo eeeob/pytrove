@@ -3,16 +3,16 @@
 from __future__ import annotations as _annotations
 
 import math
+import random
 from dataclasses import dataclass
 from functools import cached_property
 from typing import TYPE_CHECKING
 
 from ..enums import PlatformDevice
 from ..models.device_models import DeviceInfo
-from ._internal import _Catalog, _Device, _OsView, _build_catalog, _rng, OS_SHARES
+from ._internal import _Catalog, _Device, _OsView, _build_catalog, OS_SHARES
 
 if TYPE_CHECKING:
-    import random
     from collections.abc import Iterable
 
 
@@ -23,7 +23,8 @@ class DeviceCatalog:
 
     `random_device` draws a device and then an OS version it really runs,
     weighted towards current hardware and releases. A multi-OS platform draws
-    the OS first, by `OS_SHARES`. A `unique_id` makes the draw reproducible.
+    the OS first, by `OS_SHARES`. Every draw is independent; keep a drawn
+    device (`to_dict()`) with whatever it belongs to rather than drawing again.
 
     The bundled platforms follow their official clients: Android reports
     `Build.MANUFACTURER + Build.MODEL` and `SDK <level>`; iOS an iPhone name
@@ -190,27 +191,10 @@ class DeviceCatalog:
 
         return None
 
-    def random_device(self, unique_id: object = None, os: str | None = None) -> DeviceInfo:
-        """Draw a weighted device and a version it runs.
+    def random_device(self, *, os: str | None = None) -> DeviceInfo:
+        """Draw a weighted device and a version it runs, anew on every call.
 
         Args:
-            unique_id: Seeds the draw, so one identity always gets one device; bytes
-                as they are, any other value by its `str`.
-            os: Pin the OS on a multi-OS platform.
-
-        Returns:
-            The device.
-
-        Raises:
-            ValueError: If the platform has no device for `os`.
-        """
-        return self._draw(_rng(unique_id), os)
-
-    def _draw(self, rng: random.Random, os: str | None) -> DeviceInfo:
-        """Draw a device and a version it runs, continuing the stream `rng` is on.
-
-        Args:
-            rng: The generator; `random_device` may already have used it to pick this catalog.
             os: Pin the OS on a multi-OS platform.
 
         Returns:
@@ -222,31 +206,26 @@ class DeviceCatalog:
         catalog = self._data
 
         if os is None and catalog.oses:
-            os = rng.choices(
+            os = random.choices(
                 catalog.oses, weights=[OS_SHARES.get(system, 1.0) for system in catalog.oses], k=1
             )[0]
 
         if os is None:
-            device = rng.choices(catalog.devices, weights=catalog.weights, k=1)[0]
+            device = random.choices(catalog.devices, weights=catalog.weights, k=1)[0]
             names, version_weights = device.versions, device.version_weights
         else:
             view = self._view(os)
-            device = rng.choices(view.devices, weights=view.weights, k=1)[0]
+            device = random.choices(view.devices, weights=view.weights, k=1)[0]
             names, version_weights = device.by_os[os]
 
-        return DeviceInfo(device.model, rng.choices(names, weights=version_weights, k=1)[0])
+        return DeviceInfo(device.model, random.choices(names, weights=version_weights, k=1)[0])
 
 
-def random_family(catalogs: Iterable[DeviceCatalog], unique_id: object = None) -> DeviceCatalog:
-    """Pick a platform's catalog, weighted by `weight`.
-
-    Drawing from the picked catalog with the same `unique_id` reuses the same stream
-    and correlates the two picks; for a seeded draw across platforms, use
-    `random_device(unique_id=...)` instead.
+def random_family(catalogs: Iterable[DeviceCatalog]) -> DeviceCatalog:
+    """Pick a platform's catalog at random, weighted by `weight`.
 
     Args:
         catalogs: The catalogs to choose from; any iterable, read once.
-        unique_id: Seeds the draw; bytes as they are, any other value by its `str`.
 
     Returns:
         The catalog.
@@ -267,7 +246,7 @@ def random_family(catalogs: Iterable[DeviceCatalog], unique_id: object = None) -
         msg = "random_family: needs at least one catalog with a positive weight"
         raise ValueError(msg)
 
-    return _rng(unique_id).choices(catalogs, weights=[c.weight for c in catalogs], k=1)[0]
+    return random.choices(catalogs, weights=[c.weight for c in catalogs], k=1)[0]
 
 
 __all__ = (

@@ -21,7 +21,7 @@ from pytrove.enums import PlatformDevice
 ios = pytrove.get_device_catalog(PlatformDevice.IOS)
 android = pytrove.get_device_catalog(PlatformDevice.ANDROID)
 assert not any("_data" in c.__dict__ for c in _DEVICES.values())
-pytrove.random_device(PlatformDevice.IOS, unique_id="probe")
+pytrove.random_device(PlatformDevice.IOS)
 assert "_data" in ios.__dict__ and "_data" not in android.__dict__
 android.oses()
 assert "_data" in android.__dict__
