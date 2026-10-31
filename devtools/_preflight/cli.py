@@ -98,6 +98,7 @@ class Cli:
                         flight.registry,
                         actions,
                         dry_run=flight.dry_run,
+                        allow_flaky=args.allow_flaky,
                     )
                 )
                 if wrote:

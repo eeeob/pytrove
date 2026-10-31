@@ -31,6 +31,10 @@ python -m devtools.device_catalogs --offline       # rebuild from the cache alon
 first form is the front door and checks every source first — see
 [`devtools/README.md`](../../README.md).
 
+A platform that cannot be built — its source is down and the cache cannot
+cover it — prints `not built: <why>` and keeps its file as it was; the other
+platforms are still built, and the run exits 1.
+
 **A first run is slow.** The DMI step reads one probe per distinct model
 folder, 420 per vendor, over 16 threads — a few thousand requests, the heaviest
 step in the tool by far. Afterwards `--offline` is instant and produces

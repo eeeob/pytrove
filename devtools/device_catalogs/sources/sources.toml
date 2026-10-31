@@ -321,7 +321,7 @@ src/firmware.py :: FirmwareHarvest.api(), dumps(), file(), tree(), resolve();
 BASE, BRANDS, MIN_ANDROID, MAX_PAGES, PROP_PATH, OVERLAY_*"""
 on_removal = """
 The retail Build.MODEL codes and Android ceilings for OPPO, realme and vivo --
-87 devices, and the only evidence for those three brands anywhere. It is also
+89 devices, and the only evidence for those three brands anywhere. It is also
 where every manufacturer casing in MANUFACTURER was measured, so losing it
 means no way to verify that samsung is lowercase and OPPO is not."""
 notes = """

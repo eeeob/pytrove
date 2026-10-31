@@ -35,8 +35,20 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     cache = Cache(offline=args.offline)
+    failed: list[str] = []
     for key in args.only or list(BUILDERS):
         print(f"== {key}")
-        BUILDERS[key](cache).run()
+        # A builder says it cannot build its platform by raising SystemExit
+        # before it writes anything. One platform's outage is no reason to
+        # leave the others stale, so the run goes on and only the exit code
+        # remembers it.
+        try:
+            BUILDERS[key](cache).run()
+        except SystemExit as exc:
+            why = str(exc.code).replace("\n", "\n  ")
+            print(f"  not built: {why}")
+            failed.append(key)
 
-    return 0
+    if failed:
+        print(f"not built: {', '.join(failed)} -- left as it was")
+    return 1 if failed else 0
