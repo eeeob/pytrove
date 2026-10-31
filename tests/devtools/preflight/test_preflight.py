@@ -1384,8 +1384,8 @@ def test_an_unreachable_source_records_no_verdict_at_all(tmp_path: Path) -> None
 #
 # A checker nobody runs reports nothing, so the schedule is what makes the
 # rest of this worth anything. The workflow fires every day and knows nothing
-# about any tool; each tool's own `every_days`, against the day its lock last
-# recorded a check, decides whether that day's run checks it.
+# about any tool; each tool's own `every_days`, against the day its last-run
+# file recorded a check, decides whether that day's run checks it.
 
 WORKFLOW = TOOLS.parent / ".github" / "workflows" / "devtools-preflight.yml"
 
@@ -1611,12 +1611,14 @@ def test_due_skips_a_tool_before_any_request(
 # --- what a scheduled run reports -----------------------------------------
 
 
-def _failing(consecutive: int, state: str = State.FLAKY) -> Report:
+def _failing(consecutive: int, state: str = State.FLAKY, since: str = "") -> Report:
     return Report(
         tool="t",
         network=Health.OK,
         first_run=False,
-        verdicts=(Verdict(source_id="s", state=state, consecutive=consecutive),),
+        verdicts=(
+            Verdict(source_id="s", state=state, consecutive=consecutive, failing_since=since),
+        ),
     )
 
 
@@ -1652,19 +1654,56 @@ def test_waiving_flakiness_does_not_hide_a_change() -> None:
     assert report.exit_code(allow_flaky=True) == Exit.CHANGED
 
 
-def test_the_escalation_line_says_how_long_that_actually_is(tmp_path: Path) -> None:
-    # Nobody thinks in runs. The count is what the rule can measure; the
-    # cadence is what turns it into a sentence somebody can act on.
-    registry = _registry_for(tmp_path)
-    report = _failing(Report.ESCALATE_AFTER)
-    weekly = _models.Schedule(tool="t", every_days=7)
+def test_the_escalation_line_is_dated_from_the_lock(tmp_path: Path) -> None:
+    # The rule counts runs, and a run by hand counts as much as a scheduled
+    # one: the three runs this once called "about 21 days" were five days,
+    # two of them on one afternoon. The lock knows the day the failures began.
+    report = _failing(Report.ESCALATE_AFTER, since="2026-10-26")
 
-    plain = TextReport.render(report, registry)
-    dated = TextReport.render(report, registry, schedule=weekly)
+    text = TextReport.render(report, _registry_for(tmp_path))
 
-    assert f"{Report.ESCALATE_AFTER}+ runs" in plain
-    assert "days" not in plain
-    assert f"about {Report.ESCALATE_AFTER * weekly.every_days} days" in dated
+    assert f"failing since 2026-10-26, {Report.ESCALATE_AFTER} runs in a row: s" in text
+    assert "days" not in text
+
+
+def test_a_source_that_keeps_failing_is_never_called_not_dead(tmp_path: Path) -> None:
+    # The report used to say both: "failing every run" above, and "these are
+    # not dead sources, build with --allow-flaky" below, under an exit 1.
+    text = TextReport.render(_failing(Report.ESCALATE_AFTER), _registry_for(tmp_path))
+
+    assert "may be gone for good" in text
+    assert "is not dead" not in text
+
+
+def test_a_source_that_failed_once_is_still_called_passable(tmp_path: Path) -> None:
+    text = TextReport.render(_failing(1), _registry_for(tmp_path))
+
+    assert "failed once is not dead" in text
+    assert "gone for good" not in text
+
+
+class _DownProber(Prober):
+    """Answers every probe the way dumps.tadiphone.dev did for a week."""
+
+    def probe(self, source: Source, *, etag: str = "", last_modified: str = "") -> Verdict:
+        return Verdict(
+            source_id=source.id, state=State.FLAKY, error=f"HTTP 502 {etag}{last_modified}"
+        )
+
+
+def test_a_failure_carries_the_day_the_lock_says_it_began(tmp_path: Path) -> None:
+    source = Source(id="s", url="u", cache="c", consumed_by="x", on_removal="x")
+    path = tmp_path / "sources.lock.json"
+    failing = {"state": State.FLAKY, "consecutive": 2, "since": "2026-10-26"}
+    path.write_text(
+        json.dumps({"lock_schema": 1, "sources": {"s": {Lock.FAILING: failing}}}),
+        encoding="utf-8",
+    )
+
+    checker = Checker(_registry_for(tmp_path, source), Lock(path), prober=_DownProber())
+    verdict = checker.check_one(source)
+
+    assert (verdict.consecutive, verdict.failing_since) == (3, "2026-10-26")
 
 
 # ============================= ported rules =============================

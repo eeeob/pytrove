@@ -153,12 +153,25 @@ class TextReport:
                 f"  flaky  {verdict.source_id:<{cls.WIDTH}} "
                 f"{verdict.error} after {verdict.attempts} attempt(s)"
             )
-        lines += [
-            "",
-            "  these are not dead sources. the cache may well cover them.",
-            "  retry, or build from the cache with --allow-flaky.",
-            "",
-        ]
+        lines.append("")
+        # One verdict per source. "Not dead, retry" is true of a source that
+        # failed once and false of one that has failed run after run, and
+        # saying it of both is how a report talks someone into building past
+        # a source the exit code already calls dead.
+        escalated = {v.source_id for v in report.escalated}
+        if any(v.source_id not in escalated for v in report.transient):
+            lines += [
+                "  a source that failed once is not dead. the cache may well cover it.",
+                "  retry, or build from the cache with --allow-flaky.",
+                "",
+            ]
+        if any(v.source_id in escalated for v in report.transient):
+            lines += [
+                "  a source that keeps failing may be gone for good. building from the",
+                "  cache with --allow-flaky still works, but the scheduled check exits 1",
+                "  until it answers again or its handling is removed from the tool.",
+                "",
+            ]
         return lines
 
     # --- the whole thing --------------------------------------------------
@@ -171,7 +184,6 @@ class TextReport:
         actions: list[Action] | None = None,
         *,
         dry_run: bool = False,
-        schedule: Schedule | None = None,
     ) -> str:
         lines: list[str] = []
 
@@ -236,18 +248,15 @@ class TextReport:
             lines.append("")
 
         if report.escalated:
-            named = ", ".join(v.source_id for v in report.escalated)
-            # The rule counts runs because a run is the only thing it can
-            # count, but nobody thinks in runs: at a weekly cadence three of
-            # them is three weeks, and that is the sentence a reader can act
-            # on. Without a declared schedule the count stands on its own.
-            runs = f"{report.ESCALATE_AFTER}+ runs"
-            if schedule is not None:
-                runs += (
-                    f", about {report.ESCALATE_AFTER * schedule.every_days}"
-                    f" days at this tool's cadence"
-                )
-            lines += [f"  failing every run for {runs}: {named}", ""]
+            # Dated from the lock, never estimated from the cadence: the rule
+            # counts runs, and a run by hand counts as much as a scheduled one,
+            # so three runs can be three weeks or one afternoon.
+            lines += [
+                f"  failing since {v.failing_since or 'this run'}, "
+                f"{v.consecutive} runs in a row: {v.source_id}"
+                for v in report.escalated
+            ]
+            lines.append("")
 
         if report.fatal:
             lines += cls.failure(report, registry)

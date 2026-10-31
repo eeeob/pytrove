@@ -373,6 +373,10 @@ class Verdict:
     error: str = ""
     #: How many consecutive runs have now failed on this source.
     consecutive: int = 0
+    #: The day the lock records this run of failures as starting, empty on a
+    #: first failure. The count is in runs, and a run by hand counts as much
+    #: as a scheduled one, so only this date says how long it has really been.
+    failing_since: str = ""
     attempts: int = 1
     elapsed_ms: int = 0
     #: The body, kept only long enough for the janitor and the lock writer.
@@ -418,8 +422,9 @@ class Report:
     watched: frozenset[str] = frozenset()
 
     #: Consecutive failing runs before a source is called dead rather than
-    #: unlucky. Weekly scheduling makes this three weeks, long enough that no
-    #: ordinary outage reaches it and short enough to still matter.
+    #: unlucky. At a weekly cadence that is three weeks, long enough that no
+    #: ordinary outage reaches it and short enough to still matter; a run by
+    #: hand counts too, which is why the report dates it by `failing_since`.
     ESCALATE_AFTER: ClassVar[int] = 3
 
     # --- what happened ----------------------------------------------------
@@ -465,6 +470,12 @@ class Report:
         half-complete catalog -- but `--allow-flaky` passes it, because the
         cache usually covers the gap entirely and a dropped connection is not
         a reason to be unable to build.
+
+        An escalated source passes too, unlike in `exit_code`. The two answer
+        different questions: this one whether a build from the cache may run,
+        that one whether somebody has to look. A source that has been down for
+        three runs needs a developer, and still need not block a rebuild of
+        everything else from what the cache already holds.
         """
         if self.fatal:
             return False
