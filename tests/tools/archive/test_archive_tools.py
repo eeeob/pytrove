@@ -3488,9 +3488,11 @@ def test_windows_streams_and_device_names_are_refused_on_windows(
 
 @pytest.mark.skipif(os.name == "nt", reason="a colon names a stream on Windows")
 def test_a_colon_and_a_device_name_are_ordinary_off_windows(tmp_path: Path) -> None:
-    arc = _zip_of(tmp_path / "w.zip", ["a:b.txt", "COM1"])
+    # `a.txt:s`, not `a:b.txt`: one letter and a colon is a drive-relative name,
+    # refused on every platform (see `test_absolute_names_are_refused_outright`).
+    arc = _zip_of(tmp_path / "w.zip", ["a.txt:s", "COM1"])
 
-    assert _extracted_into(arc, tmp_path / "x") == ["COM1", "a:b.txt"]
+    assert _extracted_into(arc, tmp_path / "x") == ["COM1", "a.txt:s"]
 
 
 # --- links: refused before they spend anything ------------------------------------
