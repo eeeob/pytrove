@@ -247,7 +247,7 @@ Every group named in the data needs an explicit share, and
 | `sources/`  | `sources.lock.json`| what the last check saw. Tracked — it is the memory      |
 | `ported/`   | `citations.toml`   | the client rules this tool reimplements, by content anchor |
 | `config/`   | `config.toml`      | values decided by hand, beside the number upstream can be asked for |
-| `schedule/` | `schedule.toml`    | the check cadence, declared again in the workflow        |
+| `schedule/` | `schedule.toml`    | the check cadence in days, read by the daily workflow    |
 
 The syntax and the full key lists are in [`devtools/README.md`](../../README.md).
 What belongs here is the judgement: a new third-party rule that gets

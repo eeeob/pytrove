@@ -29,7 +29,8 @@ A tool's root holds named sections and a single `__main__.py` door. Any other
     devtools/<tool>/
       __main__.py       the door. imports from src/ and nothing else
       src/              the logic
-      sources/          sources.toml, sources.lock.json   (this package)
+      sources/          sources.toml, sources.lock.json,  (this package)
+                        sources.last_run.json
       schedule/         schedule.toml                     (this package)
       ported/           citations.toml                    (this package)
       config/           config.toml                       (this package)

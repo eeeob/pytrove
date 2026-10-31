@@ -19,15 +19,18 @@ never noticed.
 
 from __future__ import annotations as _annotations
 
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from .check import Checker
 from .janitor import Janitor
 from .layout import Layout
-from .lock import Lock, RunState
+from .lock import LastRun, Lock, RunState
 from .registry import find_schedule, load
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from .models import Action, Registry, Report, Schedule
 
 # ============================== one tool ==============================
@@ -42,7 +45,20 @@ class Preflight:
         self.registry: Registry = load(tool)
         self.schedule: Schedule | None = find_schedule(tool)
         self.lock = Lock(Layout.lock_path(tool))
+        self.last_run = LastRun(Layout.last_run_path(tool))
         self.state = RunState(Layout.state_path(tool))
+
+    def skip_reason(self, today: date) -> str:
+        """Why a scheduled run leaves this tool alone today, or "" when it is due.
+
+        A tool with no schedule is never due: it is checked only by hand.
+        """
+        if self.schedule is None:
+            return "declares no schedule, so only a run by hand checks it"
+        checked = self.last_run.read()
+        if checked is None or self.schedule.due(checked, today):
+            return ""
+        return f"checked {checked}, not due until {self.schedule.next_due(checked)}"
 
     # --- step 1 -----------------------------------------------------------
 
@@ -56,10 +72,11 @@ class Preflight:
         return Janitor(self.registry, dry_run=self.dry_run).run(report)
 
     def record(self, report: Report, actions: list[Action], duration_s: float) -> bool:
-        """Persist both files. Returns whether the tracked lock changed."""
+        """Persist the lock, the day of this check and the run state. Returns whether the lock changed."""
         if self.dry_run:
             return False
         wrote = self.lock.save(self.lock.rebuild(self.registry, list(report.verdicts)))
+        self.last_run.write(datetime.now(timezone.utc).date())
         self.state.write(
             verdicts=list(report.verdicts),
             network=report.network,

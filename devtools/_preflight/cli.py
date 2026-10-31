@@ -12,8 +12,10 @@ should not be touched because somebody typed the command bare.
 from __future__ import annotations as _annotations
 
 import argparse
+import json
 import sys
 import time
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, ClassVar
 
 from .enums import Exit
@@ -53,6 +55,11 @@ class Cli:
         stage.add_argument("--janitor", action="store_true", help="check and clean, the default")
 
         parser.add_argument(
+            "--due",
+            action="store_true",
+            help="skip a tool its schedule says is not due today; what the daily workflow runs",
+        )
+        parser.add_argument(
             "--allow-flaky", action="store_true", help="treat an unreachable source as passable"
         )
         parser.add_argument(
@@ -70,6 +77,12 @@ class Cli:
     def one(cls, tool: str, args: argparse.Namespace) -> int:
         started = time.monotonic()
         flight = Preflight(tool, dry_run=args.dry_run or args.check)
+
+        # Judged before any request: a tool that is not due costs the daily run nothing.
+        if args.due and (reason := flight.skip_reason(datetime.now(timezone.utc).date())):
+            if not args.quiet:
+                print(json.dumps({"tool": tool, "skipped": reason}) if args.json else f"  {reason}")
+            return Exit.OK
 
         report = flight.check()
         actions = [] if args.check else flight.clean(report)

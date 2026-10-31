@@ -53,6 +53,7 @@ start — then it is preflight's.
 | `--list`         | list those tools and exit                                 |
 | `--check`        | check only; touch no cache                                |
 | `--janitor`      | check and clean — the default                             |
+| `--due`          | skip a tool its `every_days` say is not due today         |
 | `--allow-flaky`  | treat an unreachable source as passable                   |
 | `--dry-run`      | report what would be cleaned, change nothing              |
 | `--json`         | machine-readable output                                   |
@@ -89,7 +90,7 @@ A tool's root holds named sections and a single `__main__.py` door. Any other
 devtools/<tool>/
   __main__.py       the door. imports from src/ and nothing else
   src/              the logic
-  sources/          sources.toml, sources.lock.json
+  sources/          sources.toml, sources.lock.json, sources.last_run.json
   schedule/         schedule.toml
   ported/           citations.toml
   config/           config.toml
@@ -248,9 +249,14 @@ Why this value, and what changing it would mean."""
 `devtools/<tool>/sources/sources.lock.json` is tracked, and that is not an
 accident: it is the checker's memory. It holds each source's fingerprint, the
 day it last changed, its contract verdict, and the consecutive-failure counter
-the escalation rule rests on. A CI runner is new every week, so unless the
+the escalation rule rests on. A CI runner is new every day, so unless the
 lock goes back into the repository no counter ever reaches three and no source
 is ever called dead.
+
+Beside it, `sources.last_run.json` holds one thing: the day of the last real
+check, which is how the daily workflow knows whether a tool is due again. It
+is tracked for the same reason, and kept out of the lock so that a diff in the
+lock still means something upstream moved.
 
 Three consecutive failing runs make a source `DEAD` (exit 1), and
 `--allow-flaky` does not waive that: the waiver covers a dropped connection,
@@ -270,19 +276,21 @@ reason printed.
 
 ---
 
-## The weekly check
+## The daily check
 
-`.github/workflows/devtools-preflight.yml` runs `--all --allow-flaky` once a week
-and on `workflow_dispatch`, uploads the report, commits the lock, and
-translates the exit code. It never runs a generator: rebuilding a catalog
+`.github/workflows/devtools-preflight.yml` fires once a day and runs
+`--all --due --allow-flaky`; `workflow_dispatch` with a tool named checks that
+tool at once. It uploads the report, commits the lock and the last-run file,
+and translates the exit code. It never runs a generator: rebuilding a catalog
 changes a file that ships in the wheel, and that is a decision with a human
 behind it.
 
-The cadence is declared **twice** — in the workflow's `cron` and in
-`devtools/<tool>/schedule/schedule.toml`, which is the declaration of record —
-because a trigger cannot be computed in Actions. `tests/devtools/preflight/test_preflight.py`
-fails in both directions if the two drift apart, and the report derives
-"about N days" from the cron rather than from a second hand-written number.
+The workflow knows nothing about any tool. Each one declares `every_days` in
+`devtools/<tool>/schedule/schedule.toml`, and `--due` checks a tool only once
+that many days have passed since the day in its `sources.last_run.json`, so a
+day the workflow missed is made up on the next one, and adding a tool or
+changing a cadence never touches the workflow. The report turns the
+three-run escalation rule into "about N days" from the same number.
 
 ---
 
@@ -320,7 +328,7 @@ pytest tests/tools/device/test_devices_data.py   # the generated data, against i
 ```
 
 `tests/devtools/preflight/test_preflight.py` also guards the structure itself: the layering above,
-the one-door rule, the cron duplication, and that every tool carries a
+the one-door rule, the single daily trigger, and that every tool carries a
 `docs/DEVELOPING.md`. None of them need a network.
 
 ## Adding a tool
@@ -330,7 +338,7 @@ the one-door rule, the cron duplication, and that every tool carries a
    else.
 3. `sources/sources.toml` — a `[tool]` table, then one `[[source]]` per
    upstream and one `[[derived]]` per cache the tool writes.
-4. `schedule/schedule.toml` — a cron, and the same line in the workflow.
+4. `schedule/schedule.toml` — `every_days`; nothing to add to the workflow.
 5. `ported/citations.toml` and `config/config.toml` as soon as either applies.
 6. `docs/DEVELOPING.md` — the per-tool guide.
 

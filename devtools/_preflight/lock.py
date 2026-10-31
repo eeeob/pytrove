@@ -1,6 +1,6 @@
-"""The two files that remember what the last check saw.
+"""The three files that remember what the last check saw, and when.
 
-They are split on one rule: **the tracked file holds only what is worth
+They are split on one rule: **the tracked lock holds only what is worth
 seeing change.**
 
     sources/sources.lock.json     tracked. facts about upstream: fingerprints,
@@ -9,13 +9,20 @@ seeing change.**
                                   diff means something moved in the world and
                                   `git log -p` on it is the history of that.
 
+    sources/sources.last_run.json tracked. the day of the last real check, and
+                                  nothing else. The daily workflow starts on a
+                                  fresh runner, so this is the only thing that
+                                  tells it whether a tool is due again.
+
     .cache/preflight.state.json   gitignored. run bookkeeping: when the check
                                   last ran, how long it took, what the janitor
                                   removed. None of it belongs in a diff.
 
-Putting `last_checked` in the tracked file was the mistake this split avoids:
-a weekly check would then produce a commit every week with nothing learnt,
-and the signal would drown within a month.
+Putting the check day in the lock was the mistake this split avoids: every
+check would then rewrite the lock with nothing learnt, and its history -- the
+one place a diff means something moved -- would drown within a month. The
+day lives in a file of its own, so it changes at the tool's cadence while
+`git log -p` on the lock stays the history of upstream.
 
 The failure counter goes the other way -- it has to be in the *tracked* file,
 because a CI runner is new every week and would reset an ephemeral one, and
@@ -288,6 +295,36 @@ class Lock:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(text, encoding="utf-8", newline="\n")
         self.data = json.loads(text)
+        return True
+
+
+# ============================== the last run ==============================
+
+
+class LastRun:
+    """`sources/sources.last_run.json`: the day the tool's sources were last checked."""
+
+    CHECKED: ClassVar[str] = "checked"
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+
+    def read(self) -> date | None:
+        """The day of the last real check, or None if never (or unreadable)."""
+        try:
+            return date.fromisoformat(
+                json.loads(self.path.read_text(encoding="utf-8"))[self.CHECKED]
+            )
+        except (OSError, ValueError, KeyError, TypeError):
+            return None
+
+    def write(self, today: date) -> bool:
+        """Record `today`, LF-only like the lock. Returns whether the file changed."""
+        text = json.dumps({self.CHECKED: today.isoformat()}, indent=1) + "\n"
+        if self.path.is_file() and self.path.read_text(encoding="utf-8") == text:
+            return False
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(text, encoding="utf-8", newline="\n")
         return True
 
 

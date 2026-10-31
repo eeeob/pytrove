@@ -8,3 +8,4 @@ pytrove/data/devices/*.json -text
 # whole value is that a diff in it means something upstream moved -- a newline
 # conversion showing all 157 lines as changed would destroy exactly that.
 devtools/*/sources/sources.lock.json -text
+devtools/*/sources/sources.last_run.json -text
