@@ -7,6 +7,7 @@ import re
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
+from http.client import HTTPException
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from .shared import TODAY
@@ -172,17 +173,17 @@ class FirmwareHarvest:
     # --- step 1: which dumps are worth reading ---------------------------
 
     def dumps(self, brand: str) -> list[tuple[int, str, int, str]]:
-        """(project id, branch, android release, build date) per fresh dump."""
+        """(project id, branch, android release, build date) per fresh dump.
+
+        A page that fails raises rather than ending the listing: an empty page
+        is the API saying there are no more dumps, a failed one says nothing,
+        and `records` has to be able to tell the two apart.
+        """
         found: list[tuple[int, str, int, str]] = []
         for page in range(1, self.MAX_PAGES + 1):
-            try:
-                items = self.api(
-                    f"/groups/dumps%2F{brand}/projects"
-                    f"?per_page=100&page={page}&include_subgroups=true"
-                )
-            except Exception as exc:  # noqa: BLE001
-                print(f"  {brand}: {type(exc).__name__} {exc}")
-                break
+            items = self.api(
+                f"/groups/dumps%2F{brand}/projects?per_page=100&page={page}&include_subgroups=true"
+            )
             if not items:
                 break
             for item in items:
@@ -291,8 +292,14 @@ class FirmwareHarvest:
 
     def records(self) -> list[dict[str, Any]]:
         """One record per (brand, model code) a retail dump has ever proved."""
-        if self.cache.has(self.RECORDS_FILE):
-            return self.cache.read_json(self.RECORDS_FILE)
+        # An empty file counts as no file. Before an unanswered request was
+        # told apart from an empty listing, an outage wrote exactly this, and
+        # building from it takes every OPPO, realme and vivo phone out of the
+        # catalog; harvesting again costs three listings when it is genuine.
+        if self.cache.has(self.RECORDS_FILE) and (
+            cached := self.cache.read_json(self.RECORDS_FILE)
+        ):
+            return cached
         if self.cache.offline:
             # The janitor sets the file aside rather than deleting it, so an
             # offline rebuild right after a clean still has every device the
@@ -304,9 +311,13 @@ class FirmwareHarvest:
                 )
             return self.store(self.merge([]))
 
+        try:
+            listed = {brand: self.dumps(brand) for brand in self.BRANDS}
+        except (OSError, ValueError, HTTPException) as exc:
+            return self.unanswered(exc)
+
         wanted: list[tuple[str, int, str, int, str]] = []
-        for brand in self.BRANDS:
-            fresh = self.dumps(brand)
+        for brand, fresh in listed.items():
             wanted += [
                 (brand, project, branch, release, day) for project, branch, release, day in fresh
             ]
@@ -326,6 +337,25 @@ class FirmwareHarvest:
 
         print(f"  resolved {len(best)} retail model codes")
         return self.store(self.merge(list(best.values())))
+
+    def unanswered(self, exc: Exception) -> list[dict[str, Any]]:
+        """Build from the previous harvest when the dumps API gives no answer.
+
+        A failed request is not an empty listing. An empty listing is upstream
+        saying there are no dumps, and it is merged like any other harvest; a
+        502 or a timeout says nothing at all, so it is treated like `--offline`:
+        what an earlier harvest proved is carried with its sightings unchanged,
+        and RECORD_MAX_AGE_DAYS expires it on the schedule it always had.
+        """
+        print(f"  the dumps API did not answer: {type(exc).__name__} {exc}")
+        if not self.cache.has(self.PREV_FILE):
+            msg = (
+                f"the dumps API did not answer ({type(exc).__name__}: {exc}) and no "
+                f"earlier harvest is cached to carry.\nthe cache was left as it was; "
+                f"retry once {self.BASE} answers again."
+            )
+            raise SystemExit(msg)
+        return self.store(self.merge([]))
 
     # --- step 4: accumulate ----------------------------------------------
 

@@ -182,6 +182,15 @@ expire after `RECORD_MAX_AGE_DAYS` (730), and the `android` field is a **ceiling
 that never moves down**. The tool learns nothing about preflight from this — only
 the `.prev` filename.
 
+**An API that does not answer is not an empty harvest.** An empty listing is
+the dumps group saying there is nothing, and it is merged like any other run. A
+failed request (a 502, a timeout) says nothing, so `FirmwareHarvest.unanswered()`
+treats it like `--offline`: the `.prev` records are carried with their
+`last_seen` unchanged, and with no `.prev` the build stops without writing. An
+empty `firmware_records.json` is read as missing. Until this was told apart, a
+build during an outage on an empty cache wrote `[]` and dropped every OPPO,
+realme and vivo phone from the catalog.
+
 A dump proves a ceiling but no launch date, and no public feed carries one for
 these brands, so each of these devices lists **exactly that one API level**
 (`FIRMWARE_BACK` and `XIAOMI_BACK` are both 0). A range below the measured level
