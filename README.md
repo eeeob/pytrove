@@ -6,6 +6,8 @@
 
 **pytrove** is a modern Python utilities library providing async-ready helpers for backend systems, databases, cryptography, and Telegram automation.
 
+> **Upgrading?** Every breaking change and how to migrate is in [CHANGELOG.md](CHANGELOG.md).
+
 ---
 
 ## ✨ Features

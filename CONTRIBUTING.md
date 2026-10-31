@@ -70,7 +70,7 @@ CI runs every check above on each pull request: `test`, `test-doctest` and `test
 
 ### 8. Commit and open the pull request
 
-Conventional Commits for the message and the title, `!` plus a `BREAKING CHANGE` note when compatibility breaks, and a short body with the objective and the test results (5.7).
+Conventional Commits for the message and the title, `!` plus a `BREAKING CHANGE` note when compatibility breaks, and a short body with the objective and the test results (5.7). A breaking change also adds its entry, with the migration, under `[Unreleased]` in `CHANGELOG.md`.
 
 ## The rules
 
@@ -224,7 +224,7 @@ def chunk(items: Sequence[_T], size: int) -> list[list[_T]]:
 
 **5.6 Public documentation.** `README.md` and its like explain concepts and never carry data that changes with every addition, such as a table of extras and the packages each installs. Changing details have one reference source, which is linked rather than copied.
 
-**5.7 Commits and pull requests.** Commit messages and pull-request titles are concise Conventional Commits, `<type>[optional scope]: <short description>`, such as `feat(archive): add lazy loading for bundled data` or `fix(types): correct optional dependency annotations`. The pull-request body and review comments say what the change is for and how it was tested, briefly and without detail that does not aid review; they need not follow the format. A breaking change puts `!` in the title and a `BREAKING CHANGE` note with the required migration.
+**5.7 Commits and pull requests.** Commit messages and pull-request titles are concise Conventional Commits, `<type>[optional scope]: <short description>`, such as `feat(archive): add lazy loading for bundled data` or `fix(types): correct optional dependency annotations`. The pull-request body and review comments say what the change is for and how it was tested, briefly and without detail that does not aid review; they need not follow the format. A breaking change puts `!` in the title and a `BREAKING CHANGE` note with the required migration, and adds an entry with the same migration under `[Unreleased]` in `CHANGELOG.md` in the same pull request, so users upgrading find every break in one place.
 
 **5.8 Branches.** Every independent change gets its own branch and pull request; nothing lands on `main` directly. One cohesive subject per branch, in the smallest independent pieces, and large work in successive pull requests.
 
