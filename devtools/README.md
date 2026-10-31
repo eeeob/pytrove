@@ -16,6 +16,7 @@ package.
 | path                | what it is                                             |
 | ------------------- | ------------------------------------------------------ |
 | `device_catalogs/`  | regenerates `pytrove/data/devices/*.json` — [guide](device_catalogs/docs/DEVELOPING.md) |
+| `tg_points/`        | regenerates `pytrove/data/tg_points.json` — [guide](tg_points/docs/DEVELOPING.md) |
 | `_preflight/`       | source checking and cache cleaning, shared by any tool |
 | `__main__.py`       | the front door                                         |
 
@@ -349,6 +350,7 @@ or `gone`; the last two are fatal, `flaky` is transient, the rest are clear.
 ```sh
 pytest tests/devtools/preflight/test_preflight.py          # the machinery and the folder contract
 pytest tests/devtools/device_catalogs/test_device_catalogs.py    # the catalogs tool's own logic
+pytest tests/devtools/tg_points/test_tg_points.py   # the tg_points tool's own logic
 pytest tests/tools/device/test_devices_data.py   # the generated data, against its sources
 ```
 

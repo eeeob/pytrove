@@ -1,0 +1,75 @@
+#  tg_points -- source registry
+#  =============================
+#
+#  Every upstream this tool depends on, what it must still look like, and what
+#  the tool loses if it dies. Read by `devtools/_preflight`, which imports no
+#  code from here: this file is the only thing the checker and the generator
+#  share.
+#
+#  Neither source declares a fingerprint, on purpose. A count of points would
+#  miss the change that matters most in this data -- a date corrected in place
+#  -- so the lock keeps a sha256 of each file instead, and any byte that moves
+#  is CHANGED: the cached copy is dropped and the next build fetches it again.
+#  Both files are a few kilobytes, so a false alarm costs one small download.
+#
+#  Both URLs follow the default branch rather than a pinned commit. A pin can
+#  never report an update, and bumping one would not even clear the cache,
+#  because the lock's declaration digest does not include the URL.
+
+[tool]
+name = "tg_points"
+notes = """
+Writes pytrove/data/tg_points.json. Telegram
+publishes no registration dates, so every point is somebody's observation of
+a real account; see docs/DEVELOPING.md for how far each source is trusted."""
+
+
+[[source]]
+id = "wizardloop_points"
+url = "https://raw.githubusercontent.com/WizardLoop/CreationDate/main/data/tg_points.json"
+cache = "wizardloop_points.json"
+on_change = "delete"
+consumed_by = "src/points.py :: Points.base(); WIZARDLOOP_URL, WIZARDLOOP_FILE"
+on_removal = """
+The 212 base points, from 2013-08-14 to 2025-11-11 -- everything before the
+block era (ids below 7e9) except a few dozen LyAdminBot rows. No other
+MIT-licensed source holds them. They are also in git, in the current
+tg_points.json: if the repository is gone, keep those rows by hand (a ClassVar
+in src/points.py) rather than rebuilding without them."""
+notes = """
+Published once, in a single commit on 2026-01-25, and never touched since; it
+is itself a copy of Jobians/telegram-id-age's dataset.json (2025-11-22),
+which declares MIT only in package.json. Its dates run late against
+LyAdminBot's constraints -- see docs/DEVELOPING.md -- but nothing better
+covers the sequential era, so it stays the base."""
+
+  [source.contract]
+  kind = "json_list"
+  min_items = 200
+  must_match = '^\s*\[\d+, "\d{4}-\d{2}-\d{2}"\]'
+  min_matches = 200
+
+
+[[source]]
+id = "lyadminbot_sources"
+url = "https://raw.githubusercontent.com/LyoSU/LyAdminBot/master/tools/account-age-calibrate/sources.json"
+cache = "lyadminbot_sources.json"
+on_change = "delete"
+consumed_by = "src/points.py :: Points.observations(); LYADMINBOT_URL, LYADMINBOT_FILE"
+on_removal = """
+Every point newer than 2025-11-11: the 2026 observations, the rounded block-era
+ids of external-dataset-2026-08, and the two owner-confirmed registrations.
+Without it the data stops at WizardLoop's last point and every newer account is
+extrapolated. No other MIT source is maintained; see docs/DEVELOPING.md for
+the ones that were rejected and why."""
+notes = """
+Refreshed by hand from the bot's own MongoDB, every one to two months by its
+README, which also says old keys are never deleted -- so a refresh is a new
+key, and every key is merged. The two must_contain lines are the file's own
+statement of what its two halves mean; if either is reworded, read the file
+again before trusting the merge."""
+
+  [source.contract]
+  kind = "json_object"
+  object_keys = ["observations", "constraints", "randomizedBlocks"]
+  must_contain = ["registration-date estimates", "hard upper bounds"]

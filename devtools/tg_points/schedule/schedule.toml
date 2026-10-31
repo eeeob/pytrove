@@ -1,0 +1,19 @@
+#  tg_points -- when the sources are checked unattended
+#  ====================================================
+#
+#  Read by `devtools/_preflight`. The workflow fires every day and knows
+#  nothing about any tool: it checks a tool once `every_days` have passed since
+#  its last check, and makes up a missed day on the next one.
+
+[schedule]
+every_days = 7
+notes = """
+Weekly.
+
+Neither source moves faster than monthly: LyAdminBot is refreshed by hand
+every one to two months, and WizardLoop has not changed since it was
+published. A week is still the right cadence, because the check costs two
+small requests and a refresh is worth noticing within days, not a month.
+
+It also keeps the escalation rule readable: a source is only called dead after
+three failing runs in a row, which at this cadence is three weeks."""
