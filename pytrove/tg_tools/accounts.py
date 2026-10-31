@@ -9,17 +9,21 @@ from .._internal import _optional_import
 from ..email_tools import detect_email_provider, fetch_emails_from
 from ..errors import ValidationError
 from ..validate_tools import validation
-from ._internal import _interpolate_time, _points
+from ._internal import _block_time, _blocks, _interpolate_time, _points
 
 
 def tg_account_created_at(user_id: int) -> float:
     """Estimate when a Telegram account was created, from its id.
 
-    Ids grow over time, so the date is interpolated between the two bundled
-    known points around the id, and extrapolated past the last one but never
-    into the future. An id at or below the first point gets that point's date.
-    The points are read on first use and fitted so the date never goes down
-    as the id grows.
+    Until 2024-02 ids grew over time, so below the first randomized block the
+    date is interpolated between the two bundled known points around the id;
+    an id at or below the first point gets that point's date. Since then ids
+    are handed out at random inside blocks (7.0e9 to 7.2e9, and so on), so an
+    id in a block gets the middle of that block's window, from its opening to
+    the next block's opening, or to now for the block still open. The estimate
+    is never later than now, unless the clock is behind the bundled data; it is
+    then never earlier than the opening of the id's block. The data is read on
+    first use and fitted so the date never goes down as the id grows.
 
     Args:
         user_id: The account's id.
@@ -27,17 +31,17 @@ def tg_account_created_at(user_id: int) -> float:
     Returns:
         The estimated creation time, as a Unix timestamp.
     """
+    if user_id >= _blocks()[0][0]:
+        return _block_time(user_id)
+
     points = _points()
 
     if user_id <= points[0][0]:
         return points[0][1]
 
     # The first point at or above the id; `(user_id,)` sorts before any `(user_id, stamp)`.
+    # The last point is the first block's lowest id, so there always is one.
     above = bisect_left(points, (user_id,))
-
-    if above == len(points):
-        return _interpolate_time(user_id, *points[-2], *points[-1])
-
     return _interpolate_time(user_id, *points[above - 1], *points[above])
 
 

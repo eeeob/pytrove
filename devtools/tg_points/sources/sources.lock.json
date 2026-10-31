@@ -9,7 +9,18 @@
     "etag": "\"a62b50b3777e22790b1268bea7f0eecf966b8f3923522664c554af2f312f19d6\""
    },
    "contract": "ok",
-   "declaration": "c5c8f4579bfc",
+   "declaration": "d7437d9f028a",
+   "first_seen": "2026-11-01"
+  },
+  "ssleg_pools": {
+   "sha256": "2353a7f69e429af58ee3a14099e8162dcb3ee5fd2e551d06085c8dd7f2ce4d87",
+   "bytes": 2955,
+   "http": {
+    "etag": "\"9862a12cfbe647da0e6b18a1aa782ed9943e1b23\"",
+    "last_modified": "Thu, 21 May 2026 15:21:53 GMT"
+   },
+   "contract": "ok",
+   "declaration": "b5888728c2c7",
    "first_seen": "2026-11-01"
   },
   "wizardloop_points": {

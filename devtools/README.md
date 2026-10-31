@@ -16,7 +16,7 @@ package.
 | path                | what it is                                             |
 | ------------------- | ------------------------------------------------------ |
 | `device_catalogs/`  | regenerates `pytrove/data/devices/*.json` — [guide](device_catalogs/docs/DEVELOPING.md) |
-| `tg_points/`        | regenerates `pytrove/data/tg_points.json` — [guide](tg_points/docs/DEVELOPING.md) |
+| `tg_points/`        | regenerates `pytrove/data/tg_points.json` and `tg_blocks.json` — [guide](tg_points/docs/DEVELOPING.md) |
 | `_preflight/`       | source checking and cache cleaning, shared by any tool |
 | `__main__.py`       | the front door                                         |
 

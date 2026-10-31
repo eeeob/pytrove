@@ -11,11 +11,20 @@ DATA_DIR: Final[Path] = Path(__file__).parent.parent / "data"
 DEVICE_CATALOGS_DIR: Final[Path] = DATA_DIR / "devices"
 """One generated JSON device catalog per `PlatformDevice` member, read on the first draw."""
 
+TG_ACCOUNT_BLOCKS_FILE: Final[Path] = DATA_DIR / "tg_blocks.json"
+"""Telegram's randomized id blocks as `[low id, high id, "YYYY-MM-DD" opened]`, in id order.
+
+Since 2024-02 ids are handed out at random inside each block, so an id there
+dates only to its block's window: from its opening to the next block's
+opening, or to now for the last one. Read on first use.
+"""
+
 TG_ACCOUNT_POINTS_FILE: Final[Path] = DATA_DIR / "tg_points.json"
 """Known Telegram `[user id, "YYYY-MM-DD"]` creation points in date order, read on first use."""
 
 __all__ = (
     "DATA_DIR",
     "DEVICE_CATALOGS_DIR",
+    "TG_ACCOUNT_BLOCKS_FILE",
     "TG_ACCOUNT_POINTS_FILE",
 )
