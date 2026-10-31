@@ -20,10 +20,11 @@
    "last_changed": "2026-10-26"
   },
   "chrome_releases_mac": {
-   "fingerprint": 156,
+   "fingerprint": 157,
    "contract": "ok",
    "declaration": "c8a1cb37a2ee",
-   "first_seen": "2026-10-13"
+   "first_seen": "2026-10-13",
+   "last_changed": "2026-10-31"
   },
   "chrome_releases_win": {
    "fingerprint": 157,
@@ -43,7 +44,7 @@
    "first_seen": "2026-10-13",
    "failing": {
     "state": "flaky",
-    "consecutive": 2,
+    "consecutive": 3,
     "since": "2026-10-26",
     "last_error": "HTTP 502"
    }
@@ -92,15 +93,15 @@
    "first_seen": "2026-10-13"
   },
   "firefox_releases": {
-   "fingerprint": 158,
+   "fingerprint": 159,
    "http": {
-    "etag": "\"9e87e47c86c79fd4e3bc93344947631e\"",
-    "last_modified": "Tue, 13 Oct 2026 18:12:50 GMT"
+    "etag": "\"93ac6816ffad6faa3231f4f3d2b5ceff\"",
+    "last_modified": "Fri, 30 Oct 2026 15:49:53 GMT"
    },
    "contract": "ok",
    "declaration": "2c360e26500b",
    "first_seen": "2026-10-13",
-   "last_changed": "2026-10-14"
+   "last_changed": "2026-10-31"
   },
   "ipsw_device_api": {
    "fingerprint": 27,
@@ -136,15 +137,15 @@
    "first_seen": "2026-10-13"
   },
   "play_catalog": {
-   "fingerprint": 54288,
+   "fingerprint": 54340,
    "http": {
-    "etag": "\"bb729114893df2fc217ab38b69730b8a\"",
-    "last_modified": "Mon, 26 Oct 2026 12:05:43 GMT"
+    "etag": "\"34749914566701e63168123448b506ad\"",
+    "last_modified": "Sat, 31 Oct 2026 12:05:35 GMT"
    },
    "contract": "ok",
    "declaration": "b8fa63c3f3f0",
    "first_seen": "2026-10-13",
-   "last_changed": "2026-10-26"
+   "last_changed": "2026-10-31"
   },
   "xiaomi_devices": {
    "fingerprint": 1445,
@@ -157,14 +158,14 @@
    "last_changed": "2026-10-26"
   },
   "xiaomi_latest": {
-   "fingerprint": 3664,
+   "fingerprint": 3669,
    "http": {
-    "etag": "\"4344260d353ccb671fc55bb6a34893397d98639c5d5a811f6f40f66e56789f4c\""
+    "etag": "\"b99d5949e38331adbfe8149d2c1bac38343360938d0ffd7bc71f3a9d0b654eef\""
    },
    "contract": "ok",
    "declaration": "2c98d014106e",
    "first_seen": "2026-10-13",
-   "last_changed": "2026-10-26"
+   "last_changed": "2026-10-31"
   }
  },
  "citations": {
@@ -187,13 +188,7 @@
    "contract": "ok",
    "declaration": "1128ccee612e",
    "first_seen": "2026-10-14",
-   "last_changed": "2026-10-26",
-   "failing": {
-    "state": "flaky",
-    "consecutive": 1,
-    "since": "2026-10-26",
-    "last_error": "HTTP 429"
-   }
+   "last_changed": "2026-10-26"
   },
   "gecko_user_agent": {
    "sha256": "320c2e106d44dd86fe778a5fa3ffb67d2f18090149a6d2d54606cdb71bc9b6b4",

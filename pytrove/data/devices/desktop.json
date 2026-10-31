@@ -1,7 +1,7 @@
 {
  "schema": 1,
  "platform": "desktop",
- "updated": "2026-10-14",
+ "updated": "2026-10-31",
  "os": {
   "windows": {
    "model_format": "DeviceModelPretty of real DMI records: SystemProductName, else SystemFamily + BaseBoardProduct; 15 chars, HP names up to 32",
@@ -3425,15 +3425,6 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "X370 Killer Sli",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "ASRock",
-   "source": "linuxhw/DMI"
-  },
-  {
    "model": "X370M-HDV R4.0",
    "os": [
     "windows",
@@ -3498,6 +3489,15 @@
   },
   {
    "model": "Z370 Pro4-IB",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASRock",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Z370M Pro4",
    "os": [
     "windows",
     "linux"
@@ -3822,6 +3822,15 @@
   },
   {
    "model": "G733ZX",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "G834JZR",
    "os": [
     "windows",
     "linux"
@@ -4217,15 +4226,6 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "UX363JA",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "ASUS",
-   "source": "linuxhw/DMI"
-  },
-  {
    "model": "UX562UG",
    "os": [
     "windows",
@@ -4263,15 +4263,6 @@
   },
   {
    "model": "VivoBook X712EA",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "ASUS",
-   "source": "linuxhw/DMI"
-  },
-  {
-   "model": "VivoBook X712JA",
    "os": [
     "windows",
     "linux"
@@ -4388,6 +4379,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "X515MA",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "ASUS",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "A Power T200",
    "os": [
     "windows",
@@ -4398,6 +4398,15 @@
   },
   {
    "model": "A515-44G",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "Aspire A115-31",
    "os": [
     "windows",
     "linux"
@@ -4541,15 +4550,6 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "Aspire A514-54",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "Acer",
-   "source": "linuxhw/DMI"
-  },
-  {
    "model": "Aspire A515-44G",
    "os": [
     "windows",
@@ -4658,6 +4658,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "Aspire C22-865",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "Aspire C24-1651",
    "os": [
     "windows",
@@ -4739,6 +4748,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "CaymanPRS",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Acer",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "CivicTLS",
    "os": [
     "windows",
@@ -4784,25 +4802,7 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "Extensa 215-23",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "Acer",
-   "source": "linuxhw/DMI"
-  },
-  {
    "model": "Extensa 215-33",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "Acer",
-   "source": "linuxhw/DMI"
-  },
-  {
-   "model": "Extensa 215-51K",
    "os": [
     "windows",
     "linux"
@@ -5207,6 +5207,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "060K5C",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "0D4MD1",
    "os": [
     "windows",
@@ -5289,15 +5298,6 @@
   },
   {
    "model": "Inspiron 063KWG",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "Dell",
-   "source": "linuxhw/DMI"
-  },
-  {
-   "model": "Inspiron 07GYG7",
    "os": [
     "windows",
     "linux"
@@ -5621,6 +5621,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "Latitude 3420",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Dell",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "Latitude 3520",
    "os": [
     "windows",
@@ -5874,15 +5883,6 @@
   },
   {
    "model": "OptiPlex 04G47W",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "Dell",
-   "source": "linuxhw/DMI"
-  },
-  {
-   "model": "OptiPlex 07HXY6",
    "os": [
     "windows",
     "linux"
@@ -6944,15 +6944,6 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "HP 340S G7",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "HP",
-   "source": "linuxhw/DMI"
-  },
-  {
    "model": "HP 470 G8",
    "os": [
     "windows",
@@ -7035,6 +7026,15 @@
   },
   {
    "model": "HP Elite Dragonfly 13.5 inch G3",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
+   "model": "HP EliteBook 1040 14 inch G9",
    "os": [
     "windows",
     "linux"
@@ -7268,15 +7268,6 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "HP Laptop 15-gw0xxx",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "HP",
-   "source": "linuxhw/DMI"
-  },
-  {
    "model": "HP Laptop 15s-du2xxx",
    "os": [
     "windows",
@@ -7493,6 +7484,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "HP ProBook 455R G6",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "HP",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "HP ProBook 640 G8",
    "os": [
     "windows",
@@ -7682,6 +7682,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "20EQS6LN1P",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "20FRS01V00",
    "os": [
     "windows",
@@ -7709,6 +7718,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "20HMS25S00",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Lenovo",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "20HQS02A00",
    "os": [
     "windows",
@@ -7727,7 +7745,7 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "20J7S25C00",
+   "model": "20JES0AJ00",
    "os": [
     "windows",
     "linux"
@@ -8240,15 +8258,6 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "21ED004JGE",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "Lenovo",
-   "source": "linuxhw/DMI"
-  },
-  {
    "model": "21FCCTO1WW",
    "os": [
     "windows",
@@ -8349,15 +8358,6 @@
   },
   {
    "model": "21MLCTO1WW",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "Lenovo",
-   "source": "linuxhw/DMI"
-  },
-  {
-   "model": "30DF001KUS",
    "os": [
     "windows",
     "linux"
@@ -8654,6 +8654,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "GF65 Thin 10UE",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "GF75 Thin 10SC",
    "os": [
     "windows",
@@ -8762,6 +8771,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "MS-7B49",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "MSI",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "MS-7B98",
    "os": [
     "windows",
@@ -8790,15 +8808,6 @@
   },
   {
    "model": "MS-7C56",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "MSI",
-   "source": "linuxhw/DMI"
-  },
-  {
-   "model": "MS-7C71",
    "os": [
     "windows",
     "linux"
@@ -9104,15 +9113,6 @@
    "source": "linuxhw/DMI"
   },
   {
-   "model": "MS-7D99",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "MSI",
-   "source": "linuxhw/DMI"
-  },
-  {
    "model": "MS-7E02",
    "os": [
     "windows",
@@ -9275,6 +9275,15 @@
    "source": "linuxhw/DMI"
   },
   {
+   "model": "15Z90RT-G.AD75B",
+   "os": [
+    "windows",
+    "linux"
+   ],
+   "vendor": "Other",
+   "source": "linuxhw/DMI"
+  },
+  {
    "model": "15ZD90S-GX56K",
    "os": [
     "windows",
@@ -9402,15 +9411,6 @@
   },
   {
    "model": "750QGK",
-   "os": [
-    "windows",
-    "linux"
-   ],
-   "vendor": "Other",
-   "source": "linuxhw/DMI"
-  },
-  {
-   "model": "750XED",
    "os": [
     "windows",
     "linux"
