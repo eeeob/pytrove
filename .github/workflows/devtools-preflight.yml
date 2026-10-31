@@ -1,20 +1,22 @@
 name: Tools preflight
 
-# Checks every upstream the generators under devtools/ depend on, on a cadence,
-# so a source that dies or changes shape is found by the schedule rather than
-# months later by a build failing for what looks like its own fault.
+# Checks every upstream the generators under devtools/ depend on, each at its
+# own cadence, so a source that dies or changes shape is found by the schedule
+# rather than months later by a build failing for what looks like its own fault.
 #
 # It never runs a generator. Rebuilding a catalog changes a file that ships in
 # the wheel, and that is a decision with a human behind it; this job only
 # reports what moved, and records what it saw.
 #
-# Each cron below is declared again -- as the declaration of record -- in
-# devtools/<tool>/schedule/schedule.toml, because a trigger cannot be computed
-# here. tests/devtools/preflight/test_preflight.py fails if the two drift apart.
+# It fires every day and knows nothing about any tool: `--due` asks each one
+# whether the `every_days` in its devtools/<tool>/schedule/schedule.toml have
+# passed since its last check, so a new tool or a new cadence never touches
+# this file. 04:19 rather than the hour, because Actions queues every
+# scheduled job that fires on the hour: an odd minute is served sooner.
 
 on:
   schedule:
-    - cron: "19 4 * * 1"
+    - cron: "19 4 * * *"
   workflow_dispatch:
     inputs:
       tool:
@@ -23,9 +25,11 @@ on:
         default: ""
 
 # The lock is the checker's memory: the fingerprint of every source, and the
-# consecutive-failure counter the three-run escalation rule rests on. A runner
-# is new every week, so unless the lock goes back into the repository no
-# counter ever reaches three and no source is ever called dead.
+# consecutive-failure counter the three-run escalation rule rests on; beside it,
+# sources.last_run.json holds the day each tool was last checked, which is what
+# `--due` reads. A runner is new every day, so unless both go back into the
+# repository no counter ever reaches three, no source is ever called dead and
+# every tool is always due.
 permissions:
   contents: write
 
@@ -48,13 +52,14 @@ jobs:
 
       # --allow-flaky: a source that could not be reached once is weather, and
       # failing the job on it would train everyone to ignore this. The counter
-      # in the lock is what turns three weeks of weather into an exit 1.
+      # in the lock is what turns three runs of weather into an exit 1.
       - name: Check the sources
         id: check
         env:
           TOOL: ${{ inputs.tool }}
         run: |
-          target="--all"
+          # A tool named by hand is checked now; the scheduled run checks only what is due.
+          target="--all --due"
           if [ -n "$TOOL" ]; then target="--tool $TOOL"; fi
           set +e
           # `--only-group devtools`: the checker's own dependencies and nothing
@@ -78,14 +83,17 @@ jobs:
       - name: Record what the check saw
         if: always()
         run: |
-          if git diff --quiet -- 'devtools/*/sources/sources.lock.json'; then
-            echo "the lock is unchanged; upstream looks exactly as it did"
+          # The lock moves only when upstream did; the last-run day moves on
+          # every check. `--porcelain` also sees a last-run file made for the first time.
+          recorded="devtools/*/sources/sources.lock.json devtools/*/sources/sources.last_run.json"
+          if [ -z "$(git status --porcelain -- $recorded)" ]; then
+            echo "nothing was due, or nothing to record"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- 'devtools/*/sources/sources.lock.json'
-          git commit -m "chore(devtools): record what the weekly source check saw"
+          git add -- $recorded
+          git commit -m "chore(devtools): record what the scheduled source check saw"
           # The branch is checked out detached-ish, with no upstream set, so
           # both ends are named explicitly rather than inferred.
           git pull --rebase --autostash origin "$GITHUB_REF_NAME"
@@ -104,7 +112,7 @@ jobs:
             2)
               echo "::notice::a source moved -- see the report; a rebuild is worthwhile" ;;
             1)
-              echo "::error::a source is gone, has changed shape, or has failed every run for three weeks"
+              echo "::error::a source is gone, has changed shape, or has failed three runs in a row"
               exit 1 ;;
             4)
               echo "::error::a source registry or schedule is malformed"

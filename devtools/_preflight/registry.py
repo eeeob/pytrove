@@ -374,15 +374,15 @@ def _watches(tool: str) -> tuple[Watch, ...]:
 # ============================== schedule/schedule.toml ==============================
 
 SCHEDULE_SECTION: Final[str] = "schedule"
-SCHEDULE_KEYS: Final[frozenset[str]] = frozenset({"cron", "notes"})
+SCHEDULE_KEYS: Final[frozenset[str]] = frozenset({"every_days", "notes"})
 
 
 def load_schedule(tool: str) -> Schedule:
     """Parse one tool's cadence. Raises `RegistryError` on anything odd.
 
     Kept out of `Registry` because it is not something the checker compares
-    against anything: it says how often the check runs, which only the report
-    and the workflow care about.
+    against anything: it decides whether a scheduled run checks this tool
+    today, and tells the report how long three runs take.
     """
     path = Layout.schedule_path(tool)
     where = f"{path.parent.name}/{path.name}"
@@ -397,21 +397,16 @@ def load_schedule(tool: str) -> Schedule:
         raise RegistryError(msg)
     _reject_unknown(table, SCHEDULE_KEYS, where)
 
-    cron = str(table.get("cron", "")).strip()
-    if not cron:
-        msg = f"{where}: [{SCHEDULE_SECTION}] needs cron"
-        raise RegistryError(msg)
-
-    schedule = Schedule(tool=tool, cron=cron, notes=str(table.get("notes", "")).strip())
-    if not schedule.every_days:
+    every = table.get("every_days")
+    # `bool` is an `int`; `true` is not a number of days.
+    if not isinstance(every, int) or isinstance(every, bool) or every < 1:
         msg = (
-            f"{where}: cron {cron!r} is not a cadence that can be stated in "
-            f"days. Use 'm h * * D' for weekly, 'm h D * *' for monthly or "
-            f"'m h * * *' for daily -- anything else leaves the escalation "
-            f"rule unable to say how long three runs is."
+            f"{where}: [{SCHEDULE_SECTION}] needs every_days, a whole number of "
+            f"days of at least 1, not {every!r}"
         )
         raise RegistryError(msg)
-    return schedule
+
+    return Schedule(tool=tool, every_days=every, notes=str(table.get("notes", "")).strip())
 
 
 def find_schedule(tool: str) -> Schedule | None:

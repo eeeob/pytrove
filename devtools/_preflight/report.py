@@ -290,7 +290,7 @@ class JsonReport:
             "escalate_after": report.ESCALATE_AFTER,
             "ported": [c.id for c in registry.citations],
             #: What that count is worth in days, so a reader of the JSON can
-            #: interpret it without knowing the workflow's cron.
+            #: interpret it without opening the tool's schedule.
             "cadence_days": schedule.every_days if schedule else None,
             "escalated": [v.source_id for v in report.escalated],
             "counts": {

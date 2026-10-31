@@ -45,6 +45,7 @@ class Layout:
     SOURCES: ClassVar[str] = "sources"
     REGISTRY_FILE: ClassVar[str] = "sources.toml"
     LOCK_FILE: ClassVar[str] = "sources.lock.json"
+    LAST_RUN_FILE: ClassVar[str] = "sources.last_run.json"
 
     SCHEDULE: ClassVar[str] = "schedule"
     SCHEDULE_FILE: ClassVar[str] = "schedule.toml"
@@ -88,6 +89,10 @@ class Layout:
     @classmethod
     def lock_path(cls, tool: str) -> Path:
         return cls.tool_dir(tool) / cls.SOURCES / cls.LOCK_FILE
+
+    @classmethod
+    def last_run_path(cls, tool: str) -> Path:
+        return cls.tool_dir(tool) / cls.SOURCES / cls.LAST_RUN_FILE
 
     @classmethod
     def schedule_path(cls, tool: str) -> Path:

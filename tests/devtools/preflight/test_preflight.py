@@ -40,7 +40,9 @@ if TOOLS.parent.as_posix() not in [p.replace("\\", "/") for p in sys.path]:
 
 from devtools._preflight import enums as _enums  # noqa: E402
 from devtools._preflight import models as _models  # noqa: E402
+from devtools._preflight import cli as _cli  # noqa: E402
 from devtools._preflight import registry as _registry  # noqa: E402
+from devtools._preflight.flight import Preflight  # noqa: E402
 from devtools._preflight.check import Checker  # noqa: E402
 from devtools._preflight.contract import ContractCheck  # noqa: E402
 from devtools._preflight.door import Dispatcher  # noqa: E402
@@ -56,7 +58,7 @@ from devtools._preflight.enums import (
 from devtools._preflight.fingerprint import FingerprintValue  # noqa: E402
 from devtools._preflight.janitor import Janitor  # noqa: E402
 from devtools._preflight.layout import Layout  # noqa: E402
-from devtools._preflight.lock import Lock  # noqa: E402
+from devtools._preflight.lock import LastRun, Lock  # noqa: E402
 from devtools._preflight.models import (
     Contract,
     Derived,  # noqa: E402
@@ -1381,10 +1383,9 @@ def test_an_unreachable_source_records_no_verdict_at_all(tmp_path: Path) -> None
 # ============================== the cadence ==============================
 #
 # A checker nobody runs reports nothing, so the schedule is what makes the
-# rest of this worth anything. It also carries the one duplication this
-# design could not avoid: GitHub Actions cannot compute a trigger, so the
-# cron sits in the workflow as well as in the tool's own declaration, and
-# these tests are what keep the two from drifting apart.
+# rest of this worth anything. The workflow fires every day and knows nothing
+# about any tool; each tool's own `every_days`, against the day its lock last
+# recorded a check, decides whether that day's run checks it.
 
 WORKFLOW = TOOLS.parent / ".github" / "workflows" / "devtools-preflight.yml"
 
@@ -1410,21 +1411,16 @@ def test_every_tool_declares_how_often_it_is_checked() -> None:
         assert _registry.load_schedule(tool).every_days > 0
 
 
-def test_every_declared_cadence_is_a_trigger_the_workflow_really_has() -> None:
+def test_the_workflow_fires_once_a_day_and_lets_each_tool_decide() -> None:
+    # One daily trigger, whatever the tools ask for: a cadence lives with its
+    # tool, so adding a tool or changing one never touches the workflow.
     triggers = _triggers()
 
-    assert triggers, "the workflow declares no schedule at all"
-    for tool in Layout.tools():
-        assert _registry.load_schedule(tool).cron in triggers
-
-
-def test_the_workflow_fires_on_nothing_a_tool_did_not_ask_for() -> None:
-    # The other direction, and the one that rots quietly: a cron left behind
-    # after a tool's cadence changed would keep waking the job on a schedule
-    # nothing in the repository claims.
-    declared = {_registry.load_schedule(tool).cron for tool in Layout.tools()}
-
-    assert set(_triggers()) <= declared
+    assert len(triggers) == 1, triggers
+    minute, hour, day, month, weekday = triggers[0].split()
+    assert (day, month, weekday) == ("*", "*", "*")
+    assert minute.isdigit() and hour.isdigit()
+    assert "--all --due" in _workflow()
 
 
 def test_the_scheduled_run_checks_sources_and_never_builds() -> None:
@@ -1447,6 +1443,7 @@ def test_the_scheduled_run_keeps_the_counter_it_depends_on() -> None:
 
     assert "contents: write" in text
     assert Layout.LOCK_FILE in text
+    assert Layout.LAST_RUN_FILE in text
     assert "git commit" in text and "git push" in text
     # And it has to happen even on the run that failed, which is the run
     # whose counter matters most.
@@ -1456,59 +1453,46 @@ def test_the_scheduled_run_keeps_the_counter_it_depends_on() -> None:
 # --- reading a cadence -----------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "cron, days",
-    [
-        ("19 4 * * 1", _models.Schedule.WEEKLY),
-        ("0 5 * * 0", _models.Schedule.WEEKLY),
-        ("0 5 * * *", _models.Schedule.DAILY),
-        ("0 5 1 * *", _models.Schedule.MONTHLY),
-    ],
-)
-def test_a_cadence_is_read_out_of_the_cron_not_declared_beside_it(cron: str, days: int) -> None:
-    # Derived, so there is no second number to drift. The reader is the
-    # escalation line: three runs is three weeks here and three days at a
-    # daily cadence, and only one of those is worth waiting for.
-    assert _models.Schedule(tool="t", cron=cron).every_days == days
-
-
-@pytest.mark.parametrize(
-    "cron",
-    [
-        "0 5 * * */3",  # every third weekday
-        "0 5 * * 1,4",  # twice a week
-        "0 5 1 1 *",  # once a year
-        "0 5 * *",  # four fields
-        "nonsense",
-    ],
-)
-def test_a_cron_that_is_not_a_cadence_is_refused_rather_than_rounded(cron: str) -> None:
-    assert _models.Schedule(tool="t", cron=cron).every_days == 0
-
-
-def test_a_schedule_that_cannot_be_stated_in_days_is_malformed(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def _schedule_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, body: str) -> None:
     folder = tmp_path / "fake_tool" / Layout.SCHEDULE
     folder.mkdir(parents=True)
-    (folder / Layout.SCHEDULE_FILE).write_text(
-        '[schedule]\ncron = "0 5 * * 1,4"\n', encoding="utf-8"
-    )
+    (folder / Layout.SCHEDULE_FILE).write_text(body, encoding="utf-8")
     monkeypatch.setattr(Layout, "TOOLS_DIR", tmp_path)
 
-    with pytest.raises(_registry.RegistryError, match="stated in days"):
+
+def test_a_schedule_declares_its_cadence_in_days(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _schedule_file(tmp_path, monkeypatch, '[schedule]\nevery_days = 7\nnotes = " weekly "\n')
+
+    schedule = _registry.load_schedule("fake_tool")
+
+    assert (schedule.tool, schedule.every_days, schedule.notes) == ("fake_tool", 7, "weekly")
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "true", "7.0", '"7"'])
+def test_a_cadence_that_is_not_a_whole_number_of_days_is_malformed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    _schedule_file(tmp_path, monkeypatch, f"[schedule]\nevery_days = {value}\n")
+
+    with pytest.raises(_registry.RegistryError, match="whole number of days"):
+        _registry.load_schedule("fake_tool")
+
+
+def test_a_schedule_without_a_cadence_is_malformed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _schedule_file(tmp_path, monkeypatch, '[schedule]\nnotes = "weekly"\n')
+
+    with pytest.raises(_registry.RegistryError, match="needs every_days"):
         _registry.load_schedule("fake_tool")
 
 
 def test_a_schedule_rejects_an_unknown_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    # Same rule as the registry, for the same reason: a typo that dropped the
-    # cron would leave a tool looking scheduled and never checked.
-    folder = tmp_path / "fake_tool" / Layout.SCHEDULE
-    folder.mkdir(parents=True)
-    (folder / Layout.SCHEDULE_FILE).write_text(
-        '[schedule]\ncron = "19 4 * * 1"\nevery_days = 7\n', encoding="utf-8"
-    )
-    monkeypatch.setattr(Layout, "TOOLS_DIR", tmp_path)
+    # Same rule as the registry, for the same reason. A cron left over from
+    # before is the likeliest one: it would look like it decides something.
+    _schedule_file(tmp_path, monkeypatch, '[schedule]\ncron = "19 4 * * 1"\nevery_days = 7\n')
 
     with pytest.raises(_registry.RegistryError, match="unknown key"):
         _registry.load_schedule("fake_tool")
@@ -1521,6 +1505,107 @@ def test_a_tool_with_no_schedule_is_still_checkable_by_hand(
     monkeypatch.setattr(Layout, "TOOLS_DIR", tmp_path)
 
     assert _registry.find_schedule("nobody") is None
+
+
+# --- deciding whether a tool is due ----------------------------------------
+
+WEEKLY = _models.Schedule(tool="t", every_days=7)
+MONDAY = date(2026, 10, 26)
+
+
+@pytest.mark.parametrize(
+    "checked, due",
+    [
+        (None, True),  # never checked
+        (MONDAY, False),  # checked today
+        (MONDAY - timedelta(days=6), False),
+        (MONDAY - timedelta(days=7), True),
+        (MONDAY - timedelta(days=40), True),  # a long gap is made up at once
+    ],
+)
+def test_a_tool_is_due_once_its_days_have_passed(checked: date | None, due: bool) -> None:
+    assert WEEKLY.due(checked, MONDAY) is due
+
+
+def test_the_next_due_day_is_counted_from_the_check() -> None:
+    assert WEEKLY.next_due(MONDAY) == date(2026, 11, 2)
+
+
+def _flight(schedule: _models.Schedule | None, checked: date | None, tmp_path: Path) -> Any:
+    """A `Preflight` with only what `skip_reason` reads, built without touching disk."""
+    flight = Preflight.__new__(Preflight)
+    flight.schedule = schedule
+    flight.last_run = LastRun(tmp_path / Layout.LAST_RUN_FILE)
+    if checked is not None:
+        flight.last_run.write(checked)
+    return flight
+
+
+def test_a_scheduled_run_skips_a_tool_until_it_is_due(tmp_path: Path) -> None:
+    assert _flight(WEEKLY, None, tmp_path).skip_reason(MONDAY) == ""
+    assert _flight(WEEKLY, MONDAY - timedelta(days=7), tmp_path).skip_reason(MONDAY) == ""
+    assert _flight(WEEKLY, MONDAY - timedelta(days=2), tmp_path).skip_reason(MONDAY) == (
+        "checked 2026-10-24, not due until 2026-10-31"
+    )
+
+
+def test_a_scheduled_run_never_checks_a_tool_without_a_schedule(tmp_path: Path) -> None:
+    assert "no schedule" in _flight(None, None, tmp_path).skip_reason(MONDAY)
+
+
+def test_the_last_run_file_remembers_the_day_of_the_last_check(tmp_path: Path) -> None:
+    # A runner is new every day, so this tracked file is the only memory `--due` has.
+    path = tmp_path / Layout.LAST_RUN_FILE
+    last_run = LastRun(path)
+
+    assert last_run.read() is None
+    assert last_run.write(MONDAY)
+    assert not last_run.write(MONDAY)  # the same day writes nothing
+    assert LastRun(path).read() == MONDAY
+    assert path.read_bytes() == b'{\n "checked": "2026-10-26"\n}\n'  # LF on every platform
+
+
+@pytest.mark.parametrize("text", ["not json", '{"checked": "last week"}', "{}", "[]"])
+def test_an_unreadable_last_run_counts_as_never(tmp_path: Path, text: str) -> None:
+    path = tmp_path / Layout.LAST_RUN_FILE
+    path.write_text(text, encoding="utf-8")
+
+    assert LastRun(path).read() is None
+
+
+def test_the_check_day_stays_out_of_the_lock(tmp_path: Path) -> None:
+    # The lock's history is the history of upstream; a date in it would turn
+    # every check into a diff with nothing learnt.
+    lock = Lock(tmp_path / "sources.lock.json")
+
+    assert LastRun.CHECKED not in lock.rebuild(_registry_for(tmp_path), [], today="2026-10-26")
+
+
+def test_due_skips_a_tool_before_any_request(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # A tool that is not due must cost the daily run nothing: no request, no lock write.
+    class _NotDue:
+        def __init__(self, tool: str, *, dry_run: bool = False) -> None:
+            del tool, dry_run
+
+        def skip_reason(self, today: date) -> str:
+            del today
+            return "checked 2026-10-24, not due until 2026-10-31"
+
+        def check(self) -> NoReturn:
+            msg = "a tool that is not due was checked"
+            raise AssertionError(msg)
+
+    monkeypatch.setattr(_cli, "Preflight", _NotDue)
+
+    assert _cli.Cli.main(["--tool", "device_catalogs", "--due"]) == Exit.OK
+    assert "not due until 2026-10-31" in capsys.readouterr().out
+    assert _cli.Cli.main(["--tool", "device_catalogs", "--due", "--json"]) == Exit.OK
+    assert json.loads(capsys.readouterr().out) == {
+        "tool": "device_catalogs",
+        "skipped": "checked 2026-10-24, not due until 2026-10-31",
+    }
 
 
 # --- what a scheduled run reports -----------------------------------------
@@ -1572,7 +1657,7 @@ def test_the_escalation_line_says_how_long_that_actually_is(tmp_path: Path) -> N
     # cadence is what turns it into a sentence somebody can act on.
     registry = _registry_for(tmp_path)
     report = _failing(Report.ESCALATE_AFTER)
-    weekly = _models.Schedule(tool="t", cron="19 4 * * 1")
+    weekly = _models.Schedule(tool="t", every_days=7)
 
     plain = TextReport.render(report, registry)
     dated = TextReport.render(report, registry, schedule=weekly)
