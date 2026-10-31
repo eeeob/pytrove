@@ -223,6 +223,29 @@ def test_catalog_keeps_a_version_without_an_os_out_of_the_os_views(
     assert pc.oses == ("windows",)
 
 
+def test_catalog_devices_with_an_equal_version_list_share_its_tables(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    resolved = _resolve(
+        monkeypatch,
+        tmp_path,
+        versions=[{"version": "W", "os": "windows"}, {"version": "L", "os": "linux"}],
+        devices=[
+            {"model": "A", "os": ["windows", "linux"]},
+            {"model": "B", "versions": ["W", "L"]},
+            {"model": "C", "os": ["linux"]},
+        ],
+    )
+    a, b, c = resolved.devices
+
+    assert a.versions is b.versions
+    assert a.version_weights is b.version_weights
+    assert a.by_os is b.by_os
+    assert c.versions is not a.versions and c.by_os is not a.by_os
+    assert c.versions == ("L",)
+
+
 def test_catalog_skips_a_device_with_no_version_to_run(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations as _annotations
 
+import functools
 import re
 from dataclasses import dataclass, field
 from datetime import date
@@ -200,7 +201,7 @@ def _build_catalog(platform: str) -> _Catalog:
     reports, else every version; a device with none to run is skipped. Within a
     group, the kept devices without an explicit `weight` split the group's
     `GROUP_SHARES` slice, newer ones taking more. Versions are split per OS for
-    OS-first draws.
+    OS-first draws; devices with an equal version list share one copy of it.
 
     Args:
         platform: The platform name.
@@ -233,6 +234,34 @@ def _build_catalog(platform: str) -> _Catalog:
         weight = entry.get("weight")
         weight = float(weight) if weight is not None else _age_weight(entry.get("released"), today)
         return max(weight, _MIN_WEIGHT)
+
+    @functools.cache
+    def resolve(
+        names: tuple[str, ...],
+    ) -> tuple[
+        tuple[str, ...], tuple[float, ...], dict[str, tuple[tuple[str, ...], tuple[float, ...]]]
+    ]:
+        """Weigh one version list and split it per OS, once per distinct list.
+
+        Devices with an equal list get these same objects back, so a catalog
+        where hundreds of devices run the same versions holds them once.
+
+        Args:
+            names: The versions a device runs.
+
+        Returns:
+            The list itself, its weights, and per OS its versions and weights.
+        """
+        version_weights = tuple(map(version_weight, names))
+        by_os: dict[str, tuple[tuple[str, ...], tuple[float, ...]]] = {}
+
+        if oses:
+            for name, w in zip(names, version_weights, strict=True):
+                if system := os_of.get(name):
+                    current = by_os.get(system, ((), ()))
+                    by_os[system] = (current[0] + (name,), current[1] + (w,))
+
+        return names, version_weights, by_os
 
     # Each kept device: the raw entry, its versions, its OSes, its group (`None` when its
     # weight is explicit, which no share scales) and its unscaled weight.
@@ -272,19 +301,11 @@ def _build_catalog(platform: str) -> _Catalog:
             own_weight * GROUP_SHARES.get(group, 1.0) / group_totals[group] if group else own_weight
         )
         weight = max(weight, _MIN_WEIGHT)
-        version_weights = tuple(map(version_weight, names))
-        by_os: dict[str, tuple[tuple[str, ...], tuple[float, ...]]] = {}
-
-        if oses:
-            for name, w in zip(names, version_weights, strict=True):
-                if system := os_of.get(name):
-                    current = by_os.get(system, ((), ()))
-                    by_os[system] = (current[0] + (name,), current[1] + (w,))
-
+        shared_names, version_weights, by_os = resolve(names)
         devices.append(
             _Device(
                 raw["model"],
-                names,
+                shared_names,
                 version_weights,
                 weight,
                 device_oses or tuple(sorted(by_os)),
