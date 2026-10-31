@@ -1,0 +1,26 @@
+{
+ "lock_schema": 1,
+ "tool": "tg_points",
+ "sources": {
+  "lyadminbot_sources": {
+   "sha256": "44abaf4c07ed707fd3702bce4b7768b95ba5d76a79b85f00a1b8b9330bc6d90f",
+   "bytes": 20238,
+   "http": {
+    "etag": "\"a62b50b3777e22790b1268bea7f0eecf966b8f3923522664c554af2f312f19d6\""
+   },
+   "contract": "ok",
+   "declaration": "c5c8f4579bfc",
+   "first_seen": "2026-11-01"
+  },
+  "wizardloop_points": {
+   "sha256": "168cca0e80df61440c1f11cbb6f51d609c12674008d888f79575b94f6e48295e",
+   "bytes": 6300,
+   "http": {
+    "etag": "\"365061d4828c9cdedfb145c882a1a42efbb260d60d6ed19dad503eab6eae6645\""
+   },
+   "contract": "ok",
+   "declaration": "1e649e672b16",
+   "first_seen": "2026-11-01"
+  }
+ }
+}
