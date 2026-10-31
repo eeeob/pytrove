@@ -21,6 +21,8 @@ import sys
 import time
 from datetime import date, timedelta
 from pathlib import Path
+from typing import NoReturn
+from urllib.error import URLError
 
 import pytest
 
@@ -268,3 +270,84 @@ def test_a_cached_harvest_is_used_as_it_stands(tmp_path: Path) -> None:
 
     assert [r["code"] for r in harvest.records()] == ["V2401"]
     assert harvest.cache.has(FirmwareHarvest.PREV_FILE)
+
+
+# ----------------------- an API that does not answer ----------------------
+#
+# The outage this section exists for: dumps.tadiphone.dev answered 502 to
+# every request, the listing read that as "no dumps", and a build from an
+# empty cache wrote `[]` and took every OPPO, realme and vivo phone out of the
+# catalog. A request that fails says nothing; only an answer is a harvest.
+
+
+def _no_answer(url: str, *, timeout: int = 0) -> NoReturn:
+    msg = f"HTTP Error 502: Bad Gateway ({url}, {timeout}s)"
+    raise URLError(msg)
+
+
+def test_a_failed_page_is_not_the_end_of_the_listing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Page one answers with a full page, page two fails: stopping there and
+    # returning what page one held is how the outage went unnoticed.
+    harvest = _harvest(tmp_path)
+
+    def api(path: str) -> list[dict[str, object]]:
+        if "&page=1&" in path:
+            return [{"id": 1, "default_branch": "not-a-release"}]
+        return _no_answer(path)
+
+    monkeypatch.setattr(harvest, "api", api)
+
+    with pytest.raises(URLError):
+        harvest.dumps("vivo")
+
+
+def test_an_unanswered_api_carries_the_last_harvest_unchanged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Treated as --offline: the devices stay, and their sightings are not
+    # renewed, so RECORD_MAX_AGE_DAYS still expires them on time.
+    harvest = _harvest(tmp_path, aside=[_record("CPH2579", brand="oppo", seen=_days_ago(40))])
+    monkeypatch.setattr(harvest.cache, "download", _no_answer)
+
+    out = harvest.records()
+
+    assert [(r["code"], r["last_seen"]) for r in out] == [("CPH2579", _days_ago(40))]
+    assert harvest.cache.read_json(FirmwareHarvest.RECORDS_FILE) == out
+
+
+def test_an_unanswered_api_with_nothing_to_carry_writes_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    harvest = _harvest(tmp_path)
+    monkeypatch.setattr(harvest.cache, "download", _no_answer)
+
+    with pytest.raises(SystemExit, match="did not answer"):
+        harvest.records()
+
+    assert not harvest.cache.has(FirmwareHarvest.RECORDS_FILE)
+
+
+def test_an_empty_listing_is_a_harvest_and_still_carries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The other side of the line: an API that answers with no dumps is a
+    # renewal that found nothing, merged like any other, so what an earlier
+    # harvest proved is carried until its own window runs out.
+    harvest = _harvest(tmp_path, aside=[_record("V2401", seen=_days_ago(40))])
+    monkeypatch.setattr(harvest, "api", lambda path: [])
+
+    assert [r["code"] for r in harvest.records()] == ["V2401"]
+
+
+def test_an_empty_records_file_is_harvested_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # What the outage left behind. Read as it stands it would build a catalog
+    # with none of these brands; read as missing it costs three listings.
+    harvest = _harvest(tmp_path, aside=[_record("V2401")])
+    harvest.cache.write_json(FirmwareHarvest.RECORDS_FILE, [])
+    monkeypatch.setattr(harvest.cache, "download", _no_answer)
+
+    assert [r["code"] for r in harvest.records()] == ["V2401"]

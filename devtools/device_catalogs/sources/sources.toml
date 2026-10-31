@@ -533,7 +533,10 @@ record and anything unseen for two years dropped.
 The janitor only renames this file to firmware_records.prev.json; the merge is
 done by FirmwareHarvest, which already keys records by (brand, code) and
 breaks ties on the Android release. Stale by age rather than by dependency,
-because the dumps group offers no cheap signal that anything new landed."""
+because the dumps group offers no cheap signal that anything new landed.
+
+A renewal needs an answer: when the API fails rather than lists nothing, the
+harvest carries the .prev records unchanged instead of writing an empty file."""
 
 
 [[derived]]
