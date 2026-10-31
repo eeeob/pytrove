@@ -161,24 +161,26 @@ def test_unpickler_keywords_reach_the_base_class() -> None:
     ("level", "modules"),
     [
         (PickleSafety.BLOCKLIST, frozenset()),
-        (PickleSafety.MODULES, frozenset({"pathlib", "pathlib._local"})),
+        (PickleSafety.MODULES, frozenset({"pathlib", "pathlib._local", "shutil"})),
         (PickleSafety.STRICT, frozenset()),
     ],
 )
 @pytest.mark.parametrize(
-    "name",
+    ("module", "name"),
     [
-        "os.getcwd",  # `pathlib.os` is the `os` module, refused whole at BLOCKLIST
-        "os.system",
-        "PurePath.__module__",  # a str, which names no module
+        # `shutil.os` is the `os` module on every supported version; `pathlib.os`
+        # is not there on 3.13, where the lookup would fail before the check.
+        ("shutil", "os.getcwd"),
+        ("shutil", "os.system"),
+        ("pathlib", "PurePath.__module__"),  # a str, which names no module
     ],
 )
 def test_a_dotted_name_cannot_reach_through_an_allowed_module(
-    level: PickleSafety, modules: frozenset[str], name: str
+    level: PickleSafety, modules: frozenset[str], module: str, name: str
 ) -> None:
     # From protocol 4 `find_class` walks a dotted name attribute by attribute.
-    with pytest.raises(pickle.UnpicklingError, match=f"'pathlib.{name}'"):
-        _load(_stack_global("pathlib", name), level, _SAFE_PICKLE_CLASSES, modules)
+    with pytest.raises(pickle.UnpicklingError, match=f"'{module}.{name}'"):
+        _load(_stack_global(module, name), level, _SAFE_PICKLE_CLASSES, modules)
 
 
 def test_a_dotted_name_cannot_reach_a_builtin_method() -> None:
@@ -190,7 +192,7 @@ def test_a_dotted_name_cannot_reach_a_builtin_method() -> None:
 @pytest.mark.parametrize(
     ("module", "name"),
     [
-        ("pathlib", "os"),  # the `os` module, refused whole
+        ("shutil", "os"),  # the `os` module, refused whole
         ("tempfile", "_os"),
         ("io", "open"),  # `builtins.open`, whose `__module__` is `io`
         ("os.path", "os"),  # a module string that is not itself in the table

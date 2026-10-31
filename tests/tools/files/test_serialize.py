@@ -306,12 +306,13 @@ def test_blocklist_refuses_an_execution_vector(tmp_path: Path) -> None:
 def test_a_dotted_global_cannot_escape_through_an_allowed_module(
     tmp_path: Path, safe: PickleSafety
 ) -> None:
-    # Protocol 4: `pathlib` + `os.getcwd`, called with no arguments.
+    # Protocol 4: `shutil` + `os.getcwd`, called with no arguments. `shutil.os` is
+    # there on every supported version (`pathlib.os` is not, on 3.13).
     target = tmp_path / "evil.pkl"
-    target.write_bytes(b"\x80\x04\x8c\x07pathlib\x8c\x09os.getcwd\x93)R.")
+    target.write_bytes(b"\x80\x04\x8c\x06shutil\x8c\x09os.getcwd\x93)R.")
 
-    with pytest.raises(pickle.UnpicklingError, match="'pathlib.os.getcwd'"):
-        read_pickle(target, safe=safe, allow_modules="pathlib")
+    with pytest.raises(pickle.UnpicklingError, match="'shutil.os.getcwd'"):
+        read_pickle(target, safe=safe, allow_modules="shutil")
 
 
 @pytest.mark.parametrize("protocol", [0, 1, 2])
