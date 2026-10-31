@@ -200,11 +200,11 @@ class _RestrictedUnpickler(pickle.Unpickler):
             found = super().find_class(module, name)
             own = _defining_module(found) == module
 
-            # From protocol 4 a dotted name walks attributes, so `pathlib` + `os.system`
-            # reaches `os` through `pathlib.os`; and `MODULES` allows what a module
+            # From protocol 4 a dotted name walks attributes, so `shutil` + `os.system`
+            # reaches `os` through `shutil.os`; and `MODULES` allows what a module
             # defines, not what it imports. Either way, the object has to come from
             # the module the stream names, unless the pair was allowed outright.
-            # `BLOCKLIST` also judges the object itself: a plain `pathlib.os` is `os`.
+            # `BLOCKLIST` also judges the object itself: a plain `shutil.os` is `os`.
             if (module, name) in self._allowed:
                 return found
 
@@ -251,7 +251,7 @@ def _blocked_callable_ids() -> frozenset[int]:
 def _is_blocked_object(found: object) -> bool:
     """Tell whether `PickleSafety.BLOCKLIST` refuses `found`, whatever name reached it.
 
-    A module can hand out another one (`pathlib.os` is `os`) or re-export a
+    A module can hand out another one (`shutil.os` is `os`) or re-export a
     builtin (`io.open` is `builtins.open`), so the names alone are not enough.
 
     Args:
