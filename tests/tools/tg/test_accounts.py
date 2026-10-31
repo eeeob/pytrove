@@ -48,17 +48,30 @@ def test_account_age_between_two_points_lies_on_their_line() -> None:
     assert tg_account_created_at(uid) == pytest.approx(t1 + (t2 - t1) * (uid - id1) / (id2 - id1))
 
 
-def test_account_age_past_the_last_point_extrapolates_but_never_into_the_future() -> None:
-    (id1, t1), (id2, t2) = points._points()[-2:]
-    beyond = id2 + (id2 - id1)
+def test_account_age_inside_a_closed_block_is_the_middle_of_its_window() -> None:
+    (low, opened), (_, closed) = points._blocks()[:2]
+
+    assert tg_account_created_at(low) == (opened + closed) / 2
+    assert tg_account_created_at(7_100_000_000) == (opened + closed) / 2
+    assert "2024-02-19" <= _date(tg_account_created_at(7_100_000_000)) <= "2024-05-26"
+
+
+def test_account_age_inside_the_open_block_runs_to_now_and_never_past_it() -> None:
+    low, opened = points._blocks()[-1]
 
     before = time.time()
-    estimate = tg_account_created_at(beyond)
+    estimate = tg_account_created_at(low)
 
-    # The line through the last two points, capped at the moment of the call.
-    assert estimate == pytest.approx(t2 + (t2 - t1), abs=1) or before <= estimate <= time.time()
-    assert estimate > t2
+    assert (opened + before) / 2 <= estimate <= (opened + time.time()) / 2
+    assert tg_account_created_at(9_500_000_000) <= time.time()
     assert tg_account_created_at(10**15) <= time.time()
+
+
+def test_account_age_just_below_the_first_block_meets_its_opening() -> None:
+    low, opened = points._blocks()[0]
+
+    assert tg_account_created_at(low - 1) <= opened
+    assert tg_account_created_at(low - 1) == pytest.approx(opened, abs=86_400)
 
 
 def _fake_inbox(monkeypatch: pytest.MonkeyPatch, *messages: str) -> list[tuple[object, ...]]:
@@ -137,8 +150,10 @@ def _date(stamp: float) -> str:
 
 
 def test_account_age_never_goes_down_as_the_id_grows() -> None:
-    ids = sorted({uid for uid, _ in points._points()})
-    probes = sorted({*ids, *((a + b) // 2 for a, b in zip(ids, ids[1:], strict=False))})
+    lows = [low for low, _ in points._blocks()]
+    ids = sorted({uid for uid, _ in points._points()} | set(lows))
+    edges = {low + step for low in lows for step in (-1, 1)}
+    probes = sorted({*ids, *edges, *((a + b) // 2 for a, b in zip(ids, ids[1:], strict=False))})
     estimates = [tg_account_created_at(uid) for uid in probes]
 
     assert estimates == sorted(estimates)

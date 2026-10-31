@@ -6,7 +6,12 @@ from pathlib import Path
 
 import pytrove
 from pytrove.constants import paths
-from pytrove.constants.paths import DATA_DIR, DEVICE_CATALOGS_DIR, TG_ACCOUNT_POINTS_FILE
+from pytrove.constants.paths import (
+    DATA_DIR,
+    DEVICE_CATALOGS_DIR,
+    TG_ACCOUNT_BLOCKS_FILE,
+    TG_ACCOUNT_POINTS_FILE,
+)
 from pytrove.enums import PlatformDevice
 
 
@@ -27,5 +32,15 @@ def test_tg_account_points_file_ships_in_the_data_folder() -> None:
     assert TG_ACCOUNT_POINTS_FILE.is_file()
 
 
+def test_tg_account_blocks_file_ships_in_the_data_folder() -> None:
+    assert TG_ACCOUNT_BLOCKS_FILE.parent == DATA_DIR
+    assert TG_ACCOUNT_BLOCKS_FILE.is_file()
+
+
 def test_all_lists_exactly_the_paths() -> None:
-    assert paths.__all__ == ("DATA_DIR", "DEVICE_CATALOGS_DIR", "TG_ACCOUNT_POINTS_FILE")
+    assert paths.__all__ == (
+        "DATA_DIR",
+        "DEVICE_CATALOGS_DIR",
+        "TG_ACCOUNT_BLOCKS_FILE",
+        "TG_ACCOUNT_POINTS_FILE",
+    )

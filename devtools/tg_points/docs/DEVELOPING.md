@@ -1,21 +1,29 @@
 # tg_points
 
-Regenerates the known account-creation points the library ships:
+Regenerates the two files the library estimates a Telegram account's age
+from:
 
 ```
-pytrove/data/tg_points.json
+pytrove/data/tg_points.json   known accounts and the day each was registered
+pytrove/data/tg_blocks.json   the randomized id blocks and the day each opened
 ```
 
-Each point is `[user id, "YYYY-MM-DD"]`: a real account and the UTC day it was
-registered. `tg_account_created_at` (`pytrove/tg_tools/accounts.py`) sorts them
-by id, fits the dates so they never go down as the id grows, and interpolates
-between the two points around an id.
+`tg_account_created_at` (`pytrove/tg_tools/accounts.py`) uses them in two
+ways, split at the first block's lowest id (7e9):
 
-Telegram publishes nothing of the kind. Every point is somebody's observation,
-so this tool does not collect data; it gathers the observations that are
-published.
+- **Below it**, ids grew with time. The points are sorted by id, fitted so the
+  date never goes down as the id grows, and the estimate is interpolated
+  between the two points around the id.
+- **From it on**, Telegram hands out ids at random inside a block, so an id
+  says only which block it is in. The estimate is the middle of that block's
+  window: from its opening to the next block's opening, or to now for the
+  block still open.
 
-> Read `src/__init__.py` first. It lists every module and both sources.
+Telegram publishes nothing of the kind. All of it comes from somebody's
+observations, so this tool does not collect data; it gathers the published
+observations.
+
+> Read `src/__init__.py` first. It lists every module and every source.
 
 ---
 
@@ -31,8 +39,11 @@ byte-identical. Preflight drops a cached file when its source changes, and the
 next run fetches it again.
 
 A build that cannot finish (a source that does not answer, a malformed row, a
-date outside Telegram's lifetime) prints `not built: <why>`, writes nothing and
-exits 1. The data on disk is always the old file or a whole new one.
+date outside Telegram's lifetime, a block that cannot be dated) prints
+`not built: <why>`, writes nothing and exits 1. `cli.build` collects both files
+before it writes either, so the data on disk is always the old pair or a whole
+new one. ssleg is the exception: it only feeds the cross-check, so without it
+the run says `ssleg cross-check skipped` and goes on.
 
 A run prints what it did:
 
@@ -42,30 +53,41 @@ A run prints what it did:
   ...
   23 exact duplicates dropped
   19 ids dated differently by two sources, both kept: 11538514, ...
-  against the current file: +132 -0
+  against the current file: +0 -0
   newest point 2026-07-31, 93 days old
+  8 randomized id blocks, the last opened 2026-05-12
+    7.0-7.2e9  opened 2024-02-19  ssleg 2024-02-20 (+1d)
+    ...
+    8.8-9.0e9  opened 2026-05-12  ssleg: no pool
 ```
 
-Past `Points.STALE_DAYS` (180) it also warns that every recent account is being
-extrapolated.
+Past `Points.STALE_DAYS` (180) without a newer point it also warns that a block
+opened since then may be missing: until LyAdminBot adds it, its ids are dated
+inside the last known block.
 
 ## `src/`, module by module
 
 | module   | what it owns |
 |----------|--------------|
 | `cache`  | `Cache.fetch`, the only network access. An outage stops the build; it is never read as an empty source. |
-| `points` | `Points`: both sources, the merge, the report, and the file it writes. Every URL, file name and threshold is a `ClassVar` on it. |
-| `cli`    | `main`: `--offline`, and the one place a `SystemExit` becomes exit 1. |
+| `points` | `Points`: WizardLoop and LyAdminBot, the merge, the report, and `tg_points.json`. `groups()` reads LyAdminBot's `observations` or `constraints` for both modules. |
+| `blocks` | `Blocks`: the bounds, the openings, ssleg's cross-check, and `tg_blocks.json`. |
+| `cli`    | `build`, which writes both files or neither, and `main`: `--offline`, and the one place a `SystemExit` becomes exit 1. |
+
+Every URL, file name and threshold is a `ClassVar` on the class that uses it.
 
 ## The output contract
 
-- A JSON list of `[int, "YYYY-MM-DD"]`, one point per line, in date order, then
-  id order. `tests/tools/tg/internal/test_points.py` checks the shape and the
-  order.
+- `tg_points.json`: a JSON list of `[int, "YYYY-MM-DD"]`, one point per line,
+  in date order, then id order. An id can appear twice with different dates;
+  that is deliberate, see the merge below.
+- `tg_blocks.json`: a JSON list of `[low, high, "YYYY-MM-DD"]`, one block per
+  line, in id order, back to back (each `high` is the next `low`), openings
+  strictly increasing. The closing is not stored: it is the next block's
+  opening, and a second copy could only disagree with it.
 - LF line endings and a final newline on every platform (`.gitattributes`
-  marks the file `-text`).
-- An id can appear twice with different dates. That is deliberate: see the
-  merge below.
+  marks both files `-text`).
+- `tests/tools/tg/internal/test_points.py` checks both shapes.
 
 ## The sources, and how far each is trusted
 
@@ -86,6 +108,9 @@ Its dates run **late**, measured against the two other sources:
   closed.
 - 61 of its 212 points fall outside the date range ssleg's `tg_account_age`
   gives their id.
+- 6 of its points below 7e9 are dated after the first block opened
+  (2024-02-19). The library caps every point below the first block at that
+  opening, so they cannot pull the line into the block era.
 
 It stays the base anyway: nothing else MIT-licensed covers the sequential era.
 These checks are not run on a build, because they would fail on most of the
@@ -98,17 +123,29 @@ Its README says it is refreshed from the bot's own databases every one to two
 months, that a refresh is a new key, and that old keys are never deleted. So
 **every key is merged**, and a new key appears in the report.
 
-The file holds two kinds of row, and the tool treats them differently:
+The file holds three parts, and the tool treats each differently:
 
 - `observations` are "registration-date estimates", `[id, unix seconds]`. Each
   becomes a point, dated by its UTC day.
 - `constraints` are "hard upper bounds": the account was seen alive at that
-  moment, so it was registered no later. They are **never** points. Merging
-  one would date an account by the day a bot first saw it, and pull every
-  estimate around it earlier.
+  moment, so it was registered no later. They are **never** points: merging
+  one would date an account by the day a bot first saw it. They do date
+  blocks, below.
+- `randomizedBlocks` are the block bounds, `[low, high]`, with no dates.
 
-Both phrases are in the source contract (`must_contain`): if the file stops
-saying what its halves mean, the check fails before the build trusts it.
+The phrases that say what each part means, and how a block is dated, are in
+the source contract (`must_contain`): if the file stops saying them, the check
+fails before the build trusts it.
+
+### anton/tg_account_age (git.ssleg.tech) — the cross-check
+
+`tg_account_age.py`, MIT, on a personal Gitea. Its `uid_dict` maps the highest
+id of each pool to the first and last day ids in it were handed out. It holds
+ranges, not points, so it is not data here; but its pools above 7e9 have
+exactly LyAdminBot's block bounds, found independently, which makes it the
+check on the openings. It is Python source, cached as `ssleg_pools.txt`, and
+read as a syntax tree: only `uid_dict = {int: (date(y, m, d), date(...))}` is
+accepted, and nothing in the file is ever run.
 
 ### What the merge does
 
@@ -122,6 +159,31 @@ saying what its halves mean, the check fails before the build trusts it.
   ones: not `[id, date]`, or dated before 2013-08-14 or after the day of the
   build.
 
+## The blocks
+
+**How each is dated.** LyAdminBot's own rule, quoted in its contract: a block
+opened on the earliest day any account inside it was seen, observation or
+constraint alike, and closed when the next one opened. `Blocks.build` stops if
+a block has no row inside it, if the bounds are not back to back, or if the
+openings do not move strictly forward.
+
+**Why the library trusts them.** Measured in October 2026:
+
+- In our own points, the rank correlation between id and date is +0.99 below
+  7e9, and +0.00, +0.32, +0.39 and +0.10 inside the four blocks that hold more
+  than three points. Inside a block, a larger id is not a newer account.
+- LyAdminBot and ssleg, which share no code and no data, cut the ids at the
+  same eight places (7.0, 7.2, 7.5, 7.6, 8.2, 8.5, 8.6, 8.8e9), and their
+  dates for each cut agree to within one to nine days.
+- LyAdminBot reports that an envelope test over 28.7M users found allocation
+  inside a block "uniform across the whole range from day one". That is its
+  claim on private data; our points are consistent with it but too few to
+  prove it.
+
+**The cross-check.** Every run prints each opening beside the start of
+ssleg's pool for the same ids. A gap of `Blocks.DRIFT_DAYS` (14) or more is
+marked `!`. It never stops the build: ssleg is one person's server.
+
 ## Rejected sources
 
 Checked in October 2026, so they need not be looked at again until something
@@ -129,7 +191,6 @@ changes:
 
 | source | why not |
 |--------|---------|
-| `anton/tg_account_age` (git.ssleg.tech) | MIT, maintained, but it holds date **ranges** per id pool, not points. Useful as a cross-check, not as data. |
 | HotaruProject/Hotaru | AGPL-3.0, and 211 of our 212 points verbatim |
 | NextAlone/Nagram, Nnngram | GPL; its table is fitted (PAVA), not observed |
 | komarugif/komarugram-go | a fitted table; the raw points are kept private |
@@ -139,13 +200,14 @@ changes:
 
 ## Reminders
 
-Nothing here can make the sources update; both are maintained by one person,
+Nothing here can make the sources update; each is maintained by one person,
 by hand. What the tool can do is notice:
 
 - **The weekly preflight** (`schedule/schedule.toml`, run daily by
   `.github/workflows/devtools-preflight.yml`) compares each source with the
   sha256 in `sources/sources.lock.json`. A changed byte is exit 2 and a lock
-  commit on `main`: rebuild.
+  commit on `main`: rebuild. A new block appears this way, the day LyAdminBot
+  appends it to `randomizedBlocks`.
 - **The run itself** warns when the newest point is more than 180 days old,
   and the door warns when the sources have not been checked in 10 days.
 
@@ -154,9 +216,9 @@ changed, in a pull request about something else.
 
 ## The declarations beside `src/`
 
-- `sources/sources.toml`: both sources. No fingerprints, so the lock compares
-  sha256 and an in-place date fix counts as a change. Default-branch URLs, not
-  pinned commits: a pin never reports an update.
+- `sources/sources.toml`: the three sources. No fingerprints, so the lock
+  compares sha256 and an in-place date fix counts as a change. Default-branch
+  URLs, not pinned commits: a pin never reports an update.
 - `schedule/schedule.toml`: weekly.
 
 ## Tests
@@ -169,11 +231,12 @@ pytest tests/tools/tg                              # the shipped data, through t
 
 ## Known limitations
 
-- **Ids at or above 7e9 carry no date.** Since 2024-02 Telegram hands out ids
-  at random inside blocks (7.0–7.2e9, 7.2–7.5e9, ... 8.8–9.0e9), so inside a
-  block an id says only which block it is in. Both LyAdminBot's
-  `randomizedBlocks` and ssleg's pools show the same boundaries. The library
-  still interpolates there, which gives precision the data does not have.
+- **An id past the last block's high bound** (9e9 today, not yet reached)
+  counts as part of the last block. Telegram will have opened a new one by
+  then; it reaches the data when LyAdminBot appends it.
+- **The open block's window grows every day**, so the estimate for an id in it
+  drifts later until the next block opens. That is the honest answer: such an
+  account could have been made any day since the block opened.
 - **No first-party source.** The only route to fresh, verified points would be
   collecting `registration_month` from a personal session, which is out of
   scope for a public build.

@@ -6,6 +6,7 @@ pytrove/data/devices/*.json -text
 
 # The same holds for what devtools/tg_points writes.
 pytrove/data/tg_points.json -text
+pytrove/data/tg_blocks.json -text
 
 # The source lock is generated the same way and written with LF too, and its
 # whole value is that a diff in it means something upstream moved -- a newline

@@ -19,7 +19,7 @@
 [tool]
 name = "tg_points"
 notes = """
-Writes pytrove/data/tg_points.json. Telegram
+Writes pytrove/data/tg_points.json and pytrove/data/tg_blocks.json. Telegram
 publishes no registration dates, so every point is somebody's observation of
 a real account; see docs/DEVELOPING.md for how far each source is trusted."""
 
@@ -55,21 +55,54 @@ id = "lyadminbot_sources"
 url = "https://raw.githubusercontent.com/LyoSU/LyAdminBot/master/tools/account-age-calibrate/sources.json"
 cache = "lyadminbot_sources.json"
 on_change = "delete"
-consumed_by = "src/points.py :: Points.observations(); LYADMINBOT_URL, LYADMINBOT_FILE"
+consumed_by = """
+src/points.py :: Points.lyadminbot(), groups(); LYADMINBOT_URL, LYADMINBOT_FILE;
+src/blocks.py :: Blocks.bounds(), build()"""
 on_removal = """
-Every point newer than 2025-11-11: the 2026 observations, the rounded block-era
-ids of external-dataset-2026-08, and the two owner-confirmed registrations.
-Without it the data stops at WizardLoop's last point and every newer account is
-extrapolated. No other MIT source is maintained; see docs/DEVELOPING.md for
-the ones that were rejected and why."""
+Every point newer than 2025-11-11 -- the 2026 observations, the rounded
+block-era ids of external-dataset-2026-08, the two owner-confirmed
+registrations -- and every block: its bounds and the rows that date its
+opening. Without it tg_points.json stops at WizardLoop's last point and
+tg_blocks.json cannot be built at all. No other MIT source is maintained; see
+docs/DEVELOPING.md for the ones that were rejected and why."""
 notes = """
 Refreshed by hand from the bot's own MongoDB, every one to two months by its
 README, which also says old keys are never deleted -- so a refresh is a new
-key, and every key is merged. The two must_contain lines are the file's own
-statement of what its two halves mean; if either is reworded, read the file
-again before trusting the merge."""
+key, and every key is merged. The must_contain lines are the file's own
+statement of what its parts mean and how a block is dated; if any is
+reworded, read the file again before trusting the build."""
 
   [source.contract]
   kind = "json_object"
   object_keys = ["observations", "constraints", "randomizedBlocks"]
-  must_contain = ["registration-date estimates", "hard upper bounds"]
+  must_contain = [
+    "registration-date estimates",
+    "hard upper bounds",
+    "inside a block the id encodes no date",
+    "the min first-seen inside each block",
+    "closing = the next block opening",
+  ]
+
+
+[[source]]
+id = "ssleg_pools"
+url = "https://git.ssleg.tech/anton/tg_account_age/raw/branch/master/tg_account_age.py"
+cache = "ssleg_pools.txt"
+on_change = "delete"
+consumed_by = "src/blocks.py :: Blocks.pools(), cross_check(); SSLEG_URL, SSLEG_FILE"
+on_removal = """
+Only the cross-check: the column beside each block opening that says when an
+independent tracker thinks the same ids started. Nothing in either data file
+comes from it, and a build without it says so and goes on."""
+notes = """
+anton/tg_account_age on a personal Gitea, MIT. Its `uid_dict` maps the
+highest id of each pool to the first and last day ids in it were handed out,
+found independently of LyAdminBot; its pool bounds above 7e9 are LyAdminBot's
+block bounds exactly. Cached as .txt because it is Python source: it is
+parsed as a syntax tree and never imported or run."""
+
+  [source.contract]
+  kind = "text"
+  must_contain = ["uid_dict = {"]
+  must_match = '\d{10}: \(date\(\d{4}, \d{1,2}, \d{1,2}\), date\('
+  min_matches = 25

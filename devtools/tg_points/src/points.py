@@ -46,8 +46,9 @@ class Points:
     #: Telegram's launch day. No account is older, so an earlier date is a
     #: broken row, as is one later than the day of the build.
     FIRST_DAY: ClassVar[str] = "2013-08-14"
-    #: Past this many days without a newer point, every recent account is
-    #: being extrapolated, and the run says so.
+    #: Past this many days without a newer point, LyAdminBot has likely not
+    #: been refreshed either: a block opened since then is missing, and its
+    #: ids are dated inside the last known one. The run says so.
     STALE_DAYS: ClassVar[int] = 180
     DAY: ClassVar[re.Pattern[str]] = re.compile(r"\d{4}-\d{2}-\d{2}")
 
@@ -74,17 +75,24 @@ class Points:
             raise SystemExit(msg)
         return [self.point(row, self.WIZARDLOOP_FILE) for row in rows]
 
-    def observations(self) -> dict[str, list[Point]]:
-        """LyAdminBot's observations, per key, with each Unix time made a UTC day."""
+    def lyadminbot(self) -> dict[str, Any]:
+        """LyAdminBot's whole calibration file, checked to be a JSON object."""
         payload = self.load(self.LYADMINBOT_FILE, self.LYADMINBOT_URL)
-        groups = payload.get("observations") if isinstance(payload, dict) else None
+        if not isinstance(payload, dict):
+            msg = f"{self.LYADMINBOT_FILE}: expected a JSON object"
+            raise SystemExit(msg)
+        return payload
+
+    def groups(self, name: str) -> dict[str, list[Point]]:
+        """LyAdminBot's `observations` or `constraints`, per key, each Unix time made a UTC day."""
+        groups = self.lyadminbot().get(name)
         if not isinstance(groups, dict):
-            msg = f"{self.LYADMINBOT_FILE}: no `observations` object"
+            msg = f"{self.LYADMINBOT_FILE}: no `{name}` object"
             raise SystemExit(msg)
 
         found: dict[str, list[Point]] = {}
         for key, rows in groups.items():
-            where = f"{self.LYADMINBOT_FILE} observations[{key!r}]"
+            where = f"{self.LYADMINBOT_FILE} {name}[{key!r}]"
             if not isinstance(rows, list):
                 msg = f"{where}: expected a list of points"
                 raise SystemExit(msg)
@@ -127,7 +135,7 @@ class Points:
     def gather(self) -> dict[str, list[Point]]:
         """Every input point by where it came from: the base, then each observation key."""
         gathered = {"wizardloop": self.base()}
-        for key, rows in self.observations().items():
+        for key, rows in self.groups("observations").items():
             gathered[f"lyadminbot/{key}"] = rows
         return gathered
 
@@ -169,8 +177,8 @@ class Points:
         print(f"  newest point {newest}, {age} days old")
         if age > self.STALE_DAYS:
             print(
-                f"  warning: no point is newer than {self.STALE_DAYS} days, so every\n"
-                f"           recent account is extrapolated. see docs/DEVELOPING.md"
+                f"  warning: no point is newer than {self.STALE_DAYS} days, so a block opened\n"
+                f"           since then may be missing. see docs/DEVELOPING.md"
             )
 
     def previous(self) -> set[Point]:
@@ -189,9 +197,9 @@ class Points:
         out.write_text(f"[\n{lines}\n]\n", encoding="utf-8", newline="\n")
         print(f"tg_points: {len(rows)} points -> {out}")
 
-    def run(self, today: date) -> None:
-        """Gather, merge, report, then write; nothing is written if any step stops."""
+    def collect(self, today: date) -> list[Point]:
+        """Gather, merge and report; the caller writes once every file is ready."""
         gathered = self.gather()
         rows = self.build(gathered, today)
         self.report(gathered, rows, today)
-        self.write(rows)
+        return rows
