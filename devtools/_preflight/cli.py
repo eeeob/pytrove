@@ -98,7 +98,6 @@ class Cli:
                         flight.registry,
                         actions,
                         dry_run=flight.dry_run,
-                        schedule=flight.schedule,
                     )
                 )
                 if wrote:

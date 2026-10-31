@@ -122,8 +122,12 @@ class Checker:
         return bool(sha_was) and sha_was != sha_now
 
     def _failed(self, source: Source, verdict: Verdict) -> Verdict:
-        """Attach the consecutive-failure count a dead/unreachable source carries."""
-        return self._replace(verdict, consecutive=self.lock.consecutive(source.id) + 1)
+        """Attach the consecutive-failure count, and its first day, a failing source carries."""
+        return self._replace(
+            verdict,
+            consecutive=self.lock.consecutive(source.id) + 1,
+            failing_since=self.lock.failing_since(source.id),
+        )
 
     @staticmethod
     def _replace(verdict: Verdict, **changes: Any) -> Verdict:

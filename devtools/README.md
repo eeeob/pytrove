@@ -79,6 +79,29 @@ it.
 Over `--all`, the worst code across the tools is returned, not the first
 non-zero one.
 
+A source that has failed three runs in a row exits 1 even under
+`--allow-flaky`, but does not stop a build from the cache: the exit code says
+whether somebody has to look, the gate only whether the cache may be built
+from.
+
+### What needs a person
+
+Some news needs a hand and some only a rebuild, and nobody should have to
+remember which. Every table row of the first kind ends in `[manual]`, and
+`MANUAL ACTION NEEDED (n)` lists each one before the verdict, with `what`
+happened, what to `do` and `where`, taken from the declarations:
+
+| marked                                  | `do` comes from               | `where` comes from |
+| --------------------------------------- | ----------------------------- | ------------------ |
+| a source gone or reshaped               | a fixed "code change" note    | `consumed_by`      |
+| a source failing three runs in a row    | a fixed "gone for good?" note | `consumed_by`      |
+| a ported rule that moved                | a fixed "re-read it" note     | `ported_to`        |
+| a watched value that moved              | `decision`                    | `used_by`          |
+
+A changed source or a single failure is not marked: a rebuild or a retry
+takes care of it. With nothing marked the report says `no manual action
+needed`, and `--json` carries the same entries under `manual`.
+
 ---
 
 ## The tool folder contract
@@ -289,8 +312,10 @@ The workflow knows nothing about any tool. Each one declares `every_days` in
 `devtools/<tool>/schedule/schedule.toml`, and `--due` checks a tool only once
 that many days have passed since the day in its `sources.last_run.json`, so a
 day the workflow missed is made up on the next one, and adding a tool or
-changing a cadence never touches the workflow. The report turns the
-three-run escalation rule into "about N days" from the same number.
+changing a cadence never touches the workflow. The escalation rule counts
+runs, and a run by hand counts as much as a scheduled one, so the report dates
+an escalation from the day the lock recorded the failures beginning
+(`failing since 2026-10-26, 3 runs in a row`) rather than estimating it.
 
 ---
 

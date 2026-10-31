@@ -102,7 +102,7 @@ class Dispatcher:
         actions = flight.clean(report)
         flight.record(report, actions, time.monotonic() - started)
 
-        print(TextReport.render(report, flight.registry, actions, schedule=flight.schedule))
+        print(TextReport.render(report, flight.registry, actions))
 
         if not report.may_proceed(allow_flaky=allow_flaky):
             return report.exit_code(allow_flaky=allow_flaky)

@@ -69,7 +69,7 @@ from devtools._preflight.models import (
     Verdict,
 )
 from devtools._preflight.probe import Prober  # noqa: E402
-from devtools._preflight.report import TextReport  # noqa: E402
+from devtools._preflight.report import JsonReport, ManualAction, TextReport  # noqa: E402
 
 
 # =============================== fixtures ===============================
@@ -1384,8 +1384,8 @@ def test_an_unreachable_source_records_no_verdict_at_all(tmp_path: Path) -> None
 #
 # A checker nobody runs reports nothing, so the schedule is what makes the
 # rest of this worth anything. The workflow fires every day and knows nothing
-# about any tool; each tool's own `every_days`, against the day its lock last
-# recorded a check, decides whether that day's run checks it.
+# about any tool; each tool's own `every_days`, against the day its last-run
+# file recorded a check, decides whether that day's run checks it.
 
 WORKFLOW = TOOLS.parent / ".github" / "workflows" / "devtools-preflight.yml"
 
@@ -1611,12 +1611,14 @@ def test_due_skips_a_tool_before_any_request(
 # --- what a scheduled run reports -----------------------------------------
 
 
-def _failing(consecutive: int, state: str = State.FLAKY) -> Report:
+def _failing(consecutive: int, state: str = State.FLAKY, since: str = "") -> Report:
     return Report(
         tool="t",
         network=Health.OK,
         first_run=False,
-        verdicts=(Verdict(source_id="s", state=state, consecutive=consecutive),),
+        verdicts=(
+            Verdict(source_id="s", state=state, consecutive=consecutive, failing_since=since),
+        ),
     )
 
 
@@ -1652,19 +1654,56 @@ def test_waiving_flakiness_does_not_hide_a_change() -> None:
     assert report.exit_code(allow_flaky=True) == Exit.CHANGED
 
 
-def test_the_escalation_line_says_how_long_that_actually_is(tmp_path: Path) -> None:
-    # Nobody thinks in runs. The count is what the rule can measure; the
-    # cadence is what turns it into a sentence somebody can act on.
-    registry = _registry_for(tmp_path)
-    report = _failing(Report.ESCALATE_AFTER)
-    weekly = _models.Schedule(tool="t", every_days=7)
+def test_the_escalation_line_is_dated_from_the_lock(tmp_path: Path) -> None:
+    # The rule counts runs, and a run by hand counts as much as a scheduled
+    # one: the three runs this once called "about 21 days" were five days,
+    # two of them on one afternoon. The lock knows the day the failures began.
+    report = _failing(Report.ESCALATE_AFTER, since="2026-10-26")
 
-    plain = TextReport.render(report, registry)
-    dated = TextReport.render(report, registry, schedule=weekly)
+    text = TextReport.render(report, _registry_for(tmp_path))
 
-    assert f"{Report.ESCALATE_AFTER}+ runs" in plain
-    assert "days" not in plain
-    assert f"about {Report.ESCALATE_AFTER * weekly.every_days} days" in dated
+    assert f"failing since 2026-10-26, {Report.ESCALATE_AFTER} runs in a row: s" in text
+    assert "days" not in text
+
+
+def test_a_source_that_keeps_failing_is_never_called_not_dead(tmp_path: Path) -> None:
+    # The report used to say both: "failing every run" above, and "these are
+    # not dead sources, build with --allow-flaky" below, under an exit 1.
+    text = TextReport.render(_failing(Report.ESCALATE_AFTER), _registry_for(tmp_path))
+
+    assert "may be gone for good" in text
+    assert "is not dead" not in text
+
+
+def test_a_source_that_failed_once_is_still_called_passable(tmp_path: Path) -> None:
+    text = TextReport.render(_failing(1), _registry_for(tmp_path))
+
+    assert "failed once is not dead" in text
+    assert "gone for good" not in text
+
+
+class _DownProber(Prober):
+    """Answers every probe the way dumps.tadiphone.dev did for a week."""
+
+    def probe(self, source: Source, *, etag: str = "", last_modified: str = "") -> Verdict:
+        return Verdict(
+            source_id=source.id, state=State.FLAKY, error=f"HTTP 502 {etag}{last_modified}"
+        )
+
+
+def test_a_failure_carries_the_day_the_lock_says_it_began(tmp_path: Path) -> None:
+    source = Source(id="s", url="u", cache="c", consumed_by="x", on_removal="x")
+    path = tmp_path / "sources.lock.json"
+    failing = {"state": State.FLAKY, "consecutive": 2, "since": "2026-10-26"}
+    path.write_text(
+        json.dumps({"lock_schema": 1, "sources": {"s": {Lock.FAILING: failing}}}),
+        encoding="utf-8",
+    )
+
+    checker = Checker(_registry_for(tmp_path, source), Lock(path), prober=_DownProber())
+    verdict = checker.check_one(source)
+
+    assert (verdict.consecutive, verdict.failing_since) == (3, "2026-10-26")
 
 
 # ============================= ported rules =============================
@@ -2152,3 +2191,141 @@ def test_the_report_keeps_watched_values_in_their_own_section(tmp_path: Path) ->
     # its own is not actionable.
     assert watch.used_by in text
     assert watch.decision in text
+
+
+# ============================ manual actions ============================
+#
+# Some news needs a person and some only needs a rebuild, and nobody should
+# have to remember which is which. Every row of the first kind is marked, and
+# gets an entry with what happened, what to do and where, taken from the
+# declarations, never written into the checker.
+
+
+def _manual_registry(tmp_path: Path) -> Registry:
+    feed = Source(
+        id="feed",
+        url="https://example.com/feed",
+        cache="feed.json",
+        consumed_by="src/x.py :: X.feed()",
+        on_removal="every phone of one brand",
+    )
+    down = Source(
+        id="down",
+        url="https://example.com/down",
+        consumed_by="src/x.py :: X.down()",
+        on_removal="x",
+    )
+    return Registry(
+        tool="t",
+        tool_dir=tmp_path,
+        cache_dir=tmp_path / ".cache",
+        sources=(feed, down),
+        derived=(Derived(id="records", cache="records.json", derives_from=("down",)),),
+        watches=(_watch(),),
+    )
+
+
+def _manual_report(*verdicts: Verdict) -> Report:
+    return Report(
+        tool="t", network=Health.OK, first_run=False, watched=frozenset({"w"}), verdicts=verdicts
+    )
+
+
+def test_each_kind_of_manual_action_says_what_to_do_and_where(tmp_path: Path) -> None:
+    registry = _manual_registry(tmp_path)
+    report = _manual_report(
+        Verdict(source_id="feed", state=State.GONE, error="HTTP 404"),
+        Verdict(
+            source_id="down",
+            state=State.FLAKY,
+            error="HTTP 502",
+            consecutive=Report.ESCALATE_AFTER,
+            failing_since="2026-10-26",
+        ),
+        Verdict(source_id="w", state=State.CHANGED, was=43, now=44),
+    )
+
+    text = TextReport.render(report, registry)
+    manual = text[text.index("MANUAL ACTION NEEDED (3)") :]
+
+    # A dead source: a code change, where it is consumed and what goes with it.
+    assert f"{TextReport.MANUAL} feed -- source" in manual
+    assert "has to be removed by hand, or replaced" in manual
+    assert "src/x.py :: X.feed()" in manual
+    assert "every phone of one brand" in manual
+    # One that keeps failing: maybe gone, and the cache still builds meanwhile.
+    assert f"{TextReport.MANUAL} down -- source" in manual
+    assert "if it is gone for good" in manual
+    assert "records" in manual
+    # A watched value: the decision itself, and the table that holds it.
+    assert f"{TextReport.MANUAL} w -- watched value" in manual
+    assert "hand kept" in manual
+    assert "src/x.py :: X.y" in manual
+    assert "43 -> 44" in manual
+
+
+def test_a_ported_rule_that_moved_is_a_manual_action(tmp_path: Path) -> None:
+    citation = _models.Citation(
+        id="rule",
+        url="https://example.com/a.cpp",
+        anchors=("one",),
+        ported_to="src/x.py :: X.y",
+        on_drift="the whole desktop catalog",
+    )
+    registry = Registry(
+        tool="t", tool_dir=tmp_path, cache_dir=tmp_path / ".cache", citations=(citation,)
+    )
+    report = _manual_report(
+        Verdict(source_id="rule", state=State.CONTRACT_BROKEN, error="does not contain 'one'")
+    )
+
+    text = TextReport.render(report, registry)
+
+    assert f"{TextReport.MANUAL} rule -- ported rule" in text
+    assert ManualAction.MOVED.split("\n", 1)[0] in text
+
+
+def test_what_a_rebuild_or_a_retry_handles_is_not_marked(tmp_path: Path) -> None:
+    # Marking these would teach people to skip the mark.
+    registry = _manual_registry(tmp_path)
+    report = _manual_report(
+        Verdict(source_id="feed", state=State.CHANGED, was=1, now=2),
+        Verdict(source_id="down", state=State.FLAKY, error="timeout", consecutive=1),
+        Verdict(source_id="w", state=State.GONE, error="HTTP 404", consecutive=1),
+    )
+
+    text = TextReport.render(report, registry)
+
+    assert report.manual == ()
+    assert TextReport.MANUAL not in text
+    assert "no manual action needed" in text
+
+
+def test_the_marked_rows_are_the_listed_entries(tmp_path: Path) -> None:
+    # One source of truth for both, so the table and the list cannot disagree.
+    registry = _manual_registry(tmp_path)
+    report = _manual_report(
+        Verdict(source_id="feed", state=State.GONE, error="HTTP 404"),
+        Verdict(source_id="w", state=State.OK),
+    )
+
+    marked = [row for row in TextReport.table(report) if TextReport.MANUAL in row]
+
+    assert len(marked) == 1
+    assert "feed" in marked[0]
+    assert [e["id"] for e in ManualAction.items(report, registry)] == ["feed"]
+
+
+def test_the_json_report_carries_the_same_manual_actions(tmp_path: Path) -> None:
+    registry = _manual_registry(tmp_path)
+    report = _manual_report(Verdict(source_id="w", state=State.CHANGED, was=43, now=44))
+
+    data = json.loads(JsonReport.render(report, registry))
+
+    assert data["manual"] == ManualAction.items(report, registry)
+    assert {k: data["manual"][0][k] for k in ("id", "kind", "do", "where")} == {
+        "id": "w",
+        "kind": "watched value",
+        "do": "hand kept",
+        "where": "src/x.py :: X.y",
+    }
