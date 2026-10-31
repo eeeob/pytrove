@@ -69,7 +69,7 @@ from devtools._preflight.models import (
     Verdict,
 )
 from devtools._preflight.probe import Prober  # noqa: E402
-from devtools._preflight.report import TextReport  # noqa: E402
+from devtools._preflight.report import JsonReport, ManualAction, TextReport  # noqa: E402
 
 
 # =============================== fixtures ===============================
@@ -2191,3 +2191,141 @@ def test_the_report_keeps_watched_values_in_their_own_section(tmp_path: Path) ->
     # its own is not actionable.
     assert watch.used_by in text
     assert watch.decision in text
+
+
+# ============================ manual actions ============================
+#
+# Some news needs a person and some only needs a rebuild, and nobody should
+# have to remember which is which. Every row of the first kind is marked, and
+# gets an entry with what happened, what to do and where, taken from the
+# declarations, never written into the checker.
+
+
+def _manual_registry(tmp_path: Path) -> Registry:
+    feed = Source(
+        id="feed",
+        url="https://example.com/feed",
+        cache="feed.json",
+        consumed_by="src/x.py :: X.feed()",
+        on_removal="every phone of one brand",
+    )
+    down = Source(
+        id="down",
+        url="https://example.com/down",
+        consumed_by="src/x.py :: X.down()",
+        on_removal="x",
+    )
+    return Registry(
+        tool="t",
+        tool_dir=tmp_path,
+        cache_dir=tmp_path / ".cache",
+        sources=(feed, down),
+        derived=(Derived(id="records", cache="records.json", derives_from=("down",)),),
+        watches=(_watch(),),
+    )
+
+
+def _manual_report(*verdicts: Verdict) -> Report:
+    return Report(
+        tool="t", network=Health.OK, first_run=False, watched=frozenset({"w"}), verdicts=verdicts
+    )
+
+
+def test_each_kind_of_manual_action_says_what_to_do_and_where(tmp_path: Path) -> None:
+    registry = _manual_registry(tmp_path)
+    report = _manual_report(
+        Verdict(source_id="feed", state=State.GONE, error="HTTP 404"),
+        Verdict(
+            source_id="down",
+            state=State.FLAKY,
+            error="HTTP 502",
+            consecutive=Report.ESCALATE_AFTER,
+            failing_since="2026-10-26",
+        ),
+        Verdict(source_id="w", state=State.CHANGED, was=43, now=44),
+    )
+
+    text = TextReport.render(report, registry)
+    manual = text[text.index("MANUAL ACTION NEEDED (3)") :]
+
+    # A dead source: a code change, where it is consumed and what goes with it.
+    assert f"{TextReport.MANUAL} feed -- source" in manual
+    assert "has to be removed by hand, or replaced" in manual
+    assert "src/x.py :: X.feed()" in manual
+    assert "every phone of one brand" in manual
+    # One that keeps failing: maybe gone, and the cache still builds meanwhile.
+    assert f"{TextReport.MANUAL} down -- source" in manual
+    assert "if it is gone for good" in manual
+    assert "records" in manual
+    # A watched value: the decision itself, and the table that holds it.
+    assert f"{TextReport.MANUAL} w -- watched value" in manual
+    assert "hand kept" in manual
+    assert "src/x.py :: X.y" in manual
+    assert "43 -> 44" in manual
+
+
+def test_a_ported_rule_that_moved_is_a_manual_action(tmp_path: Path) -> None:
+    citation = _models.Citation(
+        id="rule",
+        url="https://example.com/a.cpp",
+        anchors=("one",),
+        ported_to="src/x.py :: X.y",
+        on_drift="the whole desktop catalog",
+    )
+    registry = Registry(
+        tool="t", tool_dir=tmp_path, cache_dir=tmp_path / ".cache", citations=(citation,)
+    )
+    report = _manual_report(
+        Verdict(source_id="rule", state=State.CONTRACT_BROKEN, error="does not contain 'one'")
+    )
+
+    text = TextReport.render(report, registry)
+
+    assert f"{TextReport.MANUAL} rule -- ported rule" in text
+    assert ManualAction.MOVED.split("\n", 1)[0] in text
+
+
+def test_what_a_rebuild_or_a_retry_handles_is_not_marked(tmp_path: Path) -> None:
+    # Marking these would teach people to skip the mark.
+    registry = _manual_registry(tmp_path)
+    report = _manual_report(
+        Verdict(source_id="feed", state=State.CHANGED, was=1, now=2),
+        Verdict(source_id="down", state=State.FLAKY, error="timeout", consecutive=1),
+        Verdict(source_id="w", state=State.GONE, error="HTTP 404", consecutive=1),
+    )
+
+    text = TextReport.render(report, registry)
+
+    assert report.manual == ()
+    assert TextReport.MANUAL not in text
+    assert "no manual action needed" in text
+
+
+def test_the_marked_rows_are_the_listed_entries(tmp_path: Path) -> None:
+    # One source of truth for both, so the table and the list cannot disagree.
+    registry = _manual_registry(tmp_path)
+    report = _manual_report(
+        Verdict(source_id="feed", state=State.GONE, error="HTTP 404"),
+        Verdict(source_id="w", state=State.OK),
+    )
+
+    marked = [row for row in TextReport.table(report) if TextReport.MANUAL in row]
+
+    assert len(marked) == 1
+    assert "feed" in marked[0]
+    assert [e["id"] for e in ManualAction.items(report, registry)] == ["feed"]
+
+
+def test_the_json_report_carries_the_same_manual_actions(tmp_path: Path) -> None:
+    registry = _manual_registry(tmp_path)
+    report = _manual_report(Verdict(source_id="w", state=State.CHANGED, was=43, now=44))
+
+    data = json.loads(JsonReport.render(report, registry))
+
+    assert data["manual"] == ManualAction.items(report, registry)
+    assert {k: data["manual"][0][k] for k in ("id", "kind", "do", "where")} == {
+        "id": "w",
+        "kind": "watched value",
+        "do": "hand kept",
+        "where": "src/x.py :: X.y",
+    }

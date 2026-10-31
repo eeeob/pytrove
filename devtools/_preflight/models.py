@@ -456,6 +456,24 @@ class Report:
         """
         return tuple(v for v in self.verdicts if v.consecutive >= self.ESCALATE_AFTER)
 
+    @property
+    def manual(self) -> tuple[Verdict, ...]:
+        """What only a person can resolve, worst first.
+
+        A source that died, a ported rule that moved, anything that has failed
+        run after run, and a watched value upstream no longer agrees with. A
+        changed source or a single failure is not here: a rebuild or a retry
+        takes care of those, and marking them would teach people to skip the
+        mark.
+        """
+        escalated = {v.source_id for v in self.escalated}
+        return tuple(
+            v
+            for v in self.sorted_verdicts()
+            if v.source_id in escalated
+            or (v.state is State.CHANGED if v.source_id in self.watched else v.is_fatal)
+        )
+
     def sorted_verdicts(self) -> list[Verdict]:
         """Worst first, so what needs action is at the top of the report."""
         return sorted(self.verdicts, key=lambda v: (v.state.rank, v.source_id))

@@ -8,11 +8,13 @@ code already says what happened -- which is deliberate: a scheduler that had
 to parse a report to learn the outcome would be one parser away from calling
 a dead source healthy.
 
-The failure report is the part that earns its length. A dead source cannot be
-retried or worked around: every source has bespoke handling in the tool that
-reads it, so somebody has to remove that code. The report therefore prints
-where the source is consumed and what its loss costs, both declared in the
-registry, so the person reading it does not have to go looking.
+The manual section is the part that earns its length. Some news needs a
+person -- a dead source has bespoke handling somebody has to remove, a moved
+rule has to be re-read, a watched value means a hand-kept table is out of
+date -- and some only needs a rebuild. Every row of the first kind is marked
+`[manual]`, and gets an entry saying what happened, what to do and where,
+taken from the declarations, so nobody has to remember which is which or go
+looking for the file.
 """
 
 from __future__ import annotations as _annotations
@@ -55,9 +57,11 @@ class TextReport:
         # id is longer than a feed's, and a column that only usually lines up
         # is worse than one that always does.
         width = max([cls.WIDTH, *(len(v.source_id) for v in shown)])
+        manual = {v.source_id for v in report.manual}
         return [
-            f"  {cls.MARK.get(v.state, '  ')}{v.source_id:<{width}} "
-            f"{v.state:<16} {cls.detail(v)}".rstrip()
+            f"  {cls.MARK.get(v.state, '  ')}{v.source_id:<{width}} {v.state:<16} "
+            f"{cls.MANUAL if v.source_id in manual else '':<{len(cls.MANUAL) + 1}}"
+            f"{cls.detail(v)}".rstrip()
             for v in shown
         ]
 
@@ -99,50 +103,33 @@ class TextReport:
             *(f"{pad}{line}" if line else "" for line in body[1:]),
         ]
 
+    #: Put on every table row that needs a person, and on its entry below.
+    MANUAL: ClassVar[str] = "[manual]"
+    #: The fields of a manual action, in the order they are printed; the
+    #: label is the key with its underscore turned into a space.
+    FIELDS: ClassVar[tuple[str, ...]] = (
+        "what",
+        "do",
+        "where",
+        "url",
+        "cache",
+        "on_removal",
+        "on_drift",
+        "derived",
+    )
+
     @classmethod
-    def failure(cls, report: Report, registry: Registry) -> list[str]:
-        """Everything a developer needs in order to act, and nothing else."""
-        lines = [f"PREFLIGHT FAILED -- {report.tool}", ""]
-
-        for verdict in report.fatal:
-            citation = registry.citation(verdict.source_id)
-            source = citation.as_source() if citation else registry.source(verdict.source_id)
-            lines.append(f"  {verdict.state}  {verdict.source_id}")
-            lines += cls.field("detail", cls.detail(verdict))
-            if citation:
-                # A moved rule is not a dead source and the two call for
-                # opposite things: nothing has to be removed, something has
-                # to be re-read and the port brought back into step.
-                lines += cls.field("url", citation.url)
-                lines += cls.field("ported to", citation.ported_to)
-                lines += cls.field("on drift", citation.on_drift)
-                lines.append("")
-                continue
-            if source:
-                lines += cls.field("url", source.target)
-                if source.cache:
-                    lines += cls.field("cache", f".cache/{source.cache}")
-                lines += cls.field("consumed by", source.consumed_by)
-                lines += cls.field("on removal", source.on_removal)
-                dependents = [d.id for d in registry.derived if verdict.source_id in d.derives_from]
-                if dependents:
-                    lines += cls.field("derived", ", ".join(dependents))
+    def manual(cls, report: Report, registry: Registry) -> list[str]:
+        """Each thing only a person can do: what happened, what to do, and where."""
+        items = ManualAction.items(report, registry)
+        if not items:
+            return ["no manual action needed", ""]
+        lines = [f"MANUAL ACTION NEEDED ({len(items)})", ""]
+        for item in items:
+            lines.append(f"  {cls.MANUAL} {item['id']} -- {item['kind']}")
+            for key in cls.FIELDS:
+                lines += cls.field(key.replace("_", " "), item.get(key, ""))
             lines.append("")
-
-        if any(registry.citation(v.source_id) for v in report.fatal):
-            lines += [
-                "  a rule that moved is read, not retried: open the file, find what",
-                "  replaced the quoted lines, and bring the port and the anchors",
-                "  back into step. until then the generator would keep emitting",
-                "  strings the client itself no longer produces.",
-                "",
-            ]
-        if any(not registry.citation(v.source_id) for v in report.fatal):
-            lines += [
-                "  a dead source is a code change, not a retry: every source has",
-                "  its own handling in the tool, so it has to be removed by hand.",
-                "",
-            ]
         return lines
 
     @classmethod
@@ -223,13 +210,6 @@ class TextReport:
             lines += ["watched values", ""]
             lines += cls.table(report, only=set(report.watched))
             lines.append("")
-            for verdict in report.changed:
-                watch = registry.watch(verdict.source_id)
-                if watch is None:
-                    continue
-                lines += cls.field("used by", watch.used_by)
-                lines += cls.field("decision", watch.decision)
-                lines.append("")
 
         if report.network is not Health.OK:
             lines += [
@@ -258,12 +238,91 @@ class TextReport:
             ]
             lines.append("")
 
+        lines += cls.manual(report, registry)
+
         if report.fatal:
-            lines += cls.failure(report, registry)
+            lines += [
+                f"PREFLIGHT FAILED -- {report.tool}",
+                "",
+                "  a dead source or a moved rule stops every build until the",
+                f"  {cls.MANUAL} entries above are dealt with.",
+                "",
+            ]
         elif report.transient:
             lines += cls.transient(report)
 
         return "\n".join(lines)
+
+
+# ============================ manual actions =============================
+
+
+class ManualAction:
+    """What a person has to change by hand, and where, read off the declarations.
+
+    The report marks these so that nobody has to remember which kind of news
+    needs a hand and which a rebuild takes care of. What to do is not written
+    here: every declaration already carries it -- `on_drift` on a ported rule,
+    `decision` on a watched value, `on_removal` and `consumed_by` on a source
+    -- and this only puts it beside what happened and where the change goes.
+    The sentences below are the parts no single declaration can know.
+    """
+
+    #: A source that is gone, or answers in a shape the tool cannot read.
+    DEAD: ClassVar[str] = (
+        "a dead source is a code change, not a retry: every source has its own\n"
+        "handling in the tool, so it has to be removed by hand, or replaced."
+    )
+    #: A source that has not answered for ESCALATE_AFTER runs in a row.
+    DOWN: ClassVar[str] = (
+        "open the url. if it is gone for good, its handling has to be removed by\n"
+        "hand; while it is only down, a build from the cache with --allow-flaky works."
+    )
+    #: A ported rule whose quoted lines are no longer where they were.
+    MOVED: ClassVar[str] = (
+        "a rule that moved is read, not retried: open the file, find what replaced\n"
+        "the quoted lines, and bring the port and the anchors back into step."
+    )
+
+    @classmethod
+    def items(cls, report: Report, registry: Registry) -> list[dict[str, str]]:
+        """One entry per manual action, worst first.
+
+        Every entry has `id`, `kind`, `what`, `do` and `where`; the rest are
+        there when the declaration has them.
+        """
+        out: list[dict[str, str]] = []
+        for verdict in report.manual:
+            entry = {"id": verdict.source_id, "what": TextReport.detail(verdict)}
+            if citation := registry.citation(verdict.source_id):
+                entry |= {
+                    "kind": "ported rule",
+                    "do": cls.MOVED,
+                    "where": citation.ported_to,
+                    "url": citation.url,
+                    "on_drift": citation.on_drift,
+                }
+            elif watch := registry.watch(verdict.source_id):
+                entry |= {
+                    "kind": "watched value",
+                    "do": watch.decision,
+                    "where": watch.used_by,
+                    "url": watch.url,
+                }
+            else:
+                source = registry.source(verdict.source_id)
+                entry |= {"kind": "source", "do": cls.DEAD if verdict.is_fatal else cls.DOWN}
+                if source is not None:
+                    derived = [d.id for d in registry.derived if source.id in d.derives_from]
+                    entry |= {
+                        "where": source.consumed_by,
+                        "url": source.target,
+                        "cache": f".cache/{source.cache}" if source.cache else "",
+                        "on_removal": source.on_removal,
+                        "derived": ", ".join(derived),
+                    }
+            out.append(entry)
+        return out
 
 
 # ============================== json output ==============================
@@ -302,6 +361,7 @@ class JsonReport:
             #: interpret it without opening the tool's schedule.
             "cadence_days": schedule.every_days if schedule else None,
             "escalated": [v.source_id for v in report.escalated],
+            "manual": ManualAction.items(report, registry),
             "counts": {
                 state: sum(1 for v in report.verdicts if v.state == state)
                 for state in STATE_ORDER
