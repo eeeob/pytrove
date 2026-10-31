@@ -1682,6 +1682,21 @@ def test_a_source_that_failed_once_is_still_called_passable(tmp_path: Path) -> N
     assert "gone for good" not in text
 
 
+def test_the_verdict_says_passed_when_the_build_goes_on_past_a_flaky_source(
+    tmp_path: Path,
+) -> None:
+    # Under --allow-flaky the build runs next, so "stopped" above it was the
+    # report contradicting its own run.
+    report = _failing(1)
+    registry = _registry_for(tmp_path)
+
+    passed = TextReport.render(report, registry, allow_flaky=True)
+
+    assert "PREFLIGHT STOPPED" in TextReport.render(report, registry)
+    assert "PREFLIGHT PASSED WITH FLAKY SOURCES" in passed
+    assert "STOPPED" not in passed
+
+
 class _DownProber(Prober):
     """Answers every probe the way dumps.tadiphone.dev did for a week."""
 

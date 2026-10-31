@@ -133,8 +133,12 @@ class TextReport:
         return lines
 
     @classmethod
-    def transient(cls, report: Report) -> list[str]:
-        lines = [f"PREFLIGHT STOPPED -- {report.tool}", ""]
+    def transient(cls, report: Report, *, allow_flaky: bool = False) -> list[str]:
+        # The heading is the verdict, so it has to match what happens next:
+        # under --allow-flaky the build goes on, and "stopped" above a build
+        # that then runs is a report contradicting its own run.
+        verdict = "PASSED WITH FLAKY SOURCES" if allow_flaky else "STOPPED"
+        lines = [f"PREFLIGHT {verdict} -- {report.tool}", ""]
         for verdict in report.transient:
             lines.append(
                 f"  flaky  {verdict.source_id:<{cls.WIDTH}} "
@@ -171,6 +175,7 @@ class TextReport:
         actions: list[Action] | None = None,
         *,
         dry_run: bool = False,
+        allow_flaky: bool = False,
     ) -> str:
         lines: list[str] = []
 
@@ -249,7 +254,7 @@ class TextReport:
                 "",
             ]
         elif report.transient:
-            lines += cls.transient(report)
+            lines += cls.transient(report, allow_flaky=allow_flaky)
 
         return "\n".join(lines)
 
@@ -276,7 +281,8 @@ class ManualAction:
     #: A source that has not answered for ESCALATE_AFTER runs in a row.
     DOWN: ClassVar[str] = (
         "open the url. if it is gone for good, its handling has to be removed by\n"
-        "hand; while it is only down, a build from the cache with --allow-flaky works."
+        "hand; while it is only down, --allow-flaky builds from what the cache holds,\n"
+        "and a platform the cache cannot cover is skipped."
     )
     #: A ported rule whose quoted lines are no longer where they were.
     MOVED: ClassVar[str] = (

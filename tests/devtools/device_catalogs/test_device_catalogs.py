@@ -37,6 +37,7 @@ if TOOLS.parent.as_posix() not in [p.replace("\\", "/") for p in sys.path]:
 from devtools._preflight import registry as _registry  # noqa: E402
 from devtools._preflight.enums import Policy  # noqa: E402
 from devtools._preflight.layout import Layout  # noqa: E402
+from devtools.device_catalogs.src import cli as _cli  # noqa: E402
 from devtools.device_catalogs.src.cache import Cache  # noqa: E402
 from devtools.device_catalogs.src.firmware import FirmwareHarvest  # noqa: E402
 from devtools.device_catalogs.src.shared import TODAY  # noqa: E402
@@ -351,3 +352,51 @@ def test_an_empty_records_file_is_harvested_again(
     monkeypatch.setattr(harvest.cache, "download", _no_answer)
 
     assert [r["code"] for r in harvest.records()] == ["V2401"]
+
+
+# ------------------------- one platform at a time --------------------------
+#
+# The first real run after the outage fix stopped at android, as it should,
+# and took desktop and web down with it: one platform's source being down left
+# the others stale too.
+
+
+def _steps(monkeypatch: pytest.MonkeyPatch, *steps: tuple[str, bool]) -> list[str]:
+    """Stand in for the builders: each one either builds or cannot."""
+    built: list[str] = []
+
+    def step(key: str, *, down: bool) -> type:
+        class Step:
+            def __init__(self, cache: object) -> None:
+                self.cache = cache
+
+            def run(self) -> None:
+                if down:
+                    msg = f"{key} is down"
+                    raise SystemExit(msg)
+                built.append(key)
+
+        return Step
+
+    monkeypatch.setattr(_cli, "BUILDERS", {key: step(key, down=down) for key, down in steps})
+    monkeypatch.setattr(_cli, "Cache", lambda **kw: kw)
+    return built
+
+
+def test_a_platform_that_cannot_be_built_does_not_stop_the_others(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    built = _steps(monkeypatch, ("android", True), ("web", False))
+
+    assert _cli.main([]) == 1
+    assert built == ["web"]
+    out = capsys.readouterr().out
+    assert "not built: android is down" in out
+    assert "not built: android -- left as it was" in out
+
+
+def test_a_run_that_built_every_platform_exits_0(monkeypatch: pytest.MonkeyPatch) -> None:
+    built = _steps(monkeypatch, ("ios", False), ("web", False))
+
+    assert _cli.main([]) == 0
+    assert built == ["ios", "web"]
