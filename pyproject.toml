@@ -57,6 +57,7 @@ dependencies = [
 "Source" = "https://github.com/eeeob/pytrove"
 "Issues" = "https://github.com/eeeob/pytrove/issues"
 "Releases" = "https://github.com/eeeob/pytrove/releases"
+"Changelog" = "https://github.com/eeeob/pytrove/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 mongo = [

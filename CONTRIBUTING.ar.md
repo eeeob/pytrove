@@ -70,7 +70,7 @@ docstring بأسلوب Google على كل دالة وكلاس، وdocstring من
 
 ### 8. اعمل commit وافتح الـ pull request
 
-Conventional Commits للرسالة والعنوان، و`!` مع ملاحظة `BREAKING CHANGE` حين ينكسر التوافق، ونص قصير فيه الهدف ونتائج الاختبار (5.7).
+Conventional Commits للرسالة والعنوان، و`!` مع ملاحظة `BREAKING CHANGE` حين ينكسر التوافق، ونص قصير فيه الهدف ونتائج الاختبار (5.7). ويضيف التغيير الكاسر أيضًا بنده، مع الانتقال، تحت `[Unreleased]` في `CHANGELOG.md`.
 
 ## القواعد
 
@@ -224,7 +224,7 @@ def chunk(items: Sequence[_T], size: int) -> list[list[_T]]:
 
 **5.6 التوثيق العام.** `README.md` وأمثاله تشرح المفاهيم ولا تحمل أبدًا بيانات تتغير مع كل إضافة، مثل جدول للـ extras والحزم التي يثبّتها كل منها. وللتفاصيل المتغيرة مصدر مرجعي واحد، يُشار إليه بدل نسخه.
 
-**5.7 الـ commits والـ pull requests.** رسائل الـ commit وعناوين الـ pull requests هي Conventional Commits موجزة، `<type>[optional scope]: <short description>`، مثل `feat(archive): add lazy loading for bundled data` أو `fix(types): correct optional dependency annotations`. ويقول نص الـ pull request وتعليقات المراجعة ما غرض التغيير وكيف اختُبر، باختصار ودون تفاصيل لا تفيد المراجعة؛ ولا يلزمها اتباع الصيغة. والتغيير الكاسر يضع `!` في العنوان وملاحظة `BREAKING CHANGE` مع الانتقال المطلوب.
+**5.7 الـ commits والـ pull requests.** رسائل الـ commit وعناوين الـ pull requests هي Conventional Commits موجزة، `<type>[optional scope]: <short description>`، مثل `feat(archive): add lazy loading for bundled data` أو `fix(types): correct optional dependency annotations`. ويقول نص الـ pull request وتعليقات المراجعة ما غرض التغيير وكيف اختُبر، باختصار ودون تفاصيل لا تفيد المراجعة؛ ولا يلزمها اتباع الصيغة. والتغيير الكاسر يضع `!` في العنوان وملاحظة `BREAKING CHANGE` مع الانتقال المطلوب، ويضيف بندًا بالانتقال نفسه تحت `[Unreleased]` في `CHANGELOG.md` في الـ pull request نفسه، ليجد من يحدّث المكتبة كل كسر في مكان واحد.
 
 **5.8 الفروع.** كل تغيير مستقل يأخذ فرعه والـ pull request الخاص به؛ ولا شيء يصل إلى `main` مباشرة. موضوع واحد متماسك لكل فرع، في أصغر أجزاء مستقلة، والعمل الكبير في pull requests متتابعة.
 
