@@ -5,7 +5,7 @@ constants have their own entry points: `pytrove.typings`, `pytrove.errors`,
 `pytrove.models`, `pytrove.enums` and `pytrove.constants`.
 """
 
-__version__ = "1.1.2"
+__version__ = "2.0.0"
 """The released version; hatch reads this line at build time with its default pattern, so keep it unannotated."""
 
 from .validate_tools import *
