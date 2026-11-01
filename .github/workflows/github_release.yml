@@ -33,4 +33,4 @@ jobs:
           make_latest: true
           draft: false
           prerelease: false
-          files: dist/*
+          files: dist/pytrove-*
