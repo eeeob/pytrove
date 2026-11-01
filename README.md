@@ -4,6 +4,8 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/pytrove)](https://pypi.org/project/pytrove/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+An Arabic translation is kept in [`README.ar.md`](README.ar.md); this English text is the reference when the two differ.
+
 **pytrove** is a modern Python utilities library providing async-ready helpers for backend systems, databases, cryptography, and Telegram automation.
 
 > **Upgrading?** Every breaking change and how to migrate is in [CHANGELOG.md](CHANGELOG.md).
