@@ -120,7 +120,7 @@ venv.bak/
 .worktrees/
 
 # Private 
-.plans/
+.private/
 
 # AI coding assistants: Claude Code's project instructions and knowledge files.
 .claude/
