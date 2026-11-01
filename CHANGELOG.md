@@ -6,7 +6,9 @@ Each breaking change says what changed, who it affects and how to migrate. Relea
 
 ## [Unreleased]
 
-The next release breaks compatibility with 1.1.2 in many places. Read the sections for the tools you use before upgrading.
+## [2.0.0] - 2026-11-01
+
+This release breaks compatibility with 1.1.2 in many places. Read the sections for the tools you use before upgrading.
 
 ### Added
 
@@ -404,4 +406,5 @@ The next release breaks compatibility with 1.1.2 in many places. Read the sectio
 
 - The `Template*` TypedDicts report their `NotRequired` keys correctly in `__required_keys__` and `__optional_keys__`; 1.1.2 listed every key as required.
 
-[Unreleased]: https://github.com/eeeob/pytrove/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/eeeob/pytrove/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/eeeob/pytrove/compare/v1.1.2...v2.0.0
