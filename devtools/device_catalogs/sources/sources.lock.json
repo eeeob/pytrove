@@ -13,25 +13,25 @@
    "first_seen": "2026-10-13"
   },
   "chrome_releases_linux": {
-   "fingerprint": 156,
+   "fingerprint": 157,
    "contract": "ok",
    "declaration": "c8a1cb37a2ee",
    "first_seen": "2026-10-13",
-   "last_changed": "2026-10-26"
+   "last_changed": "2026-11-07"
   },
   "chrome_releases_mac": {
-   "fingerprint": 157,
+   "fingerprint": 158,
    "contract": "ok",
    "declaration": "c8a1cb37a2ee",
    "first_seen": "2026-10-13",
-   "last_changed": "2026-10-31"
+   "last_changed": "2026-11-07"
   },
   "chrome_releases_win": {
-   "fingerprint": 157,
+   "fingerprint": 158,
    "contract": "ok",
    "declaration": "c8a1cb37a2ee",
    "first_seen": "2026-10-13",
-   "last_changed": "2026-10-26"
+   "last_changed": "2026-11-07"
   },
   "dumps_gitlab_api": {
    "sha256": "12b2c0638e53e6791048c1d8088623d05f12cd7d7774c8d9940c12f35deb21a3",
@@ -44,17 +44,17 @@
    "first_seen": "2026-10-13",
    "failing": {
     "state": "flaky",
-    "consecutive": 3,
+    "consecutive": 4,
     "since": "2026-10-26",
     "last_error": "HTTP 502"
    }
   },
   "edge_releases": {
-   "fingerprint": 158,
+   "fingerprint": 159,
    "contract": "ok",
    "declaration": "9b8d96841949",
    "first_seen": "2026-10-13",
-   "last_changed": "2026-10-26"
+   "last_changed": "2026-11-07"
   },
   "eol_motorola_mobility": {
    "fingerprint": 155,
@@ -137,15 +137,15 @@
    "first_seen": "2026-10-13"
   },
   "play_catalog": {
-   "fingerprint": 54340,
+   "fingerprint": 54407,
    "http": {
-    "etag": "\"34749914566701e63168123448b506ad\"",
-    "last_modified": "Sat, 31 Oct 2026 12:05:35 GMT"
+    "etag": "\"f97afd085a7e48851647928e1e0ec2bb\"",
+    "last_modified": "Fri, 06 Nov 2026 12:06:31 GMT"
    },
    "contract": "ok",
    "declaration": "b8fa63c3f3f0",
    "first_seen": "2026-10-13",
-   "last_changed": "2026-10-31"
+   "last_changed": "2026-11-07"
   },
   "xiaomi_devices": {
    "fingerprint": 1445,
@@ -158,14 +158,14 @@
    "last_changed": "2026-10-26"
   },
   "xiaomi_latest": {
-   "fingerprint": 3669,
+   "fingerprint": 3682,
    "http": {
-    "etag": "\"b99d5949e38331adbfe8149d2c1bac38343360938d0ffd7bc71f3a9d0b654eef\""
+    "etag": "\"a0ff480b32703a3f4e6580f21bb6cee0e6b971fba391954d1a0b824c1e6086c6\""
    },
    "contract": "ok",
    "declaration": "2c98d014106e",
    "first_seen": "2026-10-13",
-   "last_changed": "2026-10-31"
+   "last_changed": "2026-11-07"
   }
  },
  "citations": {
@@ -251,15 +251,15 @@
    "first_seen": "2026-10-14"
   },
   "telegram_ios_model_source": {
-   "sha256": "80c33608e1ad3982150be06f8d5175654b1d5f5ce0601afc9829739a3307e976",
-   "bytes": 177875,
+   "sha256": "7863b2208bf6cf10fb6427815fc25a4a5b4ff1a5673e351d39a449c5607916df",
+   "bytes": 181496,
    "http": {
-    "etag": "\"19578d7c063feb7963f40eadbda7ac91aad7bc9a0ba24b3787728d66b4361b77\""
+    "etag": "\"d804399564f472daada4fc562b14bf83c54aa1e3b71a6991d38d93bbd1ddb573\""
    },
    "contract": "ok",
    "declaration": "c9833f84ad89",
    "first_seen": "2026-10-14",
-   "last_changed": "2026-10-26"
+   "last_changed": "2026-11-07"
   },
   "webkit_navigator_platform": {
    "sha256": "b5592bcd151f70136a13e5db8317f3bcc735a4f4bcc1be9d0939521c11e4a5d9",
