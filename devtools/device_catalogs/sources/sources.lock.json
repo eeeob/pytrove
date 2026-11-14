@@ -44,7 +44,7 @@
    "first_seen": "2026-10-13",
    "failing": {
     "state": "flaky",
-    "consecutive": 4,
+    "consecutive": 5,
     "since": "2026-10-26",
     "last_error": "HTTP 502"
    }
@@ -93,15 +93,15 @@
    "first_seen": "2026-10-13"
   },
   "firefox_releases": {
-   "fingerprint": 159,
+   "fingerprint": 160,
    "http": {
-    "etag": "\"93ac6816ffad6faa3231f4f3d2b5ceff\"",
-    "last_modified": "Fri, 30 Oct 2026 15:49:53 GMT"
+    "etag": "\"792c8550f08da108b9a8aad07dca48d8\"",
+    "last_modified": "Tue, 10 Nov 2026 13:32:41 GMT"
    },
    "contract": "ok",
    "declaration": "2c360e26500b",
    "first_seen": "2026-10-13",
-   "last_changed": "2026-10-31"
+   "last_changed": "2026-11-14"
   },
   "ipsw_device_api": {
    "fingerprint": 27,
@@ -137,15 +137,15 @@
    "first_seen": "2026-10-13"
   },
   "play_catalog": {
-   "fingerprint": 54407,
+   "fingerprint": 54522,
    "http": {
-    "etag": "\"f97afd085a7e48851647928e1e0ec2bb\"",
-    "last_modified": "Fri, 06 Nov 2026 12:06:31 GMT"
+    "etag": "\"4384d25936e6e033615e8293a4bc4622\"",
+    "last_modified": "Fri, 13 Nov 2026 12:06:27 GMT"
    },
    "contract": "ok",
    "declaration": "b8fa63c3f3f0",
    "first_seen": "2026-10-13",
-   "last_changed": "2026-11-07"
+   "last_changed": "2026-11-14"
   },
   "xiaomi_devices": {
    "fingerprint": 1445,
@@ -158,14 +158,14 @@
    "last_changed": "2026-10-26"
   },
   "xiaomi_latest": {
-   "fingerprint": 3682,
+   "fingerprint": 3668,
    "http": {
-    "etag": "\"a0ff480b32703a3f4e6580f21bb6cee0e6b971fba391954d1a0b824c1e6086c6\""
+    "etag": "\"a5a5aa40251345bb6c647055fb169df1c2f8bf12da51e4be5a1fde30a9669375\""
    },
    "contract": "ok",
    "declaration": "2c98d014106e",
    "first_seen": "2026-10-13",
-   "last_changed": "2026-11-07"
+   "last_changed": "2026-11-14"
   }
  },
  "citations": {
@@ -241,14 +241,15 @@
    "first_seen": "2026-10-14"
   },
   "telegram_android_identity": {
-   "sha256": "46648797b9bca72a7983e127b86f86a2d736c8eba3f7743ceb489dce8584eab1",
-   "bytes": 75208,
+   "sha256": "a82f798ea09ae212b3f0283892f9aa08cdd715df96a8b9b03c3582938496a955",
+   "bytes": 76069,
    "http": {
-    "etag": "\"b860f6ba114b1b9ee0bb5777531a911d01f08dc9154a88f646520c2948ec9d65\""
+    "etag": "\"87f52793c21dff39f8d1f9799c8bdc690069ccbc04766931a1b66a0e0eeb59e3\""
    },
    "contract": "ok",
    "declaration": "f08ae650a4e7",
-   "first_seen": "2026-10-14"
+   "first_seen": "2026-10-14",
+   "last_changed": "2026-11-14"
   },
   "telegram_ios_model_source": {
    "sha256": "7863b2208bf6cf10fb6427815fc25a4a5b4ff1a5673e351d39a449c5607916df",
