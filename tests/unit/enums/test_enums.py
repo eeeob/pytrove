@@ -24,6 +24,7 @@ from pytrove.enums import (
 
 def test_the_entry_point_exports_every_enum() -> None:
     assert set(pytrove.enums.__all__) == {
+        "StrEnum",
         "ArchiveFormat",
         "ArchiveDuplicatePolicy",
         "ArchiveLinkPolicy",
