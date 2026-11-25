@@ -6,6 +6,10 @@ Each breaking change says what changed, who it affects and how to migrate. Relea
 
 ## [Unreleased]
 
+### Added
+
+- `StrEnum` is now public in `pytrove.enums`: the standard `enum.StrEnum` from 3.11, and its backport on 3.10.
+
 ## [2.0.0] - 2026-11-01
 
 This release breaks compatibility with 1.1.2 in many places. Read the sections for the tools you use before upgrading.

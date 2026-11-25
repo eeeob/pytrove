@@ -222,6 +222,7 @@ class TimeUnit(IntEnum):
 
 
 __all__ = (
+    "StrEnum",
     "ArchiveFormat",
     "ArchiveDuplicatePolicy",
     "ArchiveLinkPolicy",
