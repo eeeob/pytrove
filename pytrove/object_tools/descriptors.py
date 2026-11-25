@@ -98,21 +98,28 @@ class classproperty(Generic[_T, _VT]):
         return self.doc
 
     @overload
-    def __get__(self, instance: Any, owner: None) -> Self: ...
+    def __get__(self, instance: None, owner: None) -> Self: ...
     @overload
-    def __get__(self, instance: Any, owner: type[_T]) -> _VT: ...
-    def __get__(self, instance: Any, owner: type[_T] | None) -> Any:
+    def __get__(self, instance: _T, owner: None) -> _VT: ...
+    @overload
+    def __get__(self, instance: None, owner: type[_T]) -> _VT: ...
+    @overload
+    def __get__(self, instance: _T, owner: type[_T]) -> _VT: ...
+    def __get__(self, instance: _T | None, owner: type[_T] | None) -> Any:
         """Compute the value for the owning class.
 
         Args:
-            instance: Ignored; the class decides.
+            instance: The instance looked up on; its class stands in when `owner` is `None`.
             owner: The class looked up on.
 
         Returns:
-            The value, or the property itself when there is no owner.
+            The value, or the property itself when there is neither an instance nor an owner.
         """
         if owner is None:
-            return self
+            if instance is None:
+                return self
+
+            owner = type(instance)
 
         value = self.call(owner)
 

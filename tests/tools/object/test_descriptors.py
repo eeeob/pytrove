@@ -103,6 +103,15 @@ def test_classproperty_returns_itself_without_an_owner() -> None:
     assert prop.__get__(None, None) is prop
 
 
+def test_classproperty_reads_on_the_instance_class_without_an_owner() -> None:
+    prop: classproperty[object, str] = classproperty(lambda cls: cls.__name__)
+
+    class Owner:
+        """Looked up through an instance only."""
+
+    assert prop.__get__(Owner(), None) == "Owner"
+
+
 def test_classproperty_does_not_cache_a_getter_that_returns_the_property() -> None:
     prop: classproperty[object, object] = classproperty(lambda cls: prop, cached=True)
 

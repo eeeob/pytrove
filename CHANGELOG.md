@@ -6,6 +6,10 @@ Each breaking change says what changed, who it affects and how to migrate. Relea
 
 ## [Unreleased]
 
+### Changed
+
+- `classproperty.__get__(obj, None)` now returns the value for `type(obj)` instead of the property itself; only `__get__(None, None)` still returns the property.
+
 ## [2.0.0] - 2026-11-01
 
 This release breaks compatibility with 1.1.2 in many places. Read the sections for the tools you use before upgrading.
