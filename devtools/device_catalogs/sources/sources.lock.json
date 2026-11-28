@@ -44,7 +44,7 @@
    "first_seen": "2026-10-13",
    "failing": {
     "state": "gone",
-    "consecutive": 6,
+    "consecutive": 7,
     "since": "2026-10-26",
     "last_error": "HTTP 404"
    }
@@ -93,15 +93,15 @@
    "first_seen": "2026-10-13"
   },
   "firefox_releases": {
-   "fingerprint": 160,
+   "fingerprint": 161,
    "http": {
-    "etag": "\"792c8550f08da108b9a8aad07dca48d8\"",
-    "last_modified": "Tue, 10 Nov 2026 13:32:41 GMT"
+    "etag": "\"0ca75417e833cb5fa80c42f0741d1551\"",
+    "last_modified": "Tue, 24 Nov 2026 13:51:36 GMT"
    },
    "contract": "ok",
    "declaration": "2c360e26500b",
    "first_seen": "2026-10-13",
-   "last_changed": "2026-11-14"
+   "last_changed": "2026-11-28"
   },
   "ipsw_device_api": {
    "fingerprint": 27,
@@ -137,15 +137,15 @@
    "first_seen": "2026-10-13"
   },
   "play_catalog": {
-   "fingerprint": 54583,
+   "fingerprint": 54649,
    "http": {
-    "etag": "\"9919456ea98be9b179ef22337938943c\"",
-    "last_modified": "Sat, 21 Nov 2026 12:05:19 GMT"
+    "etag": "\"1df7ea32ecca93ffe3f8e03f248ff90a\"",
+    "last_modified": "Sat, 28 Nov 2026 12:04:18 GMT"
    },
    "contract": "ok",
    "declaration": "b8fa63c3f3f0",
    "first_seen": "2026-10-13",
-   "last_changed": "2026-11-21"
+   "last_changed": "2026-11-28"
   },
   "xiaomi_devices": {
    "fingerprint": 1445,
@@ -158,14 +158,14 @@
    "last_changed": "2026-10-26"
   },
   "xiaomi_latest": {
-   "fingerprint": 3687,
+   "fingerprint": 3698,
    "http": {
-    "etag": "\"0fd6ff9887e2e5156788fb2cf8789908b73edc637cd9462f6e4c44ebeda49035\""
+    "etag": "\"747bfd5fd5394a286ea30892aab417d1e9d38c8a7c8bb34bf58b39490bd3878c\""
    },
    "contract": "ok",
    "declaration": "2c98d014106e",
    "first_seen": "2026-10-13",
-   "last_changed": "2026-11-21"
+   "last_changed": "2026-11-28"
   }
  },
  "citations": {
